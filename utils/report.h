@@ -22,12 +22,18 @@ struct report_time_stat {
 	uint64_t max;
 };
 
+struct report_depth_stat {
+	uint32_t min;
+	uint32_t max;
+};
+
 struct uftrace_report_node {
 	char *name;
 	struct report_time_stat total;
 	struct report_time_stat self;
 	struct uftrace_dbg_loc *loc;
 	uint64_t call;
+	struct report_depth_stat depth;
 	struct rb_node name_link;
 	struct rb_node sort_link;
 	unsigned size;

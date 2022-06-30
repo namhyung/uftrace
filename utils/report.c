@@ -13,6 +13,12 @@ static void init_time_stat(struct report_time_stat *ts)
 	ts->min = -1ULL;
 }
 
+static void init_depth_stat(struct report_depth_stat *ds)
+{
+	ds->min = UINT_MAX;
+	ds->max = 0;
+}
+
 static void update_time_stat(struct report_time_stat *ts, uint64_t time_ns, bool recursive)
 {
 	if (recursive)
@@ -24,6 +30,12 @@ static void update_time_stat(struct report_time_stat *ts, uint64_t time_ns, bool
 		ts->min = time_ns;
 	if (ts->max < time_ns)
 		ts->max = time_ns;
+}
+
+static void update_depth_stat(struct report_depth_stat *ds, uint64_t depth)
+{
+	ds->min = MIN(ds->min, depth);
+	ds->max = MAX(ds->max, depth);
 }
 
 static void finish_time_stat(struct report_time_stat *ts, unsigned long call)
@@ -61,6 +73,7 @@ static struct uftrace_report_node *find_or_create_node(struct rb_root *root, con
 	node->loc = NULL;
 	init_time_stat(&node->total);
 	init_time_stat(&node->self);
+	init_depth_stat(&node->depth);
 
 	rb_link_node(&node->name_link, parent, p);
 	rb_insert_color(&node->name_link, root);
@@ -94,6 +107,7 @@ void report_update_node(struct uftrace_report_node *node, struct uftrace_task_re
 	uint64_t self_time;
 	bool recursive = false;
 	int i;
+	struct uftrace_record *rstack = task->rstack;
 
 	fstack = fstack_get(task, task->stack_count);
 	if (fstack == NULL)
@@ -115,6 +129,7 @@ void report_update_node(struct uftrace_report_node *node, struct uftrace_task_re
 
 	update_time_stat(&node->total, total_time, recursive);
 	update_time_stat(&node->self, self_time, false);
+	update_depth_stat(&node->depth, rstack->depth);
 	node->call++;
 	node->loc = loc;
 	if (task->func != NULL)
@@ -165,6 +180,8 @@ SORT_KEY(self_avg, self.avg);
 SORT_KEY(self_min, self.min);
 SORT_KEY(self_max, self.max);
 SORT_KEY(call, call);
+SORT_KEY(depth_min, depth.min);
+SORT_KEY(depth_max, depth.max);
 SORT_KEY(size, size);
 
 static int cmp_func(struct uftrace_report_node *a, struct uftrace_report_node *b)
@@ -179,9 +196,9 @@ static struct sort_key sort_func = {
 };
 
 static struct sort_key *all_sort_keys[] = {
-	&sort_total, &sort_total_avg, &sort_total_min, &sort_total_max,
-	&sort_self,  &sort_self_avg,  &sort_self_min,  &sort_self_max,
-	&sort_call,  &sort_func,      &sort_size,
+	&sort_total,	 &sort_total_avg, &sort_total_min, &sort_total_max, &sort_self,
+	&sort_self_avg,	 &sort_self_min,  &sort_self_max,  &sort_call,	    &sort_depth_min,
+	&sort_depth_max, &sort_func,	  &sort_size,
 };
 
 /* list of used sort keys */
@@ -396,6 +413,8 @@ DIFF_KEY(self_avg, self.avg);
 DIFF_KEY(self_min, self.min);
 DIFF_KEY(self_max, self.max);
 DIFF_KEY(call, call);
+DIFF_KEY(depth_min, depth.min);
+DIFF_KEY(depth_max, depth.max);
 DIFF_KEY(size, size);
 
 static int cmp_diff_func(struct uftrace_report_node *a, struct uftrace_report_node *b, int column)
@@ -412,7 +431,8 @@ static struct diff_key sort_diff_func = {
 static struct diff_key *all_diff_keys[] = {
 	&sort_diff_total, &sort_diff_total_avg, &sort_diff_total_min, &sort_diff_total_max,
 	&sort_diff_self,  &sort_diff_self_avg,	&sort_diff_self_min,  &sort_diff_self_max,
-	&sort_diff_call,  &sort_diff_func,	&sort_diff_size
+	&sort_diff_call,  &sort_diff_depth_min, &sort_diff_depth_max, &sort_diff_func,
+	&sort_diff_size,
 };
 
 /* list of used sort keys for diff */
@@ -855,6 +875,8 @@ FIELD_TIME(REPORT_F_SELF_TIME_AVG, self-avg, self.avg, self_avg, "Self avg");
 FIELD_TIME(REPORT_F_SELF_TIME_MIN, self-min, self.min, self_min, "Self min");
 FIELD_TIME(REPORT_F_SELF_TIME_MAX, self-max, self.max, self_max, "Self max");
 FIELD_UINT(REPORT_F_CALL, call, call, call, "Calls");
+FIELD_UINT(REPORT_F_DEPTH_MIN, depth-min, depth.min, depth_min, "Depth min");
+FIELD_UINT(REPORT_F_DEPTH_MAX, depth-max, depth.max, depth_max, "Depth max");
 FIELD_UINT(REPORT_F_SIZE, size, size, size, "Size");
 
 FIELD_TIME_DIFF(REPORT_F_TOTAL_TIME, total, total.sum, total, "Total time");
@@ -866,6 +888,8 @@ FIELD_TIME_DIFF(REPORT_F_SELF_TIME_AVG, self-avg, self.avg, self_avg, "Self avg"
 FIELD_TIME_DIFF(REPORT_F_SELF_TIME_MIN, self-min, self.min, self_min, "Self min");
 FIELD_TIME_DIFF(REPORT_F_SELF_TIME_MAX, self-max, self.max, self_max, "Self max");
 FIELD_UINT_DIFF(REPORT_F_CALL, call, call, call, "Calls");
+FIELD_UINT_DIFF(REPORT_F_DEPTH_MIN, depth-min, depth.min, depth_min, "Depth min");
+FIELD_UINT_DIFF(REPORT_F_DEPTH_MAX, depth-max, depth.max, depth_max, "Depth max");
 FIELD_UINT_DIFF(REPORT_F_SIZE, size, size, size, "Size");
 
 FIELD_TIME_DIFF_FULL(REPORT_F_TOTAL_TIME, total, total.sum, total, "Total time (diff)");
@@ -877,6 +901,8 @@ FIELD_TIME_DIFF_FULL(REPORT_F_SELF_TIME_AVG, self-avg, self.avg, self_avg, "Self
 FIELD_TIME_DIFF_FULL(REPORT_F_SELF_TIME_MIN, self-min, self.min, self_min, "Self min (diff)");
 FIELD_TIME_DIFF_FULL(REPORT_F_SELF_TIME_MAX, self-max, self.max, self_max, "Self min (diff)");
 FIELD_UINT_DIFF_FULL(REPORT_F_CALL, call, call, call_diff_full, "Calls (diff)");
+FIELD_UINT_DIFF_FULL(REPORT_F_DEPTH_MIN, depth-min, depth.min, depth_min_diff_full, "Depth min (diff)");
+FIELD_UINT_DIFF_FULL(REPORT_F_DEPTH_MAX, depth-max, depth.max, depth_max_diff_full, "Depth max (diff)");
 FIELD_UINT_DIFF_FULL(REPORT_F_SIZE, size, size, size_diff_full, "Size (diff)");
 
 FIELD_TIME_DIFF_FULL_PCT(REPORT_F_TOTAL_TIME, total, total.sum, total, "Total time (diff)");
@@ -888,6 +914,8 @@ FIELD_TIME_DIFF_FULL_PCT(REPORT_F_SELF_TIME_AVG, self-avg, self.avg, self_avg, "
 FIELD_TIME_DIFF_FULL_PCT(REPORT_F_SELF_TIME_MIN, self-min, self.min, self_min, "Self min (diff)");
 FIELD_TIME_DIFF_FULL_PCT(REPORT_F_SELF_TIME_MAX, self-max, self.max, self_max, "Self min (diff)");
 FIELD_UINT_DIFF_FULL(REPORT_F_CALL, call, call, call_diff_full_percent, "Calls (diff)");
+FIELD_UINT_DIFF_FULL(REPORT_F_DEPTH_MIN, depth-min, depth.min, depth_min_diff_full_percent, "Depth min (diff)");
+FIELD_UINT_DIFF_FULL(REPORT_F_DEPTH_MAX, depth-max, depth.max, depth_max_diff_full_percent, "Depth max (diff)");
 FIELD_UINT_DIFF_FULL(REPORT_F_SIZE, size, size, size_diff_full_percent, "Size (diff)");
 
 FIELD_TIME(REPORT_F_TASK_TOTAL_TIME, total, total.sum, task_total, "Total time");
@@ -898,15 +926,16 @@ FIELD_UINT(REPORT_F_TASK_NR_FUNC, func, call, task_nr_func, "Num funcs");
 
 /* index of this table should be matched to display_field_id */
 static struct display_field *field_table[] = {
-	&field_total,	 &field_total_avg, &field_total_min, &field_total_max, &field_self,
-	&field_self_avg, &field_self_min,  &field_self_max,  &field_call,      &field_size,
+	&field_total, &field_total_avg, &field_total_min, &field_total_max,
+	&field_self,  &field_self_avg,	&field_self_min,  &field_self_max,
+	&field_call,  &field_depth_min, &field_depth_max, &field_size,
 };
 
 /* index of this table should be matched to display_field_id */
 static struct display_field *field_diff_table[] = {
 	&field_total_diff, &field_total_avg_diff, &field_total_min_diff, &field_total_max_diff,
 	&field_self_diff,  &field_self_avg_diff,  &field_self_min_diff,	 &field_self_max_diff,
-	&field_call_diff,  &field_size_diff,
+	&field_call_diff,  &field_depth_min_diff, &field_depth_max_diff, &field_size_diff,
 };
 
 /* index of this table should be matched to display_field_id */
@@ -914,7 +943,7 @@ static struct display_field *field_diff_full_table[] = {
 	&field_total_diff_full,	    &field_total_avg_diff_full, &field_total_min_diff_full,
 	&field_total_max_diff_full, &field_self_diff_full,	&field_self_avg_diff_full,
 	&field_self_min_diff_full,  &field_self_max_diff_full,	&field_call_diff_full,
-	&field_size_diff_full,
+	&field_depth_min_diff_full, &field_depth_max_diff_full, &field_size_diff_full,
 };
 
 /* index of this table should be matched to display_field_id */
@@ -923,7 +952,8 @@ static struct display_field *field_diff_full_percent_table[] = {
 	&field_total_min_diff_full_percent, &field_total_max_diff_full_percent,
 	&field_self_diff_full_percent,	    &field_self_avg_diff_full_percent,
 	&field_self_min_diff_full_percent,  &field_self_max_diff_full_percent,
-	&field_call_diff_full_percent,	    &field_size_diff_full_percent,
+	&field_call_diff_full_percent,	    &field_depth_min_diff_full_percent,
+	&field_depth_max_diff_full_percent, &field_size_diff_full_percent,
 };
 
 /* index of this table should be matched to display_field_id */
@@ -1051,6 +1081,7 @@ TEST_CASE(report_sort)
 	struct rb_node *rbnode;
 	struct uftrace_report_node *node;
 	static struct uftrace_fstack fstack[TEST_NODES];
+	struct uftrace_record rstack;
 	struct uftrace_data handle = {
 		.hdr = {
 			.max_stack = TEST_NODES,
@@ -1060,6 +1091,7 @@ TEST_CASE(report_sort)
 	struct uftrace_task_reader task = {
 		.h = &handle,
 		.func_stack = fstack,
+		.rstack = &rstack,
 	};
 	int i;
 
@@ -1074,6 +1106,7 @@ TEST_CASE(report_sort)
 		0,
 		2100,
 	};
+	int depth[TEST_NODES] = { 2, 1, 0 };
 	int total_order[TEST_NODES] = { 2, 0, 1 };
 	int self_order[TEST_NODES] = { 1, 0, 2 };
 
@@ -1085,6 +1118,7 @@ TEST_CASE(report_sort)
 	}
 
 	for (i = 0; i < TEST_NODES; i++) {
+		rstack.depth = depth[i];
 		node = xzalloc(sizeof(*node));
 		report_add_node(&name_tree, test_name[i], node);
 		report_update_node(node, &task, NULL);
@@ -1100,13 +1134,16 @@ TEST_CASE(report_sort)
 	i = 0;
 	rbnode = rb_first(&sort_tree);
 	while (rbnode != NULL) {
+		int idx = total_order[i];
 		node = rb_entry(rbnode, typeof(*node), sort_link);
 
-		TEST_STREQ(node->name, test_name[total_order[i]]);
-		TEST_EQ(node->total.sum, total_times[total_order[i]]);
+		TEST_STREQ(node->name, test_name[idx]);
+		TEST_EQ(node->total.sum, total_times[idx]);
 		TEST_EQ(node->call, 1);
-		pr_dbg("[%d] %s: %5" PRIu64 ", %" PRIu64 "\n", i, node->name, node->total.sum,
-		       node->call);
+		TEST_EQ(node->depth.max, depth[idx]);
+		TEST_EQ(node->depth.min, depth[idx]);
+		pr_dbg("[%d] %s: %5" PRIu64 ", %5" PRIu64 ", %5" PRIu64 ", %5" PRIu64 "\n", i,
+		       node->name, node->total.sum, node->call, node->depth.max, node->depth.min);
 
 		rbnode = rb_next(rbnode);
 		i++;
@@ -1128,8 +1165,10 @@ TEST_CASE(report_sort)
 		TEST_EQ(node->self.avg, self_time);
 		TEST_EQ(node->self.min, self_time);
 		TEST_EQ(node->self.max, self_time);
-		pr_dbg("[%d] %s: %" PRIu64 ", %5" PRIu64 "\n", i, node->name, node->call,
-		       node->self.avg);
+		TEST_EQ(node->depth.max, depth[idx]);
+		TEST_EQ(node->depth.min, depth[idx]);
+		pr_dbg("[%d] %s: %5" PRIu64 ", %5" PRIu64 ", %5" PRIu64 ", %5" PRIu64 "\n", i,
+		       node->name, node->call, node->self.avg, node->depth.max, node->depth.min);
 
 		rbnode = rb_next(rbnode);
 		i++;
@@ -1163,14 +1202,18 @@ TEST_CASE(report_diff)
 		.nr_tasks = 2,
 	};
 	struct uftrace_fstack orig_fstack[TEST_NODES];
+	struct uftrace_record orig_rstack;
 	struct uftrace_task_reader orig_task = {
 		.h = &handle,
 		.func_stack = orig_fstack,
+		.rstack = &orig_rstack,
 	};
 	struct uftrace_fstack pair_fstack[TEST_NODES];
+	struct uftrace_record pair_rstack;
 	struct uftrace_task_reader pair_task = {
 		.h = &handle,
 		.func_stack = pair_fstack,
+		.rstack = &pair_rstack,
 	};
 
 	const char *orig_name[] = { "abc", "foo", "bar" };
@@ -1184,6 +1227,7 @@ TEST_CASE(report_diff)
 		800,
 		2100,
 	};
+	int orig_depth[TEST_NODES] = { 2, 1, 0 };
 	const char *pair_name[] = { "xyz", "foo", "bar" };
 	uint64_t pair_total_times[TEST_NODES] = {
 		150,
@@ -1195,8 +1239,10 @@ TEST_CASE(report_diff)
 		1800,
 		300,
 	};
+	int pair_depth[TEST_NODES] = { 2, 1, 0 };
 	int diff_order[] = { 1, -1, 0, 2 };
 	int diff_total[] = { 900, 150, -100, -300 };
+	int diff_depth[] = { 0, 2, -2, 0 };
 
 	TEST_EQ(diff_policy.absolute, true);
 
@@ -1214,6 +1260,7 @@ TEST_CASE(report_diff)
 		orig_fstack[i].addr = i;
 		orig_fstack[i].total_time = orig_total_times[i];
 		orig_fstack[i].child_time = orig_child_times[i];
+		orig_rstack.depth = orig_depth[i];
 
 		node = xzalloc(sizeof(*node));
 		report_add_node(&orig_tree, orig_name[i], node);
@@ -1226,6 +1273,7 @@ TEST_CASE(report_diff)
 		pair_fstack[i].addr = i;
 		pair_fstack[i].total_time = pair_total_times[i];
 		pair_fstack[i].child_time = pair_child_times[i];
+		pair_rstack.depth = pair_depth[i];
 
 		node = xzalloc(sizeof(*node));
 		report_add_node(&pair_tree, pair_name[i], node);
@@ -1251,7 +1299,9 @@ TEST_CASE(report_diff)
 			TEST_STREQ(node->name, pair_name[-idx - 1]);
 
 		TEST_EQ(node->pair->total.sum - node->total.sum, diff_total[i]);
-		pr_dbg("[%d] %s, %5" PRId64 "\n", i, node->name, diff_total[i]);
+		TEST_EQ(node->pair->depth.max - node->depth.max, diff_depth[i]);
+		TEST_EQ(node->pair->depth.min - node->depth.min, diff_depth[i]);
+		pr_dbg("[%d] %s, %5" PRId64 ", %5d\n", i, node->name, diff_total[i], diff_depth[i]);
 
 		rb_erase(&node->sort_link, &diff_tree);
 		free(node->name);

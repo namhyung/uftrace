@@ -53,6 +53,9 @@
 
 #define BUG_REPORT_MSG "Please report this bug to https://github.com/namhyung/uftrace/issues.\n\n"
 
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+
 extern int debug;
 extern FILE *logfp;
 extern FILE *outfp;
