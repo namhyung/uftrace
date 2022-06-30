@@ -10,6 +10,7 @@
 #ifdef HAVE_LIBCAPSTONE
 #include <capstone/capstone.h>
 #include <capstone/platform.h>
+#include <libresolver/porcelain.hpp>
 
 struct disasm_check_data {
 	uintptr_t		addr;
@@ -495,8 +496,35 @@ out:
 	return status;
 }
 
+static int check_indirect_jump_targets(csh handle,
+				uint64_t patch_addr, uint64_t jump_index,
+				cs_insn *insns, size_t insn_count)
+{
+	int status = 0;
+
+	uint64_t* results;
+	size_t result_count = libresolver_x86_resolve(handle, insns, insn_count, jump_index, &results, NULL);
+	if (results == NULL) {
+		status = -1;
+		goto out;
+	}
+
+	for (size_t i = 0; i < result_count; i++) {
+		if (results[i] == patch_addr) {
+			status = -1;
+			goto out_free;
+		}
+	}
+
+out_free:
+	free(results);
+out:
+	return status;
+}
+
 static bool check_unsupported(struct mcount_disasm_engine *disasm,
-			      cs_insn *insn, struct mcount_dynamic_info *mdi,
+			      cs_insn *all_insn, uint32_t all_insn_count,
+				  cs_insn *insn, uint32_t index, struct mcount_dynamic_info *mdi,
 			      struct mcount_disasm_info *info)
 {
 	int i;
@@ -550,6 +578,12 @@ static bool check_unsupported(struct mcount_disasm_engine *disasm,
 				pr_dbg4("jump to middle of function: addr=%lx, target=%lx\n",
 					insn->address - mdi->map->start,
 					target - mdi->map->start);
+				return false;
+			}
+			break;
+		case X86_OP_MEM:
+		case X86_OP_REG:
+			if (check_indirect_jump_targets(disasm->engine, info->addr, index, all_insn, all_insn_count) < 0) {
 				return false;
 			}
 			break;
@@ -627,7 +661,7 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 	}
 
 	while (++i < count) {
-		if (!check_unsupported(disasm, &insn[i], mdi, info)) {
+		if (!check_unsupported(disasm, insn, count, &insn[i], i, mdi, info)) {
 			status = INSTRUMENT_FAILED;
 			break;
 		}

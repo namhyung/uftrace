@@ -438,12 +438,12 @@ class TestBase:
         return '\n'.join(result)
 
     def sort(self, output, ignore_children=False):
-        if not hasattr(TestBase, self.sort_method + '_sort'):
+        if not hasattr(self, self.sort_method + '_sort'):
             print('cannot find the sort function: %s' % self.sort_method)
             return ''  # this leads to a failure with 'NG'
-        func = TestBase.__dict__[self.sort_method + '_sort']
+        func = getattr(self, self.sort_method + '_sort')
         if callable(func):
-            return func(self, output, ignore_children)
+            return func(output, ignore_children)
         else:
             return ''  # this leads to a failure with 'NG'
 
