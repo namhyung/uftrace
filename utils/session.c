@@ -695,7 +695,7 @@ struct uftrace_symbol * task_find_sym(struct uftrace_session_link *sessions,
 }
 
 /**
- * task_find_sym - find a symbol that matches to @addr
+ * task_find_sym_addr - find a symbol that matches to @addr
  * @sessions: session link to manage sessions and tasks
  * @task: handle for functions in a task
  * @time: timestamp of the @addr
