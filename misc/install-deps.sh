@@ -9,6 +9,12 @@ fi
 
 OPT="${@}"
 
+if [ ! -f /etc/os-release ]; then
+    echo "Your distribution is not supported, so please install pacakges manually."
+    echo
+    exit
+fi
+
 distro=$(grep "^ID=" /etc/os-release | cut -d\= -f2 | sed -e 's/"//g')
 
 case $distro in
@@ -34,5 +40,6 @@ case $distro in
         apk $OPT add luajit-dev || true
         apk $OPT add capstone-dev || true ;;
     *) # we can add more install command for each distros.
-        echo "\"$distro\" is not supported distro, so please install packages manually." ;;
+        echo "\"$distro\" is not supported distro, so please install packages manually."
+        echo ;;
 esac
