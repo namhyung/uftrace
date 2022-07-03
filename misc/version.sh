@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 VERSION_FILE=$1
 
@@ -31,26 +31,33 @@ if test -z "${GIT_VERSION}" -a -n "${FILE_VERSION}"; then
 fi
 
 DEPS=" ${ARCH}"
-if test -f ${SRCDIR}/check-deps/have_libdw; then
+if [ "$UFTRACE_HAVE_LIBDW" = "on" ] ||
+   test -f ${SRCDIR}/check-deps/have_libdw; then
     DEPS="${DEPS} dwarf"
 fi
-if test -f ${SRCDIR}/check-deps/have_libpython2.7 ||
+if [ "$UFTRACE_HAVE_LIBPYTHON" = "on" ] ||
+   test -f ${SRCDIR}/check-deps/have_libpython2.7 ||
    test -f ${SRCDIR}/check-deps/have_libpython3; then
     DEPS="${DEPS} python"
 fi
-if test -f ${SRCDIR}/check-deps/have_libluajit; then
+if [ "$UFTRACE_HAVE_LIBLUAJIT" = "on" ] ||
+   test -f ${SRCDIR}/check-deps/have_libluajit; then
     DEPS="${DEPS} luajit"
 fi
-if test -f ${SRCDIR}/check-deps/have_libncurses; then
+if [ "$UFTRACE_HAVE_LIBNCURSES" = "on" ] ||
+   test -f ${SRCDIR}/check-deps/have_libncurses; then
     DEPS="${DEPS} tui"
 fi
-if test -f ${SRCDIR}/check-deps/perf_clockid; then
+if [ "$UFTRACE_HAVE_PERF_CLOCKID" = "on" ] ||
+   test -f ${SRCDIR}/check-deps/perf_clockid; then
     DEPS="${DEPS} perf"
 fi
-if test -f ${SRCDIR}/check-deps/perf_context_switch; then
+if [ "$UFTRACE_HAVE_PERF_CONTEXT_SWITCH" = "on" ] ||
+   test -f ${SRCDIR}/check-deps/perf_context_switch; then
     DEPS="${DEPS} sched"
 fi
-if test -f ${SRCDIR}/check-deps/have_libcapstone; then
+if [ "$UFTRACE_HAVE_LIBCAPSTONE" = "on" ] ||
+   test -f ${SRCDIR}/check-deps/have_libcapstone; then
     DEPS="${DEPS} dynamic"
 fi
 if [ "x${DEPS}" != "x" ]; then

@@ -1,0 +1,105 @@
+option(
+    'doc-lang',
+    type : 'combo',
+    value : 'en',
+    choices: ['en', 'ko'],
+    description: 'Generate man pages for this language',
+)
+
+option(
+    'with-doc',
+    type : 'feature',
+    value : 'auto',
+    description: 'Don\'t generate man page',
+)
+
+option(
+    'with-capstone',
+    type : 'feature',
+    value : 'auto',
+    description: 'Build with capstone',
+)
+
+option(
+    'with-libdw',
+    type : 'feature',
+    value : 'auto',
+    description: 'Build with libdw',
+)
+
+option(
+    'with-libelf',
+    type : 'feature',
+    value : 'auto',
+    description: 'Build with libelf',
+)
+
+option(
+    'with-libluajit',
+    type : 'feature',
+    value : 'auto',
+    description: 'Build with libluajit',
+)
+
+option(
+    'with-libncursesw',
+    type : 'feature',
+    value : 'auto',
+    description: 'Build with libncursesw',
+)
+
+option(
+    'with-libpython',
+    type : 'feature',
+    value : 'auto',
+    description: 'Build with libpython',
+)
+
+option(
+    'with-libunwind',
+    type : 'feature',
+    value : 'auto',
+    description: 'Build with libunwind',
+)
+
+option(
+    'with-libstdcxx',
+    type : 'feature',
+    value : 'auto',
+    description: 'Build with libstdc++',
+)
+
+option(
+    'with-perf',
+    type : 'feature',
+    value : 'auto',
+    description: 'Build with perf event',
+)
+
+option(
+    'with-schedule',
+    type : 'feature',
+    value : 'auto',
+    description: 'Build with schedule event',
+)
+
+option(
+    'with-tests',
+    type : 'feature',
+    value : 'disabled',
+    description: 'Build with unit tests',
+)
+
+option(
+    'trace',
+    type : 'boolean',
+    value : 'false',
+    description: 'Enable profiling',
+)
+
+option(
+    'coverage',
+    type : 'boolean',
+    value : 'false',
+    description: 'Enable code coverage',
+)

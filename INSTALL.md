@@ -190,3 +190,29 @@ The below is the way to compile uftrace together with libelf/libdw.
 `misc/install-elfutils.sh` downloads and builds elfutils and install both
 libelf and libdw to prefix directory.  The installed libelf and libdw can be
 found using `--with-elfutils` in `configure` script.
+
+
+BUILD (Meson)
+=============
+
+uftrace can also be built using [Meson](https://mesonbuild.com/) build
+system. In that case, `meson` and `ninja` commands should both be installed
+on your system.
+
+It is recommended to configure and build the program in a separate directory.
+A simple build process (configuration + build) would look like this:
+
+    $ mkdir build && cd build
+    $ meson ..
+    $ ninja
+
+The `./configure` won't have any effect on Meson. To list and reconfigure the
+build options after first directory configuration, you can follow this example:
+
+    $ meson configure # list options
+    $ meson reconfigure -Dwith-libpython=disabled -Dwith-schedule=enabled
+
+For more informations, you can read Meson's
+[documentation](https://mesonbuild.com/Quick-guide.html#compiling-a-meson-project).
+
+For cross-compilation, you can read this [page](https://mesonbuild.com/Cross-compilation.html).
