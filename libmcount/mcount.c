@@ -181,7 +181,9 @@ static void mcount_signal_trigger(int sig)
 	}
 }
 
+/* clang-format off */
 #define SIGTABLE_ENTRY(s)  { #s, s }
+/* clang-format on */
 
 static const struct sigtable {
 	const char *name;

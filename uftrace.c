@@ -102,6 +102,7 @@ enum uftrace_short_options {
 	OPT_libmcount_path,
 };
 
+/* clang-format off */
 __used static const char uftrace_usage[] =
 " uftrace -- function (graph) tracer for userspace\n"
 "\n"
@@ -327,6 +328,7 @@ static const struct option uftrace_options[] = {
 	REQ_ARG(with-syms, OPT_with_syms),
 	{ 0 }
 };
+/* clang-format on */
 
 #undef REQ_ARG
 #undef NO_ARG

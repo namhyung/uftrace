@@ -10,6 +10,8 @@
 // contain more function prototypes as of now.
 //
 
+// clang-format off
+
 #include <stdlib.h>
 int atoi(const char *str);
 long atol(const char *str);
@@ -553,3 +555,5 @@ int clock_getres(enum uft_clockid_t clk_id, struct timespec *res);
 int clock_gettime(enum uft_clockid_t clk_id, struct timespec *tp);
 int clock_settime(enum uft_clockid_t clk_id, const struct timespec *tp);
 ////////////////////////////////////////////////////////////////////////////////
+
+// clang-format on

@@ -28,6 +28,7 @@ struct plthook_data * mcount_arch_hook_no_plt(struct uftrace_elf_data *elf,
 	void *trampoline;
 	size_t tramp_len;
 	uint32_t i;
+	/* clang-format off */
 	const uint8_t tramp_plt0[] = {  /* followed by module_id + plthook_addr */
 		/* PUSH module_id */
 		0xff, 0x35, 0xa, 0, 0, 0,
@@ -43,6 +44,7 @@ struct plthook_data * mcount_arch_hook_no_plt(struct uftrace_elf_data *elf,
 		/* should never reach here */
 		0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc,
 	};
+	/* clang-format on */
 	void *plthook_addr = plt_hooker;
 	void *tramp;
 

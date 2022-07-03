@@ -354,6 +354,7 @@ if __name__ == "__main__":
     if len(enum_list) == 0:
         enum_list="\"\""
 
+    fout.write("/* clang-format off */\n\n")
     fout.write("static char *auto_enum_list =\n")
     fout.write(enum_list)
     fout.write(";\n\n")
@@ -365,6 +366,7 @@ if __name__ == "__main__":
     fout.write("static char *auto_retvals_list =\n")
     fout.write(retvals_list)
     fout.write(";\n\n")
+    fout.write("/* clang-format on */\n")
 
     if argspec_file != "-":
         fout.close()
