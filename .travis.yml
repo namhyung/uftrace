@@ -8,8 +8,8 @@ compiler:
   - gcc
   - clang
 
-# Ubuntu 18.04 LTS
-dist: bionic
+# Ubuntu 20.04 LTS
+dist: focal
 
 sudo: required
 
