@@ -663,13 +663,13 @@ static int create_data(struct uftrace_opts *opts)
 	write_dlopen_info(opts->dirname, &dlopen_msg, "libnothing.so");
 
 	/* create_session() requires a map file even if it's empty */
-	asprintf(&filename, "%s/sid-%.*s.map",
+	(void)asprintf(&filename, "%s/sid-%.*s.map",
 		 opts->dirname, SESSION_ID_LEN, TEST_SESSION_ID);
 	creat(filename, 0644);
 	free(filename);
 
 	/* open_data_file() requires at least one non-empty data file */
-	asprintf(&filename, "%s/%d.dat", opts->dirname, task_msg.pid);
+	(void)asprintf(&filename, "%s/%d.dat", opts->dirname, task_msg.pid);
 	fp = fopen(filename, "w");
 	fprintf(fp, "%s\n", "empty file");
 	fclose(fp);
