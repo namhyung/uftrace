@@ -11,69 +11,65 @@
 struct uftrace_sym_info;
 
 #ifdef HAVE_LIBDW
-# include <elfutils/libdw.h>
+#include <elfutils/libdw.h>
 #else
-# define Dwarf  void
+#define Dwarf void
 #endif
 
 struct uftrace_dbg_file {
 	/* saved in uftrace_dbg_info.files */
-	struct rb_node		node;
+	struct rb_node node;
 	/* source file name */
-	char			*name;
+	char *name;
 };
 
 /* we only keep the start location of symbol */
 struct uftrace_dbg_loc {
 	/* symbol for this location */
-	struct uftrace_symbol	*sym;
+	struct uftrace_symbol *sym;
 	/* filename info */
-	struct uftrace_dbg_file	*file;
+	struct uftrace_dbg_file *file;
 	/* line number info */
-	int			line;
+	int line;
 };
 
 struct uftrace_dbg_info {
 	/* opaque DWARF info pointer */
-	Dwarf			*dw;
+	Dwarf *dw;
 	/* start address in memory for this module */
-	uint64_t		offset;
+	uint64_t offset;
 	/* rb tree of arguments */
-	struct rb_root		args;
+	struct rb_root args;
 	/* rb tree of return values */
-	struct rb_root		rets;
+	struct rb_root rets;
 	/* rb tree of enum tags/values */
-	struct rb_root		enums;
+	struct rb_root enums;
 	/* rb tree of file info */
-	struct rb_root		files;
+	struct rb_root files;
 	/* array of location - same order as symbol */
-	struct uftrace_dbg_loc	*locs;
+	struct uftrace_dbg_loc *locs;
 	/* number of debug location info */
-	int			nr_locs;
+	int nr_locs;
 	/* number of actually used debug location info */
-	int			nr_locs_used;
+	int nr_locs_used;
 	/* ELF file type - EXEC, REL, DYN */
-	int			file_type;
+	int file_type;
 	/* whether it needs to parse argument info */
-	bool			needs_args;
+	bool needs_args;
 	/* whether it's loaded already */
-	bool			loaded;
+	bool loaded;
 	/* name of common directory path for source files (can be %NULL) */
-	char			*base_dir;
+	char *base_dir;
 };
 
-extern void prepare_debug_info(struct uftrace_sym_info *sinfo,
-			       enum uftrace_pattern_type ptype,
-			       char *argspec, char *retspec,
-			       bool auto_args, bool force);
+extern void prepare_debug_info(struct uftrace_sym_info *sinfo, enum uftrace_pattern_type ptype,
+			       char *argspec, char *retspec, bool auto_args, bool force);
 extern void finish_debug_info(struct uftrace_sym_info *sinfo);
 extern bool debug_info_has_argspec(struct uftrace_dbg_info *dinfo);
 extern bool debug_info_has_location(struct uftrace_dbg_info *dinfo);
-extern char * get_dwarf_argspec(struct uftrace_dbg_info *dinfo, char *name,
-				unsigned long addr);
-extern char * get_dwarf_retspec(struct uftrace_dbg_info *dinfo, char *name,
-				unsigned long addr);
-struct uftrace_dbg_loc * find_file_line(struct uftrace_sym_info *sinfo, uint64_t addr);
+extern char *get_dwarf_argspec(struct uftrace_dbg_info *dinfo, char *name, unsigned long addr);
+extern char *get_dwarf_retspec(struct uftrace_dbg_info *dinfo, char *name, unsigned long addr);
+struct uftrace_dbg_loc *find_file_line(struct uftrace_sym_info *sinfo, uint64_t addr);
 extern void save_debug_info(struct uftrace_sym_info *sinfo, const char *dirname);
 extern void load_debug_info(struct uftrace_sym_info *sinfo, bool needs_srcline);
 extern void save_debug_file(FILE *fp, char code, char *str, unsigned long val);

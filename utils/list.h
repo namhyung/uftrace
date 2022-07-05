@@ -18,13 +18,15 @@ struct list_head {
 	struct list_head *next;
 };
 
-#define LIST_POISON1  ((struct list_head*)0x00100100)
-#define LIST_POISON2  ((struct list_head*)0x00200200)
+#define LIST_POISON1 ((struct list_head *)0x00100100)
+#define LIST_POISON2 ((struct list_head *)0x00200200)
 
-#define LIST_HEAD_INIT(name) { &(name), &(name) }
+#define LIST_HEAD_INIT(name)                                                                       \
+	{                                                                                          \
+		&(name), &(name)                                                                   \
+	}
 
-#define LIST_HEAD(name) \
-	struct list_head name = LIST_HEAD_INIT(name)
+#define LIST_HEAD(name) struct list_head name = LIST_HEAD_INIT(name)
 
 static inline void INIT_LIST_HEAD(struct list_head *list)
 {
@@ -39,8 +41,7 @@ static inline void INIT_LIST_HEAD(struct list_head *list)
  * the prev/next entries already!
  */
 #ifndef CONFIG_DEBUG_LIST
-static inline void __list_add(struct list_head *new_entry,
-			      struct list_head *prev,
+static inline void __list_add(struct list_head *new_entry, struct list_head *prev,
 			      struct list_head *next)
 {
 	next->prev = new_entry;
@@ -49,9 +50,7 @@ static inline void __list_add(struct list_head *new_entry,
 	prev->next = new_entry;
 }
 #else
-extern void __list_add(struct list_head *new_entry,
-			      struct list_head *prev,
-			      struct list_head *next);
+extern void __list_add(struct list_head *new_entry, struct list_head *prev, struct list_head *next);
 #endif
 
 /**
@@ -66,7 +65,6 @@ static inline void list_add(struct list_head *new_entry, struct list_head *head)
 {
 	__list_add(new_entry, head, head->next);
 }
-
 
 /**
  * list_add_tail - add a new entry
@@ -88,7 +86,7 @@ static inline void list_add_tail(struct list_head *new_entry, struct list_head *
  * This is only for internal list manipulation where we know
  * the prev/next entries already!
  */
-static inline void __list_del(struct list_head * prev, struct list_head * next)
+static inline void __list_del(struct list_head *prev, struct list_head *next)
 {
 	next->prev = prev;
 	prev->next = next;
@@ -124,8 +122,7 @@ extern void list_del(struct list_head *entry);
  *
  * If @old_entry was empty, it will be overwritten.
  */
-static inline void list_replace(struct list_head *old_entry,
-				struct list_head *new_entry)
+static inline void list_replace(struct list_head *old_entry, struct list_head *new_entry)
 {
 	new_entry->next = old_entry->next;
 	new_entry->next->prev = new_entry;
@@ -133,8 +130,7 @@ static inline void list_replace(struct list_head *old_entry,
 	new_entry->prev->next = new_entry;
 }
 
-static inline void list_replace_init(struct list_head *old_entry,
-					struct list_head *new_entry)
+static inline void list_replace_init(struct list_head *old_entry, struct list_head *new_entry)
 {
 	list_replace(old_entry, new_entry);
 	INIT_LIST_HEAD(old_entry);
@@ -166,8 +162,7 @@ static inline void list_move(struct list_head *list, struct list_head *head)
  * @list: the entry to move
  * @head: the head that will follow our entry
  */
-static inline void list_move_tail(struct list_head *list,
-				  struct list_head *head)
+static inline void list_move_tail(struct list_head *list, struct list_head *head)
 {
 	__list_del_entry(list);
 	list_add_tail(list, head);
@@ -178,8 +173,7 @@ static inline void list_move_tail(struct list_head *list,
  * @list: the entry to test
  * @head: the head of the list
  */
-static inline int list_is_last(const struct list_head *list,
-				const struct list_head *head)
+static inline int list_is_last(const struct list_head *list, const struct list_head *head)
 {
 	return list->next == head;
 }
@@ -235,8 +229,8 @@ static inline int list_is_singular(const struct list_head *head)
 	return !list_empty(head) && (head->next == head->prev);
 }
 
-static inline void __list_cut_position(struct list_head *list,
-		struct list_head *head, struct list_head *entry)
+static inline void __list_cut_position(struct list_head *list, struct list_head *head,
+				       struct list_head *entry)
 {
 	struct list_head *new_first = entry->next;
 	list->next = head->next;
@@ -261,13 +255,12 @@ static inline void __list_cut_position(struct list_head *list,
  * losing its data.
  *
  */
-static inline void list_cut_position(struct list_head *list,
-		struct list_head *head, struct list_head *entry)
+static inline void list_cut_position(struct list_head *list, struct list_head *head,
+				     struct list_head *entry)
 {
 	if (list_empty(head))
 		return;
-	if (list_is_singular(head) &&
-		(head->next != entry && head != entry))
+	if (list_is_singular(head) && (head->next != entry && head != entry))
 		return;
 	if (entry == head)
 		INIT_LIST_HEAD(list);
@@ -275,8 +268,7 @@ static inline void list_cut_position(struct list_head *list,
 		__list_cut_position(list, head, entry);
 }
 
-static inline void __list_splice(const struct list_head *list,
-				 struct list_head *prev,
+static inline void __list_splice(const struct list_head *list, struct list_head *prev,
 				 struct list_head *next)
 {
 	struct list_head *first = list->next;
@@ -294,8 +286,7 @@ static inline void __list_splice(const struct list_head *list,
  * @list: the new list to add.
  * @head: the place to add it in the first list.
  */
-static inline void list_splice(const struct list_head *list,
-				struct list_head *head)
+static inline void list_splice(const struct list_head *list, struct list_head *head)
 {
 	if (!list_empty(list))
 		__list_splice(list, head, head->next);
@@ -306,8 +297,7 @@ static inline void list_splice(const struct list_head *list,
  * @list: the new list to add.
  * @head: the place to add it in the first list.
  */
-static inline void list_splice_tail(struct list_head *list,
-				struct list_head *head)
+static inline void list_splice_tail(struct list_head *list, struct list_head *head)
 {
 	if (!list_empty(list))
 		__list_splice(list, head->prev, head);
@@ -320,8 +310,7 @@ static inline void list_splice_tail(struct list_head *list,
  *
  * The list at @list is reinitialised
  */
-static inline void list_splice_init(struct list_head *list,
-				    struct list_head *head)
+static inline void list_splice_init(struct list_head *list, struct list_head *head)
 {
 	if (!list_empty(list)) {
 		__list_splice(list, head, head->next);
@@ -337,8 +326,7 @@ static inline void list_splice_init(struct list_head *list,
  * Each of the lists is a queue.
  * The list at @list is reinitialised
  */
-static inline void list_splice_tail_init(struct list_head *list,
-					 struct list_head *head)
+static inline void list_splice_tail_init(struct list_head *list, struct list_head *head)
 {
 	if (!list_empty(list)) {
 		__list_splice(list, head->prev, head);
@@ -352,8 +340,7 @@ static inline void list_splice_tail_init(struct list_head *list,
  * @type:	the type of the struct this is embedded in.
  * @member:	the name of the list_head within the struct.
  */
-#define list_entry(ptr, type, member) \
-	container_of(ptr, type, member)
+#define list_entry(ptr, type, member) container_of(ptr, type, member)
 
 /**
  * list_first_entry - get the first element from a list
@@ -363,8 +350,7 @@ static inline void list_splice_tail_init(struct list_head *list,
  *
  * Note, that list is expected to be not empty.
  */
-#define list_first_entry(ptr, type, member) \
-	list_entry((ptr)->next, type, member)
+#define list_first_entry(ptr, type, member) list_entry((ptr)->next, type, member)
 
 /**
  * list_last_entry - get the last element from a list
@@ -374,8 +360,7 @@ static inline void list_splice_tail_init(struct list_head *list,
  *
  * Note, that list is expected to be not empty.
  */
-#define list_last_entry(ptr, type, member) \
-	list_entry((ptr)->prev, type, member)
+#define list_last_entry(ptr, type, member) list_entry((ptr)->prev, type, member)
 
 /**
  * list_first_entry_or_null - get the first element from a list
@@ -385,7 +370,7 @@ static inline void list_splice_tail_init(struct list_head *list,
  *
  * Note that if the list is empty, it returns NULL.
  */
-#define list_first_entry_or_null(ptr, type, member) \
+#define list_first_entry_or_null(ptr, type, member)                                                \
 	(!list_empty(ptr) ? list_first_entry(ptr, type, member) : NULL)
 
 /**
@@ -393,32 +378,28 @@ static inline void list_splice_tail_init(struct list_head *list,
  * @pos:	the type * to cursor
  * @member:	the name of the list_head within the struct.
  */
-#define list_next_entry(pos, member) \
-	list_entry((pos)->member.next, typeof(*(pos)), member)
+#define list_next_entry(pos, member) list_entry((pos)->member.next, typeof(*(pos)), member)
 
 /**
  * list_prev_entry - get the prev element in list
  * @pos:	the type * to cursor
  * @member:	the name of the list_head within the struct.
  */
-#define list_prev_entry(pos, member) \
-	list_entry((pos)->member.prev, typeof(*(pos)), member)
+#define list_prev_entry(pos, member) list_entry((pos)->member.prev, typeof(*(pos)), member)
 
 /**
  * list_for_each	-	iterate over a list
  * @pos:	the &struct list_head to use as a loop cursor.
  * @head:	the head for your list.
  */
-#define list_for_each(pos, head) \
-	for (pos = (head)->next; pos != (head); pos = pos->next)
+#define list_for_each(pos, head) for (pos = (head)->next; pos != (head); pos = pos->next)
 
 /**
  * list_for_each_prev	-	iterate over a list backwards
  * @pos:	the &struct list_head to use as a loop cursor.
  * @head:	the head for your list.
  */
-#define list_for_each_prev(pos, head) \
-	for (pos = (head)->prev; pos != (head); pos = pos->prev)
+#define list_for_each_prev(pos, head) for (pos = (head)->prev; pos != (head); pos = pos->prev)
 
 /**
  * list_for_each_safe - iterate over a list safe against removal of list entry
@@ -426,9 +407,8 @@ static inline void list_splice_tail_init(struct list_head *list,
  * @n:		another &struct list_head to use as temporary storage
  * @head:	the head for your list.
  */
-#define list_for_each_safe(pos, n, head) \
-	for (pos = (head)->next, n = pos->next; pos != (head); \
-		pos = n, n = pos->next)
+#define list_for_each_safe(pos, n, head)                                                           \
+	for (pos = (head)->next, n = pos->next; pos != (head); pos = n, n = pos->next)
 
 /**
  * list_for_each_prev_safe - iterate over a list backwards safe against removal of list entry
@@ -436,10 +416,8 @@ static inline void list_splice_tail_init(struct list_head *list,
  * @n:		another &struct list_head to use as temporary storage
  * @head:	the head for your list.
  */
-#define list_for_each_prev_safe(pos, n, head) \
-	for (pos = (head)->prev, n = pos->prev; \
-	     pos != (head); \
-	     pos = n, n = pos->prev)
+#define list_for_each_prev_safe(pos, n, head)                                                      \
+	for (pos = (head)->prev, n = pos->prev; pos != (head); pos = n, n = pos->prev)
 
 /**
  * list_for_each_entry	-	iterate over list of given type
@@ -447,9 +425,8 @@ static inline void list_splice_tail_init(struct list_head *list,
  * @head:	the head for your list.
  * @member:	the name of the list_head within the struct.
  */
-#define list_for_each_entry(pos, head, member)				\
-	for (pos = list_first_entry(head, typeof(*pos), member);	\
-	     &pos->member != (head);					\
+#define list_for_each_entry(pos, head, member)                                                     \
+	for (pos = list_first_entry(head, typeof(*pos), member); &pos->member != (head);           \
 	     pos = list_next_entry(pos, member))
 
 /**
@@ -458,9 +435,8 @@ static inline void list_splice_tail_init(struct list_head *list,
  * @head:	the head for your list.
  * @member:	the name of the list_head within the struct.
  */
-#define list_for_each_entry_reverse(pos, head, member)			\
-	for (pos = list_last_entry(head, typeof(*pos), member);		\
-	     &pos->member != (head); 					\
+#define list_for_each_entry_reverse(pos, head, member)                                             \
+	for (pos = list_last_entry(head, typeof(*pos), member); &pos->member != (head);            \
 	     pos = list_prev_entry(pos, member))
 
 /**
@@ -468,7 +444,7 @@ static inline void list_splice_tail_init(struct list_head *list,
  * @pos:	the &struct list_head * to use as a loop cursor.
  * @head:	the header for your list.
  */
-#define list_none(pos, head)	(pos == head)
+#define list_none(pos, head) (pos == head)
 
 /**
  * list_no_entry - found no entry after list_for_each_entry()
@@ -476,7 +452,7 @@ static inline void list_splice_tail_init(struct list_head *list,
  * @head:	the header for your list.
  * @member:	the name of the list_header within the struct.
  */
-#define list_no_entry(pos, head, member)  (&(pos)->member == head)
+#define list_no_entry(pos, head, member) (&(pos)->member == head)
 
 /**
  * list_prepare_entry - prepare a pos entry for use in list_for_each_entry_continue()
@@ -486,8 +462,7 @@ static inline void list_splice_tail_init(struct list_head *list,
  *
  * Prepares a pos entry for use as a start point in list_for_each_entry_continue().
  */
-#define list_prepare_entry(pos, head, member) \
-	((pos) ? : list_entry(head, typeof(*pos), member))
+#define list_prepare_entry(pos, head, member) ((pos) ?: list_entry(head, typeof(*pos), member))
 
 /**
  * list_for_each_entry_continue - continue iteration over list of given type
@@ -498,9 +473,8 @@ static inline void list_splice_tail_init(struct list_head *list,
  * Continue to iterate over list of given type, continuing after
  * the current position.
  */
-#define list_for_each_entry_continue(pos, head, member) 		\
-	for (pos = list_next_entry(pos, member);			\
-	     &pos->member != (head);					\
+#define list_for_each_entry_continue(pos, head, member)                                            \
+	for (pos = list_next_entry(pos, member); &pos->member != (head);                           \
 	     pos = list_next_entry(pos, member))
 
 /**
@@ -512,9 +486,8 @@ static inline void list_splice_tail_init(struct list_head *list,
  * Start to iterate over list of given type backwards, continuing after
  * the current position.
  */
-#define list_for_each_entry_continue_reverse(pos, head, member)		\
-	for (pos = list_prev_entry(pos, member);			\
-	     &pos->member != (head);					\
+#define list_for_each_entry_continue_reverse(pos, head, member)                                    \
+	for (pos = list_prev_entry(pos, member); &pos->member != (head);                           \
 	     pos = list_prev_entry(pos, member))
 
 /**
@@ -525,9 +498,8 @@ static inline void list_splice_tail_init(struct list_head *list,
  *
  * Iterate over list of given type, continuing from current position.
  */
-#define list_for_each_entry_from(pos, head, member) 			\
-	for (; &pos->member != (head);					\
-	     pos = list_next_entry(pos, member))
+#define list_for_each_entry_from(pos, head, member)                                                \
+	for (; &pos->member != (head); pos = list_next_entry(pos, member))
 
 /**
  * list_for_each_entry_safe - iterate over list of given type safe against removal of list entry
@@ -536,11 +508,9 @@ static inline void list_splice_tail_init(struct list_head *list,
  * @head:	the head for your list.
  * @member:	the name of the list_head within the struct.
  */
-#define list_for_each_entry_safe(pos, n, head, member)			\
-	for (pos = list_first_entry(head, typeof(*pos), member),	\
-		n = list_next_entry(pos, member);			\
-	     &pos->member != (head); 					\
-	     pos = n, n = list_next_entry(n, member))
+#define list_for_each_entry_safe(pos, n, head, member)                                             \
+	for (pos = list_first_entry(head, typeof(*pos), member), n = list_next_entry(pos, member); \
+	     &pos->member != (head); pos = n, n = list_next_entry(n, member))
 
 /**
  * list_for_each_entry_safe_continue - continue list iteration safe against removal
@@ -552,11 +522,9 @@ static inline void list_splice_tail_init(struct list_head *list,
  * Iterate over list of given type, continuing after current point,
  * safe against removal of list entry.
  */
-#define list_for_each_entry_safe_continue(pos, n, head, member) 		\
-	for (pos = list_next_entry(pos, member), 				\
-		n = list_next_entry(pos, member);				\
-	     &pos->member != (head);						\
-	     pos = n, n = list_next_entry(n, member))
+#define list_for_each_entry_safe_continue(pos, n, head, member)                                    \
+	for (pos = list_next_entry(pos, member), n = list_next_entry(pos, member);                 \
+	     &pos->member != (head); pos = n, n = list_next_entry(n, member))
 
 /**
  * list_for_each_entry_safe_from - iterate over list from current point safe against removal
@@ -568,9 +536,8 @@ static inline void list_splice_tail_init(struct list_head *list,
  * Iterate over list of given type from current point, safe against
  * removal of list entry.
  */
-#define list_for_each_entry_safe_from(pos, n, head, member) 			\
-	for (n = list_next_entry(pos, member);					\
-	     &pos->member != (head);						\
+#define list_for_each_entry_safe_from(pos, n, head, member)                                        \
+	for (n = list_next_entry(pos, member); &pos->member != (head);                             \
 	     pos = n, n = list_next_entry(n, member))
 
 /**
@@ -583,11 +550,9 @@ static inline void list_splice_tail_init(struct list_head *list,
  * Iterate backwards over list of given type, safe against removal
  * of list entry.
  */
-#define list_for_each_entry_safe_reverse(pos, n, head, member)		\
-	for (pos = list_last_entry(head, typeof(*pos), member),		\
-		n = list_prev_entry(pos, member);			\
-	     &pos->member != (head); 					\
-	     pos = n, n = list_prev_entry(n, member))
+#define list_for_each_entry_safe_reverse(pos, n, head, member)                                     \
+	for (pos = list_last_entry(head, typeof(*pos), member), n = list_prev_entry(pos, member);  \
+	     &pos->member != (head); pos = n, n = list_prev_entry(n, member))
 
 /**
  * list_safe_reset_next - reset a stale list_for_each_entry_safe loop
@@ -601,7 +566,6 @@ static inline void list_splice_tail_init(struct list_head *list,
  * and list_safe_reset_next is called after re-taking the lock and before
  * completing the current iteration of the loop body.
  */
-#define list_safe_reset_next(pos, n, member)				\
-	n = list_next_entry(pos, member)
+#define list_safe_reset_next(pos, n, member) n = list_next_entry(pos, member)
 
 #endif

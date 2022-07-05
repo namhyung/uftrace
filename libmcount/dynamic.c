@@ -18,8 +18,8 @@
 #include <sys/mman.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "dynamic"
-#define PR_DOMAIN  DBG_DYNAMIC
+#define PR_FMT "dynamic"
+#define PR_DOMAIN DBG_DYNAMIC
 
 #include "libmcount/mcount.h"
 #include "libmcount/internal.h"
@@ -40,14 +40,14 @@ static struct mcount_dynamic_stats {
 	int unpatch;
 } stats;
 
-#define PAGE_SIZE   4096
-#define CODE_CHUNK  (PAGE_SIZE * 8)
+#define PAGE_SIZE 4096
+#define CODE_CHUNK (PAGE_SIZE * 8)
 
 struct code_page {
-	struct list_head	list;
-	void			*page;
-	int			pos;
-	bool			frozen;
+	struct list_head list;
+	void *page;
+	int pos;
+	bool frozen;
 };
 
 static LIST_HEAD(code_pages);
@@ -60,8 +60,7 @@ static unsigned min_size;
 /* disassembly engine for dynamic code patch (for capstone) */
 static struct mcount_disasm_engine disasm;
 
-static struct mcount_orig_insn *create_code(struct Hashmap *map,
-					    unsigned long addr)
+static struct mcount_orig_insn *create_code(struct Hashmap *map, unsigned long addr)
 {
 	struct mcount_orig_insn *entry;
 
@@ -72,8 +71,7 @@ static struct mcount_orig_insn *create_code(struct Hashmap *map,
 	return entry;
 }
 
-static struct mcount_orig_insn *lookup_code(struct Hashmap *map,
-					    unsigned long addr)
+static struct mcount_orig_insn *lookup_code(struct Hashmap *map, unsigned long addr)
 {
 	struct mcount_orig_insn *entry;
 
@@ -96,8 +94,8 @@ static struct code_page *alloc_codepage(void)
 	return cp;
 }
 
-void mcount_save_code(struct mcount_disasm_info *info, unsigned call_size,
-		      void *jmp_insn, unsigned jmp_size)
+void mcount_save_code(struct mcount_disasm_info *info, unsigned call_size, void *jmp_insn,
+		      unsigned jmp_size)
 {
 	struct code_page *cp = NULL;
 	struct mcount_orig_insn *orig;
@@ -182,7 +180,7 @@ void *mcount_find_code(unsigned long addr)
 	return orig->insn;
 }
 
-struct mcount_orig_insn * mcount_find_insn(unsigned long addr)
+struct mcount_orig_insn *mcount_find_insn(unsigned long addr)
 {
 	return lookup_code(code_hmap, addr);
 }
@@ -220,23 +218,19 @@ __weak void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi)
 {
 }
 
-__weak int mcount_patch_func(struct mcount_dynamic_info *mdi,
-			     struct uftrace_symbol *sym,
-			     struct mcount_disasm_engine *disasm,
-			     unsigned min_size)
+__weak int mcount_patch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
+			     struct mcount_disasm_engine *disasm, unsigned min_size)
 {
 	return -1;
 }
 
-__weak int mcount_unpatch_func(struct mcount_dynamic_info *mdi,
-			       struct uftrace_symbol *sym,
+__weak int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
 			       struct mcount_disasm_engine *disasm)
 {
 	return -1;
 }
 
-__weak void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
-				    struct uftrace_symtab *symtab)
+__weak void mcount_arch_find_module(struct mcount_dynamic_info *mdi, struct uftrace_symtab *symtab)
 {
 }
 
@@ -258,8 +252,7 @@ __weak int mcount_arch_branch_table_size(struct mcount_disasm_info *info)
 	return 0;
 }
 
-__weak void mcount_arch_patch_branch(struct mcount_disasm_info *info,
-				     struct mcount_orig_insn *orig)
+__weak void mcount_arch_patch_branch(struct mcount_disasm_info *info, struct mcount_orig_insn *orig)
 {
 }
 
@@ -325,8 +318,7 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 	return !fmd->needs_modules;
 }
 
-static void prepare_dynamic_update(struct uftrace_sym_info *sinfo,
-				   bool needs_modules)
+static void prepare_dynamic_update(struct uftrace_sym_info *sinfo, bool needs_modules)
 {
 	struct find_module_data fmd = {
 		.sinfo = sinfo,
@@ -337,8 +329,7 @@ static void prepare_dynamic_update(struct uftrace_sym_info *sinfo,
 	if (needs_modules)
 		hash_size *= 2;
 
-	code_hmap = hashmap_create(hash_size, hashmap_ptr_hash,
-				   hashmap_ptr_equals);
+	code_hmap = hashmap_create(hash_size, hashmap_ptr_hash, hashmap_ptr_equals);
 
 	dl_iterate_phdr(find_dynamic_module, &fmd);
 }
@@ -412,8 +403,7 @@ static bool match_pattern_list(struct uftrace_mmap *map, char *soname, char *sym
 	return ret;
 }
 
-static void parse_pattern_list(char *patch_funcs, char *def_mod,
-			       enum uftrace_pattern_type ptype)
+static void parse_pattern_list(char *patch_funcs, char *def_mod, enum uftrace_pattern_type ptype)
 {
 	struct strv funcs = STRV_INIT;
 	char *name;
@@ -493,9 +483,7 @@ static bool skip_sym(struct uftrace_symbol *sym, struct mcount_dynamic_info *mdi
 			return true;
 	}
 
-	if (sym->type != ST_LOCAL_FUNC &&
-	    sym->type != ST_GLOBAL_FUNC &&
-	    sym->type != ST_WEAK_FUNC)
+	if (sym->type != ST_LOCAL_FUNC && sym->type != ST_GLOBAL_FUNC && sym->type != ST_WEAK_FUNC)
 		return true;
 
 	if (!match_pattern_list(map, soname, sym->name)) {
@@ -524,8 +512,7 @@ static void mcount_patch_func_with_stats(struct mcount_dynamic_info *mdi,
 	stats.total++;
 }
 
-static void patch_patchable_func_matched(struct mcount_dynamic_info *mdi,
-					 struct uftrace_mmap *map)
+static void patch_patchable_func_matched(struct mcount_dynamic_info *mdi, struct uftrace_mmap *map)
 {
 	struct uftrace_symtab *symtab;
 	unsigned long *patchable_loc = mdi->patch_target;
@@ -565,8 +552,7 @@ static void patch_patchable_func_matched(struct mcount_dynamic_info *mdi,
 	free(soname);
 }
 
-static void patch_normal_func_matched(struct mcount_dynamic_info *mdi,
-				      struct uftrace_mmap *map)
+static void patch_normal_func_matched(struct mcount_dynamic_info *mdi, struct uftrace_mmap *map)
 {
 	struct uftrace_symtab *symtab;
 	unsigned i;
@@ -592,8 +578,7 @@ static void patch_normal_func_matched(struct mcount_dynamic_info *mdi,
 	free(soname);
 }
 
-static void patch_func_matched(struct mcount_dynamic_info *mdi,
-			       struct uftrace_mmap *map)
+static void patch_func_matched(struct mcount_dynamic_info *mdi, struct uftrace_mmap *map)
 {
 	/*
 	 * In some cases, the __patchable_function_entries section can be
@@ -632,8 +617,8 @@ static int do_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 	}
 
 	if (stats.failed + stats.skipped + stats.nomatch == 0) {
-		pr_dbg("patched all (%d) functions in '%s'\n",
-		       stats.total, basename(sinfo->filename));
+		pr_dbg("patched all (%d) functions in '%s'\n", stats.total,
+		       basename(sinfo->filename));
 	}
 
 	return 0;
@@ -687,8 +672,7 @@ int mcount_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 		int success = stats.total - stats.failed - stats.skipped;
 		int r, q;
 
-		pr_dbg("dynamic patch stats for '%s'\n",
-		       basename(sinfo->filename));
+		pr_dbg("dynamic patch stats for '%s'\n", basename(sinfo->filename));
 		pr_dbg("   total: %8d\n", stats.total);
 		q = calc_percent(success, stats.total, &r);
 		pr_dbg(" patched: %8d (%2d.%02d%%)\n", success, q, r);
@@ -751,8 +735,7 @@ void mcount_dynamic_finish(void)
 	mcount_disasm_finish(&disasm);
 }
 
-struct dynamic_bad_symbol * mcount_find_badsym(struct mcount_dynamic_info *mdi,
-					       unsigned long addr)
+struct dynamic_bad_symbol *mcount_find_badsym(struct mcount_dynamic_info *mdi, unsigned long addr)
 {
 	struct uftrace_symbol *sym;
 	struct dynamic_bad_symbol *badsym;
@@ -955,7 +938,7 @@ TEST_CASE(dynamic_find_badsym)
 
 	pr_dbg("finding bad symbols\n");
 	TEST_EQ(mcount_find_badsym(tmd.mdi, base + 0x100), NULL);
-	TEST_NE(mcount_find_badsym(tmd.mdi, base + 0x234), NULL);  /* found */
+	TEST_NE(mcount_find_badsym(tmd.mdi, base + 0x234), NULL); /* found */
 	TEST_EQ(mcount_find_badsym(tmd.mdi, base + 0x369), NULL);
 
 	pr_dbg("cleanup test map info\n");
@@ -964,4 +947,4 @@ TEST_CASE(dynamic_find_badsym)
 
 	return TEST_OK;
 }
-#endif  /* UNIT_TEST */
+#endif /* UNIT_TEST */

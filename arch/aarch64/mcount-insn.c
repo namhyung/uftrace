@@ -2,7 +2,7 @@
 #include "libmcount/dynamic.h"
 #include "mcount-arch.h"
 
-#define INSN_SIZE  8
+#define INSN_SIZE 8
 
 #ifdef HAVE_LIBCAPSTONE
 #include <capstone/capstone.h>
@@ -65,7 +65,6 @@ static int check_prologue(struct mcount_disasm_engine *disasm, cs_insn *insn)
 		default:
 			break;
 		}
-
 	}
 
 	arm64 = &insn->detail->arm64;
@@ -96,9 +95,8 @@ static int check_prologue(struct mcount_disasm_engine *disasm, cs_insn *insn)
 }
 
 /* return true if it's ok for dynamic tracing */
-static bool check_body(struct mcount_disasm_engine *disasm,
-		       cs_insn *insn, struct mcount_dynamic_info *mdi,
-		       struct mcount_disasm_info *info)
+static bool check_body(struct mcount_disasm_engine *disasm, cs_insn *insn,
+		       struct mcount_dynamic_info *mdi, struct mcount_disasm_info *info)
 {
 	int i;
 	cs_arm64 *arm64;
@@ -131,16 +129,13 @@ static bool check_body(struct mcount_disasm_engine *disasm,
 			target = op->imm;
 
 			/* disallow (back) jump to the prologue */
-			if (info->addr < target &&
-			    target < info->addr + info->copy_size)
+			if (info->addr < target && target < info->addr + info->copy_size)
 				return false;
 
 			/* disallow jump to middle of other function */
-			if (info->addr > target ||
-			    target >= info->addr + info->sym->size) {
+			if (info->addr > target || target >= info->addr + info->sym->size) {
 				/* also mark the target function as invalid */
-				return !mcount_add_badsym(mdi, insn->address,
-							  target);
+				return !mcount_add_badsym(mdi, insn->address, target);
 			}
 			break;
 		case ARM64_OP_MEM:
@@ -164,14 +159,13 @@ static bool check_body(struct mcount_disasm_engine *disasm,
 static int opnd_reg(int capstone_reg)
 {
 	const uint8_t arm64_regs[] = {
-		ARM64_REG_X0,  ARM64_REG_X1,  ARM64_REG_X2,  ARM64_REG_X3,
-		ARM64_REG_X4,  ARM64_REG_X5,  ARM64_REG_X6,  ARM64_REG_X7,
-		ARM64_REG_X8,  ARM64_REG_X9,  ARM64_REG_X10, ARM64_REG_X11,
-		ARM64_REG_X12, ARM64_REG_X13, ARM64_REG_X14, ARM64_REG_X15,
-		ARM64_REG_X16, ARM64_REG_X17, ARM64_REG_X18, ARM64_REG_X19,
-		ARM64_REG_X20, ARM64_REG_X21, ARM64_REG_X22, ARM64_REG_X23,
-		ARM64_REG_X24, ARM64_REG_X25, ARM64_REG_X26, ARM64_REG_X27,
-		ARM64_REG_X28, ARM64_REG_X29, ARM64_REG_X30, ARM64_REG_NZCV,
+		ARM64_REG_X0,  ARM64_REG_X1,   ARM64_REG_X2,  ARM64_REG_X3,  ARM64_REG_X4,
+		ARM64_REG_X5,  ARM64_REG_X6,   ARM64_REG_X7,  ARM64_REG_X8,  ARM64_REG_X9,
+		ARM64_REG_X10, ARM64_REG_X11,  ARM64_REG_X12, ARM64_REG_X13, ARM64_REG_X14,
+		ARM64_REG_X15, ARM64_REG_X16,  ARM64_REG_X17, ARM64_REG_X18, ARM64_REG_X19,
+		ARM64_REG_X20, ARM64_REG_X21,  ARM64_REG_X22, ARM64_REG_X23, ARM64_REG_X24,
+		ARM64_REG_X25, ARM64_REG_X26,  ARM64_REG_X27, ARM64_REG_X28, ARM64_REG_X29,
+		ARM64_REG_X30, ARM64_REG_NZCV,
 	};
 	size_t i;
 
@@ -182,11 +176,10 @@ static int opnd_reg(int capstone_reg)
 	return -1;
 }
 
-#define REG_SHIFT  5
+#define REG_SHIFT 5
 
-static bool modify_instruction(struct mcount_disasm_engine *disasm,
-			       cs_insn *insn, struct mcount_dynamic_info *mdi,
-			       struct mcount_disasm_info *info)
+static bool modify_instruction(struct mcount_disasm_engine *disasm, cs_insn *insn,
+			       struct mcount_dynamic_info *mdi, struct mcount_disasm_info *info)
 {
 	if (insn->id == ARM64_INS_ADR || insn->id == ARM64_INS_ADRP) {
 		uint32_t ldr_insn = 0x580000c0;
@@ -220,8 +213,7 @@ static bool modify_instruction(struct mcount_disasm_engine *disasm,
 	return false;
 }
 
-int disasm_check_insns(struct mcount_disasm_engine *disasm,
-		       struct mcount_dynamic_info *mdi,
+int disasm_check_insns(struct mcount_disasm_engine *disasm, struct mcount_dynamic_info *mdi,
 		       struct mcount_disasm_info *info)
 {
 	cs_insn *insn = NULL;
@@ -235,15 +227,15 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		return INSTRUMENT_FAILED;
 	}
 
-	count = cs_disasm(disasm->engine, (void *)info->addr, info->sym->size,
-			  info->addr, 0, &insn);
+	count = cs_disasm(disasm->engine, (void *)info->addr, info->sym->size, info->addr, 0,
+			  &insn);
 
 	for (i = 0; i < count; i++) {
 		int state = check_prologue(disasm, &insn[i]);
 
 		if (state < 0) {
-			pr_dbg3("instruction not supported: %s\t %s\n",
-				insn[i].mnemonic, insn[i].op_str);
+			pr_dbg3("instruction not supported: %s\t %s\n", insn[i].mnemonic,
+				insn[i].op_str);
 			goto out;
 		}
 
@@ -296,8 +288,7 @@ static bool disasm_check_insn(uint8_t *insn)
 	return true;
 }
 
-int disasm_check_insns(struct mcount_disasm_engine *disasm,
-		       struct mcount_dynamic_info *mdi,
+int disasm_check_insns(struct mcount_disasm_engine *disasm, struct mcount_dynamic_info *mdi,
 		       struct mcount_disasm_info *info)
 {
 	uint8_t *insn = (void *)info->addr;

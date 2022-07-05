@@ -9,7 +9,7 @@ void *thread_main(void *arg)
 {
 	double result = 1.0;
 
-	printf("%f\n",result);
+	printf("%f\n", result);
 	pthread_exit(NULL);
 	return NULL;
 }

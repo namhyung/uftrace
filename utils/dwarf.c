@@ -9,8 +9,8 @@
 #include <stdlib.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "dwarf"
-#define PR_DOMAIN  DBG_DWARF
+#define PR_FMT "dwarf"
+#define PR_DOMAIN DBG_DWARF
 
 #include "uftrace.h"
 #include "mcount-arch.h"
@@ -38,20 +38,19 @@ bool debug_info_has_location(struct uftrace_dbg_info *dinfo)
 }
 
 struct debug_entry {
-	struct rb_node	node;
-	uint64_t	offset;
-	char		*name;
-	char		*spec;
+	struct rb_node node;
+	uint64_t offset;
+	char *name;
+	char *spec;
 };
 
-static int add_debug_entry(struct rb_root *root, char *func, uint64_t offset,
-			   char *argspec)
+static int add_debug_entry(struct rb_root *root, char *func, uint64_t offset, char *argspec)
 {
 	struct debug_entry *entry, *iter;
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
 
-	pr_dbg3("add debug entry: %"PRIx64" %s%s\n", offset, func, argspec);
+	pr_dbg3("add debug entry: %" PRIx64 " %s%s\n", offset, func, argspec);
 
 	while (*p) {
 		parent = *p;
@@ -84,7 +83,7 @@ static int add_debug_entry(struct rb_root *root, char *func, uint64_t offset,
 	return 0;
 }
 
-static struct debug_entry * find_debug_entry(struct rb_root *root, uint64_t offset)
+static struct debug_entry *find_debug_entry(struct rb_root *root, uint64_t offset)
 {
 	struct debug_entry *iter;
 	struct rb_node *parent = NULL;
@@ -97,8 +96,8 @@ static struct debug_entry * find_debug_entry(struct rb_root *root, uint64_t offs
 
 		ret = iter->offset - offset;
 		if (ret == 0) {
-			pr_dbg3("found debug entry at %"PRIx64" (%s%s)\n",
-				offset, iter->name, iter->spec);
+			pr_dbg3("found debug entry at %" PRIx64 " (%s%s)\n", offset, iter->name,
+				iter->spec);
 			return iter;
 		}
 
@@ -127,8 +126,7 @@ static void free_debug_entry(struct rb_root *root)
 	}
 }
 
-static struct uftrace_dbg_file * get_debug_file(struct uftrace_dbg_info *dinfo,
-						const char *filename)
+static struct uftrace_dbg_file *get_debug_file(struct uftrace_dbg_info *dinfo, const char *filename)
 {
 	struct uftrace_dbg_file *df;
 	struct rb_node *parent = NULL;
@@ -188,16 +186,14 @@ static void release_debug_file(struct rb_root *root)
  * but some other info in non-PIE executable has different base
  * address so it needs to convert back and forth.
  */
-static inline unsigned long sym_to_dwarf_addr(struct uftrace_dbg_info *dinfo,
-					      unsigned long addr)
+static inline unsigned long sym_to_dwarf_addr(struct uftrace_dbg_info *dinfo, unsigned long addr)
 {
 	if (dinfo->file_type == ET_EXEC)
 		addr += dinfo->offset;
 	return addr;
 }
 
-static inline unsigned long dwarf_to_sym_addr(struct uftrace_dbg_info *dinfo,
-					      unsigned long addr)
+static inline unsigned long dwarf_to_sym_addr(struct uftrace_dbg_info *dinfo, unsigned long addr)
 {
 	if (dinfo->file_type == ET_EXEC)
 		addr -= dinfo->offset;
@@ -205,8 +201,8 @@ static inline unsigned long dwarf_to_sym_addr(struct uftrace_dbg_info *dinfo,
 }
 
 struct cu_files {
-	Dwarf_Files		*files;
-	size_t			num;     /* number of files */
+	Dwarf_Files *files;
+	size_t num; /* number of files */
 };
 
 static int elf_file_type(struct uftrace_dbg_info *dinfo)
@@ -219,8 +215,7 @@ static int elf_file_type(struct uftrace_dbg_info *dinfo)
 	return ET_NONE;
 }
 
-static bool get_attr(Dwarf_Die *die, int attr, bool follow,
-		     Dwarf_Attribute *da)
+static bool get_attr(Dwarf_Die *die, int attr, bool follow, Dwarf_Attribute *da)
 {
 	if (follow) {
 		if (!dwarf_hasattr_integrate(die, attr))
@@ -248,14 +243,14 @@ static long int_attr(Dwarf_Die *die, int attr, bool follow)
 	return data;
 }
 
-static char * str_attr(Dwarf_Die *die, int attr, bool follow)
+static char *str_attr(Dwarf_Die *die, int attr, bool follow)
 {
 	Dwarf_Attribute da;
 
 	if (!get_attr(die, attr, follow, &da))
 		return NULL;
 
-	return (char *) dwarf_formstring(&da);
+	return (char *)dwarf_formstring(&da);
 }
 
 /* setup dwarf info from filename, return 0 for success */
@@ -279,8 +274,7 @@ static int setup_dwarf_info(const char *filename, struct uftrace_dbg_info *dinfo
 	close(fd);
 
 	if (dinfo->dw == NULL) {
-		pr_dbg2("failed to setup debug info: %s\n",
-			dwarf_errmsg(dwarf_errno()));
+		pr_dbg2("failed to setup debug info: %s\n", dwarf_errmsg(dwarf_errno()));
 		return -1;
 	}
 
@@ -308,83 +302,82 @@ static void release_dwarf_info(struct uftrace_dbg_info *dinfo)
 	dinfo->dw = NULL;
 }
 
-#define ARGSPEC_MAX_SIZE  256
-#define MAX_STRUCT_REGS   4
+#define ARGSPEC_MAX_SIZE 256
+#define MAX_STRUCT_REGS 4
 
 /* arg_data contains argument passing info for single function */
 struct arg_data {
 	/* name of the function (symbol name) */
-	const char		*name;
+	const char *name;
 
 	/* (result) argspec, should be freed after used */
-	char			*argspec;
+	char *argspec;
 
 	/* (normal) argument index */
-	int			idx;
+	int idx;
 
 	/* floating-point argument index */
-	int			fpidx;
+	int fpidx;
 
 	/* arg format of the last argument */
-	int			last_fmt;
+	int last_fmt;
 
 	/* arg size (in byte) of the last argument */
-	int			last_size;
+	int last_size;
 
 	/* number of available core registers */
-	int			reg_max;
+	int reg_max;
 
 	/* number of available FP registers */
-	int			fpreg_max;
+	int fpreg_max;
 
 	/* index of next core register to be used */
-	int			reg_pos;
+	int reg_pos;
 
 	/* index of next FP register to be used */
-	int			fpreg_pos;
+	int fpreg_pos;
 
 	/* position of next available stack */
-	int			stack_ofs;
+	int stack_ofs;
 
 	/* whether we have retspec for this function */
-	bool			has_retspec;
+	bool has_retspec;
 
 	/* argument info parsing failed or unsupported */
-	bool			broken;
+	bool broken;
 
 	/* struct is passed by value, location needs update */
-	bool			struct_passed;
+	bool struct_passed;
 
 	/* struct passed-by-value will be replaced to a pointer */
-	bool			struct_arg_needs_ptr;
+	bool struct_arg_needs_ptr;
 
 	/* struct passed-by-value will be replaced to a pointer */
-	bool			struct_return_needs_ptr;
+	bool struct_return_needs_ptr;
 
 	/* struct containing FP types will use FP registers */
-	bool			struct_uses_fpreg;
+	bool struct_uses_fpreg;
 
 	/* pass class via stack if it has a MEMORY class member */
-	bool			has_mem_class;
+	bool has_mem_class;
 
 	/*
 	 * class containing non-trivial copy constructor or destructor, or
 	 * virtual functions will be passed by a invisible reference.
 	 */
-	bool			class_via_ptr;
+	bool class_via_ptr;
 
 	/* struct_param_class if argument is struct and passed by value */
-	char			struct_regs[MAX_STRUCT_REGS];
+	char struct_regs[MAX_STRUCT_REGS];
 
 	/* number of registers used above */
-	int			struct_reg_cnt;
+	int struct_reg_cnt;
 
 	/* uftrace debug info */
-	struct uftrace_dbg_info	*dinfo;
+	struct uftrace_dbg_info *dinfo;
 };
 
-static void setup_arg_data(struct arg_data *ad, const char *name,
-			   struct uftrace_dbg_info *dinfo)
+static void setup_arg_data(struct arg_data *ad, const char *name, struct uftrace_dbg_info *dinfo)
 {
 	memset(ad, 0, sizeof(*ad));
 
@@ -415,25 +408,25 @@ static void setup_arg_data(struct arg_data *ad, const char *name,
 
 /* struct parameter class to determine argument passing method */
 enum struct_param_class {
-	PARAM_CLASS_NONE =  0,
-	PARAM_CLASS_MEM  = 'm',
-	PARAM_CLASS_INT  = 'i',
-	PARAM_CLASS_FP   = 'f',
-	PARAM_CLASS_PTR  = 'p',
+	PARAM_CLASS_NONE = 0,
+	PARAM_CLASS_MEM = 'm',
+	PARAM_CLASS_INT = 'i',
+	PARAM_CLASS_FP = 'f',
+	PARAM_CLASS_PTR = 'p',
 };
 
 /* type_data contains info about single argument */
 struct type_data {
-	struct arg_data			*arg_data;
-	enum uftrace_arg_format		fmt;
-	size_t				size;  /* in bit */
-	int				pointer;
-	bool				ignore;
-	bool				broken;
-	char				*name;
+	struct arg_data *arg_data;
+	enum uftrace_arg_format fmt;
+	size_t size; /* in bit */
+	int pointer;
+	bool ignore;
+	bool broken;
+	char *name;
 };
 
-static char * fill_enum_str(Dwarf_Die *die)
+static char *fill_enum_str(Dwarf_Die *die)
 {
 	char *str = NULL;
 	Dwarf_Die e_val;
@@ -447,13 +440,11 @@ static char * fill_enum_str(Dwarf_Die *die)
 			Dwarf_Sword val;
 
 			val = int_attr(&e_val, DW_AT_const_value, false);
-			snprintf(buf, sizeof(buf), "%s=%ld",
-				 dwarf_diename(&e_val), (long)val);
+			snprintf(buf, sizeof(buf), "%s=%ld", dwarf_diename(&e_val), (long)val);
 
 			str = strjoin(str, buf, ",");
 		}
-	}
-	while (dwarf_siblingof(&e_val, &e_val) == 0);
+	} while (dwarf_siblingof(&e_val, &e_val) == 0);
 
 out:
 	if (str == NULL)
@@ -462,7 +453,7 @@ out:
 	return str;
 }
 
-static char * make_enum_name(Dwarf_Die *die)
+static char *make_enum_name(Dwarf_Die *die)
 {
 	Dwarf_Die cudie;
 	const char *cu_name = NULL;
@@ -470,7 +461,7 @@ static char * make_enum_name(Dwarf_Die *die)
 	char *enum_name;
 	char *tmp;
 
-	if (dwarf_diecu (die, &cudie, NULL, NULL))
+	if (dwarf_diecu(die, &cudie, NULL, NULL))
 		cu_name = dwarf_diename(&cudie);
 
 	if (cu_name == NULL)
@@ -517,7 +508,7 @@ static bool is_empty_aggregate(Dwarf_Die *die)
 
 retry:
 	if (dwarf_child(die, &child) != 0)
-		return true;  /* no child = no member */
+		return true; /* no child = no member */
 
 	do {
 		Dwarf_Attribute type;
@@ -544,8 +535,7 @@ retry:
 		default:
 			break;
 		}
-	}
-	while (dwarf_siblingof(&child, &child) == 0);
+	} while (dwarf_siblingof(&child, &child) == 0);
 
 	if (inherited) {
 		inherited = false;
@@ -559,28 +549,28 @@ retry:
 /* param_data contains addition info about a struct passed by value */
 struct param_data {
 	/* position in byte, in case two or more fields are merged into one */
-	int				pos;
+	int pos;
 
 	/* maximum size to pass an argument in registers */
-	unsigned			max_struct_size;
+	unsigned max_struct_size;
 
 	/* maximum allowed register count */
-	int				reg_max;
+	int reg_max;
 
 	/* current allocated register count */
-	int				reg_cnt;
+	int reg_cnt;
 
 	/* allocated register classes */
-	char				regs[MAX_STRUCT_REGS];
+	char regs[MAX_STRUCT_REGS];
 
 	/* if it's set, FP registers are allowed */
-	bool				use_fpregs;
+	bool use_fpregs;
 
 	/* check member name (for std::string detection) */
-	bool				lookup_string;
+	bool lookup_string;
 
 	/* previous (or current) register class in case of merge */
-	int				prev_class;
+	int prev_class;
 };
 
 static void setup_param_data(struct param_data *data)
@@ -604,8 +594,7 @@ static void setup_param_data(struct param_data *data)
 	data->reg_max = data->max_struct_size / 64;
 }
 
-static int get_param_class(Dwarf_Die *die, struct arg_data *ad,
-			   struct param_data *pd)
+static int get_param_class(Dwarf_Die *die, struct arg_data *ad, struct param_data *pd)
 {
 	Dwarf_Die ref;
 	Dwarf_Attribute type;
@@ -712,8 +701,7 @@ static int get_param_class(Dwarf_Die *die, struct arg_data *ad,
 	return PARAM_CLASS_MEM;
 }
 
-static void place_struct_members(Dwarf_Die *die, struct arg_data *ad,
-				 struct type_data *td)
+static void place_struct_members(Dwarf_Die *die, struct arg_data *ad, struct type_data *td)
 {
 	Dwarf_Die child;
 	int param_class = PARAM_CLASS_NONE;
@@ -743,7 +731,7 @@ static void place_struct_members(Dwarf_Die *die, struct arg_data *ad,
 	}
 
 	if (dwarf_child(die, &child) != 0)
-		return;  /* no child = no member */
+		return; /* no child = no member */
 
 	if (td->size > pd.max_struct_size && !pd.lookup_string) {
 		if (ad->class_via_ptr)
@@ -788,8 +776,7 @@ static void place_struct_members(Dwarf_Die *die, struct arg_data *ad,
 				goto pass_via_stack;
 
 			sname = dwarf_diename(&child);
-			if ((sname && sname[0] == '~') ||
-			    dwarf_hasattr(die, DW_AT_virtuality)) {
+			if ((sname && sname[0] == '~') || dwarf_hasattr(die, DW_AT_virtuality)) {
 				pr_dbg3("non-trivial class passed via pointer\n");
 				ad->struct_regs[0] = PARAM_CLASS_PTR;
 				ad->struct_reg_cnt = 1;
@@ -800,8 +787,7 @@ static void place_struct_members(Dwarf_Die *die, struct arg_data *ad,
 		default:
 			break;
 		}
-	}
-	while (dwarf_siblingof(&child, &child) == 0);
+	} while (dwarf_siblingof(&child, &child) == 0);
 
 	if (td->size > pd.max_struct_size)
 		goto pass_via_stack;
@@ -838,8 +824,7 @@ pass_via_stack:
 	}
 }
 
-static bool resolve_type_info(Dwarf_Die *die, struct arg_data *ad,
-			      struct type_data *td)
+static bool resolve_type_info(Dwarf_Die *die, struct arg_data *ad, struct type_data *td)
 {
 	Dwarf_Die ref;
 	Dwarf_Attribute type;
@@ -876,7 +861,7 @@ static bool resolve_type_info(Dwarf_Die *die, struct arg_data *ad,
 		case DW_TAG_enumeration_type:
 			enum_str = fill_enum_str(die);
 			if (enum_str == NULL)
-				return false;  /* use default format */
+				return false; /* use default format */
 
 			td->fmt = ARG_FMT_ENUM;
 			tname = dwarf_diename(die);
@@ -885,8 +870,7 @@ static bool resolve_type_info(Dwarf_Die *die, struct arg_data *ad,
 			else
 				td->name = make_enum_name(die);
 
-			xasprintf(&enum_def, "enum %s { %s }",
-				  td->name, enum_str);
+			xasprintf(&enum_def, "enum %s { %s }", td->name, enum_str);
 			pr_dbg3("type: %s\n", enum_str);
 
 			td->size = type_size(die, sizeof(int));
@@ -934,8 +918,7 @@ static bool resolve_type_info(Dwarf_Die *die, struct arg_data *ad,
 			}
 			break;
 		default:
-			pr_dbg3("type: %s (tag %d)\n",
-				dwarf_diename(die), dwarf_tag(die));
+			pr_dbg3("type: %s (tag %d)\n", dwarf_diename(die), dwarf_tag(die));
 			break;
 		}
 	}
@@ -972,8 +955,7 @@ static bool resolve_type_info(Dwarf_Die *die, struct arg_data *ad,
 	return true;
 }
 
-static bool add_type_info(char *spec, size_t len, Dwarf_Die *die,
-			  struct arg_data *ad)
+static bool add_type_info(char *spec, size_t len, Dwarf_Die *die, struct arg_data *ad)
 {
 	struct type_data data = {
 		.fmt = ARG_FMT_AUTO,
@@ -1012,13 +994,12 @@ static bool add_type_info(char *spec, size_t len, Dwarf_Die *die,
 		strcat(spec, "/S");
 		break;
 	case ARG_FMT_FLOAT:
-		if (ad->idx) {  /* for arguments */
-			snprintf(spec, len, "fparg%d/%zu",
-				 ++ad->fpidx, data.size);
+		if (ad->idx) { /* for arguments */
+			snprintf(spec, len, "fparg%d/%zu", ++ad->fpidx, data.size);
 			/* do not increase index of integer arguments */
 			--ad->idx;
 		}
-		else {  /* for return values */
+		else { /* for return values */
 			char sz[16];
 
 			snprintf(sz, sizeof(sz), "%d", (int)data.size);
@@ -1034,11 +1015,10 @@ static bool add_type_info(char *spec, size_t len, Dwarf_Die *die,
 		strcat(spec, data.name);
 		break;
 	case ARG_FMT_STRUCT:
-		if (ad->idx) {  /* for arguments */
-			snprintf(spec, len, "arg%d/t%d", ad->idx,
-				 ad->last_size);
+		if (ad->idx) { /* for arguments */
+			snprintf(spec, len, "arg%d/t%d", ad->idx, ad->last_size);
 		}
-		else {  /* for return valus */
+		else { /* for return valus */
 			char sz[16];
 
 			snprintf(sz, sizeof(sz), "/t%d", ad->last_size);
@@ -1050,8 +1030,7 @@ static bool add_type_info(char *spec, size_t len, Dwarf_Die *die,
 
 			strcat(spec, ":");
 			if (len1 + len2 >= ARGSPEC_MAX_SIZE) {
-				strncat(spec, data.name,
-					ARGSPEC_MAX_SIZE - len1 - 1);
+				strncat(spec, data.name, ARGSPEC_MAX_SIZE - len1 - 1);
 				spec[ARGSPEC_MAX_SIZE - 1] = '\0';
 			}
 			else {
@@ -1068,9 +1047,9 @@ static bool add_type_info(char *spec, size_t len, Dwarf_Die *die,
 }
 
 struct location_data {
-	int		type;
-	int		reg;    // DWARF register number
-	int		offset; // stack offset
+	int type;
+	int reg; // DWARF register number
+	int offset; // stack offset
 };
 
 static bool get_arg_location(Dwarf_Die *die, struct location_data *ld)
@@ -1085,10 +1064,9 @@ static bool get_arg_location(Dwarf_Die *die, struct location_data *ld)
 	dwarf_attr(die, DW_AT_location, &loc);
 
 	if (dwarf_getlocation(&loc, &ops, &len) == -1) {
-		int (*get_location_list)(Dwarf_Attribute *loc, Dwarf_Off offset,
-					 Dwarf_Addr *base, Dwarf_Addr *start,
-					 Dwarf_Addr *end, Dwarf_Op **ops,
-					 size_t *len);
+		int (*get_location_list)(Dwarf_Attribute * loc, Dwarf_Off offset, Dwarf_Addr * base,
+					 Dwarf_Addr * start, Dwarf_Addr * end, Dwarf_Op * *ops,
+					 size_t * len);
 		Dwarf_Addr base, start, end;
 
 		get_location_list = dlsym(RTLD_DEFAULT, "dwarf_getlocations");
@@ -1096,8 +1074,7 @@ static bool get_arg_location(Dwarf_Die *die, struct location_data *ld)
 			return false;
 
 		/* try to get the first entry in the location list */
-		if (get_location_list(&loc, 0, &base, &start, &end,
-				      &ops, &len) == -1)
+		if (get_location_list(&loc, 0, &base, &start, &end, &ops, &len) == -1)
 			return false;
 	}
 
@@ -1110,13 +1087,12 @@ static bool get_arg_location(Dwarf_Die *die, struct location_data *ld)
 			 */
 			if ((int)ops->number >= 0) {
 				ld->type = ARG_TYPE_STACK;
-				ld->offset = DIV_ROUND_UP(ops->number,
-							  sizeof(long)) + 1;
+				ld->offset = DIV_ROUND_UP(ops->number, sizeof(long)) + 1;
 				pr_dbg3("location: stack (%d)\n", ld->offset);
 			}
 			break;
 
-		case DW_OP_reg0...DW_OP_reg31:
+		case DW_OP_reg0 ... DW_OP_reg31:
 			ld->type = ARG_TYPE_REG;
 			ld->reg = ops->atom;
 			pr_dbg3("location: reg (%d)\n", ld->reg);
@@ -1136,8 +1112,7 @@ static bool get_arg_location(Dwarf_Die *die, struct location_data *ld)
 	return true;
 }
 
-static void add_location(char *spec, size_t len, Dwarf_Die *die,
-			 struct arg_data *ad)
+static void add_location(char *spec, size_t len, Dwarf_Die *die, struct arg_data *ad)
 {
 	struct location_data data = {
 		.type = ARG_TYPE_INDEX,
@@ -1166,16 +1141,12 @@ static void add_location(char *spec, size_t len, Dwarf_Die *die,
 			 */
 			for (i = 0; i < ad->struct_reg_cnt; i++) {
 				int param = ad->struct_regs[i];
-				if (param == PARAM_CLASS_INT ||
-				    param == PARAM_CLASS_PTR) {
-					reg = arch_register_argspec_name(arch,
-									 true,
-									 ad->reg_pos);
+				if (param == PARAM_CLASS_INT || param == PARAM_CLASS_PTR) {
+					reg = arch_register_argspec_name(arch, true, ad->reg_pos);
 					ad->reg_pos++;
 				}
 				else {
-					reg = arch_register_argspec_name(arch,
-									 false,
+					reg = arch_register_argspec_name(arch, false,
 									 ad->fpreg_pos);
 					ad->fpreg_pos++;
 				}
@@ -1186,15 +1157,13 @@ static void add_location(char *spec, size_t len, Dwarf_Die *die,
 			return;
 		case ARG_FMT_FLOAT:
 			if (ad->fpreg_pos < ad->fpreg_max) {
-				reg = arch_register_argspec_name(arch, false,
-								 ad->fpreg_pos);
+				reg = arch_register_argspec_name(arch, false, ad->fpreg_pos);
 				ad->fpreg_pos++;
 			}
 			break;
 		default:
 			if (ad->reg_pos < ad->reg_max) {
-				reg = arch_register_argspec_name(arch, true,
-								 ad->reg_pos);
+				reg = arch_register_argspec_name(arch, true, ad->reg_pos);
 				ad->reg_pos++;
 			}
 			break;
@@ -1323,20 +1292,19 @@ static int get_argspec(Dwarf_Die *die, void *data)
 			ad->argspec = strjoin(ad->argspec, buf, ",");
 
 		count++;
-	}
-	while (dwarf_siblingof(&arg, &arg) == 0);
+	} while (dwarf_siblingof(&arg, &arg) == 0);
 
 	return count;
 }
 
 struct build_data {
-	struct uftrace_dbg_info	*dinfo;
-	struct uftrace_symtab	*symtab;
-	int			nr_args;
-	int			nr_rets;
-	struct uftrace_pattern	*args;
-	struct uftrace_pattern	*rets;
-	struct cu_files		files;
+	struct uftrace_dbg_info *dinfo;
+	struct uftrace_symtab *symtab;
+	int nr_args;
+	int nr_rets;
+	struct uftrace_pattern *args;
+	struct uftrace_pattern *rets;
+	struct cu_files files;
 };
 
 /* caller should free the return value */
@@ -1410,8 +1378,7 @@ static bool match_name(struct uftrace_symbol *sym, char *name)
 	return false;
 }
 
-static void get_source_location(Dwarf_Die *die, struct build_data *bd,
-				struct uftrace_symbol *sym)
+static void get_source_location(Dwarf_Die *die, struct build_data *bd, struct uftrace_symbol *sym)
 {
 	ptrdiff_t sym_idx;
 	const char *filename;
@@ -1456,7 +1423,7 @@ static void get_source_location(Dwarf_Die *die, struct build_data *bd,
 	if (dfile == NULL)
 		return;
 
-	dinfo->locs[sym_idx].sym  = sym;
+	dinfo->locs[sym_idx].sym = sym;
 	dinfo->locs[sym_idx].file = dfile;
 	dinfo->locs[sym_idx].line = dline;
 	dinfo->nr_locs_used++;
@@ -1502,8 +1469,8 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 	 */
 	sym = find_sym(bd->symtab, offset + 1);
 	if (sym == NULL || !match_name(sym, name)) {
-		pr_dbg4("skip unknown debug info: %s / %s (%lx)\n",
-			sym ? sym->name : "no name", name, offset);
+		pr_dbg4("skip unknown debug info: %s / %s (%lx)\n", sym ? sym->name : "no name",
+			name, offset);
 		goto out;
 	}
 
@@ -1516,8 +1483,7 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 			continue;
 
 		if (get_retspec(die, &ad, true)) {
-			add_debug_entry(&bd->dinfo->rets, sym->name, sym->addr,
-					ad.argspec);
+			add_debug_entry(&bd->dinfo->rets, sym->name, sym->addr, ad.argspec);
 		}
 
 		free(ad.argspec);
@@ -1530,8 +1496,7 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 			continue;
 
 		if (get_argspec(die, &ad)) {
-			add_debug_entry(&bd->dinfo->args, sym->name, sym->addr,
-					ad.argspec);
+			add_debug_entry(&bd->dinfo->args, sym->name, sym->addr, ad.argspec);
 		}
 
 		free(ad.argspec);
@@ -1544,10 +1509,10 @@ out:
 }
 
 struct comp_dir_entry {
-	struct rb_node	node;
-	char		*name;
-	int		nr_used;  /* number of times comp_dir is used in module */
-	int		nr_locs;  /* number of source locations built into comp_dir */
+	struct rb_node node;
+	char *name;
+	int nr_used; /* number of times comp_dir is used in module */
+	int nr_locs; /* number of source locations built into comp_dir */
 };
 
 static int add_comp_dir(struct rb_root *root, char *name, int nr_locs)
@@ -1602,16 +1567,15 @@ static void free_comp_dir(struct rb_root *root)
 	}
 }
 
-static struct comp_dir_entry * get_max_comp_dir(struct comp_dir_entry *a, struct comp_dir_entry *b)
+static struct comp_dir_entry *get_max_comp_dir(struct comp_dir_entry *a, struct comp_dir_entry *b)
 {
-	if (a->nr_used > b->nr_used ||
-	   (a->nr_used == b->nr_used && a->nr_locs > b->nr_locs))
+	if (a->nr_used > b->nr_used || (a->nr_used == b->nr_used && a->nr_locs > b->nr_locs))
 		return a;
 	else
 		return b;
 }
 
-static char* get_base_comp_dir(struct rb_root *dirs)
+static char *get_base_comp_dir(struct rb_root *dirs)
 {
 	struct rb_node *rbnode;
 	struct comp_dir_entry *e;
@@ -1647,8 +1611,7 @@ static char* get_base_comp_dir(struct rb_root *dirs)
 }
 
 static void build_dwarf_info(struct uftrace_dbg_info *dinfo, struct uftrace_symtab *symtab,
-			     enum uftrace_pattern_type ptype,
-			     struct strv *args, struct strv *rets)
+			     enum uftrace_pattern_type ptype, struct strv *args, struct strv *rets)
 {
 	Dwarf_Off curr = 0;
 	Dwarf_Off next = 0;
@@ -1675,14 +1638,13 @@ static void build_dwarf_info(struct uftrace_dbg_info *dinfo, struct uftrace_symt
 	dinfo->locs = xcalloc(dinfo->nr_locs, sizeof(*dinfo->locs));
 
 	/* traverse every CU to find debug info */
-	while (dwarf_nextcu(dinfo->dw, curr, &next,
-			    &header_sz, NULL, NULL, NULL) == 0) {
+	while (dwarf_nextcu(dinfo->dw, curr, &next, &header_sz, NULL, NULL, NULL) == 0) {
 		Dwarf_Die cudie;
 		struct build_data bd = {
-			.dinfo   = dinfo,
-			.symtab  = symtab,
-			.args    = arg_patt,
-			.rets    = ret_patt,
+			.dinfo = dinfo,
+			.symtab = symtab,
+			.args = arg_patt,
+			.rets = ret_patt,
 			.nr_args = args->nr,
 			.nr_rets = rets->nr,
 		};
@@ -1733,7 +1695,7 @@ static void build_dwarf_info(struct uftrace_dbg_info *dinfo, struct uftrace_symt
 	free(ret_patt);
 }
 
-#else  /* !HAVE_LIBDW */
+#else /* !HAVE_LIBDW */
 
 static int setup_dwarf_info(const char *filename, struct uftrace_dbg_info *dinfo,
 			    unsigned long offset, bool force)
@@ -1743,8 +1705,7 @@ static int setup_dwarf_info(const char *filename, struct uftrace_dbg_info *dinfo
 }
 
 static void build_dwarf_info(struct uftrace_dbg_info *dinfo, struct uftrace_symtab *symtab,
-			     enum uftrace_pattern_type ptype,
-			     struct strv *args, struct strv *rets)
+			     enum uftrace_pattern_type ptype, struct strv *args, struct strv *rets)
 {
 }
 
@@ -1752,7 +1713,7 @@ static void release_dwarf_info(struct uftrace_dbg_info *dinfo)
 {
 }
 
-#endif  /* !HAVE_LIBDW */
+#endif /* !HAVE_LIBDW */
 
 static int setup_debug_info(const char *filename, struct uftrace_dbg_info *dinfo,
 			    unsigned long offset, bool force)
@@ -1783,8 +1744,7 @@ static void release_debug_info(struct uftrace_dbg_info *dinfo)
 }
 
 /* find argspecs only have function name (pattern) */
-static void extract_dwarf_args(char *argspec, char *retspec,
-			       struct strv *pargs, struct strv *prets)
+static void extract_dwarf_args(char *argspec, char *retspec, struct strv *pargs, struct strv *prets)
 {
 	if (argspec) {
 		struct strv tmp = STRV_INIT;
@@ -1817,10 +1777,8 @@ static void extract_dwarf_args(char *argspec, char *retspec,
 	}
 }
 
-void prepare_debug_info(struct uftrace_sym_info *sinfo,
-			enum uftrace_pattern_type ptype,
-			char *argspec, char *retspec,
-			bool auto_args, bool force)
+void prepare_debug_info(struct uftrace_sym_info *sinfo, enum uftrace_pattern_type ptype,
+			char *argspec, char *retspec, bool auto_args, bool force)
 {
 	struct uftrace_mmap *map;
 	struct strv dwarf_args = STRV_INIT;
@@ -1838,7 +1796,7 @@ void prepare_debug_info(struct uftrace_sym_info *sinfo,
 			strv_append(&dwarf_args, ".");
 			strv_append(&dwarf_rets, ".");
 		}
-		else {  /* PATT_GLOB */
+		else { /* PATT_GLOB */
 			strv_append(&dwarf_args, "*");
 			strv_append(&dwarf_rets, "*");
 		}
@@ -1874,8 +1832,7 @@ void finish_debug_info(struct uftrace_sym_info *sinfo)
 	}
 }
 
-static bool match_debug_file(const char *dbgname, const char *pathname,
-			     char *build_id)
+static bool match_debug_file(const char *dbgname, const char *pathname, char *build_id)
 {
 	FILE *fp;
 	bool ret = true;
@@ -1903,8 +1860,7 @@ static bool match_debug_file(const char *dbgname, const char *pathname,
 	return ret;
 }
 
-static FILE * create_debug_file(const char *dirname, const char *filename,
-				char *build_id)
+static FILE *create_debug_file(const char *dirname, const char *filename, char *build_id)
 {
 	FILE *fp;
 	char *tmp;
@@ -1933,8 +1889,7 @@ static FILE * create_debug_file(const char *dirname, const char *filename,
 	return fp;
 }
 
-static void close_debug_file(FILE *fp, const char *dirname,
-			     const char *filename, char *build_id)
+static void close_debug_file(FILE *fp, const char *dirname, const char *filename, char *build_id)
 {
 	bool delete = !ftell(fp);
 	char *tmp;
@@ -2017,7 +1972,7 @@ static void save_debug_entries(struct uftrace_dbg_info *dinfo, const char *dirna
 
 	fp = create_debug_file(dirname, filename, build_id);
 	if (fp == NULL)
-		return;  /* somebody already did that! */
+		return; /* somebody already did that! */
 
 	fprintf(fp, "# path name: %s\n", filename);
 	if (strlen(build_id) > 0)
@@ -2064,14 +2019,13 @@ void save_debug_info(struct uftrace_sym_info *sinfo, const char *dirname)
 		if (map->mod == NULL || !map->mod->dinfo.loaded)
 			continue;
 
-		save_debug_entries(&map->mod->dinfo, dirname, map->libname,
-				   map->build_id);
+		save_debug_entries(&map->mod->dinfo, dirname, map->libname, map->build_id);
 	}
 }
 
 static int load_debug_file(struct uftrace_dbg_info *dinfo, struct uftrace_symtab *symtab,
-			   const char *dirname, const char *filename,
-			   char *build_id, bool needs_srcline)
+			   const char *dirname, const char *filename, char *build_id,
+			   bool needs_srcline)
 {
 	char *pathname;
 	FILE *fp;
@@ -2171,7 +2125,7 @@ static int load_debug_file(struct uftrace_dbg_info *dinfo, struct uftrace_symtab
 			lineno = strtoul(&line[3], &pos, 0);
 
 			sym_idx = sym - symtab->sym;
-			dinfo->locs[sym_idx].sym  = sym;
+			dinfo->locs[sym_idx].sym = sym;
 			dinfo->locs[sym_idx].line = lineno;
 			dinfo->locs[sym_idx].file = get_debug_file(dinfo, pos + 1);
 			dinfo->nr_locs_used++;
@@ -2213,21 +2167,20 @@ void load_debug_info(struct uftrace_sym_info *sinfo, bool needs_srcline)
 		dinfo = &mod->dinfo;
 
 		if (!debug_info_has_location(dinfo) && !debug_info_has_argspec(dinfo)) {
-			load_debug_file(dinfo, stab, sinfo->symdir,
-					map->libname, map->build_id,
+			load_debug_file(dinfo, stab, sinfo->symdir, map->libname, map->build_id,
 					needs_srcline);
 		}
 	}
 }
 
-char * get_dwarf_argspec(struct uftrace_dbg_info *dinfo, char *name, unsigned long addr)
+char *get_dwarf_argspec(struct uftrace_dbg_info *dinfo, char *name, unsigned long addr)
 {
 	struct debug_entry *entry = find_debug_entry(&dinfo->args, addr);
 
 	return entry ? entry->spec : NULL;
 }
 
-char * get_dwarf_retspec(struct uftrace_dbg_info *dinfo, char *name, unsigned long addr)
+char *get_dwarf_retspec(struct uftrace_dbg_info *dinfo, char *name, unsigned long addr)
 {
 	struct debug_entry *entry = find_debug_entry(&dinfo->rets, addr);
 
@@ -2277,15 +2230,14 @@ TEST_CASE(dwarf_srcline_prefix1)
 	struct rb_root dirs = RB_ROOT;
 	int i;
 
-	static struct comp_dir test_dirs [] = {
-		{"/home/soft/uftrace/cmds", 1},
-		{"/home/soft/uftrace/utils", 1},
-		{"/home/soft/uftrace/libmcount", 1},
+	static struct comp_dir test_dirs[] = {
+		{ "/home/soft/uftrace/cmds", 1 },
+		{ "/home/soft/uftrace/utils", 1 },
+		{ "/home/soft/uftrace/libmcount", 1 },
 	};
 
-	for (i = 0; i < sizeof(test_dirs)/sizeof(struct comp_dir); i++) {
-		pr_dbg("comp_dir=%s (count=%d)\n",
-		       test_dirs[i].name, test_dirs[i].nr_loc);
+	for (i = 0; i < sizeof(test_dirs) / sizeof(struct comp_dir); i++) {
+		pr_dbg("comp_dir=%s (count=%d)\n", test_dirs[i].name, test_dirs[i].nr_loc);
 		add_comp_dir(&dirs, test_dirs[i].name, test_dirs[i].nr_loc);
 	}
 
@@ -2303,15 +2255,14 @@ TEST_CASE(dwarf_srcline_prefix2)
 	struct rb_root dirs = RB_ROOT;
 	int i;
 
-	static struct comp_dir test_dirs [] = {
-		{"/home/a/tests", 1},
-		{"/home/soft/uftrace/cmds", 1},
-		{"/home/soft/uftrace", 1},
+	static struct comp_dir test_dirs[] = {
+		{ "/home/a/tests", 1 },
+		{ "/home/soft/uftrace/cmds", 1 },
+		{ "/home/soft/uftrace", 1 },
 	};
 
-	for (i = 0; i < sizeof(test_dirs)/sizeof(struct comp_dir); i++) {
-		pr_dbg("comp_dir=%s (count=%d)\n",
-		       test_dirs[i].name, test_dirs[i].nr_loc);
+	for (i = 0; i < sizeof(test_dirs) / sizeof(struct comp_dir); i++) {
+		pr_dbg("comp_dir=%s (count=%d)\n", test_dirs[i].name, test_dirs[i].nr_loc);
 		add_comp_dir(&dirs, test_dirs[i].name, test_dirs[i].nr_loc);
 	}
 
@@ -2329,16 +2280,15 @@ TEST_CASE(dwarf_srcline_prefix3)
 	struct rb_root dirs = RB_ROOT;
 	int i;
 
-	static struct comp_dir test_dirs [] = {
-		{"/home/a/tests", 1},
-		{"/home/a/tests", 3},
-		{"/home/soft/uftrace/cmds", 4},
-		{"/home/soft/uftrace", 1},
+	static struct comp_dir test_dirs[] = {
+		{ "/home/a/tests", 1 },
+		{ "/home/a/tests", 3 },
+		{ "/home/soft/uftrace/cmds", 4 },
+		{ "/home/soft/uftrace", 1 },
 	};
 
-	for (i = 0; i < sizeof(test_dirs)/sizeof(struct comp_dir); i++) {
-		pr_dbg("comp_dir=%s (count=%d)\n",
-		       test_dirs[i].name, test_dirs[i].nr_loc);
+	for (i = 0; i < sizeof(test_dirs) / sizeof(struct comp_dir); i++) {
+		pr_dbg("comp_dir=%s (count=%d)\n", test_dirs[i].name, test_dirs[i].nr_loc);
 		add_comp_dir(&dirs, test_dirs[i].name, test_dirs[i].nr_loc);
 	}
 
@@ -2388,8 +2338,7 @@ static void setup_test_debug_info(struct uftrace_module *mod)
 	}
 }
 
-static void init_test_module_info(struct uftrace_module **pmod1,
-				  struct uftrace_module **pmod2,
+static void init_test_module_info(struct uftrace_module **pmod1, struct uftrace_module **pmod2,
 				  bool init_debug_info)
 {
 	struct uftrace_module *mod1, *mod2;
@@ -2431,8 +2380,7 @@ static void init_test_module_info(struct uftrace_module **pmod1,
 	*pmod2 = mod2;
 }
 
-static int check_test_debug_info(struct uftrace_dbg_info *dinfo1,
-				 struct uftrace_dbg_info *dinfo2)
+static int check_test_debug_info(struct uftrace_dbg_info *dinfo1, struct uftrace_dbg_info *dinfo2)
 {
 	int i;
 	struct rb_node *node;
@@ -2461,10 +2409,8 @@ static int check_test_debug_info(struct uftrace_dbg_info *dinfo1,
 		TEST_STREQ(save_entry->spec, load_entry->spec);
 		TEST_EQ(save_entry->offset, load_entry->offset);
 
-		save_entry = rb_entry(rb_next(&save_entry->node),
-				      struct debug_entry, node);
-		load_entry = rb_entry(rb_next(&load_entry->node),
-				      struct debug_entry, node);
+		save_entry = rb_entry(rb_next(&save_entry->node), struct debug_entry, node);
+		load_entry = rb_entry(rb_next(&load_entry->node), struct debug_entry, node);
 	}
 	TEST_EQ(save_entry == NULL, load_entry == NULL);
 
@@ -2489,20 +2435,19 @@ TEST_CASE(dwarf_same_file_name1)
 	pr_dbg("load .dbg files\n");
 	init_test_module_info(&load_mod[0], &load_mod[1], false);
 
-	ret = load_debug_file(&load_mod[0]->dinfo, &load_mod[0]->symtab,
-			      ".", load_mod[0]->name, "", true);
+	ret = load_debug_file(&load_mod[0]->dinfo, &load_mod[0]->symtab, ".", load_mod[0]->name, "",
+			      true);
 	TEST_EQ(ret, 0);
 
-	ret = load_debug_file(&load_mod[1]->dinfo, &load_mod[1]->symtab,
-			      ".", load_mod[1]->name, "", true);
+	ret = load_debug_file(&load_mod[1]->dinfo, &load_mod[1]->symtab, ".", load_mod[1]->name, "",
+			      true);
 	TEST_EQ(ret, 0);
 
 	pr_dbg("compare debug info1\n");
 	ret = check_test_debug_info(&save_mod[0]->dinfo, &load_mod[0]->dinfo);
 	if (ret == TEST_OK) {
 		pr_dbg("compare debug info2\n");
-		ret = check_test_debug_info(&save_mod[1]->dinfo,
-					    &load_mod[1]->dinfo);
+		ret = check_test_debug_info(&save_mod[1]->dinfo, &load_mod[1]->dinfo);
 	}
 
 	pr_dbg("release debug info\n");
@@ -2534,28 +2479,25 @@ TEST_CASE(dwarf_same_file_name2)
 	pr_dbg("init debug info and save .dbg files (with build-id)\n");
 	init_test_module_info(&save_mod[0], &save_mod[1], true);
 	/* save them in the opposite order */
-	save_debug_entries(&save_mod[1]->dinfo, ".", save_mod[1]->name,
-			   save_mod[1]->build_id);
-	save_debug_entries(&save_mod[0]->dinfo, ".", save_mod[0]->name,
-			   save_mod[0]->build_id);
+	save_debug_entries(&save_mod[1]->dinfo, ".", save_mod[1]->name, save_mod[1]->build_id);
+	save_debug_entries(&save_mod[0]->dinfo, ".", save_mod[0]->name, save_mod[0]->build_id);
 
 	pr_dbg("load .dbg files\n");
 	init_test_module_info(&load_mod[0], &load_mod[1], false);
 
-	ret = load_debug_file(&load_mod[0]->dinfo, &load_mod[0]->symtab, ".",
-			      load_mod[0]->name, load_mod[0]->build_id, true);
+	ret = load_debug_file(&load_mod[0]->dinfo, &load_mod[0]->symtab, ".", load_mod[0]->name,
+			      load_mod[0]->build_id, true);
 	TEST_EQ(ret, 0);
 
-	ret = load_debug_file(&load_mod[1]->dinfo, &load_mod[1]->symtab, ".",
-			      load_mod[1]->name, load_mod[1]->build_id, true);
+	ret = load_debug_file(&load_mod[1]->dinfo, &load_mod[1]->symtab, ".", load_mod[1]->name,
+			      load_mod[1]->build_id, true);
 	TEST_EQ(ret, 0);
 
 	pr_dbg("compare debug info1\n");
 	ret = check_test_debug_info(&save_mod[0]->dinfo, &load_mod[0]->dinfo);
 	if (ret == TEST_OK) {
 		pr_dbg("compare debug info2\n");
-		ret = check_test_debug_info(&save_mod[1]->dinfo,
-					    &load_mod[1]->dinfo);
+		ret = check_test_debug_info(&save_mod[1]->dinfo, &load_mod[1]->dinfo);
 	}
 
 	pr_dbg("release debug info\n");

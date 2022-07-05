@@ -7,8 +7,8 @@
 #include <spawn.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "wrap"
-#define PR_DOMAIN  DBG_WRAP
+#define PR_FMT "wrap"
+#define PR_DOMAIN DBG_WRAP
 
 #include "libmcount/mcount.h"
 #include "libmcount/internal.h"
@@ -23,7 +23,6 @@ struct dlopen_base_data {
 	uint64_t timestamp;
 };
 
-
 const char *uftrace_basename(const char *pathname)
 {
 	const char *p = strrchr(pathname, '/');
@@ -32,8 +31,7 @@ const char *uftrace_basename(const char *pathname)
 }
 
 static void send_dlopen_msg(struct mcount_thread_data *mtdp, const char *sess_id,
-			    uint64_t timestamp,  uint64_t base_addr,
-			    const char *libname)
+			    uint64_t timestamp, uint64_t base_addr, const char *libname)
 {
 	struct uftrace_msg_dlopen dlop = {
 		.task = {
@@ -50,9 +48,18 @@ static void send_dlopen_msg(struct mcount_thread_data *mtdp, const char *sess_id
 		.len = sizeof(dlop) + dlop.namelen,
 	};
 	struct iovec iov[3] = {
-		{ .iov_base = &msg, .iov_len = sizeof(msg), },
-		{ .iov_base = &dlop, .iov_len = sizeof(dlop), },
-		{ .iov_base = (void *)libname, .iov_len = dlop.namelen, },
+		{
+			.iov_base = &msg,
+			.iov_len = sizeof(msg),
+		},
+		{
+			.iov_base = &dlop,
+			.iov_len = sizeof(dlop),
+		},
+		{
+			.iov_base = (void *)libname,
+			.iov_len = dlop.namelen,
+		},
 	};
 	int len = sizeof(msg) + msg.len;
 
@@ -67,8 +74,7 @@ static void send_dlopen_msg(struct mcount_thread_data *mtdp, const char *sess_id
 	}
 }
 
-static int dlopen_base_callback(struct dl_phdr_info *info,
-				size_t size, void *arg)
+static int dlopen_base_callback(struct dl_phdr_info *info, size_t size, void *arg)
 {
 	struct dlopen_base_data *data = arg;
 	char buf[PATH_MAX];
@@ -87,15 +93,14 @@ static int dlopen_base_callback(struct dl_phdr_info *info,
 		return 0;
 
 	/* report a library not found in the session maps */
-	send_dlopen_msg(data->mtdp, mcount_session_name(), data->timestamp,
-			info->dlpi_addr, info->dlpi_name);
+	send_dlopen_msg(data->mtdp, mcount_session_name(), data->timestamp, info->dlpi_addr,
+			info->dlpi_name);
 
 	mcount_dynamic_dlopen(&mcount_sym_info, info, p);
 	return 0;
 }
 
-void mcount_rstack_reset_exception(struct mcount_thread_data *mtdp,
-				   unsigned long frame_addr)
+void mcount_rstack_reset_exception(struct mcount_thread_data *mtdp, unsigned long frame_addr)
 {
 	int idx;
 	struct mcount_ret_stack *rstack;
@@ -104,8 +109,7 @@ void mcount_rstack_reset_exception(struct mcount_thread_data *mtdp,
 	for (idx = mtdp->idx - 1; idx >= 0; idx--) {
 		rstack = &mtdp->rstack[idx];
 
-		pr_dbg3("%s: [%d] parent at %p\n",
-			__func__, idx, rstack->parent_loc);
+		pr_dbg3("%s: [%d] parent at %p\n", __func__, idx, rstack->parent_loc);
 		if (rstack->parent_loc == &mtdp->cygprof_dummy)
 			break;
 
@@ -128,8 +132,7 @@ void mcount_rstack_reset_exception(struct mcount_thread_data *mtdp,
 
 				idx--;
 				rstack = tail_call;
-				pr_dbg3("%s: exception in tail call at [%d]\n",
-					__func__, idx + 1);
+				pr_dbg3("%s: exception in tail call at [%d]\n", __func__, idx + 1);
 			}
 			idx = orig_idx;
 
@@ -152,24 +155,43 @@ void mcount_rstack_reset_exception(struct mcount_thread_data *mtdp,
 	mcount_rstack_reset(mtdp);
 }
 
-static char ** collect_uftrace_envp(void)
+static char **collect_uftrace_envp(void)
 {
 	size_t n = 0;
 	size_t i, k;
 	char **envp;
 
-#define ENV(_name)  "UFTRACE_" #_name
+#define ENV(_name) "UFTRACE_" #_name
 
 	const char *const uftrace_env[] = {
-		ENV(FILTER), ENV(TRIGGER), ENV(ARGUMENT), ENV(RETVAL),
-		ENV(AUTO_ARGS), ENV(DEPTH), ENV(DISABLED), ENV(PIPE),
-		ENV(LOGFD), ENV(DEBUG), ENV(BUFFER), ENV(MAX_STACK),
-		ENV(COLOR), ENV(THRESHOLD), ENV(DEMANGLE), ENV(PLTHOOK),
-		ENV(PATCH), ENV(EVENT), ENV(SCRIPT), ENV(NEST_LIBCALL),
-		ENV(DEBUG_DOMAIN), ENV(LIST_EVENT), ENV(DIR),
-		ENV(KERNEL_PID_UPDATE), ENV(PATTERN),
+		ENV(FILTER),
+		ENV(TRIGGER),
+		ENV(ARGUMENT),
+		ENV(RETVAL),
+		ENV(AUTO_ARGS),
+		ENV(DEPTH),
+		ENV(DISABLED),
+		ENV(PIPE),
+		ENV(LOGFD),
+		ENV(DEBUG),
+		ENV(BUFFER),
+		ENV(MAX_STACK),
+		ENV(COLOR),
+		ENV(THRESHOLD),
+		ENV(DEMANGLE),
+		ENV(PLTHOOK),
+		ENV(PATCH),
+		ENV(EVENT),
+		ENV(SCRIPT),
+		ENV(NEST_LIBCALL),
+		ENV(DEBUG_DOMAIN),
+		ENV(LIST_EVENT),
+		ENV(DIR),
+		ENV(KERNEL_PID_UPDATE),
+		ENV(PATTERN),
 		/* not uftrace-specific, but necessary to run */
-		"LD_PRELOAD", "LD_LIBRARY_PATH",
+		"LD_PRELOAD",
+		"LD_LIBRARY_PATH",
 	};
 
 #undef ENV
@@ -206,7 +228,7 @@ static int count_envp(char *const *env)
 	return n;
 }
 
-static char ** merge_envp(char *const *env1, char **env2)
+static char **merge_envp(char *const *env1, char **env2)
 {
 	int i, n = 0;
 	char **envp;
@@ -231,41 +253,39 @@ static char ** merge_envp(char *const *env1, char **env2)
 static int (*real_backtrace)(void **buffer, int sz);
 static void (*real_cxa_throw)(void *exc, void *type, void *dest);
 static void (*real_cxa_rethrow)(void);
-static void * (*real_cxa_begin_catch)(void *exc);
+static void *(*real_cxa_begin_catch)(void *exc);
 static void (*real_cxa_end_catch)(void);
-static void * (*real_dlopen)(const char *filename, int flags);
+static void *(*real_dlopen)(const char *filename, int flags);
 static __noreturn void (*real_pthread_exit)(void *retval);
 static void (*real_unwind_resume)(void *exc);
 static int (*real_posix_spawn)(pid_t *pid, const char *path,
 			       const posix_spawn_file_actions_t *actions,
-			       const posix_spawnattr_t *attr,
-			       char *const argv[], char *const envp[]);
+			       const posix_spawnattr_t *attr, char *const argv[],
+			       char *const envp[]);
 static int (*real_posix_spawnp)(pid_t *pid, const char *file,
 				const posix_spawn_file_actions_t *actions,
-				const posix_spawnattr_t *attr,
-				char *const argv[], char *const envp[]);
+				const posix_spawnattr_t *attr, char *const argv[],
+				char *const envp[]);
 /* TODO: support execle() */
-static int (*real_execve)(const char *path, char *const argv[],
-			  char *const envp[]);
-static int (*real_execvpe)(const char *file, char *const argv[],
-			   char *const envp[]);
+static int (*real_execve)(const char *path, char *const argv[], char *const envp[]);
+static int (*real_execvpe)(const char *file, char *const argv[], char *const envp[]);
 static int (*real_fexecve)(int fd, char *const argv[], char *const envp[]);
 
 void mcount_hook_functions(void)
 {
-	real_backtrace		= dlsym(RTLD_NEXT, "backtrace");
-	real_cxa_throw		= dlsym(RTLD_NEXT, "__cxa_throw");
-	real_cxa_rethrow	= dlsym(RTLD_NEXT, "__cxa_rethrow");
-	real_cxa_begin_catch	= dlsym(RTLD_NEXT, "__cxa_begin_catch");
-	real_cxa_end_catch	= dlsym(RTLD_NEXT, "__cxa_end_catch");
-	real_dlopen		= dlsym(RTLD_NEXT, "dlopen");
-	real_pthread_exit	= dlsym(RTLD_NEXT, "pthread_exit");
-	real_unwind_resume	= dlsym(RTLD_NEXT, "_Unwind_Resume");
-	real_posix_spawn	= dlsym(RTLD_NEXT, "posix_spawn");
-	real_posix_spawnp	= dlsym(RTLD_NEXT, "posix_spawnp");
-	real_execve		= dlsym(RTLD_NEXT, "execve");
-	real_execvpe		= dlsym(RTLD_NEXT, "execvpe");
-	real_fexecve		= dlsym(RTLD_NEXT, "fexecve");
+	real_backtrace = dlsym(RTLD_NEXT, "backtrace");
+	real_cxa_throw = dlsym(RTLD_NEXT, "__cxa_throw");
+	real_cxa_rethrow = dlsym(RTLD_NEXT, "__cxa_rethrow");
+	real_cxa_begin_catch = dlsym(RTLD_NEXT, "__cxa_begin_catch");
+	real_cxa_end_catch = dlsym(RTLD_NEXT, "__cxa_end_catch");
+	real_dlopen = dlsym(RTLD_NEXT, "dlopen");
+	real_pthread_exit = dlsym(RTLD_NEXT, "pthread_exit");
+	real_unwind_resume = dlsym(RTLD_NEXT, "_Unwind_Resume");
+	real_posix_spawn = dlsym(RTLD_NEXT, "posix_spawn");
+	real_posix_spawnp = dlsym(RTLD_NEXT, "posix_spawnp");
+	real_execve = dlsym(RTLD_NEXT, "execve");
+	real_execvpe = dlsym(RTLD_NEXT, "execvpe");
+	real_fexecve = dlsym(RTLD_NEXT, "fexecve");
 }
 
 __visible_default int backtrace(void **buffer, int sz)
@@ -298,8 +318,7 @@ __visible_default void __cxa_throw(void *exception, void *type, void *dest)
 
 	mtdp = get_thread_data();
 	if (!check_thread_data(mtdp)) {
-		pr_dbg2("%s: exception thrown from [%d]\n",
-			__func__, mtdp->idx);
+		pr_dbg2("%s: exception thrown from [%d]\n", __func__, mtdp->idx);
 
 		mtdp->in_exception = true;
 
@@ -323,8 +342,7 @@ __visible_default void __cxa_rethrow(void)
 
 	mtdp = get_thread_data();
 	if (!check_thread_data(mtdp)) {
-		pr_dbg2("%s: exception rethrown from [%d]\n",
-			__func__, mtdp->idx);
+		pr_dbg2("%s: exception rethrown from [%d]\n", __func__, mtdp->idx);
 
 		mtdp->in_exception = true;
 
@@ -348,8 +366,7 @@ __visible_default void _Unwind_Resume(void *exception)
 
 	mtdp = get_thread_data();
 	if (!check_thread_data(mtdp)) {
-		pr_dbg2("%s: exception resumed on [%d]\n",
-			__func__, mtdp->idx);
+		pr_dbg2("%s: exception resumed on [%d]\n", __func__, mtdp->idx);
 
 		mtdp->in_exception = true;
 
@@ -364,7 +381,7 @@ __visible_default void _Unwind_Resume(void *exception)
 	real_unwind_resume(exception);
 }
 
-__visible_default void * __cxa_begin_catch(void *exception)
+__visible_default void *__cxa_begin_catch(void *exception)
 {
 	struct mcount_thread_data *mtdp;
 	void *obj;
@@ -375,13 +392,12 @@ __visible_default void * __cxa_begin_catch(void *exception)
 	obj = real_cxa_begin_catch(exception);
 
 	mtdp = get_thread_data();
-	if (!mcount_estimate_return && !check_thread_data(mtdp) &&
-	    unlikely(mtdp->in_exception)) {
+	if (!mcount_estimate_return && !check_thread_data(mtdp) && unlikely(mtdp->in_exception)) {
 		unsigned long *frame_ptr;
 		unsigned long frame_addr;
 
 		frame_ptr = __builtin_frame_address(0);
-		frame_addr = *frame_ptr;  /* XXX: probably dangerous */
+		frame_addr = *frame_ptr; /* XXX: probably dangerous */
 
 		/* basic sanity check */
 		if (frame_addr < (unsigned long)frame_ptr)
@@ -389,8 +405,7 @@ __visible_default void * __cxa_begin_catch(void *exception)
 
 		mcount_rstack_reset_exception(mtdp, frame_addr);
 		mtdp->in_exception = false;
-		pr_dbg2("%s: exception caught begin on [%d]\n",
-			__func__, mtdp->idx);
+		pr_dbg2("%s: exception caught begin on [%d]\n", __func__, mtdp->idx);
 	}
 
 	return obj;
@@ -405,7 +420,7 @@ __visible_default void __cxa_end_catch(void)
 	real_cxa_end_catch();
 }
 
-__visible_default void * dlopen(const char *filename, int flags)
+__visible_default void *dlopen(const char *filename, int flags)
 {
 	struct mcount_thread_data *mtdp;
 	struct dlopen_base_data data = {
@@ -476,8 +491,8 @@ __visible_default __noreturn void pthread_exit(void *retval)
 
 __visible_default int posix_spawn(pid_t *pid, const char *path,
 				  const posix_spawn_file_actions_t *actions,
-				  const posix_spawnattr_t *attr,
-				  char *const argv[], char *const envp[])
+				  const posix_spawnattr_t *attr, char *const argv[],
+				  char *const envp[])
 {
 	char **uftrace_envp;
 	char **new_envp;
@@ -494,8 +509,8 @@ __visible_default int posix_spawn(pid_t *pid, const char *path,
 
 __visible_default int posix_spawnp(pid_t *pid, const char *file,
 				   const posix_spawn_file_actions_t *actions,
-				   const posix_spawnattr_t *attr,
-				   char *const argv[], char *const envp[])
+				   const posix_spawnattr_t *attr, char *const argv[],
+				   char *const envp[])
 {
 	char **uftrace_envp;
 	char **new_envp;
@@ -510,8 +525,7 @@ __visible_default int posix_spawnp(pid_t *pid, const char *file,
 	return real_posix_spawnp(pid, file, actions, attr, argv, new_envp);
 }
 
-__visible_default int execve(const char *path, char *const argv[],
-			     char *const envp[])
+__visible_default int execve(const char *path, char *const argv[], char *const envp[])
 {
 	char **uftrace_envp;
 	char **new_envp;
@@ -526,8 +540,7 @@ __visible_default int execve(const char *path, char *const argv[],
 	return real_execve(path, argv, new_envp);
 }
 
-__visible_default int execvpe(const char *file, char *const argv[],
-			      char *const envp[])
+__visible_default int execvpe(const char *file, char *const argv[], char *const envp[])
 {
 	char **uftrace_envp;
 	char **new_envp;
@@ -567,8 +580,8 @@ TEST_CASE(mcount_wrap_dlopen)
 	if (unlikely(real_dlopen != NULL))
 		real_dlopen = NULL;
 
-	pr_dbg("calling %s (%s) should init all the wrappers\n",
-	       "dlopen", "or other wrapped function");
+	pr_dbg("calling %s (%s) should init all the wrappers\n", "dlopen",
+	       "or other wrapped function");
 	handle = dlopen(NULL, RTLD_LAZY);
 
 	TEST_NE(handle, NULL);

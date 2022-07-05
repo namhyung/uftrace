@@ -5,8 +5,8 @@
 #include <sys/uio.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "mcount"
-#define PR_DOMAIN  DBG_MCOUNT
+#define PR_FMT "mcount"
+#define PR_DOMAIN DBG_MCOUNT
 
 #include "libmcount/mcount.h"
 #include "libmcount/internal.h"
@@ -40,7 +40,6 @@ void update_kernel_tid(int tid)
 		pr_dbg("update kernel ftrace pid filter failed\n");
 
 	close(fd);
-
 
 	/* update pid filter for event tracing */
 	xasprintf(&filename, "%s/set_event_pid", TRACING_DIR);
@@ -80,8 +79,7 @@ const char *mcount_session_name(void)
 			session_id |= random();
 		}
 
-		snprintf(session, sizeof(session), "%0*"PRIx64,
-			 SESSION_ID_LEN, session_id);
+		snprintf(session, sizeof(session), "%0*" PRIx64, SESSION_ID_LEN, session_id);
 	}
 	return session;
 }
@@ -94,8 +92,14 @@ void uftrace_send_message(int type, void *data, size_t len)
 		.len = len,
 	};
 	struct iovec iov[2] = {
-		{ .iov_base = &msg, .iov_len = sizeof(msg), },
-		{ .iov_base = data, .iov_len = len, },
+		{
+			.iov_base = &msg,
+			.iov_len = sizeof(msg),
+		},
+		{
+			.iov_base = data,
+			.iov_len = len,
+		},
 	};
 
 	if (pfd < 0)
@@ -119,7 +123,7 @@ void build_debug_domain(char *dbg_domain_str)
 	for (i = 0; i < len; i += 2) {
 		const char *pos;
 		char domain = dbg_domain_str[i];
-		int level = dbg_domain_str[i+1] - '0';
+		int level = dbg_domain_str[i + 1] - '0';
 		int d;
 
 		pos = strchr(DBG_DOMAIN_STR, domain);
@@ -156,12 +160,10 @@ void mcount_rstack_restore(struct mcount_thread_data *mtdp)
 	for (idx = mtdp->idx - 1; idx >= 0; idx--) {
 		rstack = &mtdp->rstack[idx];
 
-		if (rstack->parent_ip == mcount_return_fn ||
-		    rstack->parent_ip == plthook_return_fn)
+		if (rstack->parent_ip == mcount_return_fn || rstack->parent_ip == plthook_return_fn)
 			continue;
 
-		if (!ARCH_CAN_RESTORE_PLTHOOK &&
-		    rstack->dyn_idx != MCOUNT_INVALID_DYNIDX) {
+		if (!ARCH_CAN_RESTORE_PLTHOOK && rstack->dyn_idx != MCOUNT_INVALID_DYNIDX) {
 			/*
 			 * We don't know exact location where the return address
 			 * was saved (on ARM/AArch64).  But we know that the
@@ -247,8 +249,7 @@ void mcount_auto_restore(struct mcount_thread_data *mtdp)
 	curr_rstack = &mtdp->rstack[mtdp->idx - 1];
 	prev_rstack = &mtdp->rstack[mtdp->idx - 2];
 
-	if (!ARCH_CAN_RESTORE_PLTHOOK &&
-	    prev_rstack->dyn_idx != MCOUNT_INVALID_DYNIDX)
+	if (!ARCH_CAN_RESTORE_PLTHOOK && prev_rstack->dyn_idx != MCOUNT_INVALID_DYNIDX)
 		return;
 
 	/* ignore tail calls */
@@ -259,8 +260,7 @@ void mcount_auto_restore(struct mcount_thread_data *mtdp)
 		unsigned long parent_ip = prev_rstack->parent_ip;
 
 		/* parent also can be tail-called; skip */
-		if (parent_ip == mcount_return_fn ||
-		    parent_ip == (unsigned long)plthook_return) {
+		if (parent_ip == mcount_return_fn || parent_ip == (unsigned long)plthook_return) {
 			prev_rstack--;
 			continue;
 		}
@@ -285,8 +285,7 @@ void mcount_auto_reset(struct mcount_thread_data *mtdp)
 	curr_rstack = &mtdp->rstack[mtdp->idx - 1];
 	prev_rstack = &mtdp->rstack[mtdp->idx - 2];
 
-	if (!ARCH_CAN_RESTORE_PLTHOOK &&
-	    prev_rstack->dyn_idx != MCOUNT_INVALID_DYNIDX)
+	if (!ARCH_CAN_RESTORE_PLTHOOK && prev_rstack->dyn_idx != MCOUNT_INVALID_DYNIDX)
 		return;
 
 	/* ignore tail calls */
@@ -317,7 +316,7 @@ TEST_CASE(mcount_debug_domain)
 
 	pr_dbg("turn on all domains\n");
 	for (i = 0; i < DBG_DOMAIN_MAX; i++) {
-		dbg_str[i * 2]     = DBG_DOMAIN_STR[i];
+		dbg_str[i * 2] = DBG_DOMAIN_STR[i];
 		dbg_str[i * 2 + 1] = '1';
 	}
 	dbg_str[i * 2] = '\0';

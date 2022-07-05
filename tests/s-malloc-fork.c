@@ -4,13 +4,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-void * (*real_malloc)(size_t sz);
-void * (*real_realloc)(void *ptr, size_t sz);
+void *(*real_malloc)(size_t sz);
+void *(*real_realloc)(void *ptr, size_t sz);
 void (*real_free)(void *ptr);
 
-#define ALIGN(n, a)  (((n) + (a) - 1) & ~((a) - 1))
+#define ALIGN(n, a) (((n) + (a)-1) & ~((a)-1))
 
-#define MALLOC_BUFSIZE  (128 * 1024 * 1024)
+#define MALLOC_BUFSIZE (128 * 1024 * 1024)
 /* this is needed for optimized binaries */
 static char buf[MALLOC_BUFSIZE];
 
@@ -66,13 +66,14 @@ void free(void *ptr)
 
 static void hook(void)
 {
-	real_malloc  = dlsym(RTLD_NEXT, "malloc");
+	real_malloc = dlsym(RTLD_NEXT, "malloc");
 	real_realloc = dlsym(RTLD_NEXT, "realloc");
-	real_free    = dlsym(RTLD_NEXT, "free");
+	real_free = dlsym(RTLD_NEXT, "free");
 }
 
-static __attribute__((section(".preinit_array")))
-void (*preinit_func_table[])(void) = { hook, };
+static __attribute__((section(".preinit_array"))) void (*preinit_func_table[])(void) = {
+	hook,
+};
 
 int main(void)
 {

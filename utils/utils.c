@@ -18,7 +18,6 @@
 #include "utils/kernel.h"
 #include "libtraceevent/event-parse.h"
 
-
 volatile bool uftrace_done;
 
 /* default uftrace options to be applied for analysis commands */
@@ -31,7 +30,7 @@ void sighandler(int sig)
 
 void setup_signal(void)
 {
-	signal(SIGINT,  sighandler);
+	signal(SIGINT, sighandler);
 	signal(SIGTERM, sighandler);
 	signal(SIGPIPE, sighandler);
 }
@@ -64,9 +63,9 @@ int pread_all(int fd, void *buf, size_t size, off_t off)
 		if (ret <= 0)
 			return -1;
 
-		buf  += ret;
+		buf += ret;
 		size -= ret;
-		off  += ret;
+		off += ret;
 	}
 	return 0;
 }
@@ -83,7 +82,7 @@ int fread_all(void *buf, size_t size, FILE *fp)
 		if (ferror(fp))
 			return -1;
 
-		buf  += ret;
+		buf += ret;
 		size -= ret;
 	}
 	return 0;
@@ -136,7 +135,7 @@ int writev_all(int fd, struct iovec *iov, int count)
 		}
 
 		iov->iov_base += ret;
-		iov->iov_len  -= ret;
+		iov->iov_len -= ret;
 	}
 	return 0;
 }
@@ -153,7 +152,7 @@ int fwrite_all(const void *buf, size_t size, FILE *fp)
 		if (ferror(fp))
 			return -1;
 
-		buf  += ret;
+		buf += ret;
 		size -= ret;
 	}
 	return 0;
@@ -175,8 +174,7 @@ int remove_directory(const char *dirname)
 	pr_dbg("removing %s directory\n", dirname);
 
 	while ((ent = readdir(dp)) != NULL) {
-		if (!strcmp(ent->d_name, ".") ||
-		    !strcmp(ent->d_name, ".."))
+		if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
 			continue;
 
 		snprintf(buf, sizeof(buf), "%s/%s", dirname, ent->d_name);
@@ -209,7 +207,9 @@ static bool is_uftrace_directory(const char *path)
 	int fd;
 	bool ret = false;
 	char *info_path = NULL;
-	char sig[UFTRACE_MAGIC_LEN] = {0,};
+	char sig[UFTRACE_MAGIC_LEN] = {
+		0,
+	};
 
 	/* ensure that there is "info" file in the recorded directory */
 	xasprintf(&info_path, "%s/info", path);
@@ -369,7 +369,7 @@ char *read_exename(void)
 	static char exename[PATH_MAX];
 
 	if (!*exename) {
-		len = readlink("/proc/self/exe", exename, sizeof(exename)-1);
+		len = readlink("/proc/self/exe", exename, sizeof(exename) - 1);
 		if (len < 0)
 			pr_err("cannot read executable name");
 
@@ -385,9 +385,9 @@ static const struct {
 	const char *name;
 	clockid_t clock_id;
 } trace_clocks[] = {
-	{ "mono",	CLOCK_MONOTONIC		},
-	{ "mono_raw",	CLOCK_MONOTONIC_RAW	},
-	{ "boot",	CLOCK_BOOTTIME		},
+	{ "mono", CLOCK_MONOTONIC },
+	{ "mono_raw", CLOCK_MONOTONIC_RAW },
+	{ "boot", CLOCK_BOOTTIME },
 };
 
 void setup_clock_id(const char *clock_str)
@@ -488,11 +488,10 @@ uint64_t parse_time(char *arg, int limited_digits)
 	for (i = 1; i < limited_digits; i++)
 		limited *= 10;
 	if (val >= limited)
-		pr_err_ns("Limited %d digits (before and after decimal point)\n",
-			  limited_digits);
+		pr_err_ns("Limited %d digits (before and after decimal point)\n", limited_digits);
 	/* ignore more digits than limited digits before decimal point */
 	while (decimal >= limited)
-		decimal /=10;
+		decimal /= 10;
 
 	/*
 	 * if the unit is omitted, it is regarded as default unit 'ns'.
@@ -575,7 +574,7 @@ uint64_t parse_timestamp(char *arg)
  * a copy of @right will be returned.  @left must be dynamically allocated
  * buffer so that it can be passed to realloc.
  */
-char * strjoin(char *left, char *right, const char *delim)
+char *strjoin(char *left, char *right, const char *delim)
 {
 	size_t llen = left ? strlen(left) : 0;
 	size_t rlen = strlen(right);
@@ -617,7 +616,7 @@ void strv_split(struct strv *strv, const char *str, const char *delim)
 	}
 
 	strv->nr = c;
-	strv->p = xcalloc(c + 1, sizeof(*strv->p));  /* including NULL at last */
+	strv->p = xcalloc(c + 1, sizeof(*strv->p)); /* including NULL at last */
 
 	c = 0;
 	tmp = saved_str;
@@ -691,7 +690,7 @@ void strv_replace(struct strv *strv, int idx, const char *str)
  * @strv with @delim.  Note that if @strv contains a single string,
  * @delim will be omitted and a copy of @right will be returned.
  */
-char * strv_join(struct strv *strv, const char *delim)
+char *strv_join(struct strv *strv, const char *delim)
 {
 	int i;
 	char *s;
@@ -727,7 +726,7 @@ void strv_free(struct strv *strv)
 #define QUOTES "\'\""
 
 /* escape double-quote with backslash - caller should free the returned string */
-char * json_quote(char *str, int *len)
+char *json_quote(char *str, int *len)
 {
 	char *p = str;
 	int quote = 0;
@@ -771,7 +770,7 @@ static int setargs(char *args, char **argv)
 		/* consider quotes and update argv */
 		if (*args == QUOTE) {
 			++args;
-			if (*args == QUOTE )
+			if (*args == QUOTE)
 				continue;
 			if (argv)
 				argv[count] = args;
@@ -862,7 +861,6 @@ char **parse_cmdline(char *cmd, int *argc)
 	return &argv[1];
 }
 
-
 /**
  * free_parsed_cmdline - free memory that was allocated by parse_cmdline
  * @argv: result of parse_cmdline
@@ -911,7 +909,7 @@ char *absolute_dirname(const char *path, char *resolved_path)
 
 char *uftrace_strerror(int errnum, char *buf, size_t buflen)
 {
-	long result = (long) strerror_r(errnum, buf, buflen);
+	long result = (long)strerror_r(errnum, buf, buflen);
 
 	if (result == 0)
 		/* XSI-compliant strerror_r succeed */
@@ -940,7 +938,7 @@ void stacktrace(void)
 
 	pr_yellow("Stack trace:\n");
 	while (unw_step(&cursor) && i < max_depth && !out) {
-		char symbol[256] = {"<unknown>"};
+		char symbol[256] = { "<unknown>" };
 		char *name = symbol;
 		unw_word_t ip, off;
 
@@ -951,11 +949,8 @@ void stacktrace(void)
 		if (!unw_get_proc_name(&cursor, symbol, sizeof(symbol), &off))
 			name = symbol;
 
-		pr_yellow("  #%-2d 0x%012" PRIxPTR " %s + 0x%" PRIxPTR "\n",
-				++i,
-				(uintptr_t)(ip),
-				name,
-				(uintptr_t)(off));
+		pr_yellow("  #%-2d 0x%012" PRIxPTR " %s + 0x%" PRIxPTR "\n", ++i, (uintptr_t)(ip),
+			  name, (uintptr_t)(off));
 
 		/*
 		 * plt_hooker goes into infinite loop with unwinding.
@@ -1035,7 +1030,7 @@ TEST_CASE(utils_strv)
 	int i;
 
 	const char test_str[] = "abc;def;xyz";
-	const char * test_array[] = { "abc", "def", "xyz" };
+	const char *test_array[] = { "abc", "def", "xyz" };
 
 	TEST_EQ(strv.nr, 0);
 	TEST_EQ(strv.p, NULL);

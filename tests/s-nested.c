@@ -4,7 +4,8 @@ int foo(void)
 {
 	int count = 0;
 
-	__attribute__((noinline)) int foo_internal(void) {
+	__attribute__((noinline)) int foo_internal(void)
+	{
 		return count++;
 	}
 
@@ -15,14 +16,15 @@ int bar(void)
 {
 	int arr[3] = { 2, 3, 1 };
 
-	__attribute__((noinline)) int compar(const void *a, const void *b) {
+	__attribute__((noinline)) int compar(const void *a, const void *b)
+	{
 		const int *ai = a;
 		const int *bi = b;
 
 		return *ai - *bi;
 	}
 
-	qsort(arr, sizeof(arr)/sizeof(arr[0]), sizeof(arr[0]), compar);
+	qsort(arr, sizeof(arr) / sizeof(arr[0]), sizeof(arr[0]), compar);
 
 	if (arr[0] != 1 || arr[1] != 2 || arr[2] != 3)
 		return 1;

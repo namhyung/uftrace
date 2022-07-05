@@ -5,8 +5,8 @@
 #include <unistd.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "symbol"
-#define PR_DOMAIN  DBG_SYMBOL
+#define PR_FMT "symbol"
+#define PR_DOMAIN DBG_SYMBOL
 
 #include "utils/utils.h"
 #include "utils/symbol-libelf.h"
@@ -56,17 +56,15 @@ void elf_finish(struct uftrace_elf_data *elf)
 	elf->fd = -1;
 }
 
-void elf_get_secdata(struct uftrace_elf_data *elf,
-		     struct uftrace_elf_iter *iter)
+void elf_get_secdata(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter)
 {
 	iter->data = elf_getdata((iter)->scn, NULL);
 }
 
-void elf_read_secdata(struct uftrace_elf_data *elf,
-		      struct uftrace_elf_iter *iter,
-		      unsigned offset, void *buf, size_t len)
+void elf_read_secdata(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter, unsigned offset,
+		      void *buf, size_t len)
 {
 	memcpy(buf, iter->data->d_buf + offset, len);
 }
 
-#endif  /* HAVE_LIBELF */
+#endif /* HAVE_LIBELF */

@@ -3,8 +3,8 @@
 #include <unistd.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "dynamic"
-#define PR_DOMAIN  DBG_DYNAMIC
+#define PR_FMT "dynamic"
+#define PR_DOMAIN DBG_DYNAMIC
 
 #include "mcount-arch.h"
 #include "libmcount/internal.h"
@@ -30,27 +30,24 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 		trampoline_size *= 2;
 
 	/* find unused 16-byte at the end of the code segment */
-	mdi->trampoline  = ALIGN(mdi->text_addr + mdi->text_size, PAGE_SIZE);
+	mdi->trampoline = ALIGN(mdi->text_addr + mdi->text_size, PAGE_SIZE);
 	mdi->trampoline -= trampoline_size;
 
 	if (unlikely(mdi->trampoline < mdi->text_addr + mdi->text_size)) {
 		mdi->trampoline += trampoline_size;
-		mdi->text_size  += PAGE_SIZE;
+		mdi->text_size += PAGE_SIZE;
 
-		pr_dbg2("adding a page for fentry trampoline at %#lx\n",
-			mdi->trampoline);
+		pr_dbg2("adding a page for fentry trampoline at %#lx\n", mdi->trampoline);
 
 		trampoline_check = mmap((void *)mdi->trampoline, PAGE_SIZE,
 					PROT_READ | PROT_WRITE | PROT_EXEC,
-		     			MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS,
-					-1, 0);
+					MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
 		if (trampoline_check == MAP_FAILED)
 			pr_err("failed to mmap trampoline for setup");
 	}
 
-	if (mprotect(PAGE_ADDR(mdi->text_addr),
-			 PAGE_LEN(mdi->text_addr, mdi->text_size),
+	if (mprotect(PAGE_ADDR(mdi->text_addr), PAGE_LEN(mdi->text_addr, mdi->text_size),
 		     PROT_READ | PROT_WRITE | PROT_EXEC)) {
 		pr_dbg("cannot setup trampoline due to protection: %m\n");
 		return -1;
@@ -59,19 +56,19 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 	if (mdi->type == DYNAMIC_XRAY) {
 		/* jmpq  *0x1(%rip)     # <xray_entry_addr> */
 		memcpy((void *)mdi->trampoline, trampoline, sizeof(trampoline));
-		memcpy((void *)mdi->trampoline + sizeof(trampoline),
-		       &xray_entry_addr, sizeof(xray_entry_addr));
+		memcpy((void *)mdi->trampoline + sizeof(trampoline), &xray_entry_addr,
+		       sizeof(xray_entry_addr));
 
 		/* jmpq  *0x1(%rip)     # <xray_exit_addr> */
 		memcpy((void *)mdi->trampoline + 16, trampoline, sizeof(trampoline));
-		memcpy((void *)mdi->trampoline + 16 + sizeof(trampoline),
-		       &xray_exit_addr, sizeof(xray_exit_addr));
+		memcpy((void *)mdi->trampoline + 16 + sizeof(trampoline), &xray_exit_addr,
+		       sizeof(xray_exit_addr));
 	}
 	else if (mdi->type == DYNAMIC_FENTRY_NOP || mdi->type == DYNAMIC_PATCHABLE) {
 		/* jmpq  *0x1(%rip)     # <fentry_addr> */
 		memcpy((void *)mdi->trampoline, trampoline, sizeof(trampoline));
-		memcpy((void *)mdi->trampoline + sizeof(trampoline),
-		       &fentry_addr, sizeof(fentry_addr));
+		memcpy((void *)mdi->trampoline + sizeof(trampoline), &fentry_addr,
+		       sizeof(fentry_addr));
 	}
 	else if (mdi->type == DYNAMIC_NONE) {
 #ifdef HAVE_LIBCAPSTONE
@@ -79,8 +76,8 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 
 		/* jmpq  *0x2(%rip)     # <dentry_addr> */
 		memcpy((void *)mdi->trampoline, trampoline, sizeof(trampoline));
-		memcpy((void *)mdi->trampoline + sizeof(trampoline),
-		       &dentry_addr, sizeof(dentry_addr));
+		memcpy((void *)mdi->trampoline + sizeof(trampoline), &dentry_addr,
+		       sizeof(dentry_addr));
 #endif
 	}
 	return 0;
@@ -88,16 +85,13 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 
 void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi)
 {
-	if (mprotect(PAGE_ADDR(mdi->text_addr),
-		     PAGE_LEN(mdi->text_addr, mdi->text_size),
+	if (mprotect(PAGE_ADDR(mdi->text_addr), PAGE_LEN(mdi->text_addr, mdi->text_size),
 		     PROT_READ | PROT_EXEC))
 		pr_err("cannot restore trampoline due to protection");
 }
 
-static void read_xray_map(struct mcount_dynamic_info *mdi,
-			  struct uftrace_elf_data *elf,
-			  struct uftrace_elf_iter *iter,
-			  unsigned long offset)
+static void read_xray_map(struct mcount_dynamic_info *mdi, struct uftrace_elf_data *elf,
+			  struct uftrace_elf_iter *iter, unsigned long offset)
 {
 	struct xray_instr_map *xrmap;
 	unsigned i;
@@ -110,7 +104,7 @@ static void read_xray_map(struct mcount_dynamic_info *mdi,
 	elf_read_secdata(elf, iter, 0, mdi->patch_target, shdr->sh_size);
 
 	for (i = 0; i < mdi->nr_patch_target; i++) {
-		xrmap = &((struct xray_instr_map*)mdi->patch_target)[i];
+		xrmap = &((struct xray_instr_map *)mdi->patch_target)[i];
 
 		if (xrmap->version == 2) {
 			xrmap->address += offset + (shdr->sh_offset + i * sizeof(*xrmap));
@@ -123,10 +117,8 @@ static void read_xray_map(struct mcount_dynamic_info *mdi,
 	}
 }
 
-static void read_mcount_loc(struct mcount_dynamic_info *mdi,
-			    struct uftrace_elf_data *elf,
-			    struct uftrace_elf_iter *iter,
-			    unsigned long offset)
+static void read_mcount_loc(struct mcount_dynamic_info *mdi, struct uftrace_elf_data *elf,
+			    struct uftrace_elf_iter *iter, unsigned long offset)
 {
 	typeof(iter->shdr) *shdr = &iter->shdr;
 
@@ -147,10 +139,8 @@ static void read_mcount_loc(struct mcount_dynamic_info *mdi,
 	}
 }
 
-static void read_patchable_loc(struct mcount_dynamic_info *mdi,
-			    struct uftrace_elf_data *elf,
-			    struct uftrace_elf_iter *iter,
-			    unsigned long offset)
+static void read_patchable_loc(struct mcount_dynamic_info *mdi, struct uftrace_elf_data *elf,
+			       struct uftrace_elf_iter *iter, unsigned long offset)
 {
 	typeof(iter->shdr) *shdr = &iter->shdr;
 
@@ -171,8 +161,7 @@ static void read_patchable_loc(struct mcount_dynamic_info *mdi,
 	}
 }
 
-void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
-			     struct uftrace_symtab *symtab)
+void mcount_arch_find_module(struct mcount_dynamic_info *mdi, struct uftrace_symtab *symtab)
 {
 	struct uftrace_elf_data elf;
 	struct uftrace_elf_iter iter;
@@ -250,8 +239,8 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 	}
 
 out:
-	pr_dbg("dynamic patch type: %s: %d (%s)\n", basename(mdi->map->libname),
-	       mdi->type, mdi_type_names[mdi->type]);
+	pr_dbg("dynamic patch type: %s: %d (%s)\n", basename(mdi->map->libname), mdi->type,
+	       mdi_type_names[mdi->type]);
 
 	elf_finish(&elf);
 }
@@ -285,8 +274,7 @@ static int patch_fentry_code(struct mcount_dynamic_info *mdi, struct uftrace_sym
 	/* hopefully we're not patching 'memcpy' itself */
 	memcpy(&insn[1], &target_addr, sizeof(target_addr));
 
-	pr_dbg3("update %p for '%s' function dynamically to call __fentry__\n",
-		insn, sym->name);
+	pr_dbg3("update %p for '%s' function dynamically to call __fentry__\n", insn, sym->name);
 
 	return INSTRUMENT_SUCCESS;
 }
@@ -306,9 +294,8 @@ static int update_xray_code(struct mcount_dynamic_info *mdi, struct uftrace_symb
 			    struct xray_instr_map *xrmap)
 {
 	unsigned char entry_insn[] = { 0xeb, 0x09 };
-	unsigned char exit_insn[]  = { 0xc3, 0x2e };
-	unsigned char pad[] = { 0x66, 0x0f, 0x1f, 0x84, 0x00,
-				0x00, 0x02, 0x00, 0x00 };
+	unsigned char exit_insn[] = { 0xc3, 0x2e };
+	unsigned char pad[] = { 0x66, 0x0f, 0x1f, 0x84, 0x00, 0x00, 0x02, 0x00, 0x00 };
 	unsigned char nop6[] = { 0x66, 0x0f, 0x1f, 0x44, 0x00, 0x00 };
 	unsigned char nop4[] = { 0x0f, 0x1f, 0x40, 0x00 };
 	unsigned int target_addr;
@@ -321,7 +308,7 @@ static int update_xray_code(struct mcount_dynamic_info *mdi, struct uftrace_symb
 	if (memcmp(func + 2, pad, sizeof(pad)))
 		return INSTRUMENT_FAILED;
 
-	if (xrmap->kind == 0) {  /* ENTRY */
+	if (xrmap->kind == 0) { /* ENTRY */
 		if (memcmp(func, entry_insn, sizeof(entry_insn)))
 			return INSTRUMENT_FAILED;
 
@@ -330,13 +317,13 @@ static int update_xray_code(struct mcount_dynamic_info *mdi, struct uftrace_symb
 		memcpy(func + 5, nop6, sizeof(nop6));
 
 		/* need to write patch_word atomically */
-		patch.bytes[0] = 0xe8;  /* "call" insn */
+		patch.bytes[0] = 0xe8; /* "call" insn */
 		memcpy(&patch.bytes[1], &target_addr, sizeof(target_addr));
 		memcpy(&patch.bytes[5], nop6, 3);
 
 		memcpy(func, patch.bytes, sizeof(patch));
 	}
-	else {  /* EXIT */
+	else { /* EXIT */
 		if (memcmp(func, exit_insn, sizeof(exit_insn)))
 			return INSTRUMENT_FAILED;
 
@@ -345,15 +332,15 @@ static int update_xray_code(struct mcount_dynamic_info *mdi, struct uftrace_symb
 		memcpy(func + 5, nop4, sizeof(nop4));
 
 		/* need to write patch_word atomically */
-		patch.bytes[0] = 0xe9;  /* "jmp" insn */
+		patch.bytes[0] = 0xe9; /* "jmp" insn */
 		memcpy(&patch.bytes[1], &target_addr, sizeof(target_addr));
 		memcpy(&patch.bytes[5], nop4, 3);
 
 		memcpy(func, patch.bytes, sizeof(patch));
 	}
 
-	pr_dbg3("update %p for '%s' function %s dynamically to call xray functions\n",
-		func, sym->name, xrmap->kind == 0 ? "entry" : "exit ");
+	pr_dbg3("update %p for '%s' function %s dynamically to call xray functions\n", func,
+		sym->name, xrmap->kind == 0 ? "entry" : "exit ");
 	return INSTRUMENT_SUCCESS;
 }
 
@@ -366,7 +353,7 @@ static int patch_xray_func(struct mcount_dynamic_info *mdi, struct uftrace_symbo
 
 	/* xray provides a pair of entry and exit (or more) */
 	for (i = 0; i < mdi->nr_patch_target; i++) {
-		xrmap = &((struct xray_instr_map*)mdi->patch_target)[i];
+		xrmap = &((struct xray_instr_map *)mdi->patch_target)[i];
 
 		if (xrmap->address < sym_addr || xrmap->address >= sym_addr + sym->size)
 			continue;
@@ -432,8 +419,7 @@ static int patch_xray_func(struct mcount_dynamic_info *mdi, struct uftrace_symbo
 /*
  * Patch the instruction to the address as given for arguments.
  */
-static void patch_code(struct mcount_dynamic_info *mdi,
-		       struct mcount_disasm_info *info)
+static void patch_code(struct mcount_dynamic_info *mdi, struct mcount_disasm_info *info)
 {
 	void *origin_code_addr;
 	unsigned char call_insn[] = { 0xe8, 0x00, 0x00, 0x00, 0x00 };
@@ -470,21 +456,24 @@ static void patch_code(struct mcount_dynamic_info *mdi,
 	 * dynamic: 0x400554[01]:nop
 	 */
 	memcpy(origin_code_addr, call_insn, CALL_INSN_SIZE);
-	memset(origin_code_addr + CALL_INSN_SIZE, 0x90,  /* NOP */
+	memset(origin_code_addr + CALL_INSN_SIZE, 0x90, /* NOP */
 	       info->orig_size - CALL_INSN_SIZE);
 
 	/* flush icache so that cpu can execute the new insn */
-	__builtin___clear_cache(origin_code_addr,
-				origin_code_addr + info->orig_size);
+	__builtin___clear_cache(origin_code_addr, origin_code_addr + info->orig_size);
 }
 
 static int patch_normal_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
 			     struct mcount_disasm_engine *disasm)
 {
-	uint8_t jmp_insn[15] = { 0x3e, 0xff, 0x25, };
+	uint8_t jmp_insn[15] = {
+		0x3e,
+		0xff,
+		0x25,
+	};
 	uint64_t jmp_target;
 	struct mcount_disasm_info info = {
-		.sym  = sym,
+		.sym = sym,
 		.addr = mdi->map->start + sym->addr,
 	};
 	unsigned call_offset = CALL_INSN_SIZE;
@@ -492,13 +481,11 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct uftrace_sym
 
 	state = disasm_check_insns(disasm, mdi, &info);
 	if (state != INSTRUMENT_SUCCESS) {
-		pr_dbg3("  >> %s: %s\n", state == INSTRUMENT_FAILED ? "FAIL" : "SKIP",
-			sym->name);
+		pr_dbg3("  >> %s: %s\n", state == INSTRUMENT_FAILED ? "FAIL" : "SKIP", sym->name);
 		return state;
 	}
 
-	pr_dbg2("force patch normal func: %s (patch size: %d)\n",
-		sym->name, info.orig_size);
+	pr_dbg2("force patch normal func: %s (patch size: %d)\n", sym->name, info.orig_size);
 
 	/*
 	 *  stored origin instruction block:
@@ -578,11 +565,10 @@ static int unpatch_mcount_func(struct mcount_dynamic_info *mdi, struct uftrace_s
 	uintptr_t *loc;
 
 	if (mdi->nr_patch_target != 0) {
-		loc = bsearch(sym, mcount_loc, mdi->nr_patch_target,
-			       sizeof(*mcount_loc), cmp_loc);
+		loc = bsearch(sym, mcount_loc, mdi->nr_patch_target, sizeof(*mcount_loc), cmp_loc);
 
 		if (loc != NULL) {
-			uint8_t *insn = (uint8_t*) *loc;
+			uint8_t *insn = (uint8_t *)*loc;
 			return unpatch_func(insn + mdi->map->start, sym->name);
 		}
 	}
@@ -591,8 +577,7 @@ static int unpatch_mcount_func(struct mcount_dynamic_info *mdi, struct uftrace_s
 }
 
 int mcount_patch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
-		      struct mcount_disasm_engine *disasm,
-		      unsigned min_size)
+		      struct mcount_disasm_engine *disasm, unsigned min_size)
 {
 	int result = INSTRUMENT_SKIPPED;
 
@@ -700,15 +685,18 @@ int mcount_arch_branch_table_size(struct mcount_disasm_info *info)
 	return count * ARCH_BRANCH_ENTRY_SIZE;
 }
 
-void mcount_arch_patch_branch(struct mcount_disasm_info *info,
-			      struct mcount_orig_insn *orig)
+void mcount_arch_patch_branch(struct mcount_disasm_info *info, struct mcount_orig_insn *orig)
 {
 	/*
 	 * The first entry in the table starts right after the out-of-line
 	 * execution buffer.
 	 */
 	uint64_t entry_offset = orig->insn_size;
-	uint8_t trampoline[ARCH_TRAMPOLINE_SIZE] = { 0x3e, 0xff, 0x25, };
+	uint8_t trampoline[ARCH_TRAMPOLINE_SIZE] = {
+		0x3e,
+		0xff,
+		0x25,
+	};
 	struct cond_branch_info *jcc_info;
 	unsigned long jcc_target;
 	unsigned long jcc_index;

@@ -2,8 +2,8 @@
 #include <stdint.h>
 #include <unistd.h>
 
-#define PR_FMT     "session"
-#define PR_DOMAIN  DBG_SESSION
+#define PR_FMT "session"
+#define PR_DOMAIN DBG_SESSION
 
 #include "uftrace.h"
 #include "utils/symbol.h"
@@ -50,8 +50,8 @@ void read_session_map(char *dirname, struct uftrace_sym_info *sinfo, char *sid)
 		build_id[0] = '\0';
 
 		/* skip anon mappings */
-		if (sscanf(buf, "%"PRIx64"-%"PRIx64" %s %*x %*x:%*x %*d %s %s",
-			   &start, &end, prot, path, build_id) < 4) {
+		if (sscanf(buf, "%" PRIx64 "-%" PRIx64 " %s %*x %*x:%*x %*d %s %s", &start, &end,
+			   prot, path, build_id) < 4) {
 			pr_dbg("sscanf failed\n");
 			continue;
 		}
@@ -88,8 +88,7 @@ void read_session_map(char *dirname, struct uftrace_sym_info *sinfo, char *sid)
 		}
 
 		/* set mapping of main executable */
-		if (sinfo->exec_map == NULL && sinfo->filename &&
-		    !strcmp(path, sinfo->filename)) {
+		if (sinfo->exec_map == NULL && sinfo->filename && !strcmp(path, sinfo->filename)) {
 			sinfo->exec_map = map;
 		}
 
@@ -146,7 +145,6 @@ void update_session_map(const char *filename)
 	if (ofp == NULL)
 		pr_err("cannot create new map file: %s", buf);
 
-
 	while (fgets(buf, sizeof(buf), ifp) != NULL) {
 		char path[PATH_MAX];
 		char build_id[BUILD_ID_STR_SIZE];
@@ -195,9 +193,9 @@ next:
  * session will be added to sessions tree sorted by pid and timestamp.
  * Also it loads symbol table and debug info if needed.
  */
-void create_session(struct uftrace_session_link *sessions,
-		    struct uftrace_msg_sess *msg, char *dirname, char *symdir, char *exename,
-		    bool sym_rel_addr, bool needs_symtab, bool needs_srcline)
+void create_session(struct uftrace_session_link *sessions, struct uftrace_msg_sess *msg,
+		    char *dirname, char *symdir, char *exename, bool sym_rel_addr,
+		    bool needs_symtab, bool needs_srcline)
 {
 	struct uftrace_session *s;
 	struct uftrace_task *t;
@@ -230,8 +228,7 @@ void create_session(struct uftrace_session_link *sessions,
 	s->filters = RB_ROOT;
 	INIT_LIST_HEAD(&s->dlopen_libs);
 
-	pr_dbg2("new session: pid = %d, session = %.*s\n",
-		s->pid, SESSION_ID_LEN, s->sid);
+	pr_dbg2("new session: pid = %d, session = %.*s\n", s->pid, SESSION_ID_LEN, s->sid);
 
 	if (needs_symtab) {
 		s->sym_info.dirname = dirname;
@@ -262,8 +259,8 @@ void create_session(struct uftrace_session_link *sessions,
 	rb_insert_color(&s->node, &sessions->root);
 }
 
-static struct uftrace_session *find_session(struct uftrace_session_link *sessions,
-					    int pid, uint64_t timestamp)
+static struct uftrace_session *find_session(struct uftrace_session_link *sessions, int pid,
+					    uint64_t timestamp)
 {
 	struct uftrace_session *iter;
 	struct uftrace_session *s = NULL;
@@ -299,8 +296,7 @@ static struct uftrace_session *find_session(struct uftrace_session_link *session
  * @arg.  As the @callback returns a non-zero value, it'll stop and
  * return in the middle.
  */
-void walk_sessions(struct uftrace_session_link *sessions,
-		   walk_sessions_cb_t callback, void *arg)
+void walk_sessions(struct uftrace_session_link *sessions, walk_sessions_cb_t callback, void *arg)
 {
 	struct rb_node *n = rb_first(&sessions->root);
 	struct uftrace_session *s;
@@ -322,8 +318,7 @@ void walk_sessions(struct uftrace_session_link *sessions,
  *
  * This function returns a matching session or %NULL.
  */
-struct uftrace_session *
-get_session_from_sid(struct uftrace_session_link *sessions, char sid[])
+struct uftrace_session *get_session_from_sid(struct uftrace_session_link *sessions, char sid[])
 {
 	struct rb_node *n = rb_first(&sessions->root);
 	struct uftrace_session *s;
@@ -350,8 +345,8 @@ get_session_from_sid(struct uftrace_session_link *sessions, char sid[])
  * Instead of creating a new session, it just adds the library information
  * to the @sess.
  */
-void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp,
-			unsigned long base_addr, const char *libname)
+void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp, unsigned long base_addr,
+			const char *libname)
 {
 	struct uftrace_dlopen_list *udl, *pos;
 	char build_id[BUILD_ID_STR_SIZE];
@@ -379,8 +374,8 @@ void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp,
  * @sess using @addr.  The @timestamp is needed to determine which
  * library should be searched.
  */
-struct uftrace_symbol * session_find_dlsym(struct uftrace_session *sess,
-					   uint64_t timestamp, unsigned long addr)
+struct uftrace_symbol *session_find_dlsym(struct uftrace_session *sess, uint64_t timestamp,
+					  unsigned long addr)
 {
 	struct uftrace_dlopen_list *pos;
 	struct uftrace_symbol *sym;
@@ -459,8 +454,7 @@ static void add_session_ref(struct uftrace_task *task, struct uftrace_session *s
 	sref->start = timestamp;
 	sref->end = -1ULL;
 
-	pr_dbg2("task session: tid = %d, session = %.*s\n",
-		task->tid, SESSION_ID_LEN, sess->sid);
+	pr_dbg2("task session: tid = %d, session = %.*s\n", task->tid, SESSION_ID_LEN, sess->sid);
 	task->sref_last = sref;
 }
 
@@ -476,8 +470,7 @@ static void add_session_ref(struct uftrace_task *task, struct uftrace_session *s
  * list of parent or thread-leader.
  */
 struct uftrace_session *find_task_session(struct uftrace_session_link *sessions,
-					  struct uftrace_task *task,
-					  uint64_t timestamp)
+					  struct uftrace_task *task, uint64_t timestamp)
 {
 	int parent_id;
 	struct uftrace_sess_ref *ref;
@@ -514,8 +507,7 @@ struct uftrace_session *find_task_session(struct uftrace_session_link *sessions,
  * The newly created task will have a reference to a session if
  * @needs_session is %true.
  */
-void create_task(struct uftrace_session_link *sessions,
-		 struct uftrace_msg_task *msg, bool fork)
+void create_task(struct uftrace_session_link *sessions, struct uftrace_msg_task *msg, bool fork)
 {
 	struct uftrace_task *t;
 	struct uftrace_task *pt;
@@ -567,9 +559,8 @@ void create_task(struct uftrace_session_link *sessions,
 		t->comm[sizeof(t->comm) - 1] = '\0';
 	}
 
-	pr_dbg2("new task: tid = %d (%.*s), session = %-.*s\n",
-		t->tid, sizeof(t->comm), s ? t->comm : "unknown",
-		SESSION_ID_LEN, s ? s->sid : "unknown");
+	pr_dbg2("new task: tid = %d (%.*s), session = %-.*s\n", t->tid, sizeof(t->comm),
+		s ? t->comm : "unknown", SESSION_ID_LEN, s ? s->sid : "unknown");
 
 	if (sessions->first_task == NULL)
 		sessions->first_task = t;
@@ -641,8 +632,7 @@ struct uftrace_task *find_task(struct uftrace_session_link *sessions, int tid)
  * @arg.  As the @callback returns a non-zero value, it'll stop and
  * return in the middle.
  */
-void walk_tasks(struct uftrace_session_link *sessions,
-		walk_tasks_cb_t callback, void *arg)
+void walk_tasks(struct uftrace_session_link *sessions, walk_tasks_cb_t callback, void *arg)
 {
 	struct rb_node *n = rb_first(&sessions->tasks);
 	struct uftrace_task *t;
@@ -665,9 +655,8 @@ void walk_tasks(struct uftrace_session_link *sessions,
  *
  * This function looks up symbol table in current session.
  */
-struct uftrace_symbol * task_find_sym(struct uftrace_session_link *sessions,
-				      struct uftrace_task_reader *task,
-				      struct uftrace_record *rec)
+struct uftrace_symbol *task_find_sym(struct uftrace_session_link *sessions,
+				     struct uftrace_task_reader *task, struct uftrace_record *rec)
 {
 	struct uftrace_session *sess;
 	struct uftrace_sym_info *sinfo;
@@ -703,9 +692,9 @@ struct uftrace_symbol * task_find_sym(struct uftrace_session_link *sessions,
  *
  * This function looks up symbol table in current session.
  */
-struct uftrace_symbol * task_find_sym_addr(struct uftrace_session_link *sessions,
-					   struct uftrace_task_reader *task,
-					   uint64_t time, uint64_t addr)
+struct uftrace_symbol *task_find_sym_addr(struct uftrace_session_link *sessions,
+					  struct uftrace_task_reader *task, uint64_t time,
+					  uint64_t addr)
 {
 	struct uftrace_session *sess;
 	struct uftrace_symbol *sym = NULL;
@@ -726,8 +715,7 @@ struct uftrace_symbol * task_find_sym_addr(struct uftrace_session_link *sessions
 		sym = session_find_dlsym(sess, time, addr);
 
 	if (sym == NULL) {
-		if (EVENT_ID_PERF_SCHED_IN == addr ||
-		    EVENT_ID_PERF_SCHED_OUT == addr ||
+		if (EVENT_ID_PERF_SCHED_IN == addr || EVENT_ID_PERF_SCHED_OUT == addr ||
 		    EVENT_ID_PERF_SCHED_BOTH == addr)
 			return &sched_sym;
 	}
@@ -745,9 +733,9 @@ struct uftrace_symbol * task_find_sym_addr(struct uftrace_session_link *sessions
  * This function returns a debug location of symbol
  * that looked up in symbol table in current session
  */
-struct uftrace_dbg_loc * task_find_loc_addr(struct uftrace_session_link *sessions,
-					    struct uftrace_task_reader *task,
-					    uint64_t time, uint64_t addr)
+struct uftrace_dbg_loc *task_find_loc_addr(struct uftrace_session_link *sessions,
+					   struct uftrace_task_reader *task, uint64_t time,
+					   uint64_t addr)
 {
 	struct uftrace_session *sess;
 	struct uftrace_symbol *sym = NULL;
@@ -795,9 +783,8 @@ struct uftrace_dbg_loc * task_find_loc_addr(struct uftrace_session_link *session
 #ifdef UNIT_TEST
 
 static struct uftrace_session_link test_sessions;
-static const char session_map[] =
-	"00400000-00401000 r-xp 00000000 08:03 4096 unittest\n"
-	"bfff0000-bffff000 rw-p 00000000 08:03 4096 [stack]\n";
+static const char session_map[] = "00400000-00401000 r-xp 00000000 08:03 4096 unittest\n"
+				  "bfff0000-bffff000 rw-p 00000000 08:03 4096 [stack]\n";
 static const char session_map_with_build_id[] =
 	"00400000-00401000 r-xp 00000000 08:03 4096 unittest build-id:1234567890abcdef\n"
 	"5f98a000-5fa8c000 r-xp 00000000 08:03 4096 libc.so\n"
@@ -824,10 +811,9 @@ TEST_CASE(session_search)
 		int fd;
 
 		fd = creat("sid-test.map", 0400);
-		write_all(fd, session_map, sizeof(session_map)-1);
+		write_all(fd, session_map, sizeof(session_map) - 1);
 		close(fd);
-		create_session(&test_sessions, &msg, ".", ".", "unittest",
-			       false, false, false);
+		create_session(&test_sessions, &msg, ".", ".", "unittest", false, false, false);
 		remove("sid-test.map");
 	}
 
@@ -879,10 +865,9 @@ TEST_CASE(task_search)
 		};
 
 		fd = creat("sid-initial.map", 0400);
-		write_all(fd, session_map, sizeof(session_map)-1);
+		write_all(fd, session_map, sizeof(session_map) - 1);
 		close(fd);
-		create_session(&test_sessions, &smsg, ".", ".", "unittest",
-			       false, false, false);
+		create_session(&test_sessions, &smsg, ".", ".", "unittest", false, false, false);
 		create_task(&test_sessions, &tmsg, false);
 		remove("sid-initial.map");
 
@@ -902,8 +887,8 @@ TEST_CASE(task_search)
 	pr_dbg("fork child task\n");
 	{
 		struct uftrace_msg_task tmsg = {
-			.pid = 1,  /* ppid */
-			.tid = 2,  /* pid */
+			.pid = 1, /* ppid */
+			.tid = 2, /* pid */
 			.time = 200,
 		};
 
@@ -984,10 +969,9 @@ TEST_CASE(task_search)
 		};
 
 		fd = creat("sid-after_exec.map", 0400);
-		write_all(fd, session_map, sizeof(session_map)-1);
+		write_all(fd, session_map, sizeof(session_map) - 1);
 		close(fd);
-		create_session(&test_sessions, &smsg, ".", ".", "unittest",
-			       false, false, false);
+		create_session(&test_sessions, &smsg, ".", ".", "unittest", false, false, false);
 		create_task(&test_sessions, &tmsg, false);
 		remove("sid-after_exec.map");
 
@@ -1006,8 +990,8 @@ TEST_CASE(task_search)
 	pr_dbg("fork grand-child task\n");
 	{
 		struct uftrace_msg_task tmsg = {
-			.pid = 4,  /* ppid */
-			.tid = 5,  /* pid */
+			.pid = 4, /* ppid */
+			.tid = 5, /* pid */
 			.time = 600,
 		};
 
@@ -1121,8 +1105,7 @@ TEST_CASE(task_symbol)
 	fprintf(fp, "00000500 T __sym_end\n");
 	fclose(fp);
 
-	create_session(&test_sessions, &msg, ".", ".", "unittest",
-		       false, true, false);
+	create_session(&test_sessions, &msg, ".", ".", "unittest", false, true, false);
 	create_task(&test_sessions, &tmsg, false);
 	remove("sid-test.map");
 	remove("unittest.sym");
@@ -1172,8 +1155,7 @@ TEST_CASE(task_symbol_dlopen)
 	fprintf(fp, "0500 T __sym_end\n");
 	fclose(fp);
 
-	create_session(&test_sessions, &msg, ".", ".", "unittest",
-		       false, true, false);
+	create_session(&test_sessions, &msg, ".", ".", "unittest", false, true, false);
 	remove("sid-test.map");
 
 	TEST_NE(test_sessions.first, NULL);
@@ -1201,7 +1183,9 @@ TEST_CASE(session_map_build_id)
 {
 	FILE *fp;
 	struct uftrace_mmap *map;
-	struct uftrace_sym_info test_sinfo = { .loaded = false, };
+	struct uftrace_sym_info test_sinfo = {
+		.loaded = false,
+	};
 
 	fp = fopen("sid-test.map", "w");
 	TEST_NE(fp, NULL);

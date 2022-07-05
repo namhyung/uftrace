@@ -1,6 +1,6 @@
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "dynamic"
-#define PR_DOMAIN  DBG_DYNAMIC
+#define PR_FMT "dynamic"
+#define PR_DOMAIN DBG_DYNAMIC
 
 #include "libmcount/internal.h"
 #include "libmcount/dynamic.h"
@@ -12,11 +12,11 @@
 #include <capstone/platform.h>
 
 struct disasm_check_data {
-	uintptr_t		addr;
-	uint32_t		func_size;
-	uint32_t		patch_size;
-	uint32_t		copy_size;
-	uint32_t		size;
+	uintptr_t addr;
+	uint32_t func_size;
+	uint32_t patch_size;
+	uint32_t copy_size;
+	uint32_t size;
 };
 
 void mcount_disasm_init(struct mcount_disasm_engine *disasm)
@@ -36,10 +36,10 @@ void mcount_disasm_finish(struct mcount_disasm_engine *disasm)
 }
 
 enum fail_reason {
-	INSTRUMENT_FAIL_NO_DETAIL	= (1U << 0),
-	INSTRUMENT_FAIL_RELJMP		= (1U << 1),
-	INSTRUMENT_FAIL_RELCALL		= (1U << 2),
-	INSTRUMENT_FAIL_PIC		= (1U << 3),
+	INSTRUMENT_FAIL_NO_DETAIL = (1U << 0),
+	INSTRUMENT_FAIL_RELJMP = (1U << 1),
+	INSTRUMENT_FAIL_RELCALL = (1U << 2),
+	INSTRUMENT_FAIL_PIC = (1U << 3),
 };
 
 enum branch_group {
@@ -64,9 +64,8 @@ void print_instrument_fail_msg(int reason)
 static int x86_reg_index(int capstone_reg)
 {
 	int x86_regs[] = {
-		X86_REG_RAX, X86_REG_RCX, X86_REG_RDX, X86_REG_RBX,
-		X86_REG_RSP, X86_REG_RBP, X86_REG_RSI, X86_REG_RDI,
-		X86_REG_R8,  X86_REG_R9,  X86_REG_R10, X86_REG_R11,
+		X86_REG_RAX, X86_REG_RCX, X86_REG_RDX, X86_REG_RBX, X86_REG_RSP, X86_REG_RBP,
+		X86_REG_RSI, X86_REG_RDI, X86_REG_R8,  X86_REG_R9,  X86_REG_R10, X86_REG_R11,
 		X86_REG_R12, X86_REG_R13, X86_REG_R14, X86_REG_R15,
 	};
 	size_t i;
@@ -90,21 +89,23 @@ static int x86_reg_index(int capstone_reg)
  * indirect jump to the target.
  *
  */
-static int handle_rel_jmp(cs_insn *insn, uint8_t insns[],
-			  struct mcount_dynamic_info *mdi,
+static int handle_rel_jmp(cs_insn *insn, uint8_t insns[], struct mcount_dynamic_info *mdi,
 			  struct mcount_disasm_info *info)
 {
 	cs_x86 *x86 = &insn->detail->x86;
-	uint8_t relocated_insn[ARCH_TRAMPOLINE_SIZE] = { 0xff, 0x25, };
+	uint8_t relocated_insn[ARCH_TRAMPOLINE_SIZE] = {
+		0xff,
+		0x25,
+	};
 	uint8_t opcode = insn->bytes[0];
 	uint64_t target;
 	struct cond_branch_info *cbi;
 	cs_x86_op *opnd = &x86->operands[0];
 
-#define JMP8_OPCODE  0xEB
+#define JMP8_OPCODE 0xEB
 #define JMP32_OPCODE 0xE9
-#define OP   0
-#define OFS  1
+#define OP 0
+#define OFS 1
 
 	if (x86->op_count != 1 || opnd->type != X86_OP_IMM)
 		goto out;
@@ -189,13 +190,20 @@ out:
  *    <RETURN-ADDR>
  *    <TARGET-ADDR>
  */
-static int handle_call(cs_insn *insn, uint8_t insns[],
-		       struct mcount_disasm_info *info)
+static int handle_call(cs_insn *insn, uint8_t insns[], struct mcount_disasm_info *info)
 {
 	cs_x86 *x86 = &insn->detail->x86;
 	cs_x86_op *op = &x86->operands[0];
-	uint8_t push[6] = { 0xff, 0x35, 0x06, };
-	uint8_t jump[6] = { 0xff, 0x25, 0x08, };
+	uint8_t push[6] = {
+		0xff,
+		0x35,
+		0x06,
+	};
+	uint8_t jump[6] = {
+		0xff,
+		0x25,
+		0x08,
+	};
 	uint64_t ret_addr;
 	uint64_t target;
 
@@ -224,8 +232,7 @@ static int handle_call(cs_insn *insn, uint8_t insns[],
  *  to this.
  *    mov rcx, [calculated PC + 0x8f3f85]
  */
-static int handle_lea(cs_insn *insn, uint8_t insns[],
-		      struct mcount_disasm_info *info)
+static int handle_lea(cs_insn *insn, uint8_t insns[], struct mcount_disasm_info *info)
 {
 	cs_x86 *x86 = &insn->detail->x86;
 	cs_x86_op *opnd1;
@@ -235,12 +242,15 @@ static int handle_lea(cs_insn *insn, uint8_t insns[],
 	 * array for mov instruction: REX + OPCODE + IMM(8-byte)
 	 * ex) mov rbx, 0x555556d35690
 	 */
-	uint8_t mov_insns[MOV_INSN_SIZE] = { 0x48, 0xb8, };
+	uint8_t mov_insns[MOV_INSN_SIZE] = {
+		0x48,
+		0xb8,
+	};
 	int reg;
 
-#define REX   0
-#define OPC   1
-#define IMM   2
+#define REX 0
+#define OPC 1
+#define IMM 2
 
 	/* according to intel manual, lea instruction takes 2 operand */
 	opnd1 = &x86->operands[0];
@@ -293,8 +303,7 @@ out:
  *    MOV rdi, [calculated PC + 0x8f3f85]  (= LEA)
  *    MOV rdi, qword ptr [rdi]
  */
-static int handle_mov(cs_insn *insn, uint8_t insns[],
-		      struct mcount_disasm_info *info)
+static int handle_mov(cs_insn *insn, uint8_t insns[], struct mcount_disasm_info *info)
 {
 	cs_x86 *x86 = &insn->detail->x86;
 	uint8_t mov_insn[3] = { 0x48, 0x8b };
@@ -322,7 +331,7 @@ static int handle_mov(cs_insn *insn, uint8_t insns[],
 			return -1;
 
 		/* set register index */
-		mov_insn[2] = (reg << 3) | reg;  /* modrm.{reg,rm}*/
+		mov_insn[2] = (reg << 3) | reg; /* modrm.{reg,rm}*/
 
 		/* skip the part handle_lea() added (= MOV_INSN_SIZE) */
 		memcpy(insns + MOV_INSN_SIZE, mov_insn, insn_size);
@@ -330,11 +339,14 @@ static int handle_mov(cs_insn *insn, uint8_t insns[],
 	else {
 		uint8_t opcode = insn->bytes[0];
 		/* this is actually MOVABS but we can think as LEA */
-		uint8_t lea_insns[MOV_INSN_SIZE] = { 0x48, 0xb8, };
+		uint8_t lea_insns[MOV_INSN_SIZE] = {
+			0x48,
+			0xb8,
+		};
 		uint64_t target;
 
-#define MOV8_OPCODE   0x8a
-#define MOV32_OPCODE  0x8b
+#define MOV8_OPCODE 0x8a
+#define MOV32_OPCODE 0x8b
 
 		/* ignore insns with prefixes */
 		if (opcode != MOV8_OPCODE && opcode != MOV32_OPCODE)
@@ -360,7 +372,7 @@ static int handle_mov(cs_insn *insn, uint8_t insns[],
 
 		mov_insn[1] = opcode;
 		/* set register index */
-		mov_insn[2] = (reg << 3) | reg;  /* modrm.{reg,rm}*/
+		mov_insn[2] = (reg << 3) | reg; /* modrm.{reg,rm}*/
 
 		memcpy(insns + sizeof(lea_insns), &mov_insn[1], insn_size);
 	}
@@ -374,21 +386,18 @@ out:
 }
 
 /* handle position independent code (PIC) */
-static int handle_pic(cs_insn *insn, uint8_t insns[],
-		      struct mcount_disasm_info *info)
+static int handle_pic(cs_insn *insn, uint8_t insns[], struct mcount_disasm_info *info)
 {
 	if (insn->id == X86_INS_LEA)
 		return handle_lea(insn, insns, info);
-	if (insn->id == X86_INS_MOV &&
-	    insn->detail->x86.operands[0].type == X86_OP_REG)
+	if (insn->id == X86_INS_MOV && insn->detail->x86.operands[0].type == X86_OP_REG)
 		return handle_mov(insn, insns, info);
 
 	return -1;
 }
 
-static int manipulate_insns(cs_insn *insn, uint8_t insns[], int* fail_reason,
-			    struct mcount_dynamic_info *mdi,
-			    struct mcount_disasm_info *info)
+static int manipulate_insns(cs_insn *insn, uint8_t insns[], int *fail_reason,
+			    struct mcount_dynamic_info *mdi, struct mcount_disasm_info *info)
 {
 	int res;
 
@@ -428,8 +437,7 @@ static int copy_insn_bytes(cs_insn *insn, uint8_t insns[])
  *
  * TODO: this function is incomplete and need more classification.
  */
-static int check_instrumentable(struct mcount_disasm_engine *disasm,
-				 cs_insn *insn)
+static int check_instrumentable(struct mcount_disasm_engine *disasm, cs_insn *insn)
 {
 	int i;
 	cs_x86 *x86;
@@ -479,8 +487,7 @@ static int check_instrumentable(struct mcount_disasm_engine *disasm,
 			goto out;
 
 		case X86_OP_MEM:
-			if (op->mem.base == X86_REG_RIP ||
-			    op->mem.index == X86_REG_RIP) {
+			if (op->mem.base == X86_REG_RIP || op->mem.index == X86_REG_RIP) {
 				status |= INSTRUMENT_FAIL_PIC;
 				goto out;
 			}
@@ -495,9 +502,8 @@ out:
 	return status;
 }
 
-static bool check_unsupported(struct mcount_disasm_engine *disasm,
-			      cs_insn *insn, struct mcount_dynamic_info *mdi,
-			      struct mcount_disasm_info *info)
+static bool check_unsupported(struct mcount_disasm_engine *disasm, cs_insn *insn,
+			      struct mcount_dynamic_info *mdi, struct mcount_disasm_info *info)
 {
 	int i;
 	cs_x86 *x86;
@@ -523,33 +529,28 @@ static bool check_unsupported(struct mcount_disasm_engine *disasm,
 	for (i = 0; i < x86->op_count; i++) {
 		cs_x86_op *op = &x86->operands[i];
 
-		switch((int)op->type) {
+		switch ((int)op->type) {
 		case X86_OP_IMM:
 			/* capstone seems already calculate target address */
 			target = op->imm;
 
 			/* disallow (back) jump to the prologue */
-			if (info->addr < target &&
-			    target < info->addr + info->orig_size) {
+			if (info->addr < target && target < info->addr + info->orig_size) {
 				pr_dbg4("jump to prologue: addr=%lx, target=%lx\n",
-					insn->address - mdi->map->start,
-					target - mdi->map->start);
+					insn->address - mdi->map->start, target - mdi->map->start);
 				return false;
 			}
 
 			/* disallow jump to middle of other function */
-			if (info->addr > target ||
-			    target >= info->addr + info->sym->size) {
+			if (info->addr > target || target >= info->addr + info->sym->size) {
 				/* also mark the target function as invalid */
-				if (!mcount_add_badsym(mdi, insn->address,
-						       target)) {
+				if (!mcount_add_badsym(mdi, insn->address, target)) {
 					/* it was actuall ok (like tail call) */
 					return true;
 				}
 
 				pr_dbg4("jump to middle of function: addr=%lx, target=%lx\n",
-					insn->address - mdi->map->start,
-					target - mdi->map->start);
+					insn->address - mdi->map->start, target - mdi->map->start);
 				return false;
 			}
 			break;
@@ -561,8 +562,7 @@ static bool check_unsupported(struct mcount_disasm_engine *disasm,
 	return true;
 }
 
-int disasm_check_insns(struct mcount_disasm_engine *disasm,
-		       struct mcount_dynamic_info *mdi,
+int disasm_check_insns(struct mcount_disasm_engine *disasm, struct mcount_dynamic_info *mdi,
 		       struct mcount_disasm_info *info)
 {
 	int status;
@@ -603,12 +603,13 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm,
 		return INSTRUMENT_FAILED;
 
 	for (i = 0; i < count; i++) {
-		uint8_t insns_byte[32] = { 0, };
+		uint8_t insns_byte[32] = {
+			0,
+		};
 
 		status = check_instrumentable(disasm, &insn[i]);
 		if (status > 0)
-			size = manipulate_insns(&insn[i], insns_byte,
-						&status, mdi, info);
+			size = manipulate_insns(&insn[i], insns_byte, &status, mdi, info);
 		else
 			size = copy_insn_bytes(&insn[i], insns_byte);
 
@@ -642,29 +643,37 @@ out:
 
 #ifdef UNIT_TEST
 
-#define ORIGINAL_BASE  0x111122220000
-#define CODEPAGE_BASE  0x555566660000
+#define ORIGINAL_BASE 0x111122220000
+#define CODEPAGE_BASE 0x555566660000
 
 TEST_CASE(dynamic_x86_handle_lea)
 {
-	struct uftrace_symbol sym = { .name = "abc", .addr = 0x3000, .size = 32, };
+	struct uftrace_symbol sym = {
+		.name = "abc",
+		.addr = 0x3000,
+		.size = 32,
+	};
 	struct mcount_disasm_engine disasm;
 	struct mcount_disasm_info info = {
-		.sym  = &sym,
+		.sym = &sym,
 		.addr = ORIGINAL_BASE + sym.addr,
 	};
 	int count;
 	cs_insn *insn = NULL;
 	cs_x86 *x86;
-	uint8_t lea_insn[7] = { 0x48, 0x8d, 0x05, 0x60, };  /* lea 0x60(%rip),%rax */
+	uint8_t lea_insn[7] = {
+		0x48,
+		0x8d,
+		0x05,
+		0x60,
+	}; /* lea 0x60(%rip),%rax */
 	uint8_t new_insns[16];
 	int new_size;
 
 	mcount_disasm_init(&disasm);
 
 	pr_dbg("running capstone disassemler for LEA instruction\n");
-	count = cs_disasm(disasm.engine, lea_insn, sizeof(lea_insn),
-			  info.addr, 0, &insn);
+	count = cs_disasm(disasm.engine, lea_insn, sizeof(lea_insn), info.addr, 0, &insn);
 	TEST_EQ(count, 1);
 
 	x86 = &insn->detail->x86;
@@ -685,8 +694,7 @@ TEST_CASE(dynamic_x86_handle_lea)
 	cs_free(insn, count);
 
 	pr_dbg("checking modified instruction\n");
-	count = cs_disasm(disasm.engine, new_insns, new_size,
-			  CODEPAGE_BASE, 0, &insn);
+	count = cs_disasm(disasm.engine, new_insns, new_size, CODEPAGE_BASE, 0, &insn);
 	TEST_EQ(count, 1);
 
 	x86 = &insn->detail->x86;
@@ -706,17 +714,29 @@ TEST_CASE(dynamic_x86_handle_lea)
 
 TEST_CASE(dynamic_x86_handle_call)
 {
-	struct uftrace_symbol sym1 = { .name = "a", .addr = 0x3000, .size = 32, };
-	struct uftrace_symbol sym2 = { .name = "b", .addr = 0x4000, .size = 32, };
+	struct uftrace_symbol sym1 = {
+		.name = "a",
+		.addr = 0x3000,
+		.size = 32,
+	};
+	struct uftrace_symbol sym2 = {
+		.name = "b",
+		.addr = 0x4000,
+		.size = 32,
+	};
 	struct mcount_disasm_engine disasm;
 	struct mcount_disasm_info info = {
-		.sym  = &sym1,
+		.sym = &sym1,
 		.addr = ORIGINAL_BASE + sym1.addr,
 	};
 	int count;
 	cs_insn *insn = NULL;
 	cs_x86 *x86;
-	uint8_t call_insn[5] = { 0xe8, 0xfb, 0x0f, };  /* 0xffb + 5 = 0x1000 */
+	uint8_t call_insn[5] = {
+		0xe8,
+		0xfb,
+		0x0f,
+	}; /* 0xffb + 5 = 0x1000 */
 	uint8_t new_insns[32];
 	int new_size;
 	uint64_t target = ORIGINAL_BASE + sym2.addr;
@@ -724,8 +744,7 @@ TEST_CASE(dynamic_x86_handle_call)
 	mcount_disasm_init(&disasm);
 
 	pr_dbg("running capstone disassemler for CALL instruction\n");
-	count = cs_disasm(disasm.engine, call_insn, sizeof(call_insn),
-			  info.addr, 0, &insn);
+	count = cs_disasm(disasm.engine, call_insn, sizeof(call_insn), info.addr, 0, &insn);
 	TEST_EQ(count, 1);
 
 	x86 = &insn->detail->x86;
@@ -743,8 +762,8 @@ TEST_CASE(dynamic_x86_handle_call)
 	cs_free(insn, count);
 
 	pr_dbg("checking modified instruction\n");
-	count = cs_disasm(disasm.engine, new_insns, 12 /* actual insn size */,
-			  CODEPAGE_BASE, 0, &insn);
+	count = cs_disasm(disasm.engine, new_insns, 12 /* actual insn size */, CODEPAGE_BASE, 0,
+			  &insn);
 	TEST_EQ(count, 2);
 
 	TEST_EQ(insn[0].id, X86_INS_PUSH);
@@ -778,17 +797,27 @@ TEST_CASE(dynamic_x86_handle_call)
 
 TEST_CASE(dynamic_x86_handle_jmp)
 {
-	struct uftrace_symbol sym = { .name = "a", .addr = 0x3000, .size = 32, };
+	struct uftrace_symbol sym = {
+		.name = "a",
+		.addr = 0x3000,
+		.size = 32,
+	};
 	struct mcount_disasm_engine disasm;
 	struct mcount_disasm_info info = {
-		.sym  = &sym,
+		.sym = &sym,
 		.addr = ORIGINAL_BASE + sym.addr,
 	};
 	int count;
 	cs_insn *insn = NULL;
 	cs_x86 *x86;
-	uint8_t jmp8_insn[2] = { 0xeb, 0x0e, };   /* 0xe + 2 = 0x10 */
-	uint8_t jmp32_insn[5] = { 0xe9, 0x0b, };  /* 0xb + 5 = 0x10 */
+	uint8_t jmp8_insn[2] = {
+		0xeb,
+		0x0e,
+	}; /* 0xe + 2 = 0x10 */
+	uint8_t jmp32_insn[5] = {
+		0xe9,
+		0x0b,
+	}; /* 0xb + 5 = 0x10 */
 	uint8_t new_insns[32];
 	int new_size;
 	uint64_t target = info.addr + 0x10;
@@ -796,8 +825,7 @@ TEST_CASE(dynamic_x86_handle_jmp)
 	mcount_disasm_init(&disasm);
 
 	pr_dbg("running capstone disassemler for JMP8 instruction\n");
-	count = cs_disasm(disasm.engine, jmp8_insn, sizeof(jmp8_insn),
-			  info.addr, 0, &insn);
+	count = cs_disasm(disasm.engine, jmp8_insn, sizeof(jmp8_insn), info.addr, 0, &insn);
 	TEST_EQ(count, 1);
 
 	x86 = &insn->detail->x86;
@@ -815,8 +843,7 @@ TEST_CASE(dynamic_x86_handle_jmp)
 	cs_free(insn, count);
 
 	pr_dbg("checking modified instruction\n");
-	count = cs_disasm(disasm.engine, new_insns, JMP_INSN_SIZE,
-			  CODEPAGE_BASE, 0, &insn);
+	count = cs_disasm(disasm.engine, new_insns, JMP_INSN_SIZE, CODEPAGE_BASE, 0, &insn);
 	TEST_EQ(count, 1);
 
 	TEST_EQ(insn->id, X86_INS_JMP);
@@ -833,8 +860,7 @@ TEST_CASE(dynamic_x86_handle_jmp)
 	cs_free(insn, count);
 
 	pr_dbg("running capstone disassemler for JMP32 instruction\n");
-	count = cs_disasm(disasm.engine, jmp32_insn, sizeof(jmp32_insn),
-			  info.addr, 0, &insn);
+	count = cs_disasm(disasm.engine, jmp32_insn, sizeof(jmp32_insn), info.addr, 0, &insn);
 	TEST_EQ(count, 1);
 
 	x86 = &insn->detail->x86;
@@ -852,8 +878,7 @@ TEST_CASE(dynamic_x86_handle_jmp)
 	cs_free(insn, count);
 
 	pr_dbg("checking modified instruction\n");
-	count = cs_disasm(disasm.engine, new_insns, JMP_INSN_SIZE,
-			  CODEPAGE_BASE, 0, &insn);
+	count = cs_disasm(disasm.engine, new_insns, JMP_INSN_SIZE, CODEPAGE_BASE, 0, &insn);
 	TEST_EQ(count, 1);
 
 	TEST_EQ(insn->id, X86_INS_JMP);
@@ -876,17 +901,28 @@ TEST_CASE(dynamic_x86_handle_jmp)
 
 TEST_CASE(dynamic_x86_handle_jcc)
 {
-	struct uftrace_symbol sym = { .name = "a", .addr = 0x3000, .size = 32, };
+	struct uftrace_symbol sym = {
+		.name = "a",
+		.addr = 0x3000,
+		.size = 32,
+	};
 	struct mcount_disasm_engine disasm;
 	struct mcount_disasm_info info = {
-		.sym  = &sym,
+		.sym = &sym,
 		.addr = ORIGINAL_BASE + sym.addr,
 	};
 	int count;
 	cs_insn *insn = NULL;
 	cs_x86 *x86;
-	uint8_t jcc8_insn[2] = { 0x74, 0x0e, };         /* 0x0e + 2 = 0x10 */
-	uint8_t jcc32_insn[6] = { 0x0f, 0x85, 0x0a, };  /* 0x0a + 6 = 0x10 */
+	uint8_t jcc8_insn[2] = {
+		0x74,
+		0x0e,
+	}; /* 0x0e + 2 = 0x10 */
+	uint8_t jcc32_insn[6] = {
+		0x0f,
+		0x85,
+		0x0a,
+	}; /* 0x0a + 6 = 0x10 */
 	uint8_t new_insns[32];
 	int new_size;
 	uint64_t target = info.addr + 0x10;
@@ -894,8 +930,7 @@ TEST_CASE(dynamic_x86_handle_jcc)
 	mcount_disasm_init(&disasm);
 
 	pr_dbg("running capstone disassemler for Jcc8 instruction\n");
-	count = cs_disasm(disasm.engine, jcc8_insn, sizeof(jcc8_insn),
-			  info.addr, 0, &insn);
+	count = cs_disasm(disasm.engine, jcc8_insn, sizeof(jcc8_insn), info.addr, 0, &insn);
 	TEST_EQ(count, 1);
 
 	x86 = &insn->detail->x86;
@@ -913,8 +948,7 @@ TEST_CASE(dynamic_x86_handle_jcc)
 	cs_free(insn, count);
 
 	pr_dbg("checking modified instruction\n");
-	count = cs_disasm(disasm.engine, new_insns, 2,
-			  CODEPAGE_BASE, 0, &insn);
+	count = cs_disasm(disasm.engine, new_insns, 2, CODEPAGE_BASE, 0, &insn);
 	TEST_EQ(count, 1);
 
 	TEST_EQ(insn->id, X86_INS_JE);
@@ -933,8 +967,7 @@ TEST_CASE(dynamic_x86_handle_jcc)
 	cs_free(insn, count);
 
 	pr_dbg("running capstone disassemler for Jcc32 instruction\n");
-	count = cs_disasm(disasm.engine, jcc32_insn, sizeof(jcc32_insn),
-			  info.addr, 0, &insn);
+	count = cs_disasm(disasm.engine, jcc32_insn, sizeof(jcc32_insn), info.addr, 0, &insn);
 	TEST_EQ(count, 1);
 
 	x86 = &insn->detail->x86;
@@ -952,8 +985,7 @@ TEST_CASE(dynamic_x86_handle_jcc)
 	cs_free(insn, count);
 
 	pr_dbg("checking modified instruction\n");
-	count = cs_disasm(disasm.engine, new_insns, 2,
-			  CODEPAGE_BASE, 0, &insn);
+	count = cs_disasm(disasm.engine, new_insns, 2, CODEPAGE_BASE, 0, &insn);
 	TEST_EQ(count, 1);
 
 	TEST_EQ(insn->id, X86_INS_JNE);
@@ -978,18 +1010,22 @@ TEST_CASE(dynamic_x86_handle_jcc)
 
 TEST_CASE(dynamic_x86_handle_mov_load)
 {
-	struct uftrace_symbol sym = { .name = "abc", .addr = 0x3000, .size = 32, };
+	struct uftrace_symbol sym = {
+		.name = "abc",
+		.addr = 0x3000,
+		.size = 32,
+	};
 	struct mcount_disasm_engine disasm;
 	struct mcount_disasm_info info = {
-		.sym  = &sym,
+		.sym = &sym,
 		.addr = ORIGINAL_BASE + sym.addr,
 	};
 	int count;
 	cs_insn *insn = NULL;
 	cs_x86 *x86;
-	uint8_t mov64_insn[7] = { 0x48, 0x8b, 0x3d, 0x64 };  /* mov 0x64(%rip),%rdi */
-	uint8_t mov32_insn[6] = { 0x8b, 0x0d, 0x32 };        /* mov 0x32(%rip),%ecx */
-	uint8_t mov8_insn[6] = { 0x8a, 0x05, 0x08 };         /* mov 0x08(%rip),%al */
+	uint8_t mov64_insn[7] = { 0x48, 0x8b, 0x3d, 0x64 }; /* mov 0x64(%rip),%rdi */
+	uint8_t mov32_insn[6] = { 0x8b, 0x0d, 0x32 }; /* mov 0x32(%rip),%ecx */
+	uint8_t mov8_insn[6] = { 0x8a, 0x05, 0x08 }; /* mov 0x08(%rip),%al */
 	uint8_t new_insns[16];
 	int new_size;
 
@@ -997,8 +1033,7 @@ TEST_CASE(dynamic_x86_handle_mov_load)
 
 	/* 1. 64-bit MOV (with REX) */
 	pr_dbg("running capstone disassemler for MOV instruction\n");
-	count = cs_disasm(disasm.engine, mov64_insn, sizeof(mov64_insn),
-			  info.addr, 0, &insn);
+	count = cs_disasm(disasm.engine, mov64_insn, sizeof(mov64_insn), info.addr, 0, &insn);
 	TEST_EQ(count, 1);
 
 	x86 = &insn->detail->x86;
@@ -1019,8 +1054,7 @@ TEST_CASE(dynamic_x86_handle_mov_load)
 	cs_free(insn, count);
 
 	pr_dbg("checking modified instruction\n");
-	count = cs_disasm(disasm.engine, new_insns, new_size,
-			  CODEPAGE_BASE, 0, &insn);
+	count = cs_disasm(disasm.engine, new_insns, new_size, CODEPAGE_BASE, 0, &insn);
 	TEST_EQ(count, 2);
 
 	x86 = &insn[0].detail->x86;
@@ -1044,8 +1078,7 @@ TEST_CASE(dynamic_x86_handle_mov_load)
 
 	/* 2. 32-bit MOV (without REX) */
 	pr_dbg("running capstone disassemler for MOV instruction\n");
-	count = cs_disasm(disasm.engine, mov32_insn, sizeof(mov32_insn),
-			  info.addr, 0, &insn);
+	count = cs_disasm(disasm.engine, mov32_insn, sizeof(mov32_insn), info.addr, 0, &insn);
 	TEST_EQ(count, 1);
 
 	x86 = &insn->detail->x86;
@@ -1066,8 +1099,7 @@ TEST_CASE(dynamic_x86_handle_mov_load)
 	cs_free(insn, count);
 
 	pr_dbg("checking modified instruction\n");
-	count = cs_disasm(disasm.engine, new_insns, new_size,
-			  CODEPAGE_BASE, 0, &insn);
+	count = cs_disasm(disasm.engine, new_insns, new_size, CODEPAGE_BASE, 0, &insn);
 	TEST_EQ(count, 2);
 
 	x86 = &insn[0].detail->x86;
@@ -1091,8 +1123,7 @@ TEST_CASE(dynamic_x86_handle_mov_load)
 
 	/* 3. 8-bit MOV (with a different OPCODE) */
 	pr_dbg("running capstone disassemler for MOV instruction\n");
-	count = cs_disasm(disasm.engine, mov8_insn, sizeof(mov8_insn),
-			  info.addr, 0, &insn);
+	count = cs_disasm(disasm.engine, mov8_insn, sizeof(mov8_insn), info.addr, 0, &insn);
 	TEST_EQ(count, 1);
 
 	x86 = &insn->detail->x86;
@@ -1113,8 +1144,7 @@ TEST_CASE(dynamic_x86_handle_mov_load)
 	cs_free(insn, count);
 
 	pr_dbg("checking modified instruction\n");
-	count = cs_disasm(disasm.engine, new_insns, new_size,
-			  CODEPAGE_BASE, 0, &insn);
+	count = cs_disasm(disasm.engine, new_insns, new_size, CODEPAGE_BASE, 0, &insn);
 	TEST_EQ(count, 2);
 
 	x86 = &insn[0].detail->x86;
@@ -1140,12 +1170,11 @@ TEST_CASE(dynamic_x86_handle_mov_load)
 
 	return TEST_OK;
 }
-#endif  /* UNIT_TEST */
+#endif /* UNIT_TEST */
 
 #else /* HAVE_LIBCAPSTONE */
 
-int disasm_check_insns(struct mcount_disasm_engine *disasm,
-		       struct mcount_dynamic_info *mdi,
+int disasm_check_insns(struct mcount_disasm_engine *disasm, struct mcount_dynamic_info *mdi,
 		       struct mcount_disasm_info *info)
 {
 	return INSTRUMENT_FAILED;

@@ -3,8 +3,8 @@
 #include <unistd.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "event"
-#define PR_DOMAIN  DBG_EVENT
+#define PR_FMT "event"
+#define PR_DOMAIN DBG_EVENT
 
 #include "uftrace.h"
 #include "utils/event.h"
@@ -24,7 +24,7 @@
  * since it needs to call libtraceevent function for kernel events
  * which is not linked into libmcount.
  */
-char * event_get_name(struct uftrace_data *handle, unsigned evt_id)
+char *event_get_name(struct uftrace_data *handle, unsigned evt_id)
 {
 	char *evt_name = NULL;
 	struct event_format *event;
@@ -138,7 +138,7 @@ out:
  * This function returns a string of event name matching to @evt_id.
  * Callers must free the returned string.
  */
-char * event_get_data_str(unsigned evt_id, void *data, bool verbose)
+char *event_get_data_str(unsigned evt_id, void *data, bool verbose)
 {
 	char *str = NULL;
 	const char *diff = "";
@@ -146,10 +146,10 @@ char * event_get_data_str(unsigned evt_id, void *data, bool verbose)
 	union {
 		struct uftrace_proc_statm statm;
 		struct uftrace_page_fault pgfault;
-		struct uftrace_pmu_cycle  cycle;
-		struct uftrace_pmu_cache  cache;
+		struct uftrace_pmu_cycle cycle;
+		struct uftrace_pmu_cache cache;
 		struct uftrace_pmu_branch branch;
-		int                       cpu;
+		int cpu;
 	} u;
 
 	switch (evt_id) {
@@ -167,7 +167,8 @@ char * event_get_data_str(unsigned evt_id, void *data, bool verbose)
 		/* fall through */
 	case EVENT_ID_READ_PROC_STATM:
 		memcpy(&u.statm, data, sizeof(u.statm));
-		xasprintf(&str, "vmsize=%s%"PRIu64"KB vmrss=%s%"PRIu64"KB shared=%s%"PRIu64"KB",
+		xasprintf(&str,
+			  "vmsize=%s%" PRIu64 "KB vmrss=%s%" PRIu64 "KB shared=%s%" PRIu64 "KB",
 			  diff, u.statm.vmsize, diff, u.statm.vmrss, diff, u.statm.shared);
 		break;
 
@@ -177,8 +178,8 @@ char * event_get_data_str(unsigned evt_id, void *data, bool verbose)
 		/* fall through */
 	case EVENT_ID_READ_PAGE_FAULT:
 		memcpy(&u.pgfault, data, sizeof(u.pgfault));
-		xasprintf(&str, "major=%s%"PRIu64" minor=%s%"PRIu64,
-			  diff, u.pgfault.major, diff, u.pgfault.minor);
+		xasprintf(&str, "major=%s%" PRIu64 " minor=%s%" PRIu64, diff, u.pgfault.major, diff,
+			  u.pgfault.minor);
 		break;
 
 	case EVENT_ID_DIFF_PMU_CYCLE:
@@ -187,8 +188,8 @@ char * event_get_data_str(unsigned evt_id, void *data, bool verbose)
 		/* fall through */
 	case EVENT_ID_READ_PMU_CYCLE:
 		memcpy(&u.cycle, data, sizeof(u.cycle));
-		xasprintf(&str, "cycles=%s%"PRIu64" instructions=%s%"PRIu64,
-			  diff, u.cycle.cycles, diff, u.cycle.instrs);
+		xasprintf(&str, "cycles=%s%" PRIu64 " instructions=%s%" PRIu64, diff,
+			  u.cycle.cycles, diff, u.cycle.instrs);
 		if (diff[0] == '+') {
 			snprintf(vbuf, sizeof(vbuf), "IPC=%.2f",
 				 (float)u.cycle.instrs / u.cycle.cycles);
@@ -202,8 +203,8 @@ char * event_get_data_str(unsigned evt_id, void *data, bool verbose)
 		/* fall through */
 	case EVENT_ID_READ_PMU_CACHE:
 		memcpy(&u.cache, data, sizeof(u.cache));
-		xasprintf(&str, "refers=%s%"PRIu64" misses=%s%"PRIu64,
-			  diff, u.cache.refers, diff, u.cache.misses);
+		xasprintf(&str, "refers=%s%" PRIu64 " misses=%s%" PRIu64, diff, u.cache.refers,
+			  diff, u.cache.misses);
 		if (diff[0] == '+') {
 			snprintf(vbuf, sizeof(vbuf), "hit=%.2f%%",
 				 100.0 * (u.cache.refers - u.cache.misses) / u.cache.refers);
@@ -217,8 +218,8 @@ char * event_get_data_str(unsigned evt_id, void *data, bool verbose)
 		/* fall through */
 	case EVENT_ID_READ_PMU_BRANCH:
 		memcpy(&u.branch, data, sizeof(u.branch));
-		xasprintf(&str, "branch=%s%"PRIu64" misses=%s%"PRIu64,
-			  diff, u.branch.branch, diff, u.branch.misses);
+		xasprintf(&str, "branch=%s%" PRIu64 " misses=%s%" PRIu64, diff, u.branch.branch,
+			  diff, u.branch.misses);
 		if (diff[0] == '+') {
 			snprintf(vbuf, sizeof(vbuf), "predict=%.2f%%",
 				 100.0 * (u.branch.branch - u.branch.misses) / u.branch.branch);
@@ -295,9 +296,7 @@ int read_events_file(struct uftrace_data *handle)
 		struct uftrace_event *ev;
 
 		if (!strncmp(line, "EVENT", 5) &&
-		     sscanf(line + 7, "%u %[^:]:%s",
-			    &evt_id, provider, event) == 3) {
-
+		    sscanf(line + 7, "%u %[^:]:%s", &evt_id, provider, event) == 3) {
 			ev = xmalloc(sizeof(*ev));
 			ev->id = evt_id;
 			ev->provider = xstrdup(provider);
@@ -364,8 +363,7 @@ TEST_CASE(event_data)
 
 	pr_dbg("testing event data strings\n");
 	for (unsigned i = 0; i < ARRAY_SIZE(expected); i++) {
-		char *got = event_get_data_str(expected[i].evt_id,
-					       expected[i].data, true);
+		char *got = event_get_data_str(expected[i].evt_id, expected[i].data, true);
 		TEST_STREQ(expected[i].str, got);
 		free(got);
 	}

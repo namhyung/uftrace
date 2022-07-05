@@ -4,8 +4,8 @@
 #include <sys/mman.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "mcount"
-#define PR_DOMAIN  DBG_MCOUNT
+#define PR_FMT "mcount"
+#define PR_DOMAIN DBG_MCOUNT
 
 #include "uftrace.h"
 #include "libmcount/mcount.h"
@@ -13,16 +13,15 @@
 #include "utils/utils.h"
 #include "utils/symbol.h"
 
-#define TRAMP_ENT_SIZE    16  /* size of trampoilne for each entry */
-#define TRAMP_PLT0_SIZE   32  /* module id + address of plthook_addr() */
-#define TRAMP_PCREL_JMP   10  /* PC_relative offset for JMP */
-#define TRAMP_IDX_OFFSET  1
-#define TRAMP_JMP_OFFSET  6
+#define TRAMP_ENT_SIZE 16 /* size of trampoilne for each entry */
+#define TRAMP_PLT0_SIZE 32 /* module id + address of plthook_addr() */
+#define TRAMP_PCREL_JMP 10 /* PC_relative offset for JMP */
+#define TRAMP_IDX_OFFSET 1
+#define TRAMP_JMP_OFFSET 6
 
 extern void __weak plt_hooker(void);
-struct plthook_data * mcount_arch_hook_no_plt(struct uftrace_elf_data *elf,
-					      const char *modname,
-					      unsigned long offset)
+struct plthook_data *mcount_arch_hook_no_plt(struct uftrace_elf_data *elf, const char *modname,
+					     unsigned long offset)
 {
 	struct plthook_data *pd;
 	void *trampoline;
@@ -52,15 +51,14 @@ struct plthook_data * mcount_arch_hook_no_plt(struct uftrace_elf_data *elf,
 	pd->module_id = (unsigned long)pd;
 	pd->base_addr = offset;
 
-	if (load_elf_dynsymtab(&pd->dsymtab, elf, offset, 0) < 0 ||
-	    pd->dsymtab.nr_sym == 0) {
+	if (load_elf_dynsymtab(&pd->dsymtab, elf, offset, 0) < 0 || pd->dsymtab.nr_sym == 0) {
 		free(pd);
 		return NULL;
 	}
 
 	tramp_len = TRAMP_PLT0_SIZE + pd->dsymtab.nr_sym * TRAMP_ENT_SIZE;
-	trampoline = mmap(NULL, tramp_len, PROT_READ|PROT_WRITE,
-			  MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+	trampoline =
+		mmap(NULL, tramp_len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (trampoline == MAP_FAILED) {
 		pr_dbg("mmap failed: %m: ignore libcall hooking\n");
 		free(pd);
@@ -71,8 +69,8 @@ struct plthook_data * mcount_arch_hook_no_plt(struct uftrace_elf_data *elf,
 	pd->resolved_addr = xcalloc(pd->dsymtab.nr_sym, sizeof(long));
 
 	/* add trampoline - save orig addr and replace GOT */
-	pr_dbg2("module: %s (id: %lx), addr = %lx, TRAMPOLINE = %p\n",
-		pd->mod_name, pd->module_id, pd->base_addr, pd->pltgot_ptr);
+	pr_dbg2("module: %s (id: %lx), addr = %lx, TRAMPOLINE = %p\n", pd->mod_name, pd->module_id,
+		pd->base_addr, pd->pltgot_ptr);
 
 	/* setup PLT0 */
 	memcpy(trampoline, tramp_plt0, sizeof(tramp_plt0));
@@ -110,10 +108,9 @@ struct plthook_data * mcount_arch_hook_no_plt(struct uftrace_elf_data *elf,
 		pcrel = trampoline - (tramp + TRAMP_PCREL_JMP);
 		memcpy(tramp + TRAMP_JMP_OFFSET, &pcrel, sizeof(pcrel));
 
-		rela = (void*)sym->addr;
+		rela = (void *)sym->addr;
 		/* save resolved address in GOT */
-		memcpy(&pd->resolved_addr[i], (void *)rela->r_offset + offset,
-		       sizeof(long));
+		memcpy(&pd->resolved_addr[i], (void *)rela->r_offset + offset, sizeof(long));
 		/* update GOT to point the trampoline */
 		memcpy((void *)rela->r_offset + offset, &tramp, sizeof(long));
 

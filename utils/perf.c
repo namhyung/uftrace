@@ -16,7 +16,7 @@
 /* It needs to synchronize records using monotonic clock */
 #ifdef HAVE_PERF_CLOCKID
 
-#define PERF_PARANOID_CHECK  "/proc/sys/kernel/perf_event_paranoid"
+#define PERF_PARANOID_CHECK "/proc/sys/kernel/perf_event_paranoid"
 
 static bool use_perf = true;
 
@@ -24,24 +24,24 @@ static int open_perf_event(int pid, int cpu, int use_ctxsw)
 {
 	/* use dummy events to get scheduling info (Linux v4.3 or later) */
 	struct perf_event_attr attr = {
-		.size			= sizeof(attr),
-		.type			= PERF_TYPE_SOFTWARE,
-		.config			= PERF_COUNT_SW_DUMMY,
-		.sample_type		= PERF_SAMPLE_TIME | PERF_SAMPLE_TID,
-		.sample_period		= 1,
-		.sample_id_all		= 1,
-		.exclude_kernel		= 1,
-		.disabled		= 1,
-		.enable_on_exec		= 1,
-		.inherit		= 1,
-		.watermark		= 1,
-		.wakeup_watermark	= PERF_WATERMARK,
-		.task			= 1,
-		.comm			= 1,
-		.use_clockid		= 1,
-		.clockid		= clock_source,
+		.size = sizeof(attr),
+		.type = PERF_TYPE_SOFTWARE,
+		.config = PERF_COUNT_SW_DUMMY,
+		.sample_type = PERF_SAMPLE_TIME | PERF_SAMPLE_TID,
+		.sample_period = 1,
+		.sample_id_all = 1,
+		.exclude_kernel = 1,
+		.disabled = 1,
+		.enable_on_exec = 1,
+		.inherit = 1,
+		.watermark = 1,
+		.wakeup_watermark = PERF_WATERMARK,
+		.task = 1,
+		.comm = 1,
+		.use_clockid = 1,
+		.clockid = clock_source,
 #ifdef HAVE_PERF_CTXSW
-		.context_switch		= use_ctxsw,
+		.context_switch = use_ctxsw,
 #endif
 	};
 	unsigned long flag = PERF_FLAG_FD_NO_GROUP;
@@ -63,16 +63,16 @@ static int open_perf_event(int pid, int cpu, int use_ctxsw)
  * It returns 0 for success, -1 if failed.  Callers should call
  * finish_perf_record() after recording.
  */
-int setup_perf_record(struct uftrace_perf_writer *perf, int nr_cpu, int pid,
-		      const char *dirname, int use_ctxsw)
+int setup_perf_record(struct uftrace_perf_writer *perf, int nr_cpu, int pid, const char *dirname,
+		      int use_ctxsw)
 {
 	char filename[PATH_MAX];
 	int fd, cpu;
 
 	perf->event_fd = xcalloc(nr_cpu, sizeof(*perf->event_fd));
 	perf->data_pos = xcalloc(nr_cpu, sizeof(*perf->data_pos));
-	perf->page     = xcalloc(nr_cpu, sizeof(*perf->page));
-	perf->fp       = xcalloc(nr_cpu, sizeof(*perf->fp));
+	perf->page = xcalloc(nr_cpu, sizeof(*perf->page));
+	perf->fp = xcalloc(nr_cpu, sizeof(*perf->fp));
 	perf->nr_event = nr_cpu;
 
 	memset(perf->event_fd, -1, nr_cpu * sizeof(fd));
@@ -98,16 +98,15 @@ int setup_perf_record(struct uftrace_perf_writer *perf, int nr_cpu, int pid,
 		}
 		perf->event_fd[cpu] = fd;
 
-		perf->page[cpu] = mmap(NULL, PERF_MMAP_SIZE, PROT_READ|PROT_WRITE,
-				       MAP_SHARED, fd, 0);
+		perf->page[cpu] =
+			mmap(NULL, PERF_MMAP_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 		if (perf->page[cpu] == MAP_FAILED) {
 			pr_warn("failed to mmap perf event: %m\n");
 			use_perf = false;
 			break;
 		}
 
-		snprintf(filename, sizeof(filename),
-			 "%s/perf-cpu%d.dat", dirname, cpu);
+		snprintf(filename, sizeof(filename), "%s/perf-cpu%d.dat", dirname, cpu);
 
 		perf->fp[cpu] = fopen(filename, "w");
 		if (perf->fp[cpu] == NULL) {
@@ -148,9 +147,9 @@ void finish_perf_record(struct uftrace_perf_writer *perf)
 	free(perf->fp);
 
 	perf->event_fd = NULL;
-	perf->page     = NULL;
+	perf->page = NULL;
 	perf->data_pos = NULL;
-	perf->fp       = NULL;
+	perf->fp = NULL;
 
 	perf->nr_event = 0;
 }
@@ -210,7 +209,7 @@ void record_perf_data(struct uftrace_perf_writer *perf, int cpu, int sock)
 	}
 
 	start = old;
-	end   = pos;
+	end = pos;
 
 	/* handle wrap around */
 	if ((start & mask) + size != (end & mask)) {
@@ -310,8 +309,7 @@ void finish_perf_data(struct uftrace_data *handle)
 	handle->perf = NULL;
 }
 
-static int read_perf_event(struct uftrace_data *handle,
-			   struct uftrace_perf_reader *perf)
+static int read_perf_event(struct uftrace_data *handle, struct uftrace_perf_reader *perf)
 {
 	struct perf_event_header h;
 	struct uftrace_task_reader *task;
@@ -347,13 +345,13 @@ again:
 
 		if (handle->needs_byte_swap) {
 			u.cs.sample_id.time = bswap_64(u.cs.sample_id.time);
-			u.cs.sample_id.tid  = bswap_32(u.cs.sample_id.tid);
+			u.cs.sample_id.tid = bswap_32(u.cs.sample_id.tid);
 		}
 
-		perf->u.ctxsw.out  = h.misc & PERF_RECORD_MISC_SWITCH_OUT;
+		perf->u.ctxsw.out = h.misc & PERF_RECORD_MISC_SWITCH_OUT;
 
 		perf->time = u.cs.sample_id.time;
-		perf->tid  = u.cs.sample_id.tid;
+		perf->tid = u.cs.sample_id.tid;
 		break;
 
 	case PERF_RECORD_FORK:
@@ -362,17 +360,17 @@ again:
 			return -1;
 
 		if (handle->needs_byte_swap) {
-			u.t.tid  = bswap_32(u.t.tid);
-			u.t.pid  = bswap_32(u.t.pid);
+			u.t.tid = bswap_32(u.t.tid);
+			u.t.pid = bswap_32(u.t.pid);
 			u.t.ppid = bswap_32(u.t.ppid);
 			u.t.time = bswap_64(u.t.time);
 		}
 
-		perf->u.task.pid  = u.t.pid;
+		perf->u.task.pid = u.t.pid;
 		perf->u.task.ppid = u.t.ppid;
 
 		perf->time = u.t.time;
-		perf->tid  = u.t.tid;
+		perf->tid = u.t.tid;
 		break;
 
 	case PERF_RECORD_COMM:
@@ -385,17 +383,17 @@ again:
 			return -1;
 
 		if (handle->needs_byte_swap) {
-			u.c.tid            = bswap_32(u.c.tid);
-			u.c.pid            = bswap_32(u.c.pid);
+			u.c.tid = bswap_32(u.c.tid);
+			u.c.pid = bswap_32(u.c.pid);
 			u.c.sample_id.time = bswap_64(u.c.sample_id.time);
 		}
 
-		perf->u.comm.pid  = u.c.pid;
+		perf->u.comm.pid = u.c.pid;
 		perf->u.comm.exec = h.misc & PERF_RECORD_MISC_COMM_EXEC;
 		strncpy(perf->u.comm.comm, u.c.comm, sizeof(perf->u.comm.comm));
 
 		perf->time = u.c.sample_id.time;
-		perf->tid  = u.c.tid;
+		perf->tid = u.c.tid;
 		break;
 
 	default:
@@ -470,8 +468,8 @@ int read_perf_data(struct uftrace_data *handle)
  * event.  But do_dump_file() calls it directly without the above
  * function in order to access to the raw file contents.
  */
-struct uftrace_record * get_perf_record(struct uftrace_data *handle,
-					struct uftrace_perf_reader *perf)
+struct uftrace_record *get_perf_record(struct uftrace_data *handle,
+				       struct uftrace_perf_reader *perf)
 {
 	static struct uftrace_record rec;
 
@@ -480,10 +478,10 @@ struct uftrace_record * get_perf_record(struct uftrace_data *handle,
 			return NULL;
 	}
 
-	rec.type  = UFTRACE_EVENT;
-	rec.time  = perf->time;
+	rec.type = UFTRACE_EVENT;
+	rec.time = perf->time;
 	rec.magic = RECORD_MAGIC;
-	rec.more  = 0;
+	rec.more = 0;
 
 	switch (perf->type) {
 	case PERF_RECORD_FORK:
@@ -530,8 +528,7 @@ void update_perf_task_comm(struct uftrace_data *handle)
 			if (task == NULL)
 				continue;
 
-			if (task->time.stamp == 0 ||
-			    task->time.stamp > perf->time)
+			if (task->time.stamp == 0 || task->time.stamp > perf->time)
 				task->time.stamp = perf->time;
 
 			if (perf->type != PERF_RECORD_COMM)
@@ -543,7 +540,7 @@ void update_perf_task_comm(struct uftrace_data *handle)
 		/* reset file position for future processing */
 		rewind(perf->fp);
 		perf->valid = false;
-		perf->done  = false;
+		perf->done = false;
 	}
 }
 
@@ -554,13 +551,11 @@ static void remove_event_rstack(struct uftrace_task_reader *task)
 
 	/* also delete matching entry (at the last) */
 	do {
-		last = list_last_entry(&task->event_list.read,
-				       typeof(*last), list);
+		last = list_last_entry(&task->event_list.read, typeof(*last), list);
 
 		last_addr = last->rstack.addr;
 		delete_last_rstack_list(&task->event_list);
-	}
-	while (last_addr != EVENT_ID_PERF_SCHED_OUT);
+	} while (last_addr != EVENT_ID_PERF_SCHED_OUT);
 }
 
 void process_perf_event(struct uftrace_data *handle)
@@ -590,7 +585,7 @@ void process_perf_event(struct uftrace_data *handle)
 			rec->more = 1;
 			args.args = NULL;
 			args.data = xstrdup(perf->u.comm.comm);
-			args.len  = strlen(perf->u.comm.comm) + 1;
+			args.len = strlen(perf->u.comm.comm) + 1;
 		}
 		else if (perf->type == PERF_RECORD_SWITCH && !perf->u.ctxsw.out) {
 			struct uftrace_rstack_list_node *last;
@@ -599,8 +594,7 @@ void process_perf_event(struct uftrace_data *handle)
 			if (task->event_list.count == 0)
 				goto add_it;
 
-			last = list_last_entry(&task->event_list.read,
-					       typeof(*last), list);
+			last = list_last_entry(&task->event_list.read, typeof(*last), list);
 
 			/* time filter is meaningful only for schedule events */
 			while (last->rstack.addr != EVENT_ID_PERF_SCHED_OUT) {

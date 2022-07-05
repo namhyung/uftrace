@@ -10,7 +10,6 @@
 #include "utils/symbol.h"
 #include "tests/unittest.h"
 
-
 static bool color = true;
 
 /* example test case */
@@ -34,32 +33,25 @@ TEST_CASE(unittest_framework)
 }
 
 static const char *retcodes[] = {
-	TERM_COLOR_GREEN  "PASS" TERM_COLOR_RESET,
-	TERM_COLOR_RED    "FAIL" TERM_COLOR_RESET,
-	TERM_COLOR_YELLOW "SKIP" TERM_COLOR_RESET,
-	TERM_COLOR_RED    "SIG " TERM_COLOR_RESET,
-	TERM_COLOR_RED    "BAD " TERM_COLOR_RESET,
+	TERM_COLOR_GREEN "PASS" TERM_COLOR_RESET,  TERM_COLOR_RED "FAIL" TERM_COLOR_RESET,
+	TERM_COLOR_YELLOW "SKIP" TERM_COLOR_RESET, TERM_COLOR_RED "SIG " TERM_COLOR_RESET,
+	TERM_COLOR_RED "BAD " TERM_COLOR_RESET,
 };
 
 static const char *retcodes_nocolor[] = {
-	"PASS",
-	"FAIL",
-	"SKIP",
-	"SIG ",
-	"BAD ",
+	"PASS", "FAIL", "SKIP", "SIG ", "BAD ",
 };
 
 static const char *messages[] = {
-	"ran successfully",
-	"failed",
-	"skipped",
-	"signal caught",
-	"unknown result",
+	"ran successfully", "failed", "skipped", "signal caught", "unknown result",
 };
 
 static void set_debug_domain(struct uftrace_unit_test *test)
 {
-#define DOMAIN(x)  { #x, DBG_##x }
+#define DOMAIN(x)                                                                                  \
+	{                                                                                          \
+#x, DBG_##x                                                                        \
+	}
 
 	struct {
 		char *name;
@@ -77,9 +69,9 @@ static void set_debug_domain(struct uftrace_unit_test *test)
 		DOMAIN(SCRIPT),
 		DOMAIN(DWARF),
 		/* some fixup domains */
-		{ "task",       DBG_SESSION },
-		{ "argspec",    DBG_FILTER },
-		{ "trigger",    DBG_FILTER },
+		{ "task", DBG_SESSION },
+		{ "argspec", DBG_FILTER },
+		{ "trigger", DBG_FILTER },
 	};
 	unsigned int i;
 	int count = 0;
@@ -95,8 +87,7 @@ static void set_debug_domain(struct uftrace_unit_test *test)
 		dbg_domain[DBG_UFTRACE] = debug;
 }
 
-static void run_unit_test(struct uftrace_unit_test *test, int *test_stats,
-			  char *filter)
+static void run_unit_test(struct uftrace_unit_test *test, int *test_stats, char *filter)
 {
 	static int count;
 	int status;
@@ -119,7 +110,7 @@ static void run_unit_test(struct uftrace_unit_test *test, int *test_stats,
 	if (WIFSIGNALED(status))
 		ret = TEST_SIG;
 	else if (WIFEXITED(status))
-		ret = WEXITSTATUS(status);  /* OK or NG */
+		ret = WEXITSTATUS(status); /* OK or NG */
 
 	if (ret < 0 || ret >= TEST_MAX)
 		ret = TEST_BAD;
@@ -134,8 +125,7 @@ static void run_unit_test(struct uftrace_unit_test *test, int *test_stats,
 
 static unsigned long load_base;
 
-static int find_load_base(struct dl_phdr_info *info,
-			  size_t size, void *arg)
+static int find_load_base(struct dl_phdr_info *info, size_t size, void *arg)
 {
 	unsigned i;
 
@@ -169,8 +159,7 @@ static int sort_tests(const void *tc1, const void *tc2)
 	return strcmp(test1->name, test2->name);
 }
 
-static int setup_unit_test(struct uftrace_unit_test **test_cases,
-			   size_t *test_num, char *filter)
+static int setup_unit_test(struct uftrace_unit_test **test_cases, size_t *test_num, char *filter)
 {
 	char *exename;
 	struct uftrace_elf_data elf;
@@ -207,7 +196,7 @@ static int setup_unit_test(struct uftrace_unit_test **test_cases,
 	dl_iterate_phdr(find_load_base, NULL);
 
 	tcases = xmalloc(sec_size);
-	num    = sec_size / sizeof(*tcases);
+	num = sec_size / sizeof(*tcases);
 
 	elf_get_secdata(&elf, &iter);
 	elf_read_secdata(&elf, &iter, 0, tcases, sec_size);
@@ -238,7 +227,7 @@ static int setup_unit_test(struct uftrace_unit_test **test_cases,
 	qsort(tcases, num, sizeof(*tcases), sort_tests);
 
 	*test_cases = tcases;
-	*test_num   = num;
+	*test_num = num;
 
 	ret = 0;
 
@@ -258,10 +247,9 @@ static int finish_unit_test(struct uftrace_unit_test *test_cases, int *test_stat
 
 	printf("\n");
 	free(test_cases);
-	return test_stats[TEST_NG]
-		+ test_stats[TEST_BAD]
-		+ test_stats[TEST_SIG]
-		> 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+	return test_stats[TEST_NG] + test_stats[TEST_BAD] + test_stats[TEST_SIG] > 0 ?
+		       EXIT_FAILURE :
+		       EXIT_SUCCESS;
 }
 
 int __attribute__((weak)) arch_fill_cpuinfo_model(int fd)
@@ -269,19 +257,33 @@ int __attribute__((weak)) arch_fill_cpuinfo_model(int fd)
 	return 0;
 }
 
-void mcount_return(void) {}
-void plthook_return(void) {}
-void dynamic_return(void) {}
-void __fentry__(void) {}
-void __dentry__(void) {}
-void __xray_entry(void) {}
-void __xray_exit(void) {}
+void mcount_return(void)
+{
+}
+void plthook_return(void)
+{
+}
+void dynamic_return(void)
+{
+}
+void __fentry__(void)
+{
+}
+void __dentry__(void)
+{
+}
+void __xray_entry(void)
+{
+}
+void __xray_exit(void)
+{
+}
 
 #undef main
 int main(int argc, char *argv[])
 {
 	struct uftrace_unit_test *test_cases = NULL;
-	int test_stats[TEST_MAX] = { };
+	int test_stats[TEST_MAX] = {};
 	size_t i, test_num = 0;
 	char *filter = NULL;
 	char *term;

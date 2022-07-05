@@ -2,8 +2,8 @@
 #include "utils/fstack.h"
 #include "utils/list.h"
 
-void print_header(struct list_head *output_fields, const char *prefix,
-		  const char *postfix, int space, bool new_line)
+void print_header(struct list_head *output_fields, const char *prefix, const char *postfix,
+		  int space, bool new_line)
 {
 	struct display_field *field;
 	bool first = true;
@@ -23,9 +23,8 @@ void print_header(struct list_head *output_fields, const char *prefix,
 		pr_out("\n");
 }
 
-void print_header_align(struct list_head *output_fields, const char *prefix,
-			const char *postfix, int space, enum align_pos align,
-			bool new_line)
+void print_header_align(struct list_head *output_fields, const char *prefix, const char *postfix,
+			int space, enum align_pos align, bool new_line)
 {
 	struct display_field *field;
 	bool first = true;
@@ -49,8 +48,7 @@ void print_header_align(struct list_head *output_fields, const char *prefix,
 		pr_out("\n");
 }
 
-int print_field_data(struct list_head *output_fields, struct field_data *fd,
-		     int space)
+int print_field_data(struct list_head *output_fields, struct field_data *fd, int space)
 {
 	struct display_field *field;
 
@@ -111,8 +109,8 @@ static bool check_field_name(struct display_field *field, const char *name)
 }
 
 void setup_field(struct list_head *output_fields, struct uftrace_opts *opts,
-		 setup_default_field_t setup_default_field,
-		 struct display_field *field_table[], size_t field_table_size)
+		 setup_default_field_t setup_default_field, struct display_field *field_table[],
+		 size_t field_table_size)
 {
 	struct display_field *field, *tmp;
 	struct strv strv = STRV_INIT;
@@ -188,7 +186,9 @@ void setup_field(struct list_head *output_fields, struct uftrace_opts *opts,
 
 #ifdef UNIT_TEST
 
-static void print_nothing(struct field_data* fd) {}
+static void print_nothing(struct field_data *fd)
+{
+}
 
 static void setup_first_field(struct list_head *head, struct uftrace_opts *opts,
 			      struct display_field *p_field_table[])
@@ -196,28 +196,36 @@ static void setup_first_field(struct list_head *head, struct uftrace_opts *opts,
 	add_field(head, p_field_table[0]);
 }
 
-#define DEFINE_FIELD(_id, _name, _alias)			\
-static struct display_field field##_id = {			\
-	.id = _id, .name = _name, .header = _name,		\
-	.length = 1, .print = print_nothing, .alias = _alias,	\
-}
+#define DEFINE_FIELD(_id, _name, _alias)                                                           \
+	static struct display_field field##_id = {                                                 \
+		.id = _id,                                                                         \
+		.name = _name,                                                                     \
+		.header = _name,                                                                   \
+		.length = 1,                                                                       \
+		.print = print_nothing,                                                            \
+		.alias = _alias,                                                                   \
+	}
 
 DEFINE_FIELD(1, "foo", "FOO");
 DEFINE_FIELD(2, "bar", "baz");
 DEFINE_FIELD(3, "abc", "xyz");
 
 static struct display_field *test_field_table[] = {
-	&field1, &field2, &field3,
+	&field1,
+	&field2,
+	&field3,
 };
 
 TEST_CASE(field_setup_default)
 {
 	LIST_HEAD(output_fields);
-	struct uftrace_opts opts = { .fields = NULL, };
+	struct uftrace_opts opts = {
+		.fields = NULL,
+	};
 
 	pr_dbg("calling setup_default_field\n");
-	setup_field(&output_fields, &opts, setup_first_field,
-		    test_field_table, ARRAY_SIZE(test_field_table));
+	setup_field(&output_fields, &opts, setup_first_field, test_field_table,
+		    ARRAY_SIZE(test_field_table));
 
 	TEST_EQ(output_fields.next, &field1.list);
 	TEST_EQ(field1.used, true);
@@ -230,11 +238,13 @@ TEST_CASE(field_setup_default)
 TEST_CASE(field_setup_default_plus)
 {
 	LIST_HEAD(output_fields);
-	struct uftrace_opts opts = { .fields = "+abc", };
+	struct uftrace_opts opts = {
+		.fields = "+abc",
+	};
 
 	pr_dbg("add 'abc' field after the default\n");
-	setup_field(&output_fields, &opts, setup_first_field,
-		    test_field_table, ARRAY_SIZE(test_field_table));
+	setup_field(&output_fields, &opts, setup_first_field, test_field_table,
+		    ARRAY_SIZE(test_field_table));
 
 	TEST_EQ(output_fields.next, &field1.list);
 	TEST_EQ(field1.list.next, &field3.list);
@@ -248,11 +258,13 @@ TEST_CASE(field_setup_default_plus)
 TEST_CASE(field_setup_list)
 {
 	LIST_HEAD(output_fields);
-	struct uftrace_opts opts = { .fields = "bar,foo", };
+	struct uftrace_opts opts = {
+		.fields = "bar,foo",
+	};
 
 	pr_dbg("setup fields in a given order\n");
-	setup_field(&output_fields, &opts, setup_first_field,
-		    test_field_table, ARRAY_SIZE(test_field_table));
+	setup_field(&output_fields, &opts, setup_first_field, test_field_table,
+		    ARRAY_SIZE(test_field_table));
 
 	TEST_EQ(output_fields.next, &field1.list);
 	TEST_EQ(field1.list.next, &field2.list);
@@ -266,11 +278,13 @@ TEST_CASE(field_setup_list)
 TEST_CASE(field_setup_list_alias)
 {
 	LIST_HEAD(output_fields);
-	struct uftrace_opts opts = { .fields = "baz,xyz", };
+	struct uftrace_opts opts = {
+		.fields = "baz,xyz",
+	};
 
 	pr_dbg("setup fields with alias name\n");
-	setup_field(&output_fields, &opts, setup_first_field,
-		    test_field_table, ARRAY_SIZE(test_field_table));
+	setup_field(&output_fields, &opts, setup_first_field, test_field_table,
+		    ARRAY_SIZE(test_field_table));
 
 	TEST_EQ(output_fields.next, &field2.list);
 	TEST_EQ(field2.list.next, &field3.list);
@@ -281,4 +295,4 @@ TEST_CASE(field_setup_list_alias)
 	return TEST_OK;
 }
 
-#endif  /* UNIT_TEST */
+#endif /* UNIT_TEST */

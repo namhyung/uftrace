@@ -22,14 +22,13 @@ void graph_init(struct uftrace_graph *graph, struct uftrace_session *s)
 void graph_init_callbacks(graph_fn entry_fn, graph_fn exit_fn, graph_fn event_fn, void *arg)
 {
 	entry_cb = entry_fn;
-	exit_cb  = exit_fn;
+	exit_cb = exit_fn;
 	event_cb = event_fn;
 
-	cb_arg   = arg;
+	cb_arg = arg;
 }
 
-struct uftrace_task_graph * graph_get_task(struct uftrace_task_reader *task,
-					   size_t tg_size)
+struct uftrace_task_graph *graph_get_task(struct uftrace_task_reader *task, size_t tg_size)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &task_graph_root.rb_node;
@@ -57,15 +56,15 @@ struct uftrace_task_graph * graph_get_task(struct uftrace_task_reader *task,
 	return tg;
 }
 
-static int add_graph_entry(struct uftrace_task_graph *tg, char *name,
-			   size_t node_size, struct uftrace_dbg_loc* loc)
+static int add_graph_entry(struct uftrace_task_graph *tg, char *name, size_t node_size,
+			   struct uftrace_dbg_loc *loc)
 {
 	struct uftrace_graph_node *node = NULL;
 	struct uftrace_graph_node *curr = tg->node;
 	struct uftrace_fstack *fstack;
 
 	if (tg->lost)
-		return 1;  /* ignore kernel functions after LOST */
+		return 1; /* ignore kernel functions after LOST */
 
 	if (tg->new_sess) {
 		curr = &tg->graph->root;
@@ -107,8 +106,7 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name,
 			if (sym == NULL)
 				goto out;
 
-			if (!strcmp(sym->name, "fork") ||
-			    !strcmp(sym->name, "vfork") ||
+			if (!strcmp(sym->name, "fork") || !strcmp(sym->name, "vfork") ||
 			    !strcmp(sym->name, "daemon"))
 				type = NODE_T_FORK;
 			else if (!strncmp(sym->name, "exec", 4))
@@ -119,7 +117,7 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name,
 			snode = xmalloc(sizeof(*snode));
 			snode->node = node;
 			snode->type = type;
-			snode->pid  = tg->task->t->pid;
+			snode->pid = tg->task->t->pid;
 
 			/* find recent one first */
 			list_add(&snode->list, &tg->graph->special_nodes);
@@ -145,8 +143,7 @@ static int add_graph_exit(struct uftrace_task_graph *tg)
 		return -1;
 
 	if (tg->lost) {
-		if (is_kernel_address(&tg->task->h->sessions.first->sym_info,
-				      fstack->addr))
+		if (is_kernel_address(&tg->task->h->sessions.first->sym_info, fstack->addr))
 			return 1;
 
 		/*
@@ -161,8 +158,7 @@ static int add_graph_exit(struct uftrace_task_graph *tg)
 
 		list_for_each_entry_safe(snode, tmp, &tg->graph->special_nodes, list) {
 			if (snode->node->addr == tg->task->rstack->addr &&
-			    snode->type == NODE_T_FORK &&
-			    snode->pid == tg->task->t->ppid) {
+			    snode->type == NODE_T_FORK && snode->pid == tg->task->t->ppid) {
 				node = snode->node;
 				list_del(&snode->list);
 				free(snode);
@@ -174,7 +170,7 @@ static int add_graph_exit(struct uftrace_task_graph *tg)
 	}
 
 out:
-	node->time       += fstack->total_time;
+	node->time += fstack->total_time;
 	node->child_time += fstack->child_time;
 
 	if (exit_cb)
@@ -204,8 +200,8 @@ static int add_graph_event(struct uftrace_task_graph *tg, size_t node_size)
 	return -1;
 }
 
-int graph_add_node(struct uftrace_task_graph *tg, int type, char *name,
-		   size_t node_size, struct uftrace_dbg_loc* loc)
+int graph_add_node(struct uftrace_task_graph *tg, int type, char *name, size_t node_size,
+		   struct uftrace_dbg_loc *loc)
 {
 	if (type == UFTRACE_ENTRY)
 		return add_graph_entry(tg, name, node_size, loc);

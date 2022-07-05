@@ -18,7 +18,6 @@
 #include "utils/perf.h"
 #include "libmcount/mcount.h"
 
-
 /**
  * read_task_file - read 'task' file from data directory
  * @sess: session link to manage sessions and tasks
@@ -34,8 +33,8 @@
  *
  * It returns 0 for success, -1 for error.
  */
-int read_task_file(struct uftrace_session_link *sess, char *dirname,
-		   bool needs_symtab, bool sym_rel_addr, bool needs_srcline)
+int read_task_file(struct uftrace_session_link *sess, char *dirname, bool needs_symtab,
+		   bool sym_rel_addr, bool needs_srcline)
 {
 	int fd;
 	char pad[8];
@@ -61,13 +60,11 @@ int read_task_file(struct uftrace_session_link *sess, char *dirname,
 				goto out;
 			if (read_all(fd, buf, smsg.namelen) < 0)
 				goto out;
-			if (smsg.namelen % 8 &&
-			    read_all(fd, pad, 8 - (smsg.namelen % 8)) < 0)
+			if (smsg.namelen % 8 && read_all(fd, pad, 8 - (smsg.namelen % 8)) < 0)
 				goto out;
 
-			create_session(sess, &smsg, dirname, dirname, buf,
-				       sym_rel_addr, needs_symtab,
-				       needs_srcline);
+			create_session(sess, &smsg, dirname, dirname, buf, sym_rel_addr,
+				       needs_symtab, needs_srcline);
 			break;
 
 		case UFTRACE_MSG_TASK_START:
@@ -135,8 +132,8 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname, char *s
 	pr_dbg("reading %s file\n", fname);
 	while (getline(&line, &sz, fp) >= 0) {
 		if (!strncmp(line, "TASK", 4)) {
-			num = sscanf(line + 5, "timestamp=%lu.%lu tid=%d pid=%d",
-				     &sec, &nsec, &tmsg.tid, &tmsg.pid);
+			num = sscanf(line + 5, "timestamp=%lu.%lu tid=%d pid=%d", &sec, &nsec,
+				     &tmsg.tid, &tmsg.pid);
 			if (num != 4)
 				goto out;
 
@@ -144,8 +141,8 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname, char *s
 			create_task(sess, &tmsg, false);
 		}
 		else if (!strncmp(line, "FORK", 4)) {
-			num = sscanf(line + 5, "timestamp=%lu.%lu pid=%d ppid=%d",
-				     &sec, &nsec, &tmsg.tid, &tmsg.pid);
+			num = sscanf(line + 5, "timestamp=%lu.%lu pid=%d ppid=%d", &sec, &nsec,
+				     &tmsg.tid, &tmsg.pid);
 			if (num != 4)
 				goto out;
 
@@ -153,8 +150,8 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname, char *s
 			create_task(sess, &tmsg, true);
 		}
 		else if (!strncmp(line, "SESS", 4)) {
-			num = sscanf(line + 5, "timestamp=%lu.%lu %*[^i]id=%d sid=%s",
-				     &sec, &nsec, &smsg.task.pid, (char *)&smsg.sid);
+			num = sscanf(line + 5, "timestamp=%lu.%lu %*[^i]id=%d sid=%s", &sec, &nsec,
+				     &smsg.task.pid, (char *)&smsg.sid);
 			if (num != 4)
 				goto out;
 
@@ -163,7 +160,7 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname, char *s
 			if (pos == NULL)
 				goto out;
 
-			exename = pos + 8 + 1;  // skip double-quote
+			exename = pos + 8 + 1; // skip double-quote
 			pos = strrchr(exename, '\"');
 			if (pos)
 				*pos = '\0';
@@ -172,9 +169,8 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname, char *s
 			smsg.task.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
 			smsg.namelen = strlen(exename);
 
-			create_session(sess, &smsg, dirname, symdir, exename,
-				       sym_rel_addr, needs_symtab,
-				       needs_srcline);
+			create_session(sess, &smsg, dirname, symdir, exename, sym_rel_addr,
+				       needs_symtab, needs_srcline);
 		}
 		else if (!strncmp(line, "DLOP", 4)) {
 			struct uftrace_session *s;
@@ -182,7 +178,7 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname, char *s
 			if (!needs_symtab)
 				continue;
 
-			num = sscanf(line + 5, "timestamp=%lu.%lu tid=%d sid=%s base=%"PRIx64,
+			num = sscanf(line + 5, "timestamp=%lu.%lu tid=%d sid=%s base=%" PRIx64,
 				     &sec, &nsec, &dlop.task.tid, (char *)&dlop.sid,
 				     &dlop.base_addr);
 			if (num != 5)
@@ -192,7 +188,7 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname, char *s
 			if (pos == NULL)
 				goto out;
 
-			exename = pos + 8 + 1;  // skip double-quote
+			exename = pos + 8 + 1; // skip double-quote
 			pos = strrchr(exename, '\"');
 			if (pos)
 				*pos = '\0';
@@ -203,8 +199,7 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname, char *s
 
 			s = get_session_from_sid(sess, dlop.sid);
 			ASSERT(s);
-			session_add_dlopen(s, dlop.task.time,
-					   dlop.base_addr, exename);
+			session_add_dlopen(s, dlop.task.time, dlop.base_addr, exename);
 		}
 	}
 	ret = 0;
@@ -222,7 +217,7 @@ out:
 
 static void snprint_timestamp(char *buf, size_t sz, uint64_t timestamp)
 {
-	snprintf(buf, sz, "%"PRIu64".%09"PRIu64,  // sec.nsec
+	snprintf(buf, sz, "%" PRIu64 ".%09" PRIu64, // sec.nsec
 		 timestamp / NSEC_PER_SEC, timestamp % NSEC_PER_SEC);
 }
 
@@ -239,8 +234,7 @@ void write_task_info(const char *dirname, struct uftrace_msg_task *tmsg)
 		pr_err("cannot open %s", fname);
 
 	snprint_timestamp(ts, sizeof(ts), tmsg->time);
-	fprintf(fp, "TASK timestamp=%s tid=%d pid=%d\n",
-		ts, tmsg->tid, tmsg->pid);
+	fprintf(fp, "TASK timestamp=%s tid=%d pid=%d\n", ts, tmsg->tid, tmsg->pid);
 
 	fclose(fp);
 	free(fname);
@@ -259,15 +253,13 @@ void write_fork_info(const char *dirname, struct uftrace_msg_task *tmsg)
 		pr_err("cannot open %s", fname);
 
 	snprint_timestamp(ts, sizeof(ts), tmsg->time);
-	fprintf(fp, "FORK timestamp=%s pid=%d ppid=%d\n",
-		ts, tmsg->tid, tmsg->pid);
+	fprintf(fp, "FORK timestamp=%s pid=%d ppid=%d\n", ts, tmsg->tid, tmsg->pid);
 
 	fclose(fp);
 	free(fname);
 }
 
-void write_session_info(const char *dirname, struct uftrace_msg_sess *smsg,
-			const char *exename)
+void write_session_info(const char *dirname, struct uftrace_msg_sess *smsg, const char *exename)
 {
 	FILE *fp;
 	char *fname = NULL;
@@ -280,15 +272,14 @@ void write_session_info(const char *dirname, struct uftrace_msg_sess *smsg,
 		pr_err("cannot open %s", fname);
 
 	snprint_timestamp(ts, sizeof(ts), smsg->task.time);
-	fprintf(fp, "SESS timestamp=%s pid=%d sid=%.*s exename=\"%s\"\n",
-		ts, smsg->task.pid, SESSION_ID_LEN, smsg->sid, exename);
+	fprintf(fp, "SESS timestamp=%s pid=%d sid=%.*s exename=\"%s\"\n", ts, smsg->task.pid,
+		SESSION_ID_LEN, smsg->sid, exename);
 
 	fclose(fp);
 	free(fname);
 }
 
-void write_dlopen_info(const char *dirname, struct uftrace_msg_dlopen *dmsg,
-		       const char *libname)
+void write_dlopen_info(const char *dirname, struct uftrace_msg_dlopen *dmsg, const char *libname)
 {
 	FILE *fp;
 	char *fname = NULL;
@@ -301,8 +292,8 @@ void write_dlopen_info(const char *dirname, struct uftrace_msg_dlopen *dmsg,
 		pr_err("cannot open %s", fname);
 
 	snprint_timestamp(ts, sizeof(ts), dmsg->task.time);
-	fprintf(fp, "DLOP timestamp=%s tid=%d sid=%.*s base=%"PRIx64" libname=\"%s\"\n",
-		ts, dmsg->task.tid, SESSION_ID_LEN, dmsg->sid, dmsg->base_addr, libname);
+	fprintf(fp, "DLOP timestamp=%s tid=%d sid=%.*s base=%" PRIx64 " libname=\"%s\"\n", ts,
+		dmsg->task.tid, SESSION_ID_LEN, dmsg->sid, dmsg->base_addr, libname);
 
 	fclose(fp);
 	free(fname);
@@ -327,8 +318,7 @@ static void check_data_order(struct uftrace_data *handle)
 		pr_dbg("bitfield order is different!\n");
 }
 
-static bool check_data_file(struct uftrace_data *handle,
-			    const char *pattern)
+static bool check_data_file(struct uftrace_data *handle, const char *pattern)
 {
 	glob_t g;
 	size_t i;
@@ -411,7 +401,7 @@ ok:
 	handle->depth = opts->depth;
 	handle->time_filter = opts->threshold;
 	handle->time_range = opts->range;
-	handle->sessions.root  = RB_ROOT;
+	handle->sessions.root = RB_ROOT;
 	handle->sessions.tasks = RB_ROOT;
 	handle->last_perf_idx = -1;
 	INIT_LIST_HEAD(&handle->events);
@@ -425,7 +415,7 @@ ok:
 	check_data_order(handle);
 
 	if (handle->needs_byte_swap) {
-		handle->hdr.version   = bswap_32(handle->hdr.version);
+		handle->hdr.version = bswap_32(handle->hdr.version);
 		handle->hdr.feat_mask = bswap_64(handle->hdr.feat_mask);
 		handle->hdr.info_mask = bswap_64(handle->hdr.info_mask);
 		handle->hdr.max_stack = bswap_16(handle->hdr.max_stack);
@@ -471,10 +461,8 @@ int open_data_file(struct uftrace_opts *opts, struct uftrace_data *handle)
 			sym_rel = true;
 
 		/* read old task file first and then try task.txt file */
-		if (read_task_file(sessions, opts->dirname, true, sym_rel,
-				   opts->srcline) < 0 &&
-		    read_task_txt_file(sessions, opts->dirname,
-				       opts->with_syms ?: opts->dirname,
+		if (read_task_file(sessions, opts->dirname, true, sym_rel, opts->srcline) < 0 &&
+		    read_task_txt_file(sessions, opts->dirname, opts->with_syms ?: opts->dirname,
 				       true, sym_rel, opts->srcline) < 0) {
 			if (errno == ENOENT)
 				saved_errno = ENODATA;
@@ -504,22 +492,19 @@ int open_data_file(struct uftrace_opts *opts, struct uftrace_data *handle)
 
 	if (handle->hdr.info_mask & ARG_SPEC) {
 		struct uftrace_filter_setting setting = {
-			.ptype		= handle->info.patt_type,
-			.allow_kernel	= true,
-			.auto_args	= false,
-			.lp64		= data_is_lp64(handle),
-			.arch		= handle->arch,
+			.ptype = handle->info.patt_type,
+			.allow_kernel = true,
+			.auto_args = false,
+			.lp64 = data_is_lp64(handle),
+			.arch = handle->arch,
 		};
 
 		if (handle->hdr.feat_mask & AUTO_ARGS) {
-			setup_auto_args_str(handle->info.autoarg,
-					    handle->info.autoret,
-					    handle->info.autoenum,
-					    &setting);
+			setup_auto_args_str(handle->info.autoarg, handle->info.autoret,
+					    handle->info.autoenum, &setting);
 		}
 
-		setup_fstack_args(handle->info.argspec, handle->info.retspec,
-				  handle, &setting);
+		setup_fstack_args(handle->info.argspec, handle->info.retspec, handle, &setting);
 
 		if (handle->info.auto_args_enabled) {
 			char *autoarg = handle->info.autoarg;
@@ -528,7 +513,7 @@ int open_data_file(struct uftrace_opts *opts, struct uftrace_data *handle)
 			if (handle->hdr.feat_mask & DEBUG_INFO) {
 				if (handle->info.patt_type == PATT_REGEX)
 					autoarg = autoret = ".";
-				else  /* PATT_GLOB */
+				else /* PATT_GLOB */
 					autoarg = autoret = "*";
 			}
 
@@ -545,8 +530,8 @@ int open_data_file(struct uftrace_opts *opts, struct uftrace_data *handle)
 
 		kernel = xzalloc(sizeof(*kernel));
 
-		kernel->handle   = handle;
-		kernel->dirname  = opts->dirname;
+		kernel->handle = handle;
+		kernel->dirname = opts->dirname;
 		kernel->skip_out = opts->kernel_skip_out;
 
 		if (setup_kernel_data(kernel) == 0) {
@@ -571,8 +556,7 @@ int open_data_file(struct uftrace_opts *opts, struct uftrace_data *handle)
 	snprintf(buf, sizeof(buf), "%s/[0-9]*.dat", opts->dirname);
 	if (!check_data_file(handle, buf)) {
 		if (handle->kernel) {
-			snprintf(buf, sizeof(buf), "%s/kernel-*.dat",
-				 opts->dirname);
+			snprintf(buf, sizeof(buf), "%s/kernel-*.dat", opts->dirname);
 
 			if (check_data_file(handle, buf))
 				goto out;
@@ -594,8 +578,7 @@ out:
 	return ret;
 }
 
-void __close_data_file(struct uftrace_opts *opts, struct uftrace_data *handle,
-		       bool unload_modules)
+void __close_data_file(struct uftrace_opts *opts, struct uftrace_data *handle, bool unload_modules)
 {
 	if (opts->exename == handle->info.exename)
 		opts->exename = NULL;
@@ -627,8 +610,8 @@ void __close_data_file(struct uftrace_opts *opts, struct uftrace_data *handle,
 
 #ifdef UNIT_TEST
 #define TEST_SESSION_ID "test-session-id"
-#define TEST_EXIT_STATUS  37
-#define TEST_INFO_MASK  ((1U << EXE_NAME) | (1U << EXIT_STATUS))
+#define TEST_EXIT_STATUS 37
+#define TEST_INFO_MASK ((1U << EXE_NAME) | (1U << EXIT_STATUS))
 
 static int create_data(struct uftrace_opts *opts)
 {
@@ -663,8 +646,7 @@ static int create_data(struct uftrace_opts *opts)
 	write_dlopen_info(opts->dirname, &dlopen_msg, "libnothing.so");
 
 	/* create_session() requires a map file even if it's empty */
-	asprintf(&filename, "%s/sid-%.*s.map",
-		 opts->dirname, SESSION_ID_LEN, TEST_SESSION_ID);
+	asprintf(&filename, "%s/sid-%.*s.map", opts->dirname, SESSION_ID_LEN, TEST_SESSION_ID);
 	creat(filename, 0644);
 	free(filename);
 
@@ -734,4 +716,4 @@ TEST_CASE(data_basic)
 
 	return TEST_OK;
 }
-#endif  /* UNIT_TEST */
+#endif /* UNIT_TEST */

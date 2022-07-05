@@ -5,8 +5,8 @@
 #include <byteswap.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "fstack"
-#define PR_DOMAIN  DBG_FSTACK
+#define PR_FMT "fstack"
+#define PR_DOMAIN DBG_FSTACK
 
 #include "uftrace.h"
 #include "utils/utils.h"
@@ -18,7 +18,6 @@
 #include "utils/event.h"
 #include "libmcount/mcount.h"
 
-
 bool fstack_enabled = true;
 bool live_disabled = false;
 
@@ -26,8 +25,7 @@ static enum filter_mode fstack_filter_mode = FILTER_MODE_NONE;
 
 static int __read_task_ustack(struct uftrace_task_reader *task);
 
-struct uftrace_task_reader *get_task_handle(struct uftrace_data *handle,
-					   int tid)
+struct uftrace_task_reader *get_task_handle(struct uftrace_data *handle, int tid)
 {
 	int i;
 
@@ -38,8 +36,8 @@ struct uftrace_task_reader *get_task_handle(struct uftrace_data *handle,
 	return NULL;
 }
 
-static void setup_task_handle(struct uftrace_data *handle,
-		       struct uftrace_task_reader *task, int tid)
+static void setup_task_handle(struct uftrace_data *handle, struct uftrace_task_reader *task,
+			      int tid)
 {
 	int i;
 	int max_stack;
@@ -54,8 +52,7 @@ static void setup_task_handle(struct uftrace_data *handle,
 	 * set display depth to non-zero only when trace-on trigger (with --disabled
 	 * option) or time range is set.
 	 */
-	task->display_depth_set = (fstack_enabled && !live_disabled &&
-				   !handle->time_range.start);
+	task->display_depth_set = (fstack_enabled && !live_disabled && !handle->time_range.start);
 
 	max_stack = handle->hdr.max_stack;
 	task->func_stack = xcalloc(1, sizeof(*task->func_stack) * max_stack);
@@ -96,8 +93,8 @@ void reset_task_handle(struct uftrace_data *handle)
 	handle->nr_tasks = 0;
 }
 
-static void prepare_task_handle(struct uftrace_data *handle,
-		       struct uftrace_task_reader *task, int tid)
+static void prepare_task_handle(struct uftrace_data *handle, struct uftrace_task_reader *task,
+				int tid)
 {
 	char *filename;
 
@@ -121,8 +118,7 @@ static void prepare_task_handle(struct uftrace_data *handle,
 	setup_rstack_list(&task->event_list);
 }
 
-static void update_first_timestamp(struct uftrace_data *handle,
-				   struct uftrace_task_reader *task,
+static void update_first_timestamp(struct uftrace_data *handle, struct uftrace_task_reader *task,
 				   struct uftrace_record *rstack)
 {
 	uint64_t first = handle->time_range.first;
@@ -165,7 +161,7 @@ void fstack_setup_task(char *tid_filter, struct uftrace_data *handle)
 
 		id = strtol(p, &p, 10);
 
-		filter_tids = xrealloc(filter_tids, (nr_filters+1) * sizeof(int));
+		filter_tids = xrealloc(filter_tids, (nr_filters + 1) * sizeof(int));
 		filter_tids[nr_filters++] = id;
 
 	} while (*p);
@@ -203,8 +199,7 @@ setup:
 			/* need to read the data to check elapsed time */
 			if (task->fp) {
 				if (!__read_task_ustack(task)) {
-					update_first_timestamp(handle, task,
-							       &task->ustack);
+					update_first_timestamp(handle, task, &task->ustack);
 				}
 				fclose(task->fp);
 				task->fp = NULL;
@@ -222,8 +217,8 @@ static int setup_filters(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
 
-	uftrace_setup_filter(setting->info_str, &s->sym_info, &s->filters,
-			     &fstack_filter_mode, setting);
+	uftrace_setup_filter(setting->info_str, &s->sym_info, &s->filters, &fstack_filter_mode,
+			     setting);
 	return 0;
 }
 
@@ -231,8 +226,8 @@ static int setup_trigger(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
 
-	uftrace_setup_trigger(setting->info_str, &s->sym_info, &s->filters,
-			      &fstack_filter_mode, setting);
+	uftrace_setup_trigger(setting->info_str, &s->sym_info, &s->filters, &fstack_filter_mode,
+			      setting);
 	return 0;
 }
 
@@ -240,8 +235,7 @@ static int setup_callers(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
 
-	uftrace_setup_caller_filter(setting->info_str, &s->sym_info, &s->filters,
-				    setting);
+	uftrace_setup_caller_filter(setting->info_str, &s->sym_info, &s->filters, setting);
 	return 0;
 }
 
@@ -249,8 +243,7 @@ static int setup_hides(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
 
-	uftrace_setup_hide_filter(setting->info_str, &s->sym_info, &s->filters,
-				  setting);
+	uftrace_setup_hide_filter(setting->info_str, &s->sym_info, &s->filters, setting);
 	return 0;
 }
 
@@ -293,9 +286,9 @@ static int count_hides(struct uftrace_session *s, void *arg)
  *   trigger     = trigger_def | trigger_def "," trigger
  *   trigger_def = "depth=" NUM | "backtrace"
  */
-static int setup_fstack_filters(struct uftrace_data *handle, char *filter_str,
-				char *trigger_str, char *caller_str,
-				char *hide_str, struct uftrace_filter_setting *setting)
+static int setup_fstack_filters(struct uftrace_data *handle, char *filter_str, char *trigger_str,
+				char *caller_str, char *hide_str,
+				struct uftrace_filter_setting *setting)
 {
 	int count = 0;
 	struct uftrace_session_link *sessions = &handle->sessions;
@@ -358,10 +351,9 @@ static int setup_fstack_filters(struct uftrace_data *handle, char *filter_str,
 }
 
 static const char *fixup_syms[] = {
-	"execl", "execlp", "execle", "execv", "execve", "execvp", "execvpe",
-	"setjmp", "_setjmp", "sigsetjmp", "__sigsetjmp",
-	"longjmp", "siglongjmp", "__longjmp_chk",
-	"fork", "vfork", "daemon",
+	"execl",      "execlp",	       "execle",  "execv",     "execve",      "execvp",
+	"execvpe",    "setjmp",	       "_setjmp", "sigsetjmp", "__sigsetjmp", "longjmp",
+	"siglongjmp", "__longjmp_chk", "fork",	  "vfork",     "daemon",
 };
 
 static int setjmp_depth;
@@ -371,15 +363,15 @@ static int build_fixup_filter(struct uftrace_session *s, void *arg)
 {
 	size_t i;
 	struct uftrace_filter_setting setting = {
-		.ptype  = PATT_SIMPLE,
+		.ptype = PATT_SIMPLE,
 		.auto_args = false,
 	};
 
 	pr_dbg("fixup for some special functions\n");
 
 	for (i = 0; i < ARRAY_SIZE(fixup_syms); i++) {
-		uftrace_setup_trigger((char *)fixup_syms[i], &s->sym_info,
-				      &s->fixups, NULL, &setting);
+		uftrace_setup_trigger((char *)fixup_syms[i], &s->sym_info, &s->fixups, NULL,
+				      &setting);
 	}
 	return 0;
 }
@@ -401,8 +393,7 @@ static int build_arg_spec(struct uftrace_session *s, void *arg)
 	struct uftrace_filter_setting *setting = arg;
 
 	if (setting->info_str)
-		uftrace_setup_argument(setting->info_str, &s->sym_info,
-				       &s->filters, setting);
+		uftrace_setup_argument(setting->info_str, &s->sym_info, &s->filters, setting);
 
 	return 0;
 }
@@ -412,8 +403,7 @@ static int build_ret_spec(struct uftrace_session *s, void *arg)
 	struct uftrace_filter_setting *setting = arg;
 
 	if (setting->info_str)
-		uftrace_setup_retval(setting->info_str, &s->sym_info,
-				     &s->filters, setting);
+		uftrace_setup_retval(setting->info_str, &s->sym_info, &s->filters, setting);
 
 	return 0;
 }
@@ -429,8 +419,7 @@ static int build_ret_spec(struct uftrace_session *s, void *arg)
  * This functions sets up argument and return value information
  * provided by user at the time of recording.
  */
-void setup_fstack_args(char *argspec, char *retspec,
-		       struct uftrace_data *handle,
+void setup_fstack_args(char *argspec, char *retspec, struct uftrace_data *handle,
 		       struct uftrace_filter_setting *setting)
 {
 	if (argspec == NULL && retspec == NULL && !setting->auto_args)
@@ -462,15 +451,15 @@ int fstack_setup_filters(struct uftrace_opts *opts, struct uftrace_data *handle)
 {
 	if (opts->filter || opts->trigger || opts->caller || opts->hide) {
 		struct uftrace_filter_setting setting = {
-			.ptype		= opts->patt_type,
-			.allow_kernel	= true,
-			.lp64		= data_is_lp64(handle),
-			.arch		= handle->arch,
+			.ptype = opts->patt_type,
+			.allow_kernel = true,
+			.lp64 = data_is_lp64(handle),
+			.arch = handle->arch,
 		};
 
-		if (setup_fstack_filters(handle, opts->filter, opts->trigger,
-					 opts->caller, opts->hide, &setting) < 0) {
-			char *or = "";
+		if (setup_fstack_filters(handle, opts->filter, opts->trigger, opts->caller,
+					 opts->hide, &setting) < 0) {
+			char * or = "";
 			pr_use("failed to set filter or trigger: ");
 			if (opts->filter) {
 				pr_out("%s%s", or, opts->filter);
@@ -509,7 +498,7 @@ int fstack_setup_filters(struct uftrace_opts *opts, struct uftrace_data *handle)
  * This function returns a pointer to func_stack in @task or %NULL if it has
  * no function call stack or @idx is out of the boundary.
  */
-struct uftrace_fstack * fstack_get(struct uftrace_task_reader *task, int idx)
+struct uftrace_fstack *fstack_get(struct uftrace_task_reader *task, int idx)
 {
 	if (task->func_stack == NULL)
 		return NULL;
@@ -524,8 +513,7 @@ struct uftrace_fstack * fstack_get(struct uftrace_task_reader *task, int idx)
 
 	if (idx < 0) {
 		if (!task->fstack_warned) {
-			pr_dbg("negative call stack count (task: %d)\n",
-			       task->tid);
+			pr_dbg("negative call stack count (task: %d)\n", task->tid);
 			task->fstack_warned = true;
 		}
 		return NULL;
@@ -547,8 +535,7 @@ struct uftrace_fstack * fstack_get(struct uftrace_task_reader *task, int idx)
  *
  * This function returns -1 if it should be skipped, 0 otherwise.
  */
-int fstack_entry(struct uftrace_task_reader *task,
-		 struct uftrace_record *rstack,
+int fstack_entry(struct uftrace_task_reader *task, struct uftrace_record *rstack,
 		 struct uftrace_trigger *tr)
 {
 	struct uftrace_fstack *fstack;
@@ -562,9 +549,9 @@ int fstack_entry(struct uftrace_task_reader *task,
 		return -1;
 
 	pr_dbg2("ENTRY: [%5d] stack: %d, depth: %d, disp: %d, I: %d, O: %d, D: %d, flags = %lx %s\n",
-		task->tid, task->stack_count-1, rstack->depth, task->display_depth,
-		task->filter.in_count, task->filter.out_count, task->filter.depth,
-		fstack->flags, rstack->more ? "more" : "");
+		task->tid, task->stack_count - 1, rstack->depth, task->display_depth,
+		task->filter.in_count, task->filter.out_count, task->filter.depth, fstack->flags,
+		rstack->more ? "more" : "");
 
 	fstack->orig_depth = task->filter.depth;
 	fstack->flags = 0;
@@ -597,15 +584,13 @@ int fstack_entry(struct uftrace_task_reader *task,
 			else if (strstr(fixup->name, "longjmp")) {
 				fstack->flags |= FSTACK_FL_LONGJMP;
 			}
-			else if (strstr(fixup->name, "fork") ||
-				 !strcmp(fixup->name, "daemon")) {
+			else if (strstr(fixup->name, "fork") || !strcmp(fixup->name, "daemon")) {
 				task->fork_display_depth = task->display_depth + 1;
 			}
 		}
 
 		uftrace_match_filter(addr, &sess->filters, tr);
 	}
-
 
 	if (tr->flags & TRIGGER_FL_FILTER) {
 		if (tr->fmode == FILTER_MODE_IN) {
@@ -622,8 +607,7 @@ int fstack_entry(struct uftrace_task_reader *task,
 		task->filter.depth = task->h->depth;
 	}
 	else {
-		if (fstack_filter_mode == FILTER_MODE_IN &&
-		    task->filter.in_count == 0) {
+		if (fstack_filter_mode == FILTER_MODE_IN && task->filter.in_count == 0) {
 			fstack->flags |= FSTACK_FL_NORECORD;
 			return -1;
 		}
@@ -682,8 +666,7 @@ void fstack_exit(struct uftrace_task_reader *task)
 
 	pr_dbg2("EXIT : [%5d] stack: %d, depth: %d, disp: %d, I: %d, O: %d, D: %d, flags = %lx\n",
 		task->tid, task->stack_count, task->rstack->depth, task->display_depth,
-		task->filter.in_count, task->filter.out_count, task->filter.depth,
-		fstack->flags);
+		task->filter.in_count, task->filter.out_count, task->filter.depth, fstack->flags);
 
 	if (fstack->flags & FSTACK_FL_FILTERED)
 		task->filter.in_count--;
@@ -703,8 +686,7 @@ void fstack_exit(struct uftrace_task_reader *task)
  * This funciton updates current display depth according to @type and
  * flags of @fstack, and return a new depth.
  */
-int fstack_update(int type, struct uftrace_task_reader *task,
-		  struct uftrace_fstack *fstack)
+int fstack_update(int type, struct uftrace_task_reader *task, struct uftrace_fstack *fstack)
 {
 	if (fstack == NULL)
 		return task->display_depth;
@@ -758,8 +740,7 @@ int fstack_update(int type, struct uftrace_task_reader *task,
 }
 
 /* returns -1 if it can skip the rstack */
-static int fstack_check_skip(struct uftrace_task_reader *task,
-			     struct uftrace_record *rstack)
+static int fstack_check_skip(struct uftrace_task_reader *task, struct uftrace_record *rstack)
 {
 	struct uftrace_session_link *sessions = &task->h->sessions;
 	struct uftrace_session *sess;
@@ -805,9 +786,8 @@ static int fstack_check_skip(struct uftrace_task_reader *task,
 
 		depth = task->h->depth;
 	}
-	else if (fstack_filter_mode == FILTER_MODE_IN &&
-		 task->filter.in_count == 0) {
-			return -1;
+	else if (fstack_filter_mode == FILTER_MODE_IN && task->filter.in_count == 0) {
+		return -1;
 	}
 
 	if (tr.flags & (TRIGGER_FL_DEPTH | TRIGGER_FL_TRACE_ON))
@@ -832,8 +812,8 @@ static int fstack_check_skip(struct uftrace_task_reader *task,
  * rstack or NULL if it's the last record.
  */
 struct uftrace_task_reader *fstack_skip(struct uftrace_data *handle,
-				       struct uftrace_task_reader *task,
-				       int curr_depth, struct uftrace_opts *opts)
+					struct uftrace_task_reader *task, int curr_depth,
+					struct uftrace_opts *opts)
 {
 	struct uftrace_task_reader *next = NULL;
 	struct uftrace_fstack *fstack;
@@ -856,14 +836,13 @@ struct uftrace_task_reader *fstack_skip(struct uftrace_data *handle,
 		struct uftrace_symbol *sym = task_find_sym(sessions, task, next_stack);
 
 		/* skip filtered entries until current matching EXIT records */
-		if (next == task && curr_stack == next_stack &&
-		    curr_depth >= next_stack->depth)
+		if (next == task && curr_stack == next_stack && curr_depth >= next_stack->depth)
 			break;
 
 		/* skip kernel functions outside user functions */
 		if (is_kernel_record(next, next_stack)) {
-			if (has_kernel_data(handle->kernel) &&
-			    !next->user_stack_count && handle->kernel->skip_out)
+			if (has_kernel_data(handle->kernel) && !next->user_stack_count &&
+			    handle->kernel->skip_out)
 				goto next;
 		}
 
@@ -942,10 +921,8 @@ bool fstack_check_filter(struct uftrace_task_reader *task)
 	}
 	else if (task->rstack->type == UFTRACE_EVENT) {
 		/* don't change filter state, just check it */
-		if (task->filter.out_count > 0 ||
-		    task->filter.depth <= 0 ||
-		    (fstack_filter_mode == FILTER_MODE_IN &&
-		     task->filter.in_count == 0))
+		if (task->filter.out_count > 0 || task->filter.depth <= 0 ||
+		    (fstack_filter_mode == FILTER_MODE_IN && task->filter.in_count == 0))
 			return false;
 
 		if (task->rstack->addr == EVENT_ID_PERF_SCHED_IN ||
@@ -964,8 +941,8 @@ bool fstack_check_filter(struct uftrace_task_reader *task)
 
 			pr_dbg2("SCHED: [%5d] stack: %d, depth: %d, disp: %d, I: %d, O: %d, D: %d, %s\n",
 				task->tid, idx, fstack->orig_depth, task->display_depth,
-				task->filter.in_count, task->filter.out_count,
-				task->filter.depth, sched);
+				task->filter.in_count, task->filter.out_count, task->filter.depth,
+				sched);
 		}
 	}
 
@@ -1008,8 +985,7 @@ void fstack_check_filter_done(struct uftrace_task_reader *task)
  */
 bool is_sched_event(uint64_t addr)
 {
-	if (addr == EVENT_ID_PERF_SCHED_IN ||
-	    addr == EVENT_ID_PERF_SCHED_OUT ||
+	if (addr == EVENT_ID_PERF_SCHED_IN || addr == EVENT_ID_PERF_SCHED_OUT ||
 	    addr == EVENT_ID_PERF_SCHED_BOTH)
 		return true;
 	return false;
@@ -1062,8 +1038,7 @@ void setup_rstack_list(struct uftrace_rstack_list *list)
 	list->count = 0;
 }
 
-void add_to_rstack_list(struct uftrace_rstack_list *list,
-			struct uftrace_record *rstack,
+void add_to_rstack_list(struct uftrace_rstack_list *list, struct uftrace_record *rstack,
 			struct uftrace_fstack_args *args)
 {
 	struct uftrace_rstack_list_node *node;
@@ -1161,11 +1136,11 @@ static void swap_bitfields(struct uftrace_record *rstack)
 	uint64_t *ptr = (void *)rstack;
 	uint64_t data = ptr[1];
 
-	rstack->type  = (data >>  0) & 0x3;
-	rstack->more  = (data >>  2) & 0x1;
-	rstack->magic = (data >>  3) & 0x7;
-	rstack->depth = (data >>  6) & 0x3ff;
-	rstack->addr  = (data >> 16) & 0xffffffffffffULL;
+	rstack->type = (data >> 0) & 0x3;
+	rstack->more = (data >> 2) & 0x1;
+	rstack->magic = (data >> 3) & 0x7;
+	rstack->depth = (data >> 6) & 0x3ff;
+	rstack->addr = (data >> 16) & 0xffffffffffffULL;
 }
 
 static int __read_task_ustack(struct uftrace_task_reader *task)
@@ -1193,8 +1168,7 @@ static int __read_task_ustack(struct uftrace_task_reader *task)
 	return 0;
 }
 
-static int read_task_arg(struct uftrace_task_reader *task,
-			 struct uftrace_arg_spec *spec)
+static int read_task_arg(struct uftrace_task_reader *task, struct uftrace_arg_spec *spec)
 {
 	FILE *fp = task->fp;
 	struct uftrace_fstack_args *args = &task->args;
@@ -1216,7 +1190,7 @@ static int read_task_arg(struct uftrace_task_reader *task,
 		args->len += 2;
 	}
 
-	rem  = (args->len + size) % 4;
+	rem = (args->len + size) % 4;
 
 	if (rem)
 		size += 4 - rem;
@@ -1242,9 +1216,7 @@ static int read_task_arg(struct uftrace_task_reader *task,
  * This function reads argument records of @task's current function
  * according to the @spec.
  */
-int read_task_args(struct uftrace_task_reader *task,
-		   struct uftrace_record *rstack,
-		   bool is_retval)
+int read_task_args(struct uftrace_task_reader *task, struct uftrace_record *rstack, bool is_retval)
 {
 	struct uftrace_session *sess;
 	struct uftrace_trigger tr = {};
@@ -1290,8 +1262,7 @@ int read_task_args(struct uftrace_task_reader *task,
 	return 0;
 }
 
-static int read_task_event_size(struct uftrace_task_reader *task,
-				void *buf, size_t buflen)
+static int read_task_event_size(struct uftrace_task_reader *task, void *buf, size_t buflen)
 {
 	uint16_t len;
 
@@ -1306,14 +1277,13 @@ static int read_task_event_size(struct uftrace_task_reader *task,
 	return 0;
 }
 
-static void save_task_event(struct uftrace_task_reader *task,
-			    void *buf, size_t buflen)
+static void save_task_event(struct uftrace_task_reader *task, void *buf, size_t buflen)
 {
 	int rem;
 
 	/* abuse task->args */
 	task->args.args = (void *)1;
-	task->args.len  = buflen;
+	task->args.len = buflen;
 	task->args.data = xrealloc(task->args.data, buflen);
 
 	memcpy(task->args.data, buf, buflen);
@@ -1324,16 +1294,15 @@ static void save_task_event(struct uftrace_task_reader *task,
 		fseek(task->fp, 8 - rem, SEEK_CUR);
 }
 
-int read_task_event(struct uftrace_task_reader *task,
-		    struct uftrace_record *rec)
+int read_task_event(struct uftrace_task_reader *task, struct uftrace_record *rec)
 {
 	union {
 		struct uftrace_proc_statm statm;
 		struct uftrace_page_fault pgfault;
-		struct uftrace_pmu_cycle  cycle;
-		struct uftrace_pmu_cache  cache;
+		struct uftrace_pmu_cycle cycle;
+		struct uftrace_pmu_cache cache;
 		struct uftrace_pmu_branch branch;
-		int                       cpu;
+		int cpu;
 	} u;
 
 	switch (rec->addr) {
@@ -1344,7 +1313,7 @@ int read_task_event(struct uftrace_task_reader *task,
 
 		if (task->h->needs_byte_swap) {
 			u.statm.vmsize = bswap_64(u.statm.vmsize);
-			u.statm.vmrss  = bswap_64(u.statm.vmrss);
+			u.statm.vmrss = bswap_64(u.statm.vmrss);
 			u.statm.shared = bswap_64(u.statm.shared);
 		}
 
@@ -1433,8 +1402,7 @@ int read_task_event(struct uftrace_task_reader *task,
  *
  * This function returns 0 if succeeded, -1 otherwise.
  */
-int read_task_ustack(struct uftrace_data *handle,
-		     struct uftrace_task_reader *task)
+int read_task_ustack(struct uftrace_data *handle, struct uftrace_task_reader *task)
 {
 	if (task->valid)
 		return 0;
@@ -1496,8 +1464,7 @@ out:
  * This function returns current ftrace record of @idx-th task from
  * data file in @handle.
  */
-static struct uftrace_record *
-get_task_ustack(struct uftrace_data *handle, int idx)
+static struct uftrace_record *get_task_ustack(struct uftrace_data *handle, int idx)
 {
 	struct uftrace_task_reader *task;
 	struct uftrace_record *curr;
@@ -1529,8 +1496,7 @@ get_task_ustack(struct uftrace_data *handle, int idx)
 
 		sess = find_task_session(sessions, task->t, curr->time);
 
-		if (sess &&
-		    (curr->type == UFTRACE_ENTRY || curr->type == UFTRACE_EXIT))
+		if (sess && (curr->type == UFTRACE_ENTRY || curr->type == UFTRACE_EXIT))
 			uftrace_match_filter(curr->addr, &sess->filters, &tr);
 
 		if (task->filter.time)
@@ -1562,8 +1528,7 @@ get_task_ustack(struct uftrace_data *handle, int idx)
 				struct uftrace_time_filter_stack *tfs;
 
 				tfs = task->filter.time;
-				if (tfs->depth == curr->depth &&
-				    tfs->context == FSTACK_CTX_USER) {
+				if (tfs->depth == curr->depth && tfs->context == FSTACK_CTX_USER) {
 					/* discard stale filter */
 					task->filter.time = tfs->next;
 					free(tfs);
@@ -1598,20 +1563,18 @@ get_task_ustack(struct uftrace_data *handle, int idx)
 				 * filter.
 				 */
 				if (tr.flags & TRIGGER_FL_TRACE) {
-					add_to_rstack_list(rstack_list, curr,
-							   &task->args);
+					add_to_rstack_list(rstack_list, curr, &task->args);
 					break;
 				}
 
 				/* also delete matching entry (at the last) */
 				do {
-					last = list_last_entry(&rstack_list->read,
-							       typeof(*last), list);
+					last = list_last_entry(&rstack_list->read, typeof(*last),
+							       list);
 
 					last_type = last->rstack.type;
 					delete_last_rstack_list(rstack_list);
-				}
-				while (last_type != UFTRACE_ENTRY);
+				} while (last_type != UFTRACE_ENTRY);
 			}
 			else {
 				/* found! process all existing rstacks in the list */
@@ -1631,7 +1594,6 @@ get_task_ustack(struct uftrace_data *handle, int idx)
 			add_to_rstack_list(rstack_list, curr, &task->args);
 			break;
 		}
-
 	}
 	if (task->done && rstack_list->count == 0)
 		return NULL;
@@ -1644,8 +1606,7 @@ out:
 	return &task->ustack;
 }
 
-static int read_user_stack(struct uftrace_data *handle,
-			   struct uftrace_task_reader **task)
+static int read_user_stack(struct uftrace_data *handle, struct uftrace_task_reader **task)
 {
 	int i, next_i = -1;
 	uint64_t next_time = 0;
@@ -1670,8 +1631,7 @@ static int read_user_stack(struct uftrace_data *handle,
 	return next_i;
 }
 
-static int read_event_stack(struct uftrace_data *handle,
-			    struct uftrace_task_reader **task)
+static int read_event_stack(struct uftrace_data *handle, struct uftrace_task_reader **task)
 {
 	int i, next_i = -1;
 	uint64_t next_time = 0;
@@ -1702,8 +1662,7 @@ static int read_event_stack(struct uftrace_data *handle,
 }
 
 /* convert perf sched events to a virtual schedule function */
-static bool convert_perf_event(struct uftrace_task_reader *task,
-			       struct uftrace_record *orig,
+static bool convert_perf_event(struct uftrace_task_reader *task, struct uftrace_record *orig,
 			       struct uftrace_record *dummy)
 {
 	switch (orig->addr) {
@@ -1719,11 +1678,11 @@ static bool convert_perf_event(struct uftrace_task_reader *task,
 			task->sched_out_seen = false;
 		}
 
-		dummy->time  = orig->time;
+		dummy->time = orig->time;
 		dummy->magic = RECORD_MAGIC;
-		dummy->addr  = orig->addr;
+		dummy->addr = orig->addr;
 		dummy->depth = 0;
-		dummy->more  = 0;
+		dummy->more = 0;
 
 		return true;
 
@@ -1787,7 +1746,7 @@ static void fstack_account_time(struct uftrace_task_reader *task)
 			fstack = fstack_get(task, i);
 
 			if (fstack != NULL) {
-				fstack->total_time = rstack->time;  /* start time */
+				fstack->total_time = rstack->time; /* start time */
 				fstack->child_time = 0;
 				fstack->valid = true;
 			}
@@ -1842,7 +1801,7 @@ static void fstack_account_time(struct uftrace_task_reader *task)
 			return;
 
 		fstack->addr = rstack->addr;
-		fstack->total_time = rstack->time;  /* start time */
+		fstack->total_time = rstack->time; /* start time */
 		fstack->child_time = 0;
 		fstack->valid = true;
 
@@ -1924,21 +1883,18 @@ static void fstack_update_stack_count(struct uftrace_task_reader *task)
 
 	if (rstack->type == UFTRACE_ENTRY)
 		task->stack_count++;
-	else if (rstack->type == UFTRACE_EXIT &&
-		 task->stack_count > 0)
+	else if (rstack->type == UFTRACE_EXIT && task->stack_count > 0)
 		task->stack_count--;
 
 	if (task->ctx == FSTACK_CTX_USER) {
 		if (rstack->type == UFTRACE_ENTRY)
 			task->user_stack_count++;
-		else if (rstack->type == UFTRACE_EXIT &&
-			 task->user_stack_count > 0)
+		else if (rstack->type == UFTRACE_EXIT && task->user_stack_count > 0)
 			task->user_stack_count--;
 	}
 }
 
-static int find_rstack_cpu(struct uftrace_kernel_reader *kernel,
-			   struct uftrace_record *rstack)
+static int find_rstack_cpu(struct uftrace_kernel_reader *kernel, struct uftrace_record *rstack)
 {
 	int cpu = -1;
 
@@ -1962,8 +1918,8 @@ static int find_rstack_cpu(struct uftrace_kernel_reader *kernel,
 	return cpu;
 }
 
-static void __fstack_consume(struct uftrace_task_reader *task,
-			     struct uftrace_kernel_reader *kernel, int cpu)
+static void __fstack_consume(struct uftrace_task_reader *task, struct uftrace_kernel_reader *kernel,
+			     int cpu)
 {
 	struct uftrace_record *rstack = task->rstack;
 	struct uftrace_data *handle = task->h;
@@ -1972,14 +1928,12 @@ static void __fstack_consume(struct uftrace_task_reader *task,
 		struct uftrace_rstack_list_node *node;
 
 		if (is_user_record(task, rstack))
-			node = list_first_entry(&task->rstack_list.read,
-						typeof(*node), list);
+			node = list_first_entry(&task->rstack_list.read, typeof(*node), list);
 		else if (is_kernel_record(task, rstack))
-			node = list_first_entry(&kernel->rstack_list[cpu].read,
-						typeof(*node), list);
+			node = list_first_entry(&kernel->rstack_list[cpu].read, typeof(*node),
+						list);
 		else if (is_event_record(task, rstack))
-			node = list_first_entry(&task->event_list.read,
-						typeof(*node), list);
+			node = list_first_entry(&task->event_list.read, typeof(*node), list);
 		else if (is_extern_record(task, rstack))
 			goto consume_extern_data;
 		else
@@ -1991,7 +1945,7 @@ static void __fstack_consume(struct uftrace_task_reader *task,
 		free(task->args.data);
 		task->args.args = node->args.args;
 		task->args.data = node->args.data;
-		task->args.len  = node->args.len;
+		task->args.len = node->args.len;
 		node->args.data = NULL;
 	}
 
@@ -2027,9 +1981,9 @@ consume_extern_data:
 		/* restore args/retval to task */
 		free(task->args.data);
 		task->args.data = xstrdup(extn->msg);
-		task->args.len  = strlen(extn->msg);
+		task->args.len = strlen(extn->msg);
 	}
-	else {  /* must be perf event */
+	else { /* must be perf event */
 		struct uftrace_perf_reader *perf;
 
 consume_perf_event:
@@ -2037,8 +1991,7 @@ consume_perf_event:
 		perf = &handle->perf[handle->last_perf_idx];
 
 		if (rstack->addr == EVENT_ID_PERF_COMM) {
-			memcpy(task->t->comm, perf->u.comm.comm,
-			       sizeof(task->t->comm));
+			memcpy(task->t->comm, perf->u.comm.comm, sizeof(task->t->comm));
 		}
 
 		perf->valid = false;
@@ -2058,8 +2011,7 @@ consume_perf_event:
  * This function consumes currently read stack by peek_rstack() so that
  * it can read next rstack in the data file.
  */
-void fstack_consume(struct uftrace_data *handle,
-		    struct uftrace_task_reader *task)
+void fstack_consume(struct uftrace_data *handle, struct uftrace_task_reader *task)
 {
 	struct uftrace_record *rstack = task->rstack;
 	struct uftrace_kernel_reader *kernel = handle->kernel;
@@ -2141,7 +2093,7 @@ static void adjust_rstack_after_schedule(struct uftrace_data *handle,
 			 *
 			 *  EXIT + (EXIT - ENTRY) = 2*EXIT - ENTRY
 			 */
-			task->timestamp_next  = next_rec->time * 2;
+			task->timestamp_next = next_rec->time * 2;
 			task->timestamp_next -= prev_fstack->total_time;
 		}
 
@@ -2164,8 +2116,7 @@ static void adjust_rstack_after_schedule(struct uftrace_data *handle,
 	pr_dbg3("task[%6d] estimate next record after schedule\n", task->tid);
 }
 
-static int __read_rstack(struct uftrace_data *handle,
-			 struct uftrace_task_reader **taskp,
+static int __read_rstack(struct uftrace_data *handle, struct uftrace_task_reader **taskp,
 			 bool consume)
 {
 	int u, k = -1, p, e, x;
@@ -2248,8 +2199,7 @@ static int __read_rstack(struct uftrace_data *handle,
 		task = utask;
 
 		/* subsequent EXIT records might have inverted timestamp */
-		if (handle->hdr.feat_mask & ESTIMATE_RETURN &&
-		    task->timestamp_estimate != 0) {
+		if (handle->hdr.feat_mask & ESTIMATE_RETURN && task->timestamp_estimate != 0) {
 			if (task->rstack->type == UFTRACE_EXIT &&
 			    task->rstack->time <= task->timestamp_estimate) {
 				task->rstack->time = ++task->timestamp_estimate;
@@ -2274,8 +2224,7 @@ static int __read_rstack(struct uftrace_data *handle,
 		 * differs, consume sched in early with same depth.
 		 */
 		if (unlikely(task->sched_out_seen)) {
-			if (has_perf_data(handle) && !handle->time_filter &&
-			    peek_perf_data(task)) {
+			if (has_perf_data(handle) && !handle->time_filter && peek_perf_data(task)) {
 				perf = &handle->perf[task->sched_cpu];
 				task->rstack = get_perf_record(handle, perf);
 				task->rstack->time = min_timestamp - 1;
@@ -2300,12 +2249,11 @@ static int __read_rstack(struct uftrace_data *handle,
 			/* abuse task->args to save comm */
 			free(task->args.data);
 			task->args.data = xstrdup(perf->u.comm.comm);
-			task->args.len  = strlen(perf->u.comm.comm);
+			task->args.len = strlen(perf->u.comm.comm);
 		}
 		else if (task->rstack->addr == EVENT_ID_PERF_SCHED_IN ||
 			 task->rstack->addr == EVENT_ID_PERF_SCHED_OUT) {
-			if (handle->hdr.feat_mask & ESTIMATE_RETURN &&
-			    task->stack_count > 0)
+			if (handle->hdr.feat_mask & ESTIMATE_RETURN && task->stack_count > 0)
 				adjust_rstack_after_schedule(handle, task);
 		}
 		break;
@@ -2352,8 +2300,7 @@ static int __read_rstack(struct uftrace_data *handle,
  *
  * This function returns 0 if it reads a rstack, -1 if it's done.
  */
-int read_rstack(struct uftrace_data *handle,
-		struct uftrace_task_reader **task)
+int read_rstack(struct uftrace_data *handle, struct uftrace_task_reader **task)
 {
 	return __read_rstack(handle, task, true);
 }
@@ -2372,19 +2319,17 @@ int read_rstack(struct uftrace_data *handle,
  *
  * This function returns 0 if it reads a rstack, -1 if it's done.
  */
-int peek_rstack(struct uftrace_data *handle,
-		struct uftrace_task_reader **task)
+int peek_rstack(struct uftrace_data *handle, struct uftrace_task_reader **task)
 {
 	return __read_rstack(handle, task, false);
 }
-
 
 #ifdef UNIT_TEST
 
 #include <sys/stat.h>
 
-#define NUM_TASK    2
-#define NUM_RECORD  4
+#define NUM_TASK 2
+#define NUM_RECORD 4
 
 static int test_tids[NUM_TASK] = { 1234, 5678 };
 static struct uftrace_task test_tasks[NUM_TASK];
@@ -2392,14 +2337,14 @@ static struct uftrace_record test_record[NUM_TASK][NUM_RECORD] = {
 	{
 		{ 100, UFTRACE_ENTRY, false, RECORD_MAGIC, 0, 0x40000 },
 		{ 200, UFTRACE_ENTRY, false, RECORD_MAGIC, 1, 0x41000 },
-		{ 300, UFTRACE_EXIT,  false, RECORD_MAGIC, 1, 0x41000 },
-		{ 400, UFTRACE_EXIT,  false, RECORD_MAGIC, 0, 0x40000 },
+		{ 300, UFTRACE_EXIT, false, RECORD_MAGIC, 1, 0x41000 },
+		{ 400, UFTRACE_EXIT, false, RECORD_MAGIC, 0, 0x40000 },
 	},
 	{
 		{ 150, UFTRACE_ENTRY, false, RECORD_MAGIC, 0, 0x40000 },
 		{ 250, UFTRACE_ENTRY, false, RECORD_MAGIC, 1, 0x41000 },
-		{ 350, UFTRACE_EXIT,  false, RECORD_MAGIC, 1, 0x41000 },
-		{ 450, UFTRACE_EXIT,  false, RECORD_MAGIC, 0, 0x40000 },
+		{ 350, UFTRACE_EXIT, false, RECORD_MAGIC, 1, 0x41000 },
+		{ 450, UFTRACE_EXIT, false, RECORD_MAGIC, 0, 0x40000 },
 	}
 };
 
@@ -2410,18 +2355,18 @@ static struct uftrace_record exec_record[] = {
 	{ 300, UFTRACE_ENTRY, false, RECORD_MAGIC, 1, 0x40100 }, // a
 	{ 400, UFTRACE_ENTRY, false, RECORD_MAGIC, 2, 0x40200 }, // b
 	{ 500, UFTRACE_ENTRY, false, RECORD_MAGIC, 3, 0x40300 }, // c
-	{ 600, UFTRACE_EXIT,  false, RECORD_MAGIC, 3, 0x40300 }, // c
-	{ 700, UFTRACE_EXIT,  false, RECORD_MAGIC, 2, 0x40200 }, // b
-	{ 800, UFTRACE_EXIT,  false, RECORD_MAGIC, 1, 0x40100 }, // a
-	{ 900, UFTRACE_EXIT,  false, RECORD_MAGIC, 0, 0x40000 }, // main
+	{ 600, UFTRACE_EXIT, false, RECORD_MAGIC, 3, 0x40300 }, // c
+	{ 700, UFTRACE_EXIT, false, RECORD_MAGIC, 2, 0x40200 }, // b
+	{ 800, UFTRACE_EXIT, false, RECORD_MAGIC, 1, 0x40100 }, // a
+	{ 900, UFTRACE_EXIT, false, RECORD_MAGIC, 0, 0x40000 }, // main
 };
 
 static struct uftrace_session test_sess;
 static struct uftrace_data fstack_test_handle;
 static void fstack_test_finish_file(void);
 
-static int fstack_test_setup_file(struct uftrace_data *handle, int nr_tid, int *tids,
-				  int nr_record, struct uftrace_record **records)
+static int fstack_test_setup_file(struct uftrace_data *handle, int nr_tid, int *tids, int nr_record,
+				  struct uftrace_record **records)
 {
 	int i;
 	char *filename;
@@ -2448,10 +2393,9 @@ static int fstack_test_setup_file(struct uftrace_data *handle, int nr_tid, int *
 	for (i = 0; i < handle->info.nr_tid; i++) {
 		FILE *fp;
 
-		if (asprintf(&filename, "%s/%d.dat",
-			     handle->dirname, handle->info.tids[i]) < 0) {
-			pr_dbg("cannot alloc filename: %s/%d.dat",
-			       handle->dirname, handle->info.tids[i]);
+		if (asprintf(&filename, "%s/%d.dat", handle->dirname, handle->info.tids[i]) < 0) {
+			pr_dbg("cannot alloc filename: %s/%d.dat", handle->dirname,
+			       handle->info.tids[i]);
 			return -1;
 		}
 
@@ -2484,31 +2428,42 @@ static int fstack_test_setup_file(struct uftrace_data *handle, int nr_tid, int *
 
 static int fstack_test_setup_normal(struct uftrace_data *handle)
 {
-	struct uftrace_record *normal_tests[] = { test_record[0],
-						  test_record[1], };
+	struct uftrace_record *normal_tests[] = {
+		test_record[0],
+		test_record[1],
+	};
 
-	return fstack_test_setup_file(handle, NUM_TASK, test_tids,
-				      NUM_RECORD, normal_tests);
+	return fstack_test_setup_file(handle, NUM_TASK, test_tids, NUM_RECORD, normal_tests);
 }
 
 static int fstack_test_setup_single(struct uftrace_data *handle)
 {
-	struct uftrace_record *single_tests[] = { test_record[0], };
+	struct uftrace_record *single_tests[] = {
+		test_record[0],
+	};
 
-	return fstack_test_setup_file(handle, 1, test_tids,
-				      NUM_RECORD, single_tests);
+	return fstack_test_setup_file(handle, 1, test_tids, NUM_RECORD, single_tests);
 }
 
 static int fstack_test_setup_exec(struct uftrace_data *handle)
 {
-	struct uftrace_record *exec_tests[] = { exec_record, };
-	static struct uftrace_symbol exec_sym = { .addr = 0x3000, .size = 16,
-						  .name = "execve", .type = ST_PLT_FUNC, };
+	struct uftrace_record *exec_tests[] = {
+		exec_record,
+	};
+	static struct uftrace_symbol exec_sym = {
+		.addr = 0x3000,
+		.size = 16,
+		.name = "execve",
+		.type = ST_PLT_FUNC,
+	};
 	static struct uftrace_module exec_mod = {
 		.symtab = { .sym = &exec_sym, .nr_sym = 1, },
 	};
-	static struct uftrace_mmap map = { .mod = &exec_mod,
-					   .start = 0x40000, .end = 0x50000, };
+	static struct uftrace_mmap map = {
+		.mod = &exec_mod,
+		.start = 0x40000,
+		.end = 0x50000,
+	};
 	struct uftrace_msg_sess smsg = {
 		.task = { .pid = test_tids[0], .tid = test_tids[0], },
 		.sid = "uftrace-session", .namelen = 8,
@@ -2516,15 +2471,13 @@ static int fstack_test_setup_exec(struct uftrace_data *handle)
 	};
 	char name[] = "unittest";
 
-	create_session(&handle->sessions, &smsg, "tests", "tests", name,
-		       true, false, false);
+	create_session(&handle->sessions, &smsg, "tests", "tests", name, true, false, false);
 	create_task(&handle->sessions, &smsg.task, false);
 
 	handle->sessions.first->sym_info.maps = &map;
 	handle->sessions.first->sym_info.exec_map = &map;
 
-	return fstack_test_setup_file(handle, 1, test_tids,
-				      ARRAY_SIZE(exec_record), exec_tests);
+	return fstack_test_setup_file(handle, 1, test_tids, ARRAY_SIZE(exec_record), exec_tests);
 }
 
 static void fstack_test_finish_file(void)
@@ -2539,8 +2492,7 @@ static void fstack_test_finish_file(void)
 	reset_task_handle(handle);
 
 	for (i = 0; i < handle->info.nr_tid; i++) {
-		if (asprintf(&filename, "%s/%d.dat",
-			     handle->dirname, handle->info.tids[i]) < 0)
+		if (asprintf(&filename, "%s/%d.dat", handle->dirname, handle->info.tids[i]) < 0)
 			return;
 
 		remove(filename);
@@ -2562,23 +2514,23 @@ TEST_CASE(fstack_read)
 		pr_dbg("[%d] read rstack from task %d\n", i, test_tids[0]);
 		TEST_EQ(read_rstack(handle, &task), 0);
 		TEST_EQ(task->tid, test_tids[0]);
-		TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[0][i].type);
+		TEST_EQ((uint64_t)task->rstack->type, (uint64_t)test_record[0][i].type);
 		TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[0][i].depth);
-		TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[0][i].addr);
+		TEST_EQ((uint64_t)task->rstack->addr, (uint64_t)test_record[0][i].addr);
 
 		pr_dbg("[%d] peek rstack from task %d\n", i, test_tids[1]);
 		TEST_EQ(peek_rstack(handle, &task), 0);
 		TEST_EQ(task->tid, test_tids[1]);
-		TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[1][i].type);
+		TEST_EQ((uint64_t)task->rstack->type, (uint64_t)test_record[1][i].type);
 		TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[1][i].depth);
-		TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[1][i].addr);
+		TEST_EQ((uint64_t)task->rstack->addr, (uint64_t)test_record[1][i].addr);
 
 		pr_dbg("[%d] read rstack from task %d\n", i, test_tids[1]);
 		TEST_EQ(read_rstack(handle, &task), 0);
 		TEST_EQ(task->tid, test_tids[1]);
-		TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[1][i].type);
+		TEST_EQ((uint64_t)task->rstack->type, (uint64_t)test_record[1][i].type);
 		TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[1][i].depth);
-		TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[1][i].addr);
+		TEST_EQ((uint64_t)task->rstack->addr, (uint64_t)test_record[1][i].addr);
 	}
 
 	return TEST_OK;
@@ -2588,10 +2540,12 @@ TEST_CASE(fstack_skip)
 {
 	struct uftrace_data *handle = &fstack_test_handle;
 	struct uftrace_task_reader *task;
-	struct uftrace_trigger tr = { 0, };
+	struct uftrace_trigger tr = {
+		0,
+	};
 	struct uftrace_opts opts = {
 		.event_skip_out = true,
-		.libcall        = true,
+		.libcall = true,
 	};
 
 	TEST_EQ(fstack_test_setup_single(handle), 0);
@@ -2604,17 +2558,17 @@ TEST_CASE(fstack_skip)
 
 	TEST_EQ(fstack_entry(task, task->rstack, &tr), 0);
 	TEST_EQ(task->tid, test_tids[0]);
-	TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[0][0].type);
+	TEST_EQ((uint64_t)task->rstack->type, (uint64_t)test_record[0][0].type);
 	TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[0][0].depth);
-	TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[0][0].addr);
+	TEST_EQ((uint64_t)task->rstack->addr, (uint64_t)test_record[0][0].addr);
 
 	/* skip filtered records (due to depth) */
 	pr_dbg("fstack skip to rstack for task %d again\n", test_tids[0]);
 	TEST_EQ(fstack_skip(handle, task, task->rstack->depth, &opts), task);
 	TEST_EQ(task->tid, test_tids[0]);
-	TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[0][3].type);
+	TEST_EQ((uint64_t)task->rstack->type, (uint64_t)test_record[0][3].type);
 	TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[0][3].depth);
-	TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[0][3].addr);
+	TEST_EQ((uint64_t)task->rstack->addr, (uint64_t)test_record[0][3].addr);
 
 	return TEST_OK;
 }
@@ -2634,16 +2588,16 @@ TEST_CASE(fstack_time)
 		pr_dbg("[%d] read rstack from task %d\n", i, test_tids[0]);
 		TEST_EQ(read_rstack(handle, &task), 0);
 		TEST_EQ(task->tid, test_tids[0]);
-		TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[0][i*3].type);
-		TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[0][i*3].depth);
-		TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[0][i*3].addr);
+		TEST_EQ((uint64_t)task->rstack->type, (uint64_t)test_record[0][i * 3].type);
+		TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[0][i * 3].depth);
+		TEST_EQ((uint64_t)task->rstack->addr, (uint64_t)test_record[0][i * 3].addr);
 
 		pr_dbg("[%d] read rstack from task %d\n", i, test_tids[1]);
 		TEST_EQ(read_rstack(handle, &task), 0);
 		TEST_EQ(task->tid, test_tids[1]);
-		TEST_EQ((uint64_t)task->rstack->type,  (uint64_t)test_record[1][i*3].type);
-		TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[1][i*3].depth);
-		TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)test_record[1][i*3].addr);
+		TEST_EQ((uint64_t)task->rstack->type, (uint64_t)test_record[1][i * 3].type);
+		TEST_EQ((uint64_t)task->rstack->depth, (uint64_t)test_record[1][i * 3].depth);
+		TEST_EQ((uint64_t)task->rstack->addr, (uint64_t)test_record[1][i * 3].addr);
 	}
 
 	return TEST_OK;
@@ -2666,9 +2620,9 @@ TEST_CASE(fstack_fixup)
 
 		pr_dbg("check stack count of the task\n");
 		TEST_EQ(task->tid, test_tids[0]);
-		TEST_EQ((uint64_t)task->rstack->addr,  (uint64_t)exec_record[i].addr);
+		TEST_EQ((uint64_t)task->rstack->addr, (uint64_t)exec_record[i].addr);
 		if (task->rstack->type == UFTRACE_ENTRY)
-			TEST_EQ(task->stack_count-1, (int)exec_record[i].depth);
+			TEST_EQ(task->stack_count - 1, (int)exec_record[i].depth);
 		else
 			TEST_EQ(task->stack_count, (int)exec_record[i].depth);
 

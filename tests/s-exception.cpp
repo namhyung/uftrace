@@ -6,41 +6,38 @@ static volatile int n;
 
 void foo()
 {
-  n++;
+	n++;
 }
 
 void bar()
 {
-  n--;
+	n--;
 }
 
 void oops()
 {
-  throw exception();
+	throw exception();
 }
 
 int test()
 {
-  int r = 0;
+	int r = 0;
 
-  try
-  {
-    oops();
-  }
-  catch (exception& e)
-  {
-    r = 1;
-  }
-  return r;
+	try {
+		oops();
+	} catch (exception &e) {
+		r = 1;
+	}
+	return r;
 }
 
 int main()
 {
-  int r;
+	int r;
 
-  foo();
-  r = test();
-  bar();
+	foo();
+	r = test();
+	bar();
 
-  return !(r == 1);
+	return !(r == 1);
 }

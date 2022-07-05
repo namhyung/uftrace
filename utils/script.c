@@ -7,8 +7,8 @@
  */
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "script"
-#define PR_DOMAIN  DBG_SCRIPT
+#define PR_FMT "script"
+#define PR_DOMAIN DBG_SCRIPT
 
 #include <unistd.h>
 #include "utils/script.h"
@@ -31,8 +31,8 @@ script_uftrace_end_t script_uftrace_end;
 script_atfork_prepare_t script_atfork_prepare;
 
 struct script_filter_item {
-	struct list_head	list;
-	struct uftrace_pattern	patt;
+	struct list_head list;
+	struct uftrace_pattern patt;
 };
 
 static LIST_HEAD(filters);
@@ -66,8 +66,7 @@ void script_add_filter(char *func, enum uftrace_pattern_type ptype)
 
 	init_filter_pattern(ptype, &item->patt, func);
 
-	pr_dbg2("add script filter: %s (%s)\n", func,
-		get_filter_pattern(item->patt.type));
+	pr_dbg2("add script filter: %s (%s)\n", func, get_filter_pattern(item->patt.type));
 
 	list_add_tail(&item->list, &filters);
 }
@@ -99,8 +98,7 @@ void script_finish_filter(void)
 	}
 }
 
-static int script_init_for_testing(struct script_info *info,
-				   enum uftrace_pattern_type ptype)
+static int script_init_for_testing(struct script_info *info, enum uftrace_pattern_type ptype)
 {
 	int i;
 	char *name;
@@ -179,7 +177,7 @@ void script_finish(void)
 #ifdef UNIT_TEST
 #include <stdio.h>
 
-#define SCRIPT_FILE  "xxx.testing"
+#define SCRIPT_FILE "xxx.testing"
 
 static int setup_testing_script(struct script_info *info)
 {
@@ -208,8 +206,8 @@ static int cleanup_testing_script(struct script_info *info)
 TEST_CASE(script_init)
 {
 	struct script_info info = {
-		.version        = "UFTRACE_VERSION",
-		.name		= SCRIPT_FILE,
+		.version = "UFTRACE_VERSION",
+		.name = SCRIPT_FILE,
 	};
 
 	pr_dbg("checking basic script init and finish\n");
