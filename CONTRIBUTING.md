@@ -10,23 +10,44 @@ before doing that, I recommend you to read this to follow the conventions.
 
 Coding style
 ------------
-The uftrace is written in C and mostly follows the coding style of the
-Linux kernel [1].  The only different is where to put the closing brace
-and start of subsequent block.  I prefer to put it at a separate line for
-readability.  For example:
+The uftrace is written in C and mostly follows
+[Linux kernel coding style](https://www.kernel.org/doc/Documentation/process/coding-style.rst)
+with a few differences.
 
-    if (cond == A) {
-    	do_some_thing();
-    }
-    else if (cond == B) {
-    	do_other_thing();
-    }
+The uftrace repository provides a way to automatically apply formatting
+with the help of [pre-commit](https://pre-commit.com) and
+[clang-format](https://clang.llvm.org/docs/ClangFormat.html) so that
+our source code has a consistent coding style at all times.
 
-Please note that the position of the "else if" line.
+You can install pre-commit as follows.
 
-For python programs (for tests or scripts), use 4 spaces to indent.
+    $ pre-commit install
+    pre-commit installed at .git/hooks/pre-commit
 
-[1] https://www.kernel.org/doc/Documentation/process/coding-style.rst
+After pre-commit installation, coding style check is done automatically
+whenever you try to create a commit as follows.
+
+    $ git commit -s
+        ...
+    clang-format.............................................................Failed
+    - hook id: clang-format
+    - files were modified by this hook
+
+If your change doesn't follow the coding style, then clang-format check
+fails and also modifies your code to follow the pre-configured uftrace
+coding style, which is written at [.clang-format](.clang-format).
+
+If the code is modified by clang-format, then please run `git add -u`
+and create a commit again to include the changes made by clang-format.
+
+You can also run coding style check by running pre-commit manually as
+follows.
+
+    $ git add -u
+    $ pre-commit run
+
+It will check the coding style only for the changes in the git staging
+area and automatically reformatted if the check fails.
 
 
 Include subject word in message header
