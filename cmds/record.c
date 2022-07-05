@@ -1524,8 +1524,8 @@ static void print_child_usage(struct rusage *ru)
 "\tThis machine type (%u) is not supported currently.\n"		\
 "\tSorry about that!\n"
 
-#define ARGUMENT_MSG  "uftrace: -A or -R might not work for binaries"	\
-" with -finstrument-functions\n"
+#define ARGUMENT_MSG \
+	"uftrace: -A or -R might not work for binaries with -finstrument-functions\n"
 
 #define STATIC_MSG  "Cannot trace static binary: %s\n"			\
 "\tIt seems to be compiled with -static, rebuild the binary without it.\n"

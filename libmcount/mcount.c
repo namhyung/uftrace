@@ -619,8 +619,8 @@ void mtd_dtor(void *arg)
 	finish_mem_region(&mtdp->mem_regions);
 	shmem_finish(mtdp);
 
-	tmsg.pid = getpid(),
-	tmsg.tid = mcount_gettid(mtdp),
+	tmsg.pid = getpid();
+	tmsg.tid = mcount_gettid(mtdp);
 	tmsg.time = mcount_gettime();
 
 	uftrace_send_message(UFTRACE_MSG_TASK_END, &tmsg, sizeof(tmsg));
