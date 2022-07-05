@@ -317,35 +317,39 @@ static struct display_field *graph_field_table[] = {
 	&graph_field_addr,
 };
 
-#define REPORT_FIELD_STRUCT(_id, _name, _func, _header, _length)	\
-static struct display_field report_field_##_func = {			\
-	.id      = _id,							\
-	.name    = #_name,						\
-	.header  = _header,						\
-	.length  = _length,						\
-	.print   = print_report_##_func,				\
-	.list    = LIST_HEAD_INIT(report_field_##_func.list)		\
+/* clang-format off */
+
+#define REPORT_FIELD_STRUCT(_id, _name, _func, _header, _length)                                   \
+static struct display_field report_field_##_func = {                                               \
+	.id      = _id,                                                                            \
+	.name    = #_name,                                                                         \
+	.header  = _header,                                                                        \
+	.length  = _length,                                                                        \
+	.print   = print_report_##_func,                                                           \
+	.list    = LIST_HEAD_INIT(report_field_##_func.list)                                       \
 };
 
-#define REPORT_FIELD_TIME(_id, _name, _field, _func, _header)	\
-static void print_report_##_func(struct field_data *fd)		\
-{									\
-	struct uftrace_report_node *node = fd->arg;			\
-	uint64_t d = node->_field;					\
-	printw("  ");							\
-	print_time(d);							\
-}									\
+#define REPORT_FIELD_TIME(_id, _name, _field, _func, _header)                                      \
+static void print_report_##_func(struct field_data *fd)                                            \
+{                                                                                                  \
+	struct uftrace_report_node *node = fd->arg;                                                \
+	uint64_t d = node->_field;                                                                 \
+	printw("  ");                                                                              \
+	print_time(d);                                                                             \
+}                                                                                                  \
 REPORT_FIELD_STRUCT(_id, _name, _func, _header, 11)
 
-#define REPORT_FIELD_CALL(_id, _name, _field, _func, _header)	\
-static void print_report_##_func(struct field_data *fd)		\
-{									\
-	struct uftrace_report_node *node = fd->arg;			\
-	uint64_t d = node->_field;					\
-	printw("  ");							\
-	printw("%10"PRIu64 "", d);					\
-}									\
+#define REPORT_FIELD_CALL(_id, _name, _field, _func, _header)                                      \
+static void print_report_##_func(struct field_data *fd)                                            \
+{                                                                                                  \
+	struct uftrace_report_node *node = fd->arg;                                                \
+	uint64_t d = node->_field;                                                                 \
+	printw("  ");                                                                              \
+	printw("%10"PRIu64 "", d);                                                                 \
+}                                                                                                  \
 REPORT_FIELD_STRUCT(_id, _name, _func, _header, 11)
+
+/* clang-format on */
 
 REPORT_FIELD_TIME(REPORT_F_TOTAL_TIME, total, total.sum, total, "TOTAL TIME");
 REPORT_FIELD_TIME(REPORT_F_TOTAL_TIME_AVG, total-avg, total.avg, total_avg, "TOTAL AVG");
