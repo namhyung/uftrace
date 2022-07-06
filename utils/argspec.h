@@ -2,6 +2,7 @@
 #define UFTRACE_ARGSPEC_H
 
 #include <stdio.h>
+#include <stdbool.h>
 #include "utils/list.h"
 #include "utils/rbtree.h"
 
