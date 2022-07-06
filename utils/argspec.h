@@ -19,13 +19,13 @@ enum uftrace_arg_format {
 	ARG_FMT_STRUCT,
 };
 
-#define ARG_TYPE_INDEX  0
-#define ARG_TYPE_FLOAT  1
-#define ARG_TYPE_REG    2
-#define ARG_TYPE_STACK  3
+#define ARG_TYPE_INDEX 0
+#define ARG_TYPE_FLOAT 1
+#define ARG_TYPE_REG 2
+#define ARG_TYPE_STACK 3
 
 /* should match with uftrace_arg_format above */
-#define ARG_SPEC_CHARS  "diuxscfSpet"
+#define ARG_SPEC_CHARS "diuxscfSpet"
 
 /**
  * uftrace_arg_spec contains arguments and return value info.
@@ -38,25 +38,24 @@ enum uftrace_arg_format {
 #define RETVAL_IDX 0
 
 struct uftrace_arg_spec {
-	struct list_head	list;
-	int			idx;
-	enum uftrace_arg_format	fmt;
-	int			size;
-	bool			exact;
-	unsigned char		type;
-	short			struct_reg_cnt;
+	struct list_head list;
+	int idx;
+	enum uftrace_arg_format fmt;
+	int size;
+	bool exact;
+	unsigned char type;
+	short struct_reg_cnt;
 	union {
-		short		reg_idx;
-		short		stack_ofs;
+		short reg_idx;
+		short stack_ofs;
 	};
-	char			*type_name;
-	short			struct_regs[4];
+	char *type_name;
+	short struct_regs[4];
 };
 
 struct uftrace_filter_setting;
 
-struct uftrace_arg_spec * parse_argspec(char *str,
-					struct uftrace_filter_setting *setting);
+struct uftrace_arg_spec *parse_argspec(char *str, struct uftrace_filter_setting *setting);
 
 void setup_auto_args(struct uftrace_filter_setting *setting);
 void setup_auto_args_str(char *args, char *rets, char *enums,
@@ -69,14 +68,12 @@ struct uftrace_dbg_info;
 struct uftrace_filter;
 struct uftrace_trigger;
 
-struct uftrace_filter * find_auto_argspec(struct uftrace_filter *filter,
-					  struct uftrace_trigger *tr,
-					  struct uftrace_dbg_info *dinfo,
-					  struct uftrace_filter_setting *setting);
-struct uftrace_filter * find_auto_retspec(struct uftrace_filter *filter,
-					  struct uftrace_trigger *tr,
-					  struct uftrace_dbg_info *dinfo,
-					  struct uftrace_filter_setting *setting);
+struct uftrace_filter *find_auto_argspec(struct uftrace_filter *filter, struct uftrace_trigger *tr,
+					 struct uftrace_dbg_info *dinfo,
+					 struct uftrace_filter_setting *setting);
+struct uftrace_filter *find_auto_retspec(struct uftrace_filter *filter, struct uftrace_trigger *tr,
+					 struct uftrace_dbg_info *dinfo,
+					 struct uftrace_filter_setting *setting);
 char *get_auto_argspec_str(void);
 char *get_auto_retspec_str(void);
 char *get_auto_enum_str(void);
@@ -88,4 +85,4 @@ void release_enum_def(struct rb_root *root);
 
 extern struct rb_root dwarf_enum;
 
-#endif  /* UFTRACE_ARGSPEC_H */
+#endif /* UFTRACE_ARGSPEC_H */

@@ -41,7 +41,7 @@ static bool dbg_domain_set = false;
 static bool parsing_default_opts = false;
 
 enum uftrace_short_options {
-	OPT_flat	= 301,
+	OPT_flat = 301,
 	OPT_no_libcall,
 	OPT_symbols,
 	OPT_logfile,
@@ -102,6 +102,7 @@ enum uftrace_short_options {
 	OPT_libmcount_path,
 };
 
+/* clang-format off */
 __used static const char uftrace_usage[] =
 " uftrace -- function (graph) tracer for userspace\n"
 "\n"
@@ -327,6 +328,7 @@ static const struct option uftrace_options[] = {
 	REQ_ARG(with-syms, OPT_with_syms),
 	{ 0 }
 };
+/* clang-format on */
 
 #undef REQ_ARG
 #undef NO_ARG
@@ -362,12 +364,12 @@ static unsigned long parse_size(char *str)
 	return size;
 }
 
-static char * opt_add_string(char *old_opt, char *new_opt)
+static char *opt_add_string(char *old_opt, char *new_opt)
 {
 	return strjoin(old_opt, new_opt, ";");
 }
 
-static char * opt_add_prefix_string(char *old_opt, char *prefix, char *new_opt)
+static char *opt_add_prefix_string(char *old_opt, char *prefix, char *new_opt)
 {
 	new_opt = strjoin(xstrdup(prefix), new_opt, "");
 
@@ -380,11 +382,11 @@ static char * opt_add_prefix_string(char *old_opt, char *prefix, char *new_opt)
 	return new_opt;
 }
 
-static const char * true_str[] = {
+static const char *true_str[] = {
 	"true", "yes", "on", "y", "1",
 };
 
-static const char * false_str[] = {
+static const char *false_str[] = {
 	"false", "no", "off", "n", "0",
 };
 
@@ -446,7 +448,7 @@ static void parse_debug_domain(char *arg)
 			level = strtol(tmp, NULL, 0);
 		}
 
-		if (!strcmp(tok, "ftrace"))  /* for backward compatibility */
+		if (!strcmp(tok, "ftrace")) /* for backward compatibility */
 			dbg_domain[DBG_UFTRACE] = level;
 		else if (!strcmp(tok, "uftrace"))
 			dbg_domain[DBG_UFTRACE] = level;
@@ -519,13 +521,13 @@ static bool parse_time_range(struct uftrace_time_range *range, char *arg)
 	*pos++ = '\0';
 
 	range->start = parse_any_timestamp(str, &range->start_elapsed);
-	range->stop  = parse_any_timestamp(pos, &range->stop_elapsed);
+	range->stop = parse_any_timestamp(pos, &range->stop_elapsed);
 
 	free(str);
 	return true;
 }
 
-static char * remove_trailing_slash(char *path)
+static char *remove_trailing_slash(char *path)
 {
 	size_t len = strlen(path);
 
@@ -748,8 +750,7 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 	case OPT_max_stack:
 		opts->max_stack = strtol(arg, NULL, 0);
 		if (opts->max_stack <= 0 || opts->max_stack > OPT_RSTACK_MAX) {
-			pr_use("max stack depth should be >0 and <%d\n",
-			       OPT_RSTACK_MAX);
+			pr_use("max stack depth should be >0 and <%d\n", OPT_RSTACK_MAX);
 			opts->max_stack = OPT_RSTACK_DEFAULT;
 		}
 		break;
@@ -867,7 +868,7 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 		if (opts->sort_column < 0 || opts->sort_column > OPT_SORT_COLUMN) {
 			pr_use("invalid column number: %d\n", opts->sort_column);
 			pr_use("force to set it to --sort-column=%d for diff percentage\n",
-				OPT_SORT_COLUMN);
+			       OPT_SORT_COLUMN);
 			opts->sort_column = OPT_SORT_COLUMN;
 		}
 		break;
@@ -891,8 +892,7 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 	case OPT_rt_prio:
 		opts->rt_prio = strtol(arg, NULL, 0);
 		if (opts->rt_prio < 1 || opts->rt_prio > 99) {
-			pr_use("invalid rt prioity: %d (ignoring...)\n",
-				opts->rt_prio);
+			pr_use("invalid rt prioity: %d (ignoring...)\n", opts->rt_prio);
 			opts->rt_prio = 0;
 		}
 		break;
@@ -901,12 +901,11 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 		opts->kernel_bufsize = parse_size(arg);
 		if (opts->kernel_bufsize & (getpagesize() - 1)) {
 			pr_use("buffer size should be multiple of page size\n");
-			opts->kernel_bufsize = ROUND_UP(opts->kernel_bufsize,
-							getpagesize());
+			opts->kernel_bufsize = ROUND_UP(opts->kernel_bufsize, getpagesize());
 		}
 		break;
 
-	case OPT_kernel_skip_out:  /* deprecated */
+	case OPT_kernel_skip_out: /* deprecated */
 		opts->kernel_skip_out = true;
 		break;
 
@@ -992,11 +991,10 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 		break;
 
 	case OPT_clock:
-		if (strcmp(arg, "mono") &&
-		    strcmp(arg, "mono_raw") &&
-		    strcmp(arg, "boot")) {
+		if (strcmp(arg, "mono") && strcmp(arg, "mono_raw") && strcmp(arg, "boot")) {
 			pr_use("invalid clock source: '%s' "
-				"(force to use 'mono')\n", arg);
+			       "(force to use 'mono')\n",
+			       arg);
 			arg = "mono";
 		}
 		opts->clock = arg;
@@ -1034,8 +1032,7 @@ static void update_subcmd(struct uftrace_opts *opts, char *cmd)
 		opts->mode = UFTRACE_MODE_INVALID;
 }
 
-static void parse_opt_file(int *argc, char ***argv, char *filename,
-			   struct uftrace_opts *opts)
+static void parse_opt_file(int *argc, char ***argv, char *filename, struct uftrace_opts *opts)
 {
 	int file_argc;
 	char **file_argv;
@@ -1079,8 +1076,7 @@ static void parse_opt_file(int *argc, char ***argv, char *filename,
 			has_subcmd = true;
 		}
 		else {
-			if (orig_mode != UFTRACE_MODE_INVALID &&
-			    orig_mode != opts->mode) {
+			if (orig_mode != UFTRACE_MODE_INVALID && orig_mode != opts->mode) {
 				pr_use("ignore uftrace command in opt-file\n");
 				opts->mode = orig_mode;
 			}
@@ -1093,8 +1089,7 @@ static void parse_opt_file(int *argc, char ***argv, char *filename,
 	while (true) {
 		int key, tmp = 0;
 
-		key = getopt_long(file_argc, file_argv, uftrace_shopts,
-				  uftrace_options, &tmp);
+		key = getopt_long(file_argc, file_argv, uftrace_shopts, uftrace_options, &tmp);
 		if (key == -1 || key == '?') {
 			if (has_subcmd && optind == 1)
 				optind++;
@@ -1144,12 +1139,8 @@ void parse_script_opt(struct uftrace_opts *opts)
 	size_t len = 0;
 	static const char optname[] = "uftrace-option";
 	enum script_type_t script_type;
-	const char* comments[SCRIPT_TYPE_COUNT] = {
-		"",
-		"#",
-		"--"
-	};
-	const char* comment;
+	const char *comments[SCRIPT_TYPE_COUNT] = { "", "#", "--" };
+	const char *comment;
 	size_t comment_len;
 
 	if (opts->script_file == NULL)
@@ -1198,8 +1189,8 @@ void parse_script_opt(struct uftrace_opts *opts)
 		while (true) {
 			int key, tmp = 0;
 
-			key = getopt_long(opt_argc, opt_argv, uftrace_shopts,
-					  uftrace_options, &tmp);
+			key = getopt_long(opt_argc, opt_argv, uftrace_shopts, uftrace_options,
+					  &tmp);
 			if (key == -1 || key == '?')
 				break;
 
@@ -1239,8 +1230,7 @@ static int parse_options(int argc, char **argv, struct uftrace_opts *opts)
 	while (true) {
 		int key, tmp = 0;
 
-		key = getopt_long(argc, argv, uftrace_shopts, uftrace_options,
-				  &tmp);
+		key = getopt_long(argc, argv, uftrace_shopts, uftrace_options, &tmp);
 		if (key == -1 || key == '?') {
 			if (optind < argc && opts->mode == UFTRACE_MODE_INVALID) {
 				update_subcmd(opts, argv[optind]);
@@ -1266,16 +1256,14 @@ static int parse_options(int argc, char **argv, struct uftrace_opts *opts)
 	return 0;
 }
 
-__used static void apply_default_opts(int *argc, char ***argv,
-				      struct uftrace_opts *opts)
+__used static void apply_default_opts(int *argc, char ***argv, struct uftrace_opts *opts)
 {
 	char *basename = "default.opts";
 	char opts_file[PATH_MAX];
 	struct stat stbuf;
 
 	/* default.opts is only for analysis commands */
-	if (opts->mode == UFTRACE_MODE_RECORD ||
-	    opts->mode == UFTRACE_MODE_LIVE ||
+	if (opts->mode == UFTRACE_MODE_RECORD || opts->mode == UFTRACE_MODE_LIVE ||
 	    opts->mode == UFTRACE_MODE_RECV)
 		return;
 
@@ -1287,8 +1275,7 @@ __used static void apply_default_opts(int *argc, char ***argv,
 		pr_dbg("apply '%s' option file\n", opts_file);
 		parse_opt_file(argc, argv, opts_file, opts);
 	}
-	else if (!strcmp(opts->dirname, UFTRACE_DIR_NAME) &&
-		 !access("./info", F_OK)) {
+	else if (!strcmp(opts->dirname, UFTRACE_DIR_NAME) && !access("./info", F_OK)) {
 		/* try again applying default.opts in the current dir */
 		if (!stat(basename, &stbuf) && stbuf.st_size > 0) {
 			pr_dbg("apply './%s' option file\n", basename);
@@ -1301,24 +1288,24 @@ __used static void apply_default_opts(int *argc, char ***argv,
 int main(int argc, char *argv[])
 {
 	struct uftrace_opts opts = {
-		.mode		= UFTRACE_MODE_INVALID,
-		.dirname	= UFTRACE_DIR_NAME,
-		.libcall	= true,
-		.bufsize	= SHMEM_BUFFER_SIZE,
-		.depth		= OPT_DEPTH_DEFAULT,
-		.max_stack	= OPT_RSTACK_DEFAULT,
-		.port		= UFTRACE_RECV_PORT,
-		.use_pager	= true,
-		.color		= COLOR_AUTO,  /* turn on if terminal */
-		.column_offset	= OPT_COLUMN_OFFSET,
-		.comment	= true,
-		.kernel_skip_out= true,
-		.fields         = NULL,
-		.sort_column	= OPT_SORT_COLUMN,
+		.mode = UFTRACE_MODE_INVALID,
+		.dirname = UFTRACE_DIR_NAME,
+		.libcall = true,
+		.bufsize = SHMEM_BUFFER_SIZE,
+		.depth = OPT_DEPTH_DEFAULT,
+		.max_stack = OPT_RSTACK_DEFAULT,
+		.port = UFTRACE_RECV_PORT,
+		.use_pager = true,
+		.color = COLOR_AUTO, /* turn on if terminal */
+		.column_offset = OPT_COLUMN_OFFSET,
+		.comment = true,
+		.kernel_skip_out = true,
+		.fields = NULL,
+		.sort_column = OPT_SORT_COLUMN,
 		.event_skip_out = true,
-		.patt_type      = PATT_REGEX,
-		.show_args      = true,
-		.clock		= "mono",
+		.patt_type = PATT_REGEX,
+		.show_args = true,
+		.clock = "mono",
 	};
 	int ret = -1;
 	char *pager = NULL;
@@ -1396,10 +1383,9 @@ int main(int argc, char *argv[])
 	pr_dbg("running %s\n", uftrace_version);
 
 	opts.range.kernel_skip_out = opts.kernel_skip_out;
-	opts.range.event_skip_out  = opts.event_skip_out;
+	opts.range.event_skip_out = opts.event_skip_out;
 
-	if (opts.mode == UFTRACE_MODE_RECORD ||
-	    opts.mode == UFTRACE_MODE_RECV ||
+	if (opts.mode == UFTRACE_MODE_RECORD || opts.mode == UFTRACE_MODE_RECV ||
 	    opts.mode == UFTRACE_MODE_TUI)
 		opts.use_pager = false;
 	if (opts.nop)
@@ -1477,7 +1463,7 @@ int main(int argc, char *argv[])
 }
 #else
 
-#define OPT_FILE  "opt"
+#define OPT_FILE "opt"
 
 TEST_CASE(option_parsing1)
 {
@@ -1487,7 +1473,7 @@ TEST_CASE(option_parsing1)
 
 	pr_dbg("check parsing size suffix\n");
 	TEST_EQ(parse_size("1234"), 1234);
-	TEST_EQ(parse_size("10k"),  10240);
+	TEST_EQ(parse_size("10k"), 10240);
 	TEST_EQ(parse_size("100M"), 100 * 1024 * 1024);
 
 	pr_dbg("check string list addition\n");
@@ -1509,19 +1495,19 @@ TEST_CASE(option_parsing1)
 	stropt = NULL;
 
 	pr_dbg("check parsing colors\n");
-	TEST_EQ(parse_color("1"),    COLOR_ON);
+	TEST_EQ(parse_color("1"), COLOR_ON);
 	TEST_EQ(parse_color("true"), COLOR_ON);
-	TEST_EQ(parse_color("off"),  COLOR_OFF);
-	TEST_EQ(parse_color("n"),    COLOR_OFF);
+	TEST_EQ(parse_color("off"), COLOR_OFF);
+	TEST_EQ(parse_color("n"), COLOR_OFF);
 	TEST_EQ(parse_color("auto"), COLOR_AUTO);
-	TEST_EQ(parse_color("ok"),   COLOR_UNKNOWN);
+	TEST_EQ(parse_color("ok"), COLOR_UNKNOWN);
 
 	pr_dbg("check parsing demanglers\n");
 	TEST_EQ(parse_demangle("simple"), DEMANGLE_SIMPLE);
-	TEST_EQ(parse_demangle("no"),     DEMANGLE_NONE);
-	TEST_EQ(parse_demangle("0"),      DEMANGLE_NONE);
+	TEST_EQ(parse_demangle("no"), DEMANGLE_NONE);
+	TEST_EQ(parse_demangle("0"), DEMANGLE_NONE);
 	/* full demangling might not supported */
-	TEST_NE(parse_demangle("full"),   DEMANGLE_SIMPLE);
+	TEST_NE(parse_demangle("full"), DEMANGLE_SIMPLE);
 
 	for (i = 0; i < DBG_DOMAIN_MAX; i++)
 		dbg_domain[i] = 0;
@@ -1529,14 +1515,14 @@ TEST_CASE(option_parsing1)
 	pr_dbg("check parsing debug domains\n");
 	parse_debug_domain("mcount:1,uftrace:2,symbol:3");
 	TEST_EQ(dbg_domain[DBG_UFTRACE], 2);
-	TEST_EQ(dbg_domain[DBG_MCOUNT],  1);
-	TEST_EQ(dbg_domain[DBG_SYMBOL],  3);
+	TEST_EQ(dbg_domain[DBG_MCOUNT], 1);
+	TEST_EQ(dbg_domain[DBG_SYMBOL], 3);
 
 	TEST_EQ(parse_any_timestamp("1ns", &elapsed_time), 1ULL);
 	TEST_EQ(parse_any_timestamp("2us", &elapsed_time), 2000ULL);
 	TEST_EQ(parse_any_timestamp("3ms", &elapsed_time), 3000000ULL);
-	TEST_EQ(parse_any_timestamp("4s",  &elapsed_time), 4000000000ULL);
-	TEST_EQ(parse_any_timestamp("5m",  &elapsed_time), 300000000000ULL);
+	TEST_EQ(parse_any_timestamp("4s", &elapsed_time), 4000000000ULL);
+	TEST_EQ(parse_any_timestamp("5m", &elapsed_time), 300000000000ULL);
 
 	return TEST_OK;
 }
@@ -1547,15 +1533,8 @@ TEST_CASE(option_parsing2)
 		.mode = UFTRACE_MODE_INVALID,
 	};
 	char *argv[] = {
-		"uftrace",
-		"replay",
-		"-v",
-		"--data=abc.data",
-		"--kernel",
-		"-t", "1us",
-		"-F", "foo",
-		"-N", "bar",
-		"-Abaz@kernel",
+		"uftrace", "replay", "-v",  "--data=abc.data", "--kernel", "-t", "1us", "-F",
+		"foo",	   "-N",     "bar", "-Abaz@kernel",
 	};
 	int argc = ARRAY_SIZE(argv);
 	int saved_debug = debug;
@@ -1580,9 +1559,18 @@ TEST_CASE(option_parsing3)
 	struct uftrace_opts opts = {
 		.mode = UFTRACE_MODE_INVALID,
 	};
-	char *argv[] = { "uftrace", "-v", "--opt-file", OPT_FILE, };
+	char *argv[] = {
+		"uftrace",
+		"-v",
+		"--opt-file",
+		OPT_FILE,
+	};
 	int argc = ARRAY_SIZE(argv);
-	char opt_file[] = "-K 2\n" "-b4m\n" "--column-view\n" "--depth=3\n" "t-abc";
+	char opt_file[] = "-K 2\n"
+			  "-b4m\n"
+			  "--column-view\n"
+			  "--depth=3\n"
+			  "t-abc";
 	int file_argc;
 	char **file_argv;
 	FILE *fp;
@@ -1600,7 +1588,7 @@ TEST_CASE(option_parsing3)
 
 	pr_dbg("check parsing option files\n");
 	parse_opt_file(&file_argc, &file_argv, opts.opt_file, &opts);
-	TEST_EQ(file_argc, 7);  // +1 for dummy prefix
+	TEST_EQ(file_argc, 7); // +1 for dummy prefix
 
 	unlink(OPT_FILE);
 
@@ -1623,22 +1611,27 @@ TEST_CASE(option_parsing4)
 	struct uftrace_opts opts = {
 		.mode = UFTRACE_MODE_INVALID,
 	};
-	char *argv[] = { "uftrace", "-v", "--opt-file", OPT_FILE, };
+	char *argv[] = {
+		"uftrace",
+		"-v",
+		"--opt-file",
+		OPT_FILE,
+	};
 	int argc = ARRAY_SIZE(argv);
 	char opt_file[] = "-K 2\n"
-		"# buffer size: 4 MB\n"
-		"-b4m\n"
-		"\n"
-		"## show different thread with different indentation\n"
-		"--column-view\n"
-		"\n"
-		"# limit maximum function call depth to 3\n"
-		"--depth=3 # same as -D3 \n"
-		"\n"
-		"\n"
-		"#test program\n"
-		"t-abc\n"
-		"\n";
+			  "# buffer size: 4 MB\n"
+			  "-b4m\n"
+			  "\n"
+			  "## show different thread with different indentation\n"
+			  "--column-view\n"
+			  "\n"
+			  "# limit maximum function call depth to 3\n"
+			  "--depth=3 # same as -D3 \n"
+			  "\n"
+			  "\n"
+			  "#test program\n"
+			  "t-abc\n"
+			  "\n";
 	int file_argc;
 	char **file_argv;
 	FILE *fp;
@@ -1656,7 +1649,7 @@ TEST_CASE(option_parsing4)
 
 	pr_dbg("check parsing option files\n");
 	parse_opt_file(&file_argc, &file_argv, opts.opt_file, &opts);
-	TEST_EQ(file_argc, 7);  // +1 for dummy prefix
+	TEST_EQ(file_argc, 7); // +1 for dummy prefix
 
 	unlink(OPT_FILE);
 
@@ -1682,7 +1675,11 @@ TEST_CASE(option_parsing5)
 	};
 	char *argv[] = { "uftrace", "-v", "--opt-file", OPT_FILE, "hello" };
 	int argc = ARRAY_SIZE(argv);
-	char opt_file[] = "record\n" "-F main\n" "--time-filter 1us\n" "--depth=3\n" "t-abc";
+	char opt_file[] = "record\n"
+			  "-F main\n"
+			  "--time-filter 1us\n"
+			  "--depth=3\n"
+			  "t-abc";
 	int file_argc = argc;
 	char **file_argv = argv;
 	FILE *fp;

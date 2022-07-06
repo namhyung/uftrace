@@ -43,8 +43,8 @@ static char *copy_info_str(char *src)
 	char *dst = xstrdup(src);
 	size_t len = strlen(dst);
 
-	if (dst[len-1] == '\n')
-		dst[len-1] = '\0';
+	if (dst[len - 1] == '\n')
+		dst[len - 1] = '\0';
 
 	return dst;
 }
@@ -126,8 +126,8 @@ static int read_exe_build_id(void *arg)
 	build_id_str[BUILD_ID_STR_SIZE - 1] = '\0';
 
 	for (i = 0; i < BUILD_ID_SIZE; i++) {
-		int c1 = convert_to_int(build_id_str[i*2]);
-		int c2 = convert_to_int(build_id_str[i*2 + 1]);
+		int c1 = convert_to_int(build_id_str[i * 2]);
+		int c2 = convert_to_int(build_id_str[i * 2 + 1]);
 
 		if (c1 < 0 || c2 < 0)
 			return -1;
@@ -194,8 +194,7 @@ static int fill_cmdline(void *arg)
 	p = json_quote(buf, &ret);
 	p[ret - 1] = '\n';
 
-	if ((write(fha->fd, "cmdline:", 8) < 8) ||
-	    (write(fha->fd, p, ret) < ret)) {
+	if ((write(fha->fd, "cmdline:", 8) < 8) || (write(fha->fd, p, ret) < ret)) {
 		free(p);
 		return -1;
 	}
@@ -222,7 +221,7 @@ static int read_cmdline(void *arg)
 	return 0;
 }
 
-#define NUM_CPU_INFO  2
+#define NUM_CPU_INFO 2
 
 static int fill_cpuinfo(void *arg)
 {
@@ -234,8 +233,7 @@ static int fill_cpuinfo(void *arg)
 	nr_online = sysconf(_SC_NPROCESSORS_ONLN);
 
 	dprintf(fha->fd, "cpuinfo:lines=%d\n", NUM_CPU_INFO);
-	dprintf(fha->fd, "cpuinfo:nr_cpus=%lu / %lu (online/possible)\n",
-		nr_online, nr_possible);
+	dprintf(fha->fd, "cpuinfo:nr_cpus=%lu / %lu (online/possible)\n", nr_online, nr_possible);
 
 	return arch_fill_cpuinfo_model(fha->fd);
 }
@@ -269,8 +267,8 @@ static int read_cpuinfo(void *arg)
 			return -1;
 
 		if (!strncmp(&buf[8], "nr_cpus=", 8)) {
-			sscanf(&buf[8], "nr_cpus=%d / %d\n",
-			       &info->nr_cpus_online, &info->nr_cpus_possible);
+			sscanf(&buf[8], "nr_cpus=%d / %d\n", &info->nr_cpus_online,
+			       &info->nr_cpus_possible);
 		}
 		else if (!strncmp(&buf[8], "desc=", 5)) {
 			info->cpudesc = copy_info_str(&buf[13]);
@@ -337,8 +335,8 @@ static int fill_meminfo(void *arg)
 		mem_free >>= 10;
 	}
 
-	dprintf(fha->fd, "meminfo:%ld.%ld / %ld.%ld %s (free / total)\n",
-		mem_free, mem_free_small, mem_total, mem_total_small, unit);
+	dprintf(fha->fd, "meminfo:%ld.%ld / %ld.%ld %s (free / total)\n", mem_free, mem_free_small,
+		mem_total, mem_total_small, unit);
 
 	return 0;
 }
@@ -361,7 +359,7 @@ static int read_meminfo(void *arg)
 	return 0;
 }
 
-#define NUM_OS_INFO  3
+#define NUM_OS_INFO 3
 
 static int fill_osinfo(void *arg)
 {
@@ -437,9 +435,11 @@ static int read_osinfo(void *arg)
 
 		if (!strncmp(&buf[7], "kernel=", 7)) {
 			info->kernel = copy_info_str(&buf[14]);
-		} else if (!strncmp(&buf[7], "hostname=", 9)) {
+		}
+		else if (!strncmp(&buf[7], "hostname=", 9)) {
 			info->hostname = copy_info_str(&buf[16]);
-		} else if (!strncmp(&buf[7], "distro=", 7)) {
+		}
+		else if (!strncmp(&buf[7], "distro=", 7)) {
 			info->distro = copy_info_str(&buf[14]);
 		}
 	}
@@ -463,7 +463,7 @@ static int build_tid_list(struct uftrace_task *t, void *arg)
 	return 0;
 }
 
-#define NUM_TASK_INFO  2
+#define NUM_TASK_INFO 2
 
 static int fill_taskinfo(void *arg)
 {
@@ -473,12 +473,13 @@ static int fill_taskinfo(void *arg)
 		.nr = 0,
 	};
 	struct uftrace_session_link link = {
-		.root  = RB_ROOT,
+		.root = RB_ROOT,
 		.tasks = RB_ROOT,
 	};
 	int i;
 
-	if (read_task_txt_file(&link, fha->opts->dirname, fha->opts->dirname, false, false, false) < 0 &&
+	if (read_task_txt_file(&link, fha->opts->dirname, fha->opts->dirname, false, false, false) <
+		    0 &&
 	    read_task_file(&link, fha->opts->dirname, false, false, false) < 0)
 		return -1;
 
@@ -562,7 +563,7 @@ out:
 	return ret;
 }
 
-#define NUM_USAGE_INFO  6
+#define NUM_USAGE_INFO 6
 
 static int fill_usageinfo(void *arg)
 {
@@ -574,17 +575,14 @@ static int fill_usageinfo(void *arg)
 		return -1;
 
 	dprintf(fha->fd, "usageinfo:lines=%d\n", NUM_USAGE_INFO);
-	dprintf(fha->fd, "usageinfo:systime=%lu.%06lu\n",
-		r->ru_stime.tv_sec, r->ru_stime.tv_usec);
-	dprintf(fha->fd, "usageinfo:usrtime=%lu.%06lu\n",
-		r->ru_utime.tv_sec, r->ru_utime.tv_usec);
-	dprintf(fha->fd, "usageinfo:ctxsw=%ld / %ld (voluntary / involuntary)\n",
-		r->ru_nvcsw, r->ru_nivcsw);
+	dprintf(fha->fd, "usageinfo:systime=%lu.%06lu\n", r->ru_stime.tv_sec, r->ru_stime.tv_usec);
+	dprintf(fha->fd, "usageinfo:usrtime=%lu.%06lu\n", r->ru_utime.tv_sec, r->ru_utime.tv_usec);
+	dprintf(fha->fd, "usageinfo:ctxsw=%ld / %ld (voluntary / involuntary)\n", r->ru_nvcsw,
+		r->ru_nivcsw);
 	dprintf(fha->fd, "usageinfo:maxrss=%ld\n", r->ru_maxrss);
-	dprintf(fha->fd, "usageinfo:pagefault=%ld / %ld (major / minor)\n",
-		r->ru_majflt, r->ru_minflt);
-	dprintf(fha->fd, "usageinfo:iops=%ld / %ld (read / write)\n",
-		r->ru_inblock, r->ru_oublock);
+	dprintf(fha->fd, "usageinfo:pagefault=%ld / %ld (major / minor)\n", r->ru_majflt,
+		r->ru_minflt);
+	dprintf(fha->fd, "usageinfo:iops=%ld / %ld (read / write)\n", r->ru_inblock, r->ru_oublock);
 	return 0;
 }
 
@@ -625,8 +623,7 @@ static int read_usageinfo(void *arg)
 		else if (!strncmp(&buf[10], "maxrss=", 7))
 			sscanf(&buf[17], "%ld", &info->maxrss);
 		else if (!strncmp(&buf[10], "pagefault=", 10))
-			sscanf(&buf[20], "%ld / %ld",
-			       &info->major_fault, &info->minor_fault);
+			sscanf(&buf[20], "%ld / %ld", &info->major_fault, &info->minor_fault);
 		else if (!strncmp(&buf[10], "iops=", 5))
 			sscanf(&buf[15], "%ld / %ld", &info->rblock, &info->wblock);
 	}
@@ -647,8 +644,7 @@ static int fill_loadinfo(void *arg)
 		return -1;
 	}
 
-	dprintf(fha->fd, "loadinfo:%.02f / %.02f / %.02f\n",
-		loadavg[0], loadavg[1], loadavg[2]);
+	dprintf(fha->fd, "loadinfo:%.02f / %.02f / %.02f\n", loadavg[0], loadavg[1], loadavg[2]);
 
 	fclose(fp);
 	return 0;
@@ -671,7 +667,7 @@ static int read_loadinfo(void *arg)
 	return 0;
 }
 
-#define MAX_ARGSPEC_INFO  6
+#define MAX_ARGSPEC_INFO 6
 
 static int fill_arg_spec(void *arg)
 {
@@ -800,8 +796,7 @@ static int fill_pattern_type(void *arg)
 {
 	struct fill_handler_arg *fha = arg;
 
-	dprintf(fha->fd, "pattern_type:%s\n",
-		get_filter_pattern(fha->opts->patt_type));
+	dprintf(fha->fd, "pattern_type:%s\n", get_filter_pattern(fha->opts->patt_type));
 
 	return 0;
 }
@@ -858,8 +853,8 @@ struct uftrace_info_handler {
 	int (*handler)(void *arg);
 };
 
-void fill_uftrace_info(uint64_t *info_mask, int fd, struct uftrace_opts *opts,
-		       int status, struct rusage *rusage, char *elapsed_time)
+void fill_uftrace_info(uint64_t *info_mask, int fd, struct uftrace_opts *opts, int status,
+		       struct rusage *rusage, char *elapsed_time)
 {
 	size_t i;
 	off_t offset;
@@ -871,20 +866,20 @@ void fill_uftrace_info(uint64_t *info_mask, int fd, struct uftrace_opts *opts,
 		.elapsed_time = elapsed_time,
 	};
 	struct uftrace_info_handler fill_handlers[] = {
-		{ EXE_NAME,	fill_exe_name },
-		{ EXE_BUILD_ID,	fill_exe_build_id },
-		{ EXIT_STATUS,	fill_exit_status },
-		{ CMDLINE,	fill_cmdline },
-		{ CPUINFO,	fill_cpuinfo },
-		{ MEMINFO,	fill_meminfo },
-		{ OSINFO,	fill_osinfo },
-		{ TASKINFO,	fill_taskinfo },
-		{ USAGEINFO,	fill_usageinfo },
-		{ LOADINFO,	fill_loadinfo },
-		{ ARG_SPEC,	fill_arg_spec },
-		{ RECORD_DATE,	fill_record_date },
+		{ EXE_NAME, fill_exe_name },
+		{ EXE_BUILD_ID, fill_exe_build_id },
+		{ EXIT_STATUS, fill_exit_status },
+		{ CMDLINE, fill_cmdline },
+		{ CPUINFO, fill_cpuinfo },
+		{ MEMINFO, fill_meminfo },
+		{ OSINFO, fill_osinfo },
+		{ TASKINFO, fill_taskinfo },
+		{ USAGEINFO, fill_usageinfo },
+		{ LOADINFO, fill_loadinfo },
+		{ ARG_SPEC, fill_arg_spec },
+		{ RECORD_DATE, fill_record_date },
 		{ PATTERN_TYPE, fill_pattern_type },
-		{ VERSION,	fill_uftrace_version },
+		{ VERSION, fill_uftrace_version },
 	};
 
 	for (i = 0; i < ARRAY_SIZE(fill_handlers); i++) {
@@ -914,20 +909,20 @@ int read_uftrace_info(uint64_t info_mask, struct uftrace_data *handle)
 		.handle = handle,
 	};
 	struct uftrace_info_handler read_handlers[] = {
-		{ EXE_NAME,	read_exe_name },
-		{ EXE_BUILD_ID,	read_exe_build_id },
-		{ EXIT_STATUS,	read_exit_status },
-		{ CMDLINE,	read_cmdline },
-		{ CPUINFO,	read_cpuinfo },
-		{ MEMINFO,	read_meminfo },
-		{ OSINFO,	read_osinfo },
-		{ TASKINFO,	read_taskinfo },
-		{ USAGEINFO,	read_usageinfo },
-		{ LOADINFO,	read_loadinfo },
-		{ ARG_SPEC,	read_arg_spec },
-		{ RECORD_DATE,	read_record_date },
+		{ EXE_NAME, read_exe_name },
+		{ EXE_BUILD_ID, read_exe_build_id },
+		{ EXIT_STATUS, read_exit_status },
+		{ CMDLINE, read_cmdline },
+		{ CPUINFO, read_cpuinfo },
+		{ MEMINFO, read_meminfo },
+		{ OSINFO, read_osinfo },
+		{ TASKINFO, read_taskinfo },
+		{ USAGEINFO, read_usageinfo },
+		{ LOADINFO, read_loadinfo },
+		{ ARG_SPEC, read_arg_spec },
+		{ RECORD_DATE, read_record_date },
 		{ PATTERN_TYPE, read_pattern_type },
-		{ VERSION,	read_uftrace_version },
+		{ VERSION, read_uftrace_version },
 	};
 
 	memset(&handle->info, 0, sizeof(handle->info));
@@ -975,8 +970,7 @@ static void print_info(void *unused, const char *fmt, ...)
 }
 
 void process_uftrace_info(struct uftrace_data *handle, struct uftrace_opts *opts,
-			  void (*process)(void *data, const char *fmt, ...),
-			  void *data)
+			  void (*process)(void *data, const char *fmt, ...), void *data)
 {
 	char buf[PATH_MAX];
 	struct stat statbuf;
@@ -1008,9 +1002,8 @@ void process_uftrace_info(struct uftrace_data *handle, struct uftrace_opts *opts
 
 	if (info_mask & (1UL << CPUINFO)) {
 		process(data, fmt, "cpu info", info->cpudesc);
-		process(data, "# %-20s: %d / %d (online / possible)\n",
-		       "number of cpus", info->nr_cpus_online,
-		       info->nr_cpus_possible);
+		process(data, "# %-20s: %d / %d (online / possible)\n", "number of cpus",
+			info->nr_cpus_online, info->nr_cpus_possible);
 	}
 
 	if (info_mask & (1UL << MEMINFO))
@@ -1018,7 +1011,7 @@ void process_uftrace_info(struct uftrace_data *handle, struct uftrace_opts *opts
 
 	if (info_mask & (1UL << LOADINFO))
 		process(data, "# %-20s: %.02f / %.02f / %.02f (1 / 5 / 15 min)\n", "system load",
-		       info->load1, info->load5, info->load15);
+			info->load1, info->load5, info->load15);
 
 	if (info_mask & (1UL << OSINFO)) {
 		process(data, fmt, "kernel version", info->kernel);
@@ -1040,8 +1033,8 @@ void process_uftrace_info(struct uftrace_data *handle, struct uftrace_opts *opts
 		char *p;
 
 		/* ignore errors */
-		read_task_txt_file(&handle->sessions, opts->dirname,
-				   opts->dirname, false, false, false);
+		read_task_txt_file(&handle->sessions, opts->dirname, opts->dirname, false, false,
+				   false);
 
 		process(data, "# %-20s: %d\n", "number of tasks", nr);
 
@@ -1050,7 +1043,7 @@ void process_uftrace_info(struct uftrace_data *handle, struct uftrace_opts *opts
 				update_perf_task_comm(handle);
 		}
 
-		sz = nr * 32;  /* 32 > strlen("tid (comm)") */
+		sz = nr * 32; /* 32 > strlen("tid (comm)") */
 		len = 0;
 		p = task_list = xmalloc(sz);
 
@@ -1059,10 +1052,9 @@ void process_uftrace_info(struct uftrace_data *handle, struct uftrace_opts *opts
 
 			task = find_task(&handle->sessions, tid);
 
-			len = snprintf(p, sz, "%s%d(%s)",
-				       first ? "" : ", ", tid,
+			len = snprintf(p, sz, "%s%d(%s)", first ? "" : ", ", tid,
 				       task ? task->comm : "");
-			p  += len;
+			p += len;
 			sz -= len;
 
 			first = false;
@@ -1103,16 +1095,14 @@ void process_uftrace_info(struct uftrace_data *handle, struct uftrace_opts *opts
 			snprintf(buf, sizeof(buf), "terminated by finish trigger");
 		}
 		else if (WIFEXITED(status)) {
-			snprintf(buf, sizeof(buf), "exited with code: %d",
-				 WEXITSTATUS(status));
+			snprintf(buf, sizeof(buf), "exited with code: %d", WEXITSTATUS(status));
 		}
 		else if (WIFSIGNALED(status)) {
 			snprintf(buf, sizeof(buf), "terminated by signal: %d (%s)",
 				 WTERMSIG(status), strsignal(WTERMSIG(status)));
 		}
 		else {
-			snprintf(buf, sizeof(buf), "unknown exit status: %d",
-				 status);
+			snprintf(buf, sizeof(buf), "unknown exit status: %d", status);
 		}
 		process(data, fmt, "exit status", buf);
 	}
@@ -1121,16 +1111,15 @@ void process_uftrace_info(struct uftrace_data *handle, struct uftrace_opts *opts
 		process(data, fmt, "elapsed time", info->elapsed_time);
 
 	if (info_mask & (1UL << USAGEINFO)) {
-		process(data, "# %-20s: %.3lf / %.3lf sec (sys / user)\n", "cpu time",
-		       info->stime, info->utime);
-		process(data, "# %-20s: %ld / %ld (voluntary / involuntary)\n",
-		       "context switch", info->vctxsw, info->ictxsw);
-		process(data, "# %-20s: %ld KB\n", "max rss",
-		       info->maxrss);
+		process(data, "# %-20s: %.3lf / %.3lf sec (sys / user)\n", "cpu time", info->stime,
+			info->utime);
+		process(data, "# %-20s: %ld / %ld (voluntary / involuntary)\n", "context switch",
+			info->vctxsw, info->ictxsw);
+		process(data, "# %-20s: %ld KB\n", "max rss", info->maxrss);
 		process(data, "# %-20s: %ld / %ld (major / minor)\n", "page fault",
-		       info->major_fault, info->minor_fault);
-		process(data, "# %-20s: %ld / %ld (read / write)\n", "disk iops",
-		       info->rblock, info->wblock);
+			info->major_fault, info->minor_fault);
+		process(data, "# %-20s: %ld / %ld (read / write)\n", "disk iops", info->rblock,
+			info->wblock);
 	}
 
 	snprintf(buf, sizeof(buf), "%s/note.txt", opts->dirname);
@@ -1173,10 +1162,10 @@ static void print_task(struct uftrace_data *handle, struct uftrace_task *t)
 		stbuf.st_size = 0;
 
 	if (t->tid == t->pid)
-		flags[0] = 'F';  /* FORK */
+		flags[0] = 'F'; /* FORK */
 	while (sref != NULL) {
 		if (sref->sess->tid == t->tid) {
-			flags[1] = 'S';  /* SESSION */
+			flags[1] = 'S'; /* SESSION */
 			break;
 		}
 
@@ -1184,8 +1173,7 @@ static void print_task(struct uftrace_data *handle, struct uftrace_task *t)
 	}
 
 	/* TIMESTAMP */
-	pr_out(" %13lu.%09lu ", t->time.stamp / NSEC_PER_SEC,
-	       t->time.stamp % NSEC_PER_SEC);
+	pr_out(" %13lu.%09lu ", t->time.stamp / NSEC_PER_SEC, t->time.stamp % NSEC_PER_SEC);
 	/* FLAGS  TID  COMM */
 	pr_out(" %s  [%6d]  %-16s ", flags, t->tid, t->comm);
 	/* DATA SIZE */
@@ -1193,7 +1181,7 @@ static void print_task(struct uftrace_data *handle, struct uftrace_task *t)
 		uint64_t size_kb = stbuf.st_size / 1024;
 		uint64_t size_rem = size_kb % 1024;
 
-		pr_out(" %5"PRIu64".%03"PRIu64" MB\n", size_kb / 1024,
+		pr_out(" %5" PRIu64 ".%03" PRIu64 " MB\n", size_kb / 1024,
 		       size_rem >= 1000 ? 999 : size_rem);
 	}
 	else
@@ -1207,8 +1195,8 @@ static void print_task_info(struct uftrace_data *handle)
 	struct rb_node *n;
 	struct uftrace_task *t;
 
-	pr_out("#%23s  %5s  %8s  %-16s  %s\n",
-	       "TIMESTAMP     ", "FLAGS", "  TID  ", "TASK", "DATA SIZE");
+	pr_out("#%23s  %5s  %8s  %-16s  %s\n", "TIMESTAMP     ", "FLAGS", "  TID  ", "TASK",
+	       "DATA SIZE");
 
 	n = rb_first(&handle->sessions.tasks);
 	while (n != NULL) {
@@ -1246,8 +1234,7 @@ int command_info(int argc, char *argv[], struct uftrace_opts *opts)
 		}
 
 		for (i = 0; i < BUILD_ID_SIZE; i++) {
-			snprintf(build_id + i * 2, 3, "%02x",
-				 handle.info.build_id[i]);
+			snprintf(build_id + i * 2, 3, "%02x", handle.info.build_id[i]);
 		}
 		mod = load_module_symtab(&sinfo, sinfo.filename, build_id);
 		if (mod == NULL)
@@ -1261,8 +1248,8 @@ int command_info(int argc, char *argv[], struct uftrace_opts *opts)
 	fstack_setup_task(opts->tid, &handle);
 	if (opts->show_task) {
 		/* ignore errors */
-		read_task_txt_file(&handle.sessions, opts->dirname, opts->dirname,
-				   false, false, false);
+		read_task_txt_file(&handle.sessions, opts->dirname, opts->dirname, false, false,
+				   false);
 
 		if (handle.hdr.feat_mask & PERF_EVENT) {
 			if (setup_perf_data(&handle) == 0)

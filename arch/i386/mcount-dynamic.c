@@ -3,8 +3,8 @@
 #include <unistd.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "dynamic"
-#define PR_DOMAIN  DBG_DYNAMIC
+#define PR_FMT "dynamic"
+#define PR_DOMAIN DBG_DYNAMIC
 
 #include "libmcount/internal.h"
 #include "libmcount/dynamic.h"
@@ -27,13 +27,10 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 		mdi->trampoline += trampoline_size;
 		mdi->text_size += PAGE_SIZE;
 
-		pr_dbg2("adding a page for fentry trampoline at %#lx\n",
-			mdi->trampoline);
+		pr_dbg2("adding a page for fentry trampoline at %#lx\n", mdi->trampoline);
 
-		trampoline_check = mmap((void *)mdi->trampoline, PAGE_SIZE,
-					PROT_READ | PROT_WRITE,
-		     			MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS,
-					-1, 0);
+		trampoline_check = mmap((void *)mdi->trampoline, PAGE_SIZE, PROT_READ | PROT_WRITE,
+					MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
 		if (trampoline_check == MAP_FAILED)
 			pr_err("failed to mmap trampoline for setup");
@@ -46,8 +43,7 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 
 	/* jmpq  *0x2(%rip)     # <fentry_addr> */
 	memcpy((void *)mdi->trampoline, trampoline, sizeof(trampoline));
-	memcpy((void *)mdi->trampoline + sizeof(trampoline),
-	       &fentry_addr, sizeof(fentry_addr));
+	memcpy((void *)mdi->trampoline + sizeof(trampoline), &fentry_addr, sizeof(fentry_addr));
 	return 0;
 }
 
@@ -57,8 +53,7 @@ void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi)
 		pr_err("cannot restore trampoline due to protection");
 }
 
-void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
-			     struct uftrace_symtab *symtab)
+void mcount_arch_find_module(struct mcount_dynamic_info *mdi, struct uftrace_symtab *symtab)
 {
 	unsigned i = 0;
 
@@ -95,8 +90,8 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 	}
 
 out:
-	pr_dbg("dynamic patch type: %s: %d (%s)\n", basename(mdi->map->libname),
-	       mdi->type, mdi_type_names[mdi->type]);
+	pr_dbg("dynamic patch type: %s: %d (%s)\n", basename(mdi->map->libname), mdi->type,
+	       mdi_type_names[mdi->type]);
 }
 
 static unsigned long get_target_addr(struct mcount_dynamic_info *mdi, unsigned long addr)
@@ -131,8 +126,7 @@ static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct uftrace_sym
 	/* hopefully we're not patching 'memcpy' itself */
 	memcpy(&insn[1], &target_addr, sizeof(target_addr));
 
-	pr_dbg3("update %p for '%s' function dynamically to call __fentry__\n",
-		insn, sym->name);
+	pr_dbg3("update %p for '%s' function dynamically to call __fentry__\n", insn, sym->name);
 
 	return 0;
 }

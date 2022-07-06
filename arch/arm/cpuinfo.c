@@ -16,7 +16,8 @@ int arch_fill_cpuinfo_model(int fd)
 			dprintf(fd, "cpuinfo:desc=%s", &buf[12]);
 			ret = 0;
 			break;
-		} else if (!strncmp(buf, "model name\t:", 12)) {
+		}
+		else if (!strncmp(buf, "model name\t:", 12)) {
 			dprintf(fd, "cpuinfo:desc=%s", &buf[13]);
 			ret = 0;
 			break;

@@ -26,8 +26,8 @@ static void print_field(struct uftrace_report_node *node, int space)
 	print_field_data(&output_fields, &fd, space);
 }
 
-static void insert_node(struct rb_root *root, struct uftrace_task_reader *task,
-			char *symname, struct uftrace_dbg_loc* loc)
+static void insert_node(struct rb_root *root, struct uftrace_task_reader *task, char *symname,
+			struct uftrace_dbg_loc *loc)
 {
 	struct uftrace_report_node *node;
 
@@ -65,8 +65,8 @@ static void add_lost_fstack(struct rb_root *root, struct uftrace_task_reader *ta
 
 		if (fstack_enabled && fstack && fstack->valid &&
 		    !(fstack->flags & FSTACK_FL_NORECORD)) {
-			find_insert_node(root, task, task->timestamp_last,
-					 fstack->addr, opts->srcline);
+			find_insert_node(root, task, task->timestamp_last, fstack->addr,
+					 opts->srcline);
 		}
 
 		fstack_exit(task);
@@ -74,8 +74,8 @@ static void add_lost_fstack(struct rb_root *root, struct uftrace_task_reader *ta
 	}
 }
 
-static void add_remaining_fstack(struct uftrace_data *handle,
-				 struct rb_root *root, struct uftrace_opts *opts)
+static void add_remaining_fstack(struct uftrace_data *handle, struct rb_root *root,
+				 struct uftrace_opts *opts)
 {
 	struct uftrace_task_reader *task;
 	struct uftrace_fstack *fstack;
@@ -112,14 +112,14 @@ static void add_remaining_fstack(struct uftrace_data *handle,
 			if (fstack->addr == EVENT_ID_PERF_SCHED_IN)
 				insert_node(root, task, sched_sym.name, NULL);
 			else
-				find_insert_node(root, task, last_time,
-						 fstack->addr, opts->srcline);
+				find_insert_node(root, task, last_time, fstack->addr,
+						 opts->srcline);
 		}
 	}
 }
 
-static void build_function_tree(struct uftrace_data *handle,
-				struct rb_root *root, struct uftrace_opts *opts)
+static void build_function_tree(struct uftrace_data *handle, struct rb_root *root,
+				struct uftrace_opts *opts)
 {
 	struct uftrace_session_link *sessions = &handle->sessions;
 	struct uftrace_symbol *sym = NULL;
@@ -251,8 +251,7 @@ static void report_functions(struct uftrace_data *handle, struct uftrace_opts *o
 
 	setup_report_field(&output_fields, opts, avg_mode);
 
-	print_header_align(&output_fields, "  ", "Function", field_space,
-			   ALIGN_RIGHT, false);
+	print_header_align(&output_fields, "  ", "Function", field_space, ALIGN_RIGHT, false);
 	if (!list_empty(&output_fields)) {
 		if (opts->srcline)
 			pr_gray(" [Source]");
@@ -263,8 +262,7 @@ static void report_functions(struct uftrace_data *handle, struct uftrace_opts *o
 	print_and_delete(&sort_root, true, NULL, print_function, field_space);
 }
 
-static void add_remaining_task_fstack(struct uftrace_data *handle,
-				      struct rb_root *root)
+static void add_remaining_task_fstack(struct uftrace_data *handle, struct rb_root *root)
 {
 	struct uftrace_task_reader *task;
 	struct uftrace_fstack *fstack;
@@ -297,8 +295,7 @@ static void add_remaining_task_fstack(struct uftrace_data *handle,
 
 			if (fstack->addr == EVENT_ID_PERF_SCHED_IN) {
 				if (task->t->time.stamp) {
-					task->t->time.idle += last_time -
-						fstack->total_time;
+					task->t->time.idle += last_time - fstack->total_time;
 				}
 				task->t->time.stamp = 0;
 			}
@@ -316,8 +313,7 @@ static void add_remaining_task_fstack(struct uftrace_data *handle,
 	}
 }
 
-static void adjust_task_runtime(struct uftrace_data *handle,
-				struct rb_root *root)
+static void adjust_task_runtime(struct uftrace_data *handle, struct rb_root *root)
 {
 	struct uftrace_task *t;
 	struct uftrace_report_node *node;
@@ -364,8 +360,7 @@ static void report_task(struct uftrace_data *handle, struct uftrace_opts *opts)
 
 	while (read_rstack(handle, &task) >= 0 && !uftrace_done) {
 		rstack = task->rstack;
-		if (rstack->type == UFTRACE_ENTRY ||
-		    rstack->type == UFTRACE_LOST)
+		if (rstack->type == UFTRACE_ENTRY || rstack->type == UFTRACE_LOST)
 			continue;
 
 		if (!fstack_check_opts(task, opts))
@@ -383,8 +378,7 @@ static void report_task(struct uftrace_data *handle, struct uftrace_opts *opts)
 			}
 			else if (rstack->addr == EVENT_ID_PERF_SCHED_IN) {
 				if (task->t->time.stamp) {
-					task->t->time.idle += rstack->time -
-						task->t->time.stamp;
+					task->t->time.idle += rstack->time - task->t->time.stamp;
 				}
 				task->t->time.stamp = 0;
 			}
@@ -407,30 +401,29 @@ static void report_task(struct uftrace_data *handle, struct uftrace_opts *opts)
 
 	setup_report_field(&output_fields, opts, avg_mode);
 
-	print_header_align(&output_fields, "  ", "Task name", field_space,
-			   ALIGN_RIGHT, true);
+	print_header_align(&output_fields, "  ", "Task name", field_space, ALIGN_RIGHT, true);
 
 	print_line(&output_fields, field_space);
 	print_and_delete(&sort_tree, true, handle, print_task, field_space);
 }
 
 struct diff_data {
-	char				*dirname;
-	struct rb_root			root;
-	struct uftrace_data		handle;
+	char *dirname;
+	struct rb_root root;
+	struct uftrace_data handle;
 };
 
 static void report_diff(struct uftrace_data *handle, struct uftrace_opts *opts)
 {
 	struct uftrace_opts dummy_opts = {
 		.dirname = opts->diff,
-		.kernel  = opts->kernel,
-		.depth   = opts->depth,
+		.kernel = opts->kernel,
+		.depth = opts->depth,
 		.libcall = opts->libcall,
 	};
 	struct diff_data data = {
 		.dirname = opts->diff,
-		.root    = RB_ROOT,
+		.root = RB_ROOT,
 	};
 	struct rb_root base_tree = RB_ROOT;
 	struct rb_root pair_tree = RB_ROOT;
@@ -462,8 +455,7 @@ static void report_diff(struct uftrace_data *handle, struct uftrace_opts *opts)
 
 	setup_report_field(&output_fields, opts, avg_mode);
 
-	print_header_align(&output_fields, "  ", "Function", field_space,
-			   ALIGN_RIGHT, false);
+	print_header_align(&output_fields, "  ", "Function", field_space, ALIGN_RIGHT, false);
 	if (!list_empty(&output_fields)) {
 		if (opts->srcline)
 			pr_gray(" [Source]");

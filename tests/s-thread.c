@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-#define NUM_THREAD  4
+#define NUM_THREAD 4
 
 static int a(void *);
 static int b(void *);
@@ -28,7 +28,7 @@ static int c(void *arg)
 
 static void *foo(void *arg)
 {
-	return (void *)(long) a(arg);
+	return (void *)(long)a(arg);
 }
 
 int main(int argc, char *argv[])

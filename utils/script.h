@@ -26,35 +26,35 @@ enum script_type_t {
 
 /* informantion passed during initialization */
 struct script_info {
-	char			*name;
-	char			*version;
-	bool			record;
-	struct strv		cmds;
+	char *name;
+	char *version;
+	bool record;
+	struct strv cmds;
 };
 
 /* context information passed to script */
 struct script_context {
-	int			tid;
-	int			depth;
-	uint64_t		timestamp;
-	uint64_t		duration;	/* exit only */
-	unsigned long		address;
-	char			*name;
+	int tid;
+	int depth;
+	uint64_t timestamp;
+	uint64_t duration; /* exit only */
+	unsigned long address;
+	char *name;
 	/* for arguments and return value */
-	int			arglen;
-	void			*argbuf;
-	struct list_head	*argspec;
+	int arglen;
+	void *argbuf;
+	struct list_head *argspec;
 };
 
 union script_arg_val {
-	char          c;
-	short         s;
-	int           i;
-	long          l;
-	long long     L;
-	float         f;
-	double        d;
-	long double   D;
+	char c;
+	short s;
+	int i;
+	long l;
+	long long L;
+	float f;
+	double d;
+	long double D;
 	unsigned char v[16];
 };
 

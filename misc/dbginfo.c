@@ -28,7 +28,7 @@ void print_debug_info(struct uftrace_dbg_info *dinfo, bool auto_args)
 		if (argspec == NULL && retspec == NULL && !auto_args)
 			continue;
 
-		printf("%s [addr: %"PRIx64"]\n", loc->sym->name, loc->sym->addr);
+		printf("%s [addr: %" PRIx64 "]\n", loc->sym->name, loc->sym->addr);
 
 		/* skip common parts with compile directory  */
 		if (dinfo->base_dir) {

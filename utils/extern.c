@@ -16,14 +16,14 @@
 #include <errno.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "fstack"
-#define PR_DOMAIN  DBG_FSTACK
+#define PR_FMT "fstack"
+#define PR_DOMAIN DBG_FSTACK
 
 #include "uftrace.h"
 #include "utils/utils.h"
 #include "utils/fstack.h"
 
-#define DEFAULT_FILENAME  "extern.dat"
+#define DEFAULT_FILENAME "extern.dat"
 
 int setup_extern_data(struct uftrace_data *handle, struct uftrace_opts *opts)
 {
@@ -73,26 +73,25 @@ int read_extern_data(struct uftrace_extern_reader *extn)
 	do {
 		pos = fgets(buf, sizeof(buf), extn->fp);
 		if (pos == NULL)
-			return -1;  /* end of file */
+			return -1; /* end of file */
 
-		buf[sizeof(buf)-1] = '\0';
+		buf[sizeof(buf) - 1] = '\0';
 		while (isspace(*pos))
 			pos++;
-	}
-	while (*pos == '#' || *pos == '\n');  /* ignore comment or blank */
+	} while (*pos == '#' || *pos == '\n'); /* ignore comment or blank */
 
 	extn->time = parse_timestamp(pos);
 
 	pos = strpbrk(pos, "\t ");
 	if (pos == NULL)
-		return -1;  /* invalid data */
+		return -1; /* invalid data */
 
 	while (isspace(*pos))
 		pos++;
 
 	len = strlen(pos);
-	if (pos[len-1] == '\n')
-		pos[len-1] = '\0';
+	if (pos[len - 1] == '\n')
+		pos[len - 1] = '\0';
 
 	strcpy(extn->msg, pos);
 
@@ -100,13 +99,13 @@ int read_extern_data(struct uftrace_extern_reader *extn)
 	return 0;
 }
 
-struct uftrace_record * get_extern_record(struct uftrace_extern_reader *extn,
-					  struct uftrace_record *rec)
+struct uftrace_record *get_extern_record(struct uftrace_extern_reader *extn,
+					 struct uftrace_record *rec)
 {
-	rec->time  = extn->time;
-	rec->type  = UFTRACE_EVENT;
-	rec->addr  = EVENT_ID_EXTERN_DATA;
-	rec->more  = 1;
+	rec->time = extn->time;
+	rec->type = UFTRACE_EVENT;
+	rec->addr = EVENT_ID_EXTERN_DATA;
+	rec->more = 1;
 	rec->magic = RECORD_MAGIC;
 
 	return rec;
@@ -142,14 +141,14 @@ TEST_CASE(fstack_extern_data)
 		.dirname = "extern.test",
 	};
 	const char extern_data[] = "# test data\n"
-		"1234.987654321 first data\n"
-		"1234.123456789 second data\n";
+				   "1234.987654321 first data\n"
+				   "1234.123456789 second data\n";
 
 	pr_dbg("creating external data file\n");
 	mkdir("extern.test", 0755);
 	fd = creat("extern.test/" DEFAULT_FILENAME, 0644);
 	TEST_NE(fd, -1);
-	if (!write(fd, extern_data, sizeof(extern_data)-1))
+	if (!write(fd, extern_data, sizeof(extern_data) - 1))
 		return TEST_NG;
 	close(fd);
 
@@ -182,4 +181,4 @@ TEST_CASE(fstack_extern_data)
 	return TEST_OK;
 }
 
-#endif  /* UNIT_TEST */
+#endif /* UNIT_TEST */

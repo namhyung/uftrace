@@ -2,7 +2,7 @@
 
 int main()
 {
-        std::ostringstream ss;
-        ss.str();
-        return 0;
+	std::ostringstream ss;
+	ss.str();
+	return 0;
 }

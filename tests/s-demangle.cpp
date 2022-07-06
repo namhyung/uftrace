@@ -1,14 +1,14 @@
 #include <iostream>
 
 class ABC {
-private:
-  int n;
-  int bar(void);
-  int baz(void);
+    private:
+	int n;
+	int bar(void);
+	int baz(void);
 
-public:
-  ABC(int n);
-  int foo(void);
+    public:
+	ABC(int n);
+	int foo(void);
 };
 
 int ABC::foo(void)

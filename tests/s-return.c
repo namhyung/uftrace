@@ -8,7 +8,7 @@ struct large {
 };
 
 struct small {
-	unsigned char bit:1;
+	unsigned char bit : 1;
 };
 
 struct large return_large(char patt)
@@ -23,7 +23,8 @@ struct large return_large(char patt)
 #if __clang__
 __attribute__((optnone))
 #endif
-struct small return_small(void)
+struct small
+return_small(void)
 {
 	struct small s = { .bit = 1 };
 	return s;
@@ -32,7 +33,8 @@ struct small return_small(void)
 #if __clang__
 __attribute__((optnone))
 #endif
-long double return_long_double(void)
+long double
+return_long_double(void)
 {
 	return LDBL_MAX;
 }

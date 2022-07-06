@@ -10,8 +10,8 @@
 #include <sys/mman.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "mcount"
-#define PR_DOMAIN  DBG_MCOUNT
+#define PR_FMT "mcount"
+#define PR_DOMAIN DBG_MCOUNT
 
 // a max number that retrieves the stack to find the location of
 // the real return address of the main function for i386.
@@ -22,8 +22,7 @@
 
 static bool search_main_ret = false;
 
-int mcount_get_register_arg(struct mcount_arg_context *ctx,
-                            struct uftrace_arg_spec *spec)
+int mcount_get_register_arg(struct mcount_arg_context *ctx, struct uftrace_arg_spec *spec)
 {
 	struct mcount_regs *regs = ctx->regs;
 	int reg_idx;
@@ -44,28 +43,28 @@ int mcount_get_register_arg(struct mcount_arg_context *ctx,
 		ctx->val.i = ARG_REG2(regs);
 		break;
 	case UFT_I386_REG_XMM0:
-		asm volatile ("movsd %%xmm0, %0\n" : "=m" (ctx->val.v));
+		asm volatile("movsd %%xmm0, %0\n" : "=m"(ctx->val.v));
 		break;
 	case UFT_I386_REG_XMM1:
-		asm volatile ("movsd %%xmm1, %0\n" : "=m" (ctx->val.v));
+		asm volatile("movsd %%xmm1, %0\n" : "=m"(ctx->val.v));
 		break;
 	case UFT_I386_REG_XMM2:
-		asm volatile ("movsd %%xmm2, %0\n" : "=m" (ctx->val.v));
+		asm volatile("movsd %%xmm2, %0\n" : "=m"(ctx->val.v));
 		break;
 	case UFT_I386_REG_XMM3:
-		asm volatile ("movsd %%xmm3, %0\n" : "=m" (ctx->val.v));
+		asm volatile("movsd %%xmm3, %0\n" : "=m"(ctx->val.v));
 		break;
 	case UFT_I386_REG_XMM4:
-		asm volatile ("movsd %%xmm4, %0\n" : "=m" (ctx->val.v));
+		asm volatile("movsd %%xmm4, %0\n" : "=m"(ctx->val.v));
 		break;
 	case UFT_I386_REG_XMM5:
-		asm volatile ("movsd %%xmm5, %0\n" : "=m" (ctx->val.v));
+		asm volatile("movsd %%xmm5, %0\n" : "=m"(ctx->val.v));
 		break;
 	case UFT_I386_REG_XMM6:
-		asm volatile ("movsd %%xmm6, %0\n" : "=m" (ctx->val.v));
+		asm volatile("movsd %%xmm6, %0\n" : "=m"(ctx->val.v));
 		break;
 	case UFT_I386_REG_XMM7:
-		asm volatile ("movsd %%xmm7, %0\n" : "=m" (ctx->val.v));
+		asm volatile("movsd %%xmm7, %0\n" : "=m"(ctx->val.v));
 		break;
 	default:
 		/* should not reach here */
@@ -76,8 +75,7 @@ int mcount_get_register_arg(struct mcount_arg_context *ctx,
 	return 0;
 }
 
-void mcount_get_stack_arg(struct mcount_arg_context *ctx,
-                        struct uftrace_arg_spec *spec)
+void mcount_get_stack_arg(struct mcount_arg_context *ctx, struct uftrace_arg_spec *spec)
 {
 	int offset;
 	unsigned long *addr = ctx->stack_base;
@@ -114,49 +112,47 @@ void mcount_get_stack_arg(struct mcount_arg_context *ctx,
 	}
 }
 
-void mcount_arch_get_arg(struct mcount_arg_context *ctx,
-			 struct uftrace_arg_spec *spec)
+void mcount_arch_get_arg(struct mcount_arg_context *ctx, struct uftrace_arg_spec *spec)
 {
 	if (mcount_get_register_arg(ctx, spec) < 0)
 		mcount_get_stack_arg(ctx, spec);
 }
 
-void mcount_arch_get_retval(struct mcount_arg_context *ctx,
-			    struct uftrace_arg_spec *spec)
+void mcount_arch_get_retval(struct mcount_arg_context *ctx, struct uftrace_arg_spec *spec)
 {
 	/* type of return value cannot be FLOAT, so check format instead */
 	if (spec->fmt != ARG_FMT_FLOAT)
 		memcpy(ctx->val.v, ctx->retval, spec->size);
 	else if (spec->size == 4)
-		asm volatile ("fstps %0\n\tflds %0" : "=m" (ctx->val.v));
+		asm volatile("fstps %0\n\tflds %0" : "=m"(ctx->val.v));
 	else if (spec->size == 8)
-		asm volatile ("fstpl %0\n\tfldl %0" : "=m" (ctx->val.v));
+		asm volatile("fstpl %0\n\tfldl %0" : "=m"(ctx->val.v));
 	else if (spec->size == 10)
-		asm volatile ("fstpt %0\n\tfldt %0" : "=m" (ctx->val.v));
+		asm volatile("fstpt %0\n\tfldt %0" : "=m"(ctx->val.v));
 }
 
 void mcount_save_arch_context(struct mcount_arch_context *ctx)
 {
-	asm volatile ("movsd %%xmm0, %0\n" : "=m" (ctx->xmm[0]));
-	asm volatile ("movsd %%xmm1, %0\n" : "=m" (ctx->xmm[1]));
-	asm volatile ("movsd %%xmm2, %0\n" : "=m" (ctx->xmm[2]));
-	asm volatile ("movsd %%xmm3, %0\n" : "=m" (ctx->xmm[3]));
-	asm volatile ("movsd %%xmm4, %0\n" : "=m" (ctx->xmm[4]));
-	asm volatile ("movsd %%xmm5, %0\n" : "=m" (ctx->xmm[5]));
-	asm volatile ("movsd %%xmm6, %0\n" : "=m" (ctx->xmm[6]));
-	asm volatile ("movsd %%xmm7, %0\n" : "=m" (ctx->xmm[7]));
+	asm volatile("movsd %%xmm0, %0\n" : "=m"(ctx->xmm[0]));
+	asm volatile("movsd %%xmm1, %0\n" : "=m"(ctx->xmm[1]));
+	asm volatile("movsd %%xmm2, %0\n" : "=m"(ctx->xmm[2]));
+	asm volatile("movsd %%xmm3, %0\n" : "=m"(ctx->xmm[3]));
+	asm volatile("movsd %%xmm4, %0\n" : "=m"(ctx->xmm[4]));
+	asm volatile("movsd %%xmm5, %0\n" : "=m"(ctx->xmm[5]));
+	asm volatile("movsd %%xmm6, %0\n" : "=m"(ctx->xmm[6]));
+	asm volatile("movsd %%xmm7, %0\n" : "=m"(ctx->xmm[7]));
 }
 
 void mcount_restore_arch_context(struct mcount_arch_context *ctx)
 {
-	asm volatile ("movsd %0, %%xmm0\n" :: "m" (ctx->xmm[0]));
-	asm volatile ("movsd %0, %%xmm1\n" :: "m" (ctx->xmm[1]));
-	asm volatile ("movsd %0, %%xmm2\n" :: "m" (ctx->xmm[2]));
-	asm volatile ("movsd %0, %%xmm3\n" :: "m" (ctx->xmm[3]));
-	asm volatile ("movsd %0, %%xmm4\n" :: "m" (ctx->xmm[4]));
-	asm volatile ("movsd %0, %%xmm5\n" :: "m" (ctx->xmm[5]));
-	asm volatile ("movsd %0, %%xmm6\n" :: "m" (ctx->xmm[6]));
-	asm volatile ("movsd %0, %%xmm7\n" :: "m" (ctx->xmm[7]));
+	asm volatile("movsd %0, %%xmm0\n" ::"m"(ctx->xmm[0]));
+	asm volatile("movsd %0, %%xmm1\n" ::"m"(ctx->xmm[1]));
+	asm volatile("movsd %0, %%xmm2\n" ::"m"(ctx->xmm[2]));
+	asm volatile("movsd %0, %%xmm3\n" ::"m"(ctx->xmm[3]));
+	asm volatile("movsd %0, %%xmm4\n" ::"m"(ctx->xmm[4]));
+	asm volatile("movsd %0, %%xmm5\n" ::"m"(ctx->xmm[5]));
+	asm volatile("movsd %0, %%xmm6\n" ::"m"(ctx->xmm[6]));
+	asm volatile("movsd %0, %%xmm7\n" ::"m"(ctx->xmm[7]));
 }
 
 /*
@@ -195,17 +191,13 @@ void mcount_restore_arch_context(struct mcount_arch_context *ctx)
 	GOOD LUCK!
 */
 unsigned long *mcount_arch_parent_location(struct uftrace_sym_info *symtabs,
-                                            unsigned long *parent_loc,
-                                            unsigned long child_ip)
+					   unsigned long *parent_loc, unsigned long child_ip)
 {
 	if (!search_main_ret) {
 		struct uftrace_symbol *parent_sym, *child_sym;
 		char *parent_name, *child_name;
 
-		const char *find_main[] = {
-			"__libc_start_main",
-			"main"
-		};
+		const char *find_main[] = { "__libc_start_main", "main" };
 		unsigned long ret_addr;
 		unsigned long search_ret_addr;
 		bool found_main_ret = false;
@@ -218,8 +210,7 @@ unsigned long *mcount_arch_parent_location(struct uftrace_sym_info *symtabs,
 		child_name = symbol_getname(child_sym, child_ip);
 
 		// Assuming that this happens only in main..
-		if (!(strcmp(find_main[0], parent_name) ||
-		      strcmp(find_main[1], child_name))) {
+		if (!(strcmp(find_main[0], parent_name) || strcmp(find_main[1], child_name))) {
 			ret_addr = *parent_loc;
 			for (stack_index = 1; stack_index < MAX_SEARCH_STACK; stack_index++) {
 				search_ret_addr = *(unsigned long *)(parent_loc + stack_index);

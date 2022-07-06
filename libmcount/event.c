@@ -6,8 +6,8 @@
 #include <pthread.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "event"
-#define PR_DOMAIN  DBG_EVENT
+#define PR_FMT "event"
+#define PR_DOMAIN DBG_EVENT
 
 #include "libmcount/mcount.h"
 #include "libmcount/internal.h"
@@ -15,16 +15,16 @@
 #include "utils/list.h"
 #include "utils/filter.h"
 
-#define SDT_SECT  ".note.stapsdt"
-#define SDT_NAME  "stapsdt"
-#define SDT_TYPE  3
+#define SDT_SECT ".note.stapsdt"
+#define SDT_NAME "stapsdt"
+#define SDT_TYPE 3
 
 /* systemtap SDT data structure */
 struct stapsdt {
 	unsigned long probe_addr;
 	unsigned long link_addr;
 	unsigned long sema_addr;
-	char vea[];  /* vendor + event + arguments */
+	char vea[]; /* vendor + event + arguments */
 };
 
 /* user-given event specifier (may contains patterns) */
@@ -99,8 +99,8 @@ static int search_sdt_event(struct dl_phdr_info *info, size_t sz, void *data)
 		sdt = iter.note_desc;
 
 		vendor = sdt->vea;
-		event  = vendor + strlen(vendor) + 1;
-		args   = event + strlen(event) + 1;
+		event = vendor + strlen(vendor) + 1;
+		args = event + strlen(event) + 1;
 
 		if (list_empty(spec_list)) {
 			/* just listing available events */
@@ -119,15 +119,15 @@ static int search_sdt_event(struct dl_phdr_info *info, size_t sz, void *data)
 			continue;
 
 		mei = xmalloc(sizeof(*mei));
-		mei->id        = event_id++;
-		mei->addr      = info->dlpi_addr + sdt->probe_addr;
-		mei->module    = xstrdup(name);
-		mei->provider  = xstrdup(vendor);
-		mei->event     = xstrdup(event);
+		mei->id = event_id++;
+		mei->addr = info->dlpi_addr + sdt->probe_addr;
+		mei->module = xstrdup(name);
+		mei->provider = xstrdup(vendor);
+		mei->event = xstrdup(event);
 		mei->arguments = xstrdup(args);
 
-		pr_dbg("adding SDT event (%s:%s) from %s at %#lx\n",
-		       mei->provider, mei->event, mei->module, mei->addr);
+		pr_dbg("adding SDT event (%s:%s) from %s at %#lx\n", mei->provider, mei->event,
+		       mei->module, mei->addr);
 
 		list_add_tail(&mei->list, &events);
 	}
@@ -138,8 +138,7 @@ out:
 	return ret;
 }
 
-int mcount_setup_events(char *dirname, char *event_str,
-			enum uftrace_pattern_type ptype)
+int mcount_setup_events(char *dirname, char *event_str, enum uftrace_pattern_type ptype)
 {
 	int ret = 0;
 	FILE *fp;
@@ -198,8 +197,7 @@ int mcount_setup_events(char *dirname, char *event_str,
 		pr_err("cannot open file: %s", filename);
 
 	list_for_each_entry(mei, &events, list) {
-		fprintf(fp, "EVENT: %u %s:%s\n",
-			mei->id, mei->provider, mei->event);
+		fprintf(fp, "EVENT: %u %s:%s\n", mei->id, mei->provider, mei->event);
 	}
 
 	fclose(fp);
@@ -213,7 +211,7 @@ out:
 	return ret;
 }
 
-struct mcount_event_info * mcount_lookup_event(unsigned long addr)
+struct mcount_event_info *mcount_lookup_event(unsigned long addr)
 {
 	struct mcount_event_info *mei;
 
@@ -246,10 +244,10 @@ int mcount_save_event(struct mcount_event_info *mei)
 	if (mtdp->nr_events < MAX_EVENT) {
 		int i = mtdp->nr_events++;
 
-		mtdp->event[i].id   = mei->id;
+		mtdp->event[i].id = mei->id;
 		mtdp->event[i].time = mcount_gettime();
 		mtdp->event[i].dsize = 0;
-		mtdp->event[i].idx   = ASYNC_IDX;
+		mtdp->event[i].idx = ASYNC_IDX;
 	}
 
 	return 0;
@@ -279,4 +277,4 @@ TEST_CASE(mcount_list_event)
 
 	return TEST_OK;
 }
-#endif  /* UNIT_TEST */
+#endif /* UNIT_TEST */

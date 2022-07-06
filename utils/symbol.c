@@ -15,8 +15,8 @@
 #include <inttypes.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "symbol"
-#define PR_DOMAIN  DBG_SYMBOL
+#define PR_FMT "symbol"
+#define PR_DOMAIN DBG_SYMBOL
 
 #include "uftrace.h"
 #include "utils/utils.h"
@@ -24,8 +24,8 @@
 #include "utils/filter.h"
 #include "utils/rbtree.h"
 
-#ifndef  EM_AARCH64
-# define EM_AARCH64  183
+#ifndef EM_AARCH64
+#define EM_AARCH64 183
 #endif
 
 /* (global) symbol for kernel */
@@ -55,7 +55,7 @@ static int addrsort(const void *a, const void *b)
 
 static int addrfind(const void *a, const void *b)
 {
-	uint64_t addr = *(uint64_t *) a;
+	uint64_t addr = *(uint64_t *)a;
 	const struct uftrace_symbol *sym = b;
 
 	if (sym->addr <= addr && addr < sym->addr + sym->size)
@@ -82,7 +82,7 @@ static int namefind(const void *a, const void *b)
 	return strcmp(name, sym->name);
 }
 
-char * get_soname(const char *filename)
+char *get_soname(const char *filename)
 {
 	struct uftrace_elf_data elf;
 	struct uftrace_elf_iter iter;
@@ -166,7 +166,7 @@ int check_static_binary(const char *filename)
 }
 
 /* caller should free the result */
-char * check_script_file(const char *filename)
+char *check_script_file(const char *filename)
 {
 	char *shebang = NULL;
 	char magic[2];
@@ -202,8 +202,7 @@ out:
 
 static bool is_symbol_end(const char *name)
 {
-	if (!strcmp(name, "__sym_end") ||
-	    !strcmp(name, "__dynsym_end") ||
+	if (!strcmp(name, "__sym_end") || !strcmp(name, "__dynsym_end") ||
 	    !strcmp(name, "__func_end")) {
 		return true;
 	}
@@ -228,8 +227,7 @@ static void unload_symtab(struct uftrace_symtab *symtab)
 }
 
 static int load_symbol(struct uftrace_symtab *symtab, unsigned long prev_sym_value,
-		       unsigned long long offset, unsigned long flags,
-		       struct uftrace_elf_data *elf,
+		       unsigned long long offset, unsigned long flags, struct uftrace_elf_data *elf,
 		       struct uftrace_elf_iter *iter)
 {
 	char *name;
@@ -242,8 +240,7 @@ static int load_symbol(struct uftrace_symtab *symtab, unsigned long prev_sym_val
 	if (elf_sym->st_size == 0)
 		return 0;
 
-	if (elf_symbol_type(elf_sym) != STT_FUNC &&
-	    elf_symbol_type(elf_sym) != STT_GNU_IFUNC &&
+	if (elf_symbol_type(elf_sym) != STT_FUNC && elf_symbol_type(elf_sym) != STT_GNU_IFUNC &&
 	    elf_symbol_type(elf_sym) != STT_OBJECT)
 		return 0;
 
@@ -293,8 +290,8 @@ static int load_symbol(struct uftrace_symtab *symtab, unsigned long prev_sym_val
 	else
 		sym->name = xstrdup(name);
 
-	pr_dbg4("[%zd] %c %"PRIx64" + %-5u %s\n", symtab->nr_sym,
-		sym->type, sym->addr, sym->size, sym->name);
+	pr_dbg4("[%zd] %c %" PRIx64 " + %-5u %s\n", symtab->nr_sym, sym->type, sym->addr, sym->size,
+		sym->name);
 	return 1;
 }
 
@@ -312,12 +309,9 @@ static void sort_symtab(struct uftrace_symtab *symtab)
 		int count = 0;
 		char *bestname = curr->name;
 
-		while (curr->addr == next->addr &&
-		       next < &symtab->sym[symtab->nr_sym]) {
-
+		while (curr->addr == next->addr && next < &symtab->sym[symtab->nr_sym]) {
 			/* prefer names not started by '_' (if not mangled) */
-			if (bestname[0] == '_' && bestname[1] != 'Z' &&
-			    next->name[0] != '_')
+			if (bestname[0] == '_' && bestname[1] != 'Z' && next->name[0] != '_')
 				bestname = next->name;
 
 			count++;
@@ -334,8 +328,7 @@ static void sort_symtab(struct uftrace_symtab *symtab)
 				tmp++;
 			}
 
-			memmove(curr, next - 1,
-				(symtab->nr_sym - i - count) * sizeof(*next));
+			memmove(curr, next - 1, (symtab->nr_sym - i - count) * sizeof(*next));
 
 			free(curr->name);
 			curr->name = bestname;
@@ -412,15 +405,13 @@ static int load_symtab(struct uftrace_symtab *symtab, const char *filename,
 	pr_dbg3("loading symbols from %s (offset: %#llx)\n", filename, offset);
 	if (iter.shdr.sh_type == SHT_SYMTAB) {
 		elf_for_each_symbol(&elf, &iter) {
-			if (load_symbol(symtab, prev_sym_value, offset, flags,
-					&elf, &iter))
+			if (load_symbol(symtab, prev_sym_value, offset, flags, &elf, &iter))
 				prev_sym_value = iter.sym.st_value;
 		}
 	}
 	else {
 		elf_for_each_dynamic_symbol(&elf, &iter) {
-			if (load_symbol(symtab, prev_sym_value, offset, flags,
-					&elf, &iter))
+			if (load_symbol(symtab, prev_sym_value, offset, flags, &elf, &iter))
 				prev_sym_value = iter.sym.st_value;
 		}
 	}
@@ -437,11 +428,9 @@ out:
 	return ret;
 }
 
-static int load_dyn_symbol(struct uftrace_symtab *dsymtab, int sym_idx,
-			   unsigned long offset, unsigned long flags,
-			   unsigned long plt_entsize, unsigned long prev_addr,
-			   struct uftrace_elf_data *elf,
-			   struct uftrace_elf_iter *iter)
+static int load_dyn_symbol(struct uftrace_symtab *dsymtab, int sym_idx, unsigned long offset,
+			   unsigned long flags, unsigned long plt_entsize, unsigned long prev_addr,
+			   struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter)
 {
 	char *name;
 	struct uftrace_symbol *sym;
@@ -467,8 +456,8 @@ static int load_dyn_symbol(struct uftrace_symtab *dsymtab, int sym_idx,
 	else
 		sym->name = xstrdup(name);
 
-	pr_dbg4("[%zd] %c %"PRIx64" + %-5u %s\n", dsymtab->nr_sym,
-		sym->type, sym->addr, sym->size, sym->name);
+	pr_dbg4("[%zd] %c %" PRIx64 " + %-5u %s\n", dsymtab->nr_sym, sym->type, sym->addr,
+		sym->size, sym->name);
 	return 1;
 }
 
@@ -504,8 +493,7 @@ static void sort_dynsymtab(struct uftrace_symtab *dsymtab)
 	dsymtab->name_sorted = false;
 }
 
-__weak int arch_load_dynsymtab_noplt(struct uftrace_symtab *dsymtab,
-				     struct uftrace_elf_data *elf,
+__weak int arch_load_dynsymtab_noplt(struct uftrace_symtab *dsymtab, struct uftrace_elf_data *elf,
 				     unsigned long offset, unsigned long flags)
 {
 	return 0;
@@ -582,11 +570,11 @@ int load_elf_dynsymtab(struct uftrace_symtab *dsymtab, struct uftrace_elf_data *
 	}
 
 	if (elf->ehdr.e_machine == EM_ARM) {
-		plt_addr += 8;     /* ARM PLT0 size is 20 */
-		plt_entsize = 12;  /* size of R_ARM_JUMP_SLOT */
+		plt_addr += 8; /* ARM PLT0 size is 20 */
+		plt_entsize = 12; /* size of R_ARM_JUMP_SLOT */
 	}
 	else if (elf->ehdr.e_machine == EM_AARCH64) {
-		plt_addr += 16;    /* AARCH64 PLT0 size is 32 */
+		plt_addr += 16; /* AARCH64 PLT0 size is 32 */
 		if (plt_entsize == 0)
 			plt_entsize = 16;
 	}
@@ -594,7 +582,7 @@ int load_elf_dynsymtab(struct uftrace_symtab *dsymtab, struct uftrace_elf_data *
 		plt_entsize += 12;
 	}
 	else if (elf->ehdr.e_machine == EM_X86_64) {
-		plt_entsize = 16;  /* lld (of LLVM) seems to miss setting it */
+		plt_entsize = 16; /* lld (of LLVM) seems to miss setting it */
 	}
 
 	prev_addr = plt_addr;
@@ -610,8 +598,7 @@ int load_elf_dynsymtab(struct uftrace_symtab *dsymtab, struct uftrace_elf_data *
 			symidx = elf_rel_symbol(&rel_iter.rel);
 			elf_get_symbol(elf, &dyn_iter, symidx);
 
-			if (load_dyn_symbol(dsymtab, symidx, offset, flags,
-					    plt_entsize, prev_addr,
+			if (load_dyn_symbol(dsymtab, symidx, offset, flags, plt_entsize, prev_addr,
 					    elf, &dyn_iter)) {
 				sym = &dsymtab->sym[dsymtab->nr_sym - 1];
 				prev_addr = sym->addr;
@@ -623,8 +610,7 @@ int load_elf_dynsymtab(struct uftrace_symtab *dsymtab, struct uftrace_elf_data *
 			symidx = elf_rel_symbol(&rel_iter.rela);
 			elf_get_symbol(elf, &dyn_iter, symidx);
 
-			if (load_dyn_symbol(dsymtab, symidx, offset, flags,
-					    plt_entsize, prev_addr,
+			if (load_dyn_symbol(dsymtab, symidx, offset, flags, plt_entsize, prev_addr,
 					    elf, &dyn_iter)) {
 				sym = &dsymtab->sym[dsymtab->nr_sym - 1];
 				prev_addr = sym->addr;
@@ -681,8 +667,7 @@ static void merge_symtabs(struct uftrace_symtab *left, struct uftrace_symtab *ri
 		return;
 	}
 
-	pr_dbg4("merge two symbol tables (left = %lu, right = %lu)\n",
-		left->nr_sym, right->nr_sym);
+	pr_dbg4("merge two symbol tables (left = %lu, right = %lu)\n", left->nr_sym, right->nr_sym);
 
 	syms = xmalloc(nr_sym * sizeof(*syms));
 
@@ -763,8 +748,7 @@ static int update_symtab_using_dynsym(struct uftrace_symtab *symtab, const char 
 			continue;
 
 		addr = iter.sym.st_value + offset;
-		sym = bsearch(&addr, symtab->sym, symtab->nr_sym,
-			      sizeof(*sym), addrfind);
+		sym = bsearch(&addr, symtab->sym, symtab->nr_sym, sizeof(*sym), addrfind);
 		if (sym == NULL)
 			continue;
 
@@ -802,11 +786,7 @@ enum uftrace_trace_type check_trace_functions(const char *filename)
 	struct uftrace_elf_iter iter;
 	enum uftrace_trace_type ret = TRACE_ERROR;
 	const char *trace_funcs[] = {
-		"__cyg_profile_func_enter",
-		"__fentry__",
-		"mcount",
-		"_mcount",
-		"__gnu_mcount_nc",
+		"__cyg_profile_func_enter", "__fentry__", "mcount", "_mcount", "__gnu_mcount_nc",
 	};
 	char *name;
 	unsigned i;
@@ -860,8 +840,7 @@ out:
 	return ret;
 }
 
-struct uftrace_mmap *find_map_by_name(struct uftrace_sym_info *sinfo,
-				      const char *prefix)
+struct uftrace_mmap *find_map_by_name(struct uftrace_sym_info *sinfo, const char *prefix)
 {
 	struct uftrace_mmap *map;
 	char *mod_name;
@@ -946,14 +925,12 @@ static int load_module_symbol_file(struct uftrace_symtab *symtab, const char *sy
 			sym = &symtab->sym[symtab->nr_sym - 1];
 
 			/* for kernel symbols, replace SyS_xxx to sys_xxx */
-			if (!strncmp(sym->name, "SyS_", 4) &&
-			    !strncmp(name, "sys_", 4) &&
+			if (!strncmp(sym->name, "SyS_", 4) && !strncmp(name, "sys_", 4) &&
 			    !strcmp(sym->name + 4, name + 4))
 				strncpy(sym->name, name, 4);
 
 			/* prefer x64 syscall names than 32 bit ones */
-			if (!strncmp(sym->name, "__ia32", 6) &&
-			    !strncmp(name, "__x64", 5) &&
+			if (!strncmp(sym->name, "__ia32", 6) && !strncmp(name, "__x64", 5) &&
 			    !strcmp(sym->name + 6, name + 5))
 				strcpy(sym->name, name);
 
@@ -984,8 +961,7 @@ static int load_module_symbol_file(struct uftrace_symtab *symtab, const char *sy
 			if (symtab->nr_alloc >= grow * 4)
 				grow *= 2;
 			symtab->nr_alloc += grow;
-			symtab->sym = xrealloc(symtab->sym,
-					       symtab->nr_alloc * sizeof(*sym));
+			symtab->sym = xrealloc(symtab->sym, symtab->nr_alloc * sizeof(*sym));
 		}
 
 		sym = &symtab->sym[symtab->nr_sym++];
@@ -995,8 +971,8 @@ static int load_module_symbol_file(struct uftrace_symtab *symtab, const char *sy
 		sym->name = demangle(name);
 		sym->size = 0;
 
-		pr_dbg4("[%zd] %c %lx + %-5u %s\n", symtab->nr_sym,
-			sym->type, sym->addr, sym->size, sym->name);
+		pr_dbg4("[%zd] %c %lx + %-5u %s\n", symtab->nr_sym, sym->type, sym->addr, sym->size,
+			sym->name);
 
 		if (symtab->nr_sym > 1 && sym[-1].size == 0)
 			sym[-1].size = sym->addr - sym[-1].addr;
@@ -1009,8 +985,7 @@ static int load_module_symbol_file(struct uftrace_symtab *symtab, const char *sy
 
 	for (i = 0; i < symtab->nr_sym; i++)
 		symtab->sym_names[i] = &symtab->sym[i];
-	qsort(symtab->sym_names, symtab->nr_sym, sizeof(*symtab->sym_names),
-	      namesort);
+	qsort(symtab->sym_names, symtab->nr_sym, sizeof(*symtab->sym_names), namesort);
 
 	symtab->name_sorted = true;
 
@@ -1018,8 +993,7 @@ static int load_module_symbol_file(struct uftrace_symtab *symtab, const char *sy
 	return 0;
 }
 
-static void load_module_symbol(struct uftrace_sym_info *sinfo,
-			       struct uftrace_module *m)
+static void load_module_symbol(struct uftrace_sym_info *sinfo, struct uftrace_module *m)
 {
 	unsigned flags = sinfo->flags;
 	struct uftrace_symtab dsymtab = {};
@@ -1029,18 +1003,15 @@ static void load_module_symbol(struct uftrace_sym_info *sinfo,
 		char buf[PATH_MAX];
 		char build_id[BUILD_ID_STR_SIZE];
 
-		xasprintf(&symfile, "%s/%s.sym",
-			  sinfo->symdir, basename(m->name));
+		xasprintf(&symfile, "%s/%s.sym", sinfo->symdir, basename(m->name));
 		if (access(symfile, F_OK) == 0) {
-			if (check_symbol_file(symfile, buf, sizeof(buf),
-					      build_id, sizeof(build_id)) > 0 &&
+			if (check_symbol_file(symfile, buf, sizeof(buf), build_id,
+					      sizeof(build_id)) > 0 &&
 			    ((strcmp(buf, m->name) && !(flags & SYMTAB_FL_SYMS_DIR)) ||
 			     (build_id[0] && m->build_id[0] && strcmp(build_id, m->build_id)))) {
 				char *new_file;
 
-				new_file = make_new_symbol_filename(symfile,
-								    m->name,
-								    m->build_id);
+				new_file = make_new_symbol_filename(symfile, m->name, m->build_id);
 				free(symfile);
 				symfile = new_file;
 			}
@@ -1063,12 +1034,10 @@ static void load_module_symbol(struct uftrace_sym_info *sinfo,
 	load_dynsymtab(&dsymtab, m->name, 0, flags);
 	merge_symtabs(&m->symtab, &dsymtab);
 	update_symtab_using_dynsym(&m->symtab, m->name, 0, flags);
-
 }
 
-struct uftrace_module * load_module_symtab(struct uftrace_sym_info *sinfo,
-					   const char *mod_name,
-					   char *build_id)
+struct uftrace_module *load_module_symtab(struct uftrace_sym_info *sinfo, const char *mod_name,
+					  char *build_id)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &modules.rb_node;
@@ -1112,7 +1081,7 @@ void unload_module_symtabs(void)
 		n = rb_first(&modules);
 		rb_erase(n, &modules);
 
-		mod = rb_entry(n, typeof (*mod), node);
+		mod = rb_entry(n, typeof(*mod), node);
 		unload_symtab(&mod->symtab);
 		free(mod);
 	}
@@ -1121,7 +1090,7 @@ void unload_module_symtabs(void)
 void load_module_symtabs(struct uftrace_sym_info *sinfo)
 {
 	struct uftrace_mmap *map;
-	static const char * const skip_libs[] = {
+	static const char *const skip_libs[] = {
 		/* uftrace internal libraries */
 		"libmcount.so",
 		"libmcount-fast.so",
@@ -1171,14 +1140,13 @@ void load_module_symtabs(struct uftrace_sym_info *sinfo)
 				continue;
 		}
 
-		map->mod = load_module_symtab(sinfo, map->libname,
-					      map->build_id);
+		map->mod = load_module_symtab(sinfo, map->libname, map->build_id);
 	}
 }
 
 /* returns the number of matching entries (1 = path only, 2 = build-id) */
-int check_symbol_file(const char *symfile, char *pathname, int pathlen,
-		      char *build_id, int build_id_len)
+int check_symbol_file(const char *symfile, char *pathname, int pathlen, char *build_id,
+		      int build_id_len)
 {
 	FILE *fp;
 	char *line = NULL;
@@ -1233,8 +1201,7 @@ static bool symbol_is_func(struct uftrace_symbol *sym)
 	}
 }
 
-char * make_new_symbol_filename(const char *symfile, const char *pathname,
-				char *build_id)
+char *make_new_symbol_filename(const char *symfile, const char *pathname, char *build_id)
 {
 	const char *p;
 	char *newfile = NULL;
@@ -1255,10 +1222,8 @@ char * make_new_symbol_filename(const char *symfile, const char *pathname,
 	return newfile;
 }
 
-
 static void save_module_symbol_file(struct uftrace_symtab *stab, const char *pathname,
-				    char *build_id, const char *symfile,
-				    unsigned long offset)
+				    char *build_id, const char *symfile, unsigned long offset)
 {
 	FILE *fp;
 	unsigned i;
@@ -1278,8 +1243,7 @@ static void save_module_symbol_file(struct uftrace_symtab *stab, const char *pat
 			pr_err("cannot open %s file", symfile);
 
 		/* read path and build-id from the symbol file */
-		if (check_symbol_file(symfile, buf, sizeof(buf),
-				      orig_id, sizeof(orig_id)) <= 0) {
+		if (check_symbol_file(symfile, buf, sizeof(buf), orig_id, sizeof(orig_id)) <= 0) {
 			pr_dbg("cannot check symbol file\n");
 			return;
 		}
@@ -1306,8 +1270,7 @@ static void save_module_symbol_file(struct uftrace_symtab *stab, const char *pat
 	prev = &stab->sym[0];
 	prev_was_plt = (prev->type == ST_PLT_FUNC);
 
-	fprintf(fp, "%016"PRIx64" %c %s\n", prev->addr - offset,
-		(char)prev->type, prev->name);
+	fprintf(fp, "%016" PRIx64 " %c %s\n", prev->addr - offset, (char)prev->type, prev->name);
 
 	/* PLT + normal symbols (in any order)*/
 	for (i = 1; i < stab->nr_sym; i++) {
@@ -1315,25 +1278,23 @@ static void save_module_symbol_file(struct uftrace_symtab *stab, const char *pat
 
 		/* mark end of the this kind of symbols */
 		if ((sym->type == ST_PLT_FUNC) != prev_was_plt) {
-			fprintf(fp, "%016"PRIx64" %c __%ssym_end\n",
-				prev->addr + prev->size - offset,
-				(char)ST_UNKNOWN, prev_was_plt ? "dyn" : "");
+			fprintf(fp, "%016" PRIx64 " %c __%ssym_end\n",
+				prev->addr + prev->size - offset, (char)ST_UNKNOWN,
+				prev_was_plt ? "dyn" : "");
 		}
 		else if (symbol_is_func(prev) && !symbol_is_func(sym)) {
-			fprintf(fp, "%016"PRIx64" %c %s\n",
-				prev->addr + prev->size - offset,
+			fprintf(fp, "%016" PRIx64 " %c %s\n", prev->addr + prev->size - offset,
 				(char)ST_UNKNOWN, "__func_end");
 		}
 
-		fprintf(fp, "%016"PRIx64" %c %s\n", sym->addr - offset,
-			(char)sym->type, sym->name);
+		fprintf(fp, "%016" PRIx64 " %c %s\n", sym->addr - offset, (char)sym->type,
+			sym->name);
 
 		prev = sym;
 		prev_was_plt = (prev->type == ST_PLT_FUNC);
 	}
 
-	fprintf(fp, "%016"PRIx64" %c __%ssym_end\n",
-		prev->addr + prev->size - offset,
+	fprintf(fp, "%016" PRIx64 " %c __%ssym_end\n", prev->addr + prev->size - offset,
 		(char)ST_UNKNOWN, prev_was_plt ? "dyn" : "");
 
 	fclose(fp);
@@ -1348,14 +1309,12 @@ void save_module_symtabs(const char *dirname)
 	char build_id[BUILD_ID_STR_SIZE];
 
 	while (n != NULL) {
-		mod = rb_entry(n, typeof (*mod), node);
+		mod = rb_entry(n, typeof(*mod), node);
 
-		xasprintf(&symfile, "%s/%s.sym", dirname,
-			  basename(mod->name));
+		xasprintf(&symfile, "%s/%s.sym", dirname, basename(mod->name));
 
 		read_build_id(mod->name, build_id, sizeof(build_id));
-		save_module_symbol_file(&mod->symtab, mod->name, build_id,
-					symfile, 0);
+		save_module_symbol_file(&mod->symtab, mod->name, build_id, symfile, 0);
 
 		free(symfile);
 		symfile = NULL;
@@ -1413,18 +1372,17 @@ int load_kernel_symbol(char *dirname)
 	return 0;
 }
 
-struct uftrace_symtab * get_kernel_symtab(void)
+struct uftrace_symtab *get_kernel_symtab(void)
 {
 	return &kernel.symtab;
 }
 
-struct uftrace_module * get_kernel_module(void)
+struct uftrace_module *get_kernel_module(void)
 {
 	return &kernel;
 }
 
-void build_dynsym_idxlist(struct uftrace_symtab *dsymtab,
-			  struct dynsym_idxlist *idxlist,
+void build_dynsym_idxlist(struct uftrace_symtab *dsymtab, struct dynsym_idxlist *idxlist,
 			  const char *symlist[], unsigned symcount)
 {
 	unsigned i, k;
@@ -1442,7 +1400,7 @@ void build_dynsym_idxlist(struct uftrace_symtab *dsymtab,
 		}
 	}
 
-	idxlist->idx   = idx;
+	idxlist->idx = idx;
 	idxlist->count = count;
 }
 
@@ -1464,8 +1422,7 @@ bool check_dynsym_idxlist(struct dynsym_idxlist *idxlist, unsigned idx)
 	return false;
 }
 
-struct uftrace_mmap * find_map(struct uftrace_sym_info *sinfo,
-			       uint64_t addr)
+struct uftrace_mmap *find_map(struct uftrace_sym_info *sinfo, uint64_t addr)
 {
 	struct uftrace_mmap *map;
 
@@ -1479,8 +1436,7 @@ struct uftrace_mmap * find_map(struct uftrace_sym_info *sinfo,
 	return NULL;
 }
 
-struct uftrace_mmap * find_symbol_map(struct uftrace_sym_info *sinfo,
-				      char *name)
+struct uftrace_mmap *find_symbol_map(struct uftrace_sym_info *sinfo, char *name)
 {
 	struct uftrace_mmap *map;
 
@@ -1496,8 +1452,7 @@ struct uftrace_mmap * find_symbol_map(struct uftrace_sym_info *sinfo,
 	return NULL;
 }
 
-struct uftrace_symbol * find_symtabs(struct uftrace_sym_info *sinfo,
-				     uint64_t addr)
+struct uftrace_symbol *find_symtabs(struct uftrace_sym_info *sinfo, uint64_t addr)
 {
 	struct uftrace_symtab *stab;
 	struct uftrace_mmap *map;
@@ -1511,15 +1466,13 @@ struct uftrace_symbol * find_symtabs(struct uftrace_sym_info *sinfo,
 		if (!ktab)
 			return NULL;
 
-		sym = bsearch(&kaddr, ktab->sym, ktab->nr_sym,
-			      sizeof(*ktab->sym), addrfind);
+		sym = bsearch(&kaddr, ktab->sym, ktab->nr_sym, sizeof(*ktab->sym), addrfind);
 		return sym;
 	}
 
 	if (map != NULL) {
 		if (map->mod == NULL) {
-			map->mod = load_module_symtab(sinfo, map->libname,
-						      map->build_id);
+			map->mod = load_module_symtab(sinfo, map->libname, map->build_id);
 			if (map->mod == NULL)
 				return NULL;
 		}
@@ -1532,8 +1485,7 @@ struct uftrace_symbol * find_symtabs(struct uftrace_sym_info *sinfo,
 		addr -= map->start;
 
 		stab = &map->mod->symtab;
-		sym = bsearch(&addr, stab->sym, stab->nr_sym,
-			      sizeof(*sym), addrfind);
+		sym = bsearch(&addr, stab->sym, stab->nr_sym, sizeof(*sym), addrfind);
 	}
 
 	if (sym != NULL) {
@@ -1545,12 +1497,11 @@ struct uftrace_symbol * find_symtabs(struct uftrace_sym_info *sinfo,
 	return sym;
 }
 
-struct uftrace_symbol * find_sym(struct uftrace_symtab *symtab, uint64_t addr)
+struct uftrace_symbol *find_sym(struct uftrace_symtab *symtab, uint64_t addr)
 {
 	struct uftrace_symbol *sym;
 
-	sym =  bsearch(&addr, symtab->sym, symtab->nr_sym,
-		       sizeof(struct uftrace_symbol), addrfind);
+	sym = bsearch(&addr, symtab->sym, symtab->nr_sym, sizeof(struct uftrace_symbol), addrfind);
 
 	if (sym != NULL) {
 		/* these dummy symbols are not part of real symbol table */
@@ -1561,15 +1512,14 @@ struct uftrace_symbol * find_sym(struct uftrace_symtab *symtab, uint64_t addr)
 	return sym;
 }
 
-struct uftrace_symbol * find_symname(struct uftrace_symtab *symtab, const char *name)
+struct uftrace_symbol *find_symname(struct uftrace_symtab *symtab, const char *name)
 {
 	size_t i;
 
 	if (symtab->name_sorted) {
 		struct uftrace_symbol **psym;
 
-		psym = bsearch(name, symtab->sym_names, symtab->nr_sym,
-			       sizeof(*psym), namefind);
+		psym = bsearch(name, symtab->sym_names, symtab->nr_sym, sizeof(*psym), namefind);
 		if (psym)
 			return *psym;
 
@@ -1591,7 +1541,7 @@ char *symbol_getname(struct uftrace_symbol *sym, uint64_t addr)
 	char *name;
 
 	if (sym == NULL) {
-		xasprintf(&name, "<%"PRIx64">", addr);
+		xasprintf(&name, "<%" PRIx64 ">", addr);
 		return name;
 	}
 
@@ -1613,7 +1563,7 @@ char *symbol_getname_offset(struct uftrace_symbol *sym, uint64_t addr)
 	if (addr == sym->addr)
 		name = xstrdup(sym->name);
 	else if (sym->addr < addr && addr < sym->addr + sym->size)
-		xasprintf(&name, "%s+%"PRIu64, sym->name, addr - sym->addr);
+		xasprintf(&name, "%s+%" PRIu64, sym->name, addr - sym->addr);
 	else
 		name = xstrdup("<unknown>");
 
@@ -1633,8 +1583,7 @@ void print_symtab(struct uftrace_symtab *symtab)
 		if (sym->type == ST_PLT_FUNC)
 			continue;
 
-		pr_out("[%2zd] %#"PRIx64": %s (size: %u)\n",
-		       i, sym->addr, sym->name, sym->size);
+		pr_out("[%2zd] %#" PRIx64 ": %s (size: %u)\n", i, sym->addr, sym->name, sym->size);
 	}
 
 	pr_out("\n\n");
@@ -1646,8 +1595,7 @@ void print_symtab(struct uftrace_symtab *symtab)
 		if (sym->type != ST_PLT_FUNC)
 			continue;
 
-		pr_out("[%2zd] %#"PRIx64": %s (size: %u)\n",
-		       i, sym->addr, sym->name, sym->size);
+		pr_out("[%2zd] %#" PRIx64 ": %s (size: %u)\n", i, sym->addr, sym->name, sym->size);
 	}
 }
 
@@ -1659,20 +1607,20 @@ uint64_t guess_kernel_base(char *str)
 	 * AArch64 has different memory map depending on page size and
 	 * level of page table.
 	 */
-	if (addr < 0x40000000UL)       /* 1G:3G split */
+	if (addr < 0x40000000UL) /* 1G:3G split */
 		return 0x40000000UL;
-	else if (addr < 0x80000000UL)  /* 2G:2G split */
+	else if (addr < 0x80000000UL) /* 2G:2G split */
 		return 0x80000000UL;
-	else if (addr < 0xB0000000UL)  /* 3G:1G split (variant) */
+	else if (addr < 0xB0000000UL) /* 3G:1G split (variant) */
 		return 0xB0000000UL;
-	else if (addr < 0xC0000000UL)  /* 3G:1G split */
+	else if (addr < 0xC0000000UL) /* 3G:1G split */
 		return 0xC0000000UL;
 	/* below is for 64-bit systems */
-	else if (addr < 0x8000000000ULL)    /* 512G:512G split */
+	else if (addr < 0x8000000000ULL) /* 512G:512G split */
 		return 0xFFFFFF8000000000ULL;
-	else if (addr < 0x40000000000ULL)   /* 4T:4T split */
+	else if (addr < 0x40000000000ULL) /* 4T:4T split */
 		return 0xFFFFFC0000000000ULL;
-	else if (addr < 0x800000000000ULL)  /* 128T:128T split (x86_64) */
+	else if (addr < 0x800000000000ULL) /* 128T:128T split (x86_64) */
 		return 0xFFFF800000000000ULL;
 	else
 		return 0xFFFF000000000000ULL;
@@ -1733,7 +1681,7 @@ int read_build_id(const char *filename, char *buf, int len)
 
 	for (offset = 0; offset < BUILD_ID_SIZE; offset++) {
 		unsigned char c = build_id[offset];
-		snprintf(buf + offset*2, len - offset*2, "%02x", c);
+		snprintf(buf + offset * 2, len - offset * 2, "%02x", c);
 	}
 	buf[BUILD_ID_STR_SIZE - 1] = '\0';
 	return 0;
@@ -1741,7 +1689,8 @@ int read_build_id(const char *filename, char *buf, int len)
 
 #ifdef UNIT_TEST
 
-TEST_CASE(symbol_load_module) {
+TEST_CASE(symbol_load_module)
+{
 	struct uftrace_symtab stab = {
 		.nr_alloc = 0,
 	};
@@ -1750,7 +1699,7 @@ TEST_CASE(symbol_load_module) {
 		{ 0x200, 256, ST_PLT_FUNC, "plt2" },
 		{ 0x300, 256, ST_PLT_FUNC, "plt3" },
 		{ 0x1100, 256, ST_GLOBAL_FUNC, "normal1" },
-		{ 0x1200, 256, ST_LOCAL_FUNC,  "normal2" },
+		{ 0x1200, 256, ST_LOCAL_FUNC, "normal2" },
 		{ 0x1300, 256, ST_GLOBAL_FUNC, "normal3" },
 	};
 	struct uftrace_symtab test = {
@@ -1816,11 +1765,11 @@ static int add_map(struct dl_phdr_info *info, size_t sz, void *data)
 			map->start = info->dlpi_addr + info->dlpi_phdr[i].p_vaddr;
 
 		/* use last PT_LOAD segment for end address */
-		map->end = info->dlpi_addr + info->dlpi_phdr[i].p_vaddr +
-			info->dlpi_phdr[i].p_memsz;
+		map->end =
+			info->dlpi_addr + info->dlpi_phdr[i].p_vaddr + info->dlpi_phdr[i].p_memsz;
 	}
 
-	map->len   = strlen(exename);
+	map->len = strlen(exename);
 	strcpy(map->libname, exename);
 
 	sym_info->maps = map;
@@ -1828,7 +1777,8 @@ static int add_map(struct dl_phdr_info *info, size_t sz, void *data)
 	return 1;
 }
 
-TEST_CASE(symbol_load_map) {
+TEST_CASE(symbol_load_map)
+{
 	struct uftrace_sym_info sinfo = {
 		.dirname = "",
 		.symdir = "",
@@ -1873,7 +1823,8 @@ TEST_CASE(symbol_load_map) {
 	return TEST_OK;
 }
 
-TEST_CASE(symbol_read_build_id) {
+TEST_CASE(symbol_read_build_id)
+{
 	char build_id[BUILD_ID_STR_SIZE];
 
 	/* non-existing file */
@@ -1893,8 +1844,7 @@ TEST_CASE(symbol_read_build_id) {
 	return TEST_OK;
 }
 
-static void init_test_module_info(struct uftrace_module **pmod1,
-				  struct uftrace_module **pmod2,
+static void init_test_module_info(struct uftrace_module **pmod1, struct uftrace_module **pmod2,
 				  bool set_build_id, bool load_symbols)
 {
 	struct uftrace_module *mod1, *mod2;
@@ -1936,7 +1886,8 @@ static void init_test_module_info(struct uftrace_module **pmod1,
 	*pmod2 = mod2;
 }
 
-TEST_CASE(symbol_same_file_name1) {
+TEST_CASE(symbol_same_file_name1)
+{
 	struct uftrace_sym_info sinfo = {
 		.dirname = ".",
 		.symdir = ".",
@@ -1955,10 +1906,10 @@ TEST_CASE(symbol_same_file_name1) {
 	init_test_module_info(&load_mod[0], &load_mod[1], false, false);
 
 	pr_dbg("save symbol files with same name (no build-id)\n");
-	save_module_symbol_file(&save_mod[0]->symtab, save_mod[0]->name,
-				save_mod[0]->build_id, "name.sym", 0);
-	save_module_symbol_file(&save_mod[1]->symtab, save_mod[1]->name,
-				save_mod[1]->build_id, "name.sym", 0);
+	save_module_symbol_file(&save_mod[0]->symtab, save_mod[0]->name, save_mod[0]->build_id,
+				"name.sym", 0);
+	save_module_symbol_file(&save_mod[1]->symtab, save_mod[1]->name, save_mod[1]->build_id,
+				"name.sym", 0);
 
 	pr_dbg("load symbol table from the files\n");
 	load_module_symbol(&sinfo, load_mod[0]);
@@ -2002,7 +1953,8 @@ TEST_CASE(symbol_same_file_name1) {
 	return TEST_OK;
 }
 
-TEST_CASE(symbol_same_file_name2) {
+TEST_CASE(symbol_same_file_name2)
+{
 	struct uftrace_sym_info sinfo = {
 		.dirname = ".",
 		.symdir = ".",
@@ -2022,10 +1974,10 @@ TEST_CASE(symbol_same_file_name2) {
 
 	pr_dbg("save symbol files with same name (with build-id)\n");
 	/* save them in the opposite order */
-	save_module_symbol_file(&save_mod[1]->symtab, save_mod[1]->name,
-				save_mod[1]->build_id, "name.sym", 0);
-	save_module_symbol_file(&save_mod[0]->symtab, save_mod[0]->name,
-				save_mod[0]->build_id, "name.sym", 0);
+	save_module_symbol_file(&save_mod[1]->symtab, save_mod[1]->name, save_mod[1]->build_id,
+				"name.sym", 0);
+	save_module_symbol_file(&save_mod[0]->symtab, save_mod[0]->name, save_mod[0]->build_id,
+				"name.sym", 0);
 
 	pr_dbg("load symbol table from the files\n");
 	load_module_symbol(&sinfo, load_mod[0]);

@@ -16,7 +16,7 @@ int variadic(const char *fmt, ...)
 
 int main(void)
 {
-	variadic("print %c %s %d %ld %lu %lld %f",
-		 'a', "hello", 100, 1234L, 5678UL, 9876543210ULL, 3.141592);
+	variadic("print %c %s %d %ld %lu %lld %f", 'a', "hello", 100, 1234L, 5678UL, 9876543210ULL,
+		 3.141592);
 	return 0;
 }

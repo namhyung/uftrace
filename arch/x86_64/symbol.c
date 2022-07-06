@@ -4,8 +4,8 @@
 #include <errno.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "symbol"
-#define PR_DOMAIN  DBG_SYMBOL
+#define PR_FMT "symbol"
+#define PR_DOMAIN DBG_SYMBOL
 
 #include "uftrace.h"
 #include "utils/utils.h"
@@ -13,12 +13,11 @@
 #include "libmcount/internal.h"
 #include "mcount-arch.h"
 
-#define R_OFFSET_POS  2
+#define R_OFFSET_POS 2
 #define JMP_INSN_SIZE 6
-#define PLTGOT_SIZE   8
+#define PLTGOT_SIZE 8
 
-int arch_load_dynsymtab_noplt(struct uftrace_symtab *dsymtab,
-			      struct uftrace_elf_data *elf,
+int arch_load_dynsymtab_noplt(struct uftrace_symtab *dsymtab, struct uftrace_elf_data *elf,
 			      unsigned long offset, unsigned long flags)
 {
 	struct uftrace_elf_iter sec_iter;
@@ -75,8 +74,7 @@ int arch_load_dynsymtab_noplt(struct uftrace_symtab *dsymtab,
 			if (dsymtab->nr_alloc >= grow * 4)
 				grow *= 2;
 			dsymtab->nr_alloc += grow;
-			dsymtab->sym = xrealloc(dsymtab->sym,
-						dsymtab->nr_alloc * sizeof(*sym));
+			dsymtab->sym = xrealloc(dsymtab->sym, dsymtab->nr_alloc * sizeof(*sym));
 		}
 
 		sym = &dsymtab->sym[dsymtab->nr_sym++];
@@ -92,15 +90,14 @@ int arch_load_dynsymtab_noplt(struct uftrace_symtab *dsymtab,
 		else
 			sym->name = xstrdup(name);
 
-		pr_dbg3("[%zd] %c %lx + %-5u %s\n", dsymtab->nr_sym,
-			sym->type, sym->addr, sym->size, sym->name);
+		pr_dbg3("[%zd] %c %lx + %-5u %s\n", dsymtab->nr_sym, sym->type, sym->addr,
+			sym->size, sym->name);
 	}
 
 	return dsymtab->nr_sym;
 }
 
-void mcount_arch_plthook_setup(struct plthook_data *pd,
-			       struct uftrace_elf_data *elf)
+void mcount_arch_plthook_setup(struct plthook_data *pd, struct uftrace_elf_data *elf)
 {
 	struct plthook_arch_context *ctx;
 	struct uftrace_elf_iter iter;

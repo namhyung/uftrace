@@ -3,8 +3,8 @@
 #include <sys/mman.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "dynamic"
-#define PR_DOMAIN  DBG_DYNAMIC
+#define PR_FMT "dynamic"
+#define PR_DOMAIN DBG_DYNAMIC
 
 #include "libmcount/mcount.h"
 #include "libmcount/internal.h"
@@ -14,15 +14,15 @@
 #include "utils/symbol.h"
 #include "utils/rbtree.h"
 
-#define CODE_SIZE  8
+#define CODE_SIZE 8
 
 static const unsigned int patchable_nop_patt[] = { 0xd503201f, 0xd503201f };
 
 static void save_orig_code(struct mcount_disasm_info *info)
 {
 	uint32_t jmp_insn[6] = {
-		0x58000050,     /* LDR  ip0, addr */
-		0xd61f0200,     /* BR   ip0 */
+		0x58000050, /* LDR  ip0, addr */
+		0xd61f0200, /* BR   ip0 */
 		info->addr + 8,
 		(info->addr + 8) >> 32,
 	};
@@ -46,11 +46,10 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 	 * make sure stack is 8-byte aligned.
 	 */
 	uint32_t trampoline[] = {
-		0x910003fd,                     /* MOV  x29, sp */
-		0x58000050,                     /* LDR  ip0, &__dentry__ */
-		0xd61f0200,                     /* BR   ip0 */
-		dentry_addr,
-		dentry_addr >> 32,
+		0x910003fd, /* MOV  x29, sp */
+		0x58000050, /* LDR  ip0, &__dentry__ */
+		0xd61f0200, /* BR   ip0 */
+		dentry_addr, dentry_addr >> 32,
 	};
 
 	if (mdi->type == DYNAMIC_FENTRY_NOP || mdi->type == DYNAMIC_PATCHABLE) {
@@ -59,23 +58,20 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 	}
 
 	/* find unused 16-byte at the end of the code segment */
-	mdi->trampoline  = ALIGN(mdi->text_addr + mdi->text_size, PAGE_SIZE);
+	mdi->trampoline = ALIGN(mdi->text_addr + mdi->text_size, PAGE_SIZE);
 	mdi->trampoline -= sizeof(trampoline);
 
 	if (unlikely(mdi->trampoline < mdi->text_addr + mdi->text_size)) {
 		mdi->trampoline += sizeof(trampoline);
 		mdi->text_size += PAGE_SIZE;
 
-		pr_dbg("adding a page for fentry trampoline at %#lx\n",
-		       mdi->trampoline);
+		pr_dbg("adding a page for fentry trampoline at %#lx\n", mdi->trampoline);
 
-		mmap((void *)mdi->trampoline, PAGE_SIZE,
-		     PROT_READ | PROT_WRITE | PROT_EXEC,
+		mmap((void *)mdi->trampoline, PAGE_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC,
 		     MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	}
 
-	if (mprotect((void *)mdi->text_addr, mdi->text_size,
-		     PROT_READ | PROT_WRITE | PROT_EXEC)) {
+	if (mprotect((void *)mdi->text_addr, mdi->text_size, PROT_READ | PROT_WRITE | PROT_EXEC)) {
 		pr_dbg("cannot setup trampoline due to protection: %m\n");
 		return -1;
 	}
@@ -84,10 +80,8 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 	return 0;
 }
 
-static void read_patchable_loc(struct mcount_dynamic_info *mdi,
-			    struct uftrace_elf_data *elf,
-			    struct uftrace_elf_iter *iter,
-			    unsigned long offset)
+static void read_patchable_loc(struct mcount_dynamic_info *mdi, struct uftrace_elf_data *elf,
+			       struct uftrace_elf_iter *iter, unsigned long offset)
 {
 	typeof(iter->shdr) *shdr = &iter->shdr;
 
@@ -108,8 +102,7 @@ static void read_patchable_loc(struct mcount_dynamic_info *mdi,
 	}
 }
 
-void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
-			     struct uftrace_symtab *symtab)
+void mcount_arch_find_module(struct mcount_dynamic_info *mdi, struct uftrace_symtab *symtab)
 {
 	struct uftrace_elf_data elf;
 	struct uftrace_elf_iter iter;
@@ -165,14 +158,13 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi,
 	}
 
 out:
-	pr_dbg("dynamic patch type: %s: %d (%s)\n", basename(mdi->map->libname),
-	       mdi->type, mdi_type_names[mdi->type]);
+	pr_dbg("dynamic patch type: %s: %d (%s)\n", basename(mdi->map->libname), mdi->type,
+	       mdi_type_names[mdi->type]);
 
 	elf_finish(&elf);
 }
 
-static unsigned long get_target_addr(struct mcount_dynamic_info *mdi,
-				     unsigned long addr)
+static unsigned long get_target_addr(struct mcount_dynamic_info *mdi, unsigned long addr)
 {
 	/* encode the target address of the trampoline */
 	return (mdi->trampoline - addr - 4) >> 2;
@@ -180,7 +172,7 @@ static unsigned long get_target_addr(struct mcount_dynamic_info *mdi,
 
 static int patch_code(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym)
 {
-	uint32_t push = 0xa9bf7bfd;  /* STP  x29, x30, [sp, #-0x10]! */
+	uint32_t push = 0xa9bf7bfd; /* STP  x29, x30, [sp, #-0x10]! */
 	uint32_t call;
 	void *insn = (void *)sym->addr + mdi->map->start;
 
@@ -215,8 +207,7 @@ static int patch_patchable_func(struct mcount_dynamic_info *mdi, struct uftrace_
 	if (patch_code(mdi, sym) < 0)
 		return INSTRUMENT_FAILED;
 
-	pr_dbg3("update %p for '%s' function dynamically to call __fentry__\n",
-		insn, sym->name);
+	pr_dbg3("update %p for '%s' function dynamically to call __fentry__\n", insn, sym->name);
 
 	return INSTRUMENT_SUCCESS;
 }
@@ -237,8 +228,7 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct uftrace_sym
 	if (patch_code(mdi, sym) < 0)
 		return INSTRUMENT_FAILED;
 
-	pr_dbg3("force patch normal func: %s (patch size: %d)\n",
-		sym->name, info.orig_size);
+	pr_dbg3("force patch normal func: %s (patch size: %d)\n", sym->name, info.orig_size);
 
 	return INSTRUMENT_SUCCESS;
 }

@@ -11,7 +11,6 @@
 #include "utils/kernel.h"
 #include "libmcount/mcount.h"
 
-
 static char *tmp_dirname;
 static void cleanup_tempdir(void)
 {
@@ -36,10 +35,10 @@ static void reset_live_opts(struct uftrace_opts *opts)
 	free(opts->caller);
 	opts->caller = NULL;
 
-	opts->depth	= MCOUNT_DEFAULT_DEPTH;
-	opts->disabled	= false;
-	opts->no_event  = false;
-	opts->no_sched  = false;
+	opts->depth = MCOUNT_DEFAULT_DEPTH;
+	opts->disabled = false;
+	opts->no_event = false;
+	opts->no_sched = false;
 }
 
 static void sigsegv_handler(int sig)

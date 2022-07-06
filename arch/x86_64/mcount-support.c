@@ -2,23 +2,22 @@
 #include <sys/mman.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "mcount"
-#define PR_DOMAIN  DBG_MCOUNT
+#define PR_FMT "mcount"
+#define PR_DOMAIN DBG_MCOUNT
 
 #include "libmcount/internal.h"
 #include "utils/filter.h"
 #include "utils/arch.h"
 
-#define COPY_XMM(xmm)								\
-do {										\
-	if (spec->size == 8)							\
-		asm volatile ("movsd %%" xmm ", %0\n" : "=m" (ctx->val.v));	\
-	else									\
-		asm volatile ("movss %%" xmm ", %0\n" : "=m" (ctx->val.v));	\
-} while (0)
+#define COPY_XMM(xmm)                                                                              \
+	do {                                                                                       \
+		if (spec->size == 8)                                                               \
+			asm volatile("movsd %%" xmm ", %0\n" : "=m"(ctx->val.v));                  \
+		else                                                                               \
+			asm volatile("movss %%" xmm ", %0\n" : "=m"(ctx->val.v));                  \
+	} while (0)
 
-static int mcount_get_register_arg(struct mcount_arg_context *ctx,
-				   struct uftrace_arg_spec *spec)
+static int mcount_get_register_arg(struct mcount_arg_context *ctx, struct uftrace_arg_spec *spec)
 {
 	struct mcount_regs *regs = ctx->regs;
 	int reg_idx;
@@ -90,8 +89,7 @@ static int mcount_get_register_arg(struct mcount_arg_context *ctx,
 	return 0;
 }
 
-static void mcount_get_stack_arg(struct mcount_arg_context *ctx,
-				 struct uftrace_arg_spec *spec)
+static void mcount_get_stack_arg(struct mcount_arg_context *ctx, struct uftrace_arg_spec *spec)
 {
 	int offset;
 	unsigned long *addr = ctx->stack_base;
@@ -131,8 +129,7 @@ static void mcount_get_stack_arg(struct mcount_arg_context *ctx,
 	}
 }
 
-static void mcount_get_struct_arg(struct mcount_arg_context *ctx,
-				  struct uftrace_arg_spec *spec)
+static void mcount_get_struct_arg(struct mcount_arg_context *ctx, struct uftrace_arg_spec *spec)
 {
 	struct uftrace_arg_spec reg_spec = {
 		.type = ARG_TYPE_REG,
@@ -169,8 +166,7 @@ static void mcount_get_struct_arg(struct mcount_arg_context *ctx,
 	}
 }
 
-void mcount_arch_get_arg(struct mcount_arg_context *ctx,
-			 struct uftrace_arg_spec *spec)
+void mcount_arch_get_arg(struct mcount_arg_context *ctx, struct uftrace_arg_spec *spec)
 {
 	if (spec->fmt == ARG_FMT_STRUCT) {
 		mcount_get_struct_arg(ctx, spec);
@@ -181,8 +177,7 @@ void mcount_arch_get_arg(struct mcount_arg_context *ctx,
 		mcount_get_stack_arg(ctx, spec);
 }
 
-void mcount_arch_get_retval(struct mcount_arg_context *ctx,
-			    struct uftrace_arg_spec *spec)
+void mcount_arch_get_retval(struct mcount_arg_context *ctx, struct uftrace_arg_spec *spec)
 {
 	if (spec->fmt == ARG_FMT_STRUCT)
 		mcount_memcpy4(ctx->val.v, ctx->retval, sizeof(long));
@@ -190,31 +185,31 @@ void mcount_arch_get_retval(struct mcount_arg_context *ctx,
 	else if (spec->fmt != ARG_FMT_FLOAT)
 		mcount_memcpy1(ctx->val.v, ctx->retval, spec->size);
 	else if (spec->size == 10) /* for long double type */
-		asm volatile ("fstpt %0\n\tfldt %0" : "=m" (ctx->val.v));
+		asm volatile("fstpt %0\n\tfldt %0" : "=m"(ctx->val.v));
 	else
-		asm volatile ("movsd %%xmm0, %0\n" : "=m" (ctx->val.v));
+		asm volatile("movsd %%xmm0, %0\n" : "=m"(ctx->val.v));
 }
 
 void mcount_save_arch_context(struct mcount_arch_context *ctx)
 {
-	asm volatile ("movsd %%xmm0, %0\n" : "=m" (ctx->xmm[0]));
-	asm volatile ("movsd %%xmm1, %0\n" : "=m" (ctx->xmm[1]));
-	asm volatile ("movsd %%xmm2, %0\n" : "=m" (ctx->xmm[2]));
-	asm volatile ("movsd %%xmm3, %0\n" : "=m" (ctx->xmm[3]));
-	asm volatile ("movsd %%xmm4, %0\n" : "=m" (ctx->xmm[4]));
-	asm volatile ("movsd %%xmm5, %0\n" : "=m" (ctx->xmm[5]));
-	asm volatile ("movsd %%xmm6, %0\n" : "=m" (ctx->xmm[6]));
-	asm volatile ("movsd %%xmm7, %0\n" : "=m" (ctx->xmm[7]));
+	asm volatile("movsd %%xmm0, %0\n" : "=m"(ctx->xmm[0]));
+	asm volatile("movsd %%xmm1, %0\n" : "=m"(ctx->xmm[1]));
+	asm volatile("movsd %%xmm2, %0\n" : "=m"(ctx->xmm[2]));
+	asm volatile("movsd %%xmm3, %0\n" : "=m"(ctx->xmm[3]));
+	asm volatile("movsd %%xmm4, %0\n" : "=m"(ctx->xmm[4]));
+	asm volatile("movsd %%xmm5, %0\n" : "=m"(ctx->xmm[5]));
+	asm volatile("movsd %%xmm6, %0\n" : "=m"(ctx->xmm[6]));
+	asm volatile("movsd %%xmm7, %0\n" : "=m"(ctx->xmm[7]));
 }
 
 void mcount_restore_arch_context(struct mcount_arch_context *ctx)
 {
-	asm volatile ("movsd %0, %%xmm0\n" :: "m" (ctx->xmm[0]));
-	asm volatile ("movsd %0, %%xmm1\n" :: "m" (ctx->xmm[1]));
-	asm volatile ("movsd %0, %%xmm2\n" :: "m" (ctx->xmm[2]));
-	asm volatile ("movsd %0, %%xmm3\n" :: "m" (ctx->xmm[3]));
-	asm volatile ("movsd %0, %%xmm4\n" :: "m" (ctx->xmm[4]));
-	asm volatile ("movsd %0, %%xmm5\n" :: "m" (ctx->xmm[5]));
-	asm volatile ("movsd %0, %%xmm6\n" :: "m" (ctx->xmm[6]));
-	asm volatile ("movsd %0, %%xmm7\n" :: "m" (ctx->xmm[7]));
+	asm volatile("movsd %0, %%xmm0\n" ::"m"(ctx->xmm[0]));
+	asm volatile("movsd %0, %%xmm1\n" ::"m"(ctx->xmm[1]));
+	asm volatile("movsd %0, %%xmm2\n" ::"m"(ctx->xmm[2]));
+	asm volatile("movsd %0, %%xmm3\n" ::"m"(ctx->xmm[3]));
+	asm volatile("movsd %0, %%xmm4\n" ::"m"(ctx->xmm[4]));
+	asm volatile("movsd %0, %%xmm5\n" ::"m"(ctx->xmm[5]));
+	asm volatile("movsd %0, %%xmm6\n" ::"m"(ctx->xmm[6]));
+	asm volatile("movsd %0, %%xmm7\n" ::"m"(ctx->xmm[7]));
 }

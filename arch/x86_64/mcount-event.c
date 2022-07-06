@@ -4,20 +4,20 @@
 #include <sys/mman.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "event"
-#define PR_DOMAIN  DBG_EVENT
+#define PR_FMT "event"
+#define PR_DOMAIN DBG_EVENT
 
 #include "libmcount/internal.h"
 
-#define INVALID_OPCODE  0xce
-#define PAGE_SIZE       4096
-#define PAGE_ADDR(a)    ((void *)((a) & ~(PAGE_SIZE - 1)))
+#define INVALID_OPCODE 0xce
+#define PAGE_SIZE 4096
+#define PAGE_ADDR(a) ((void *)((a) & ~(PAGE_SIZE - 1)))
 
 static void sdt_handler(int sig, siginfo_t *info, void *arg)
 {
 	ucontext_t *ctx = arg;
 	unsigned long addr = ctx->uc_mcontext.gregs[REG_RIP];
-	struct mcount_event_info * mei;
+	struct mcount_event_info *mei;
 
 	mei = mcount_lookup_event(addr);
 	ASSERT(mei != NULL);
@@ -35,7 +35,7 @@ int mcount_arch_enable_event(struct mcount_event_info *mei)
 
 	if (!sdt_handler_set) {
 		struct sigaction act = {
-			.sa_flags     = SA_SIGINFO,
+			.sa_flags = SA_SIGINFO,
 			.sa_sigaction = sdt_handler,
 		};
 

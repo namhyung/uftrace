@@ -3,15 +3,15 @@
 #include <dlfcn.h>
 
 class Parent {
-public:
-  int virtual bar(int);
-  int virtual func(int);
+    public:
+	int virtual bar(int);
+	int virtual func(int);
 };
 
 int main(int argc, char *argv[])
 {
 	void *handle;
-	Parent* (*creat)();
+	Parent *(*creat)();
 	Parent *p;
 	int n = 1;
 
@@ -23,7 +23,7 @@ int main(int argc, char *argv[])
 	if (!handle)
 		return -1;
 
-	creat = (Parent* (*)())dlsym(handle, "creat");
+	creat = (Parent * (*)()) dlsym(handle, "creat");
 	p = creat();
 	p->bar(n);
 	dlclose(handle);

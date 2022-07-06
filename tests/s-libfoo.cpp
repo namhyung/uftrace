@@ -1,8 +1,7 @@
 volatile int a = 0;
 
-class AAA
-{
-public:
+class AAA {
+    public:
 	static void bar(int n)
 	{
 		a = n;
@@ -10,9 +9,9 @@ public:
 };
 
 extern "C" {
-	void foo(int n)
-	{
-		a = n;
-		AAA::bar(n);
-	}
+void foo(int n)
+{
+	a = n;
+	AAA::bar(n);
+}
 }

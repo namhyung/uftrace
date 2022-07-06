@@ -2,8 +2,8 @@
 #include <stdlib.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "filter"
-#define PR_DOMAIN  DBG_FILTER
+#define PR_FMT "filter"
+#define PR_DOMAIN DBG_FILTER
 
 #include "uftrace.h"
 #include "utils/filter.h"
@@ -22,9 +22,8 @@ static struct rb_root auto_enum = RB_ROOT;
 
 extern void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
 			bool exact_match);
-extern int setup_trigger_action(char *str, struct uftrace_trigger *tr,
-				char **module, unsigned long orig_flags,
-				struct uftrace_filter_setting *setting);
+extern int setup_trigger_action(char *str, struct uftrace_trigger *tr, char **module,
+				unsigned long orig_flags, struct uftrace_filter_setting *setting);
 
 static void add_auto_args(struct rb_root *root, struct uftrace_filter *entry,
 			  struct uftrace_trigger *tr)
@@ -64,8 +63,7 @@ static void add_auto_args(struct rb_root *root, struct uftrace_filter *entry,
 	rb_insert_color(&new->node, root);
 }
 
-static void build_auto_args(const char *args_str, struct rb_root *root,
-			    unsigned long flag,
+static void build_auto_args(const char *args_str, struct rb_root *root, unsigned long flag,
 			    struct uftrace_filter_setting *setting)
 {
 	struct strv specs = STRV_INIT;
@@ -119,7 +117,7 @@ next:
 	strv_free(&specs);
 }
 
-static struct uftrace_filter * find_auto_args(struct rb_root *root, char *name)
+static struct uftrace_filter *find_auto_args(struct rb_root *root, char *name)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
@@ -145,10 +143,9 @@ static struct uftrace_filter * find_auto_args(struct rb_root *root, char *name)
 
 static struct uftrace_filter *dwarf_argspec_list;
 
-static struct uftrace_filter * find_dwarf_argspec(struct uftrace_filter *filter,
-						  struct uftrace_dbg_info *dinfo,
-						  bool is_retval,
-						  struct uftrace_filter_setting *setting)
+static struct uftrace_filter *find_dwarf_argspec(struct uftrace_filter *filter,
+						 struct uftrace_dbg_info *dinfo, bool is_retval,
+						 struct uftrace_filter_setting *setting)
 {
 	LIST_HEAD(dwarf_argspec);
 	struct uftrace_filter *dwarf_filter;
@@ -188,10 +185,9 @@ static struct uftrace_filter * find_dwarf_argspec(struct uftrace_filter *filter,
 	return dwarf_filter;
 }
 
-struct uftrace_filter * find_auto_argspec(struct uftrace_filter *filter,
-					  struct uftrace_trigger *tr,
-					  struct uftrace_dbg_info *dinfo,
-					  struct uftrace_filter_setting *setting)
+struct uftrace_filter *find_auto_argspec(struct uftrace_filter *filter, struct uftrace_trigger *tr,
+					 struct uftrace_dbg_info *dinfo,
+					 struct uftrace_filter_setting *setting)
 {
 	struct uftrace_filter *auto_arg = NULL;
 
@@ -204,10 +200,9 @@ struct uftrace_filter * find_auto_argspec(struct uftrace_filter *filter,
 	return auto_arg;
 }
 
-struct uftrace_filter * find_auto_retspec(struct uftrace_filter *filter,
-					  struct uftrace_trigger *tr,
-					  struct uftrace_dbg_info *dinfo,
-					  struct uftrace_filter_setting *setting)
+struct uftrace_filter *find_auto_retspec(struct uftrace_filter *filter, struct uftrace_trigger *tr,
+					 struct uftrace_dbg_info *dinfo,
+					 struct uftrace_filter_setting *setting)
 {
 	struct uftrace_filter *auto_ret = NULL;
 
@@ -232,12 +227,9 @@ char *get_auto_retspec_str(void)
 
 void setup_auto_args(struct uftrace_filter_setting *setting)
 {
-
 	parse_enum_string(auto_enum_list, &auto_enum);
-	build_auto_args(auto_args_list, &auto_argspec, TRIGGER_FL_ARGUMENT,
-			setting);
-	build_auto_args(auto_retvals_list, &auto_retspec, TRIGGER_FL_RETVAL,
-			setting);
+	build_auto_args(auto_args_list, &auto_argspec, TRIGGER_FL_ARGUMENT, setting);
+	build_auto_args(auto_retvals_list, &auto_retspec, TRIGGER_FL_RETVAL, setting);
 }
 
 void setup_auto_args_str(char *args, char *rets, char *enums,
@@ -284,8 +276,8 @@ void finish_auto_args(void)
 		tmp = (void *)dwarf_argspec_list->name;
 
 		while (!list_empty(dwarf_argspec_list->trigger.pargs)) {
-			spec = list_first_entry(dwarf_argspec_list->trigger.pargs,
-						typeof(*spec), list);
+			spec = list_first_entry(dwarf_argspec_list->trigger.pargs, typeof(*spec),
+						list);
 			list_del(&spec->list);
 			free_arg_spec(spec);
 		}
@@ -334,8 +326,7 @@ int extract_trigger_args(char **pargs, char **prets, char *trigger)
 			*act++ = '\0';
 
 			while ((pos = strsep(&act, ",")) != NULL) {
-				if (!strncasecmp(pos, "arg", 3) ||
-				    !strncasecmp(pos, "fparg", 5))
+				if (!strncasecmp(pos, "arg", 3) || !strncasecmp(pos, "fparg", 5))
 					args = strjoin(args, pos, ",");
 				if (!strncasecmp(pos, "retval", 6))
 					rval = "retval";
@@ -489,7 +480,7 @@ static void add_enum_tree(struct rb_root *root, struct enum_def *e_def)
 	rb_insert_color(&e_def->node, root);
 }
 
-struct enum_def * find_enum_def(struct rb_root *root, char *name)
+struct enum_def *find_enum_def(struct rb_root *root, char *name)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
@@ -512,7 +503,7 @@ struct enum_def * find_enum_def(struct rb_root *root, char *name)
 	return NULL;
 }
 
-char * convert_enum_val(struct enum_def *e_def, int val)
+char *convert_enum_val(struct enum_def *e_def, int val)
 {
 	struct enum_val *e_val;
 	char *str = NULL;
@@ -772,8 +763,7 @@ TEST_CASE(argspec_auto_args)
 	int idx = 1;
 
 	pr_dbg("build auto args from: %s\n", test_auto_args);
-	build_auto_args(test_auto_args, &auto_argspec, TRIGGER_FL_ARGUMENT,
-			&setting);
+	build_auto_args(test_auto_args, &auto_argspec, TRIGGER_FL_ARGUMENT, &setting);
 
 	pr_dbg("'foo' should have two arguments\n");
 	key.name = "foo";
@@ -874,11 +864,11 @@ TEST_CASE(argspec_parse_enum)
 	while (node) {
 		e_def = rb_entry(node, struct enum_def, node);
 
-		e_val  = list_first_entry(&e_def->vals, struct enum_val, list);
+		e_val = list_first_entry(&e_def->vals, struct enum_val, list);
 		e_next = list_next_entry(e_val, list);
 		TEST_GE(e_val->val, e_next->val);
 
-		e_val  = list_next_entry(e_val, list);
+		e_val = list_next_entry(e_val, list);
 		e_next = list_next_entry(e_next, list);
 		TEST_GE(e_val->val, e_next->val);
 

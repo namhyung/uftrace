@@ -16,13 +16,13 @@ enum uftrace_cpu_arch {
 
 static inline enum uftrace_cpu_arch host_cpu_arch(void)
 {
-#if defined (__x86_64__)
+#if defined(__x86_64__)
 	return UFT_CPU_X86_64;
-#elif defined (__arm__)
+#elif defined(__arm__)
 	return UFT_CPU_ARM;
-#elif defined (__aarch64__)
+#elif defined(__aarch64__)
 	return UFT_CPU_AARCH64;
-#elif defined (__i386__)
+#elif defined(__i386__)
 	return UFT_CPU_I386;
 #else
 	return UFT_CPU_NONE;
@@ -157,8 +157,7 @@ int arch_register_number(enum uftrace_cpu_arch arch, char *reg_name);
 int arch_register_at(enum uftrace_cpu_arch arch, bool integer, int idx);
 int arch_register_index(enum uftrace_cpu_arch arch, int idx);
 
-const char * arch_register_dwarf_name(enum uftrace_cpu_arch arch, int dwarf_reg);
-const char * arch_register_argspec_name(enum uftrace_cpu_arch arch,
-					bool integer, int idx);
+const char *arch_register_dwarf_name(enum uftrace_cpu_arch arch, int dwarf_reg);
+const char *arch_register_argspec_name(enum uftrace_cpu_arch arch, bool integer, int idx);
 
 #endif /* UFTRACE_ARCH_H */

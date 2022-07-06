@@ -11,8 +11,7 @@ int main()
 
 	try {
 		foo(i);
-	}
-	catch (int n) {
+	} catch (int n) {
 	}
 	return 0;
 }

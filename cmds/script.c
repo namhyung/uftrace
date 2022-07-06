@@ -21,9 +21,7 @@
 
 #include "libtraceevent/event-parse.h"
 
-
-static int run_script_for_rstack(struct uftrace_data *handle,
-				 struct uftrace_task_reader *task,
+static int run_script_for_rstack(struct uftrace_data *handle, struct uftrace_task_reader *task,
 				 struct uftrace_opts *opts)
 {
 	struct uftrace_record *rstack = task->rstack;
@@ -42,7 +40,9 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 	task->timestamp = rstack->time;
 
 	if (rstack->type == UFTRACE_ENTRY) {
-		struct script_context sc_ctx = { 0, };
+		struct script_context sc_ctx = {
+			0,
+		};
 		struct uftrace_fstack *fstack;
 		struct uftrace_trigger tr = {
 			.flags = 0,
@@ -57,21 +57,21 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 		/* display depth is set in fstack_entry() */
 		depth = task->display_depth;
 
-		fstack = fstack_get(task ,task->stack_count - 1);
+		fstack = fstack_get(task, task->stack_count - 1);
 		fstack_update(UFTRACE_ENTRY, task, fstack);
 
 		if (!script_match_filter(symname))
 			goto out;
 
-		sc_ctx.tid       = task->tid;
-		sc_ctx.depth     = depth;  /* display depth */
+		sc_ctx.tid = task->tid;
+		sc_ctx.depth = depth; /* display depth */
 		sc_ctx.timestamp = rstack->time;
-		sc_ctx.address   = rstack->addr;
-		sc_ctx.name      = symname;
+		sc_ctx.address = rstack->addr;
+		sc_ctx.name = symname;
 
 		if (tr.flags & TRIGGER_FL_ARGUMENT && opts->show_args) {
-			sc_ctx.argbuf  = task->args.data;
-			sc_ctx.arglen  = task->args.len;
+			sc_ctx.argbuf = task->args.data;
+			sc_ctx.arglen = task->args.len;
 			sc_ctx.argspec = task->args.args;
 		}
 
@@ -79,14 +79,15 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 		script_uftrace_entry(&sc_ctx);
 	}
 	else if (rstack->type == UFTRACE_EXIT) {
-		struct script_context sc_ctx = { 0, };
+		struct script_context sc_ctx = {
+			0,
+		};
 		struct uftrace_fstack *fstack;
 
 		/* function exit */
 		fstack = fstack_get(task, task->stack_count);
 
-		if (fstack_enabled && fstack &&
-		    !(fstack->flags & FSTACK_FL_NORECORD)) {
+		if (fstack_enabled && fstack && !(fstack->flags & FSTACK_FL_NORECORD)) {
 			int depth = fstack_update(UFTRACE_EXIT, task, fstack);
 
 			if (!script_match_filter(symname)) {
@@ -98,16 +99,16 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 			rstack->depth = depth;
 
 			/* setup context for script execution */
-			sc_ctx.tid       = task->tid;
-			sc_ctx.depth     = rstack->depth;
+			sc_ctx.tid = task->tid;
+			sc_ctx.depth = rstack->depth;
 			sc_ctx.timestamp = rstack->time;
-			sc_ctx.duration  = fstack->total_time;
-			sc_ctx.address   = rstack->addr;
-			sc_ctx.name      = symname;
+			sc_ctx.duration = fstack->total_time;
+			sc_ctx.address = rstack->addr;
+			sc_ctx.name = symname;
 
 			if (rstack->more && opts->show_args) {
-				sc_ctx.argbuf  = task->args.data;
-				sc_ctx.arglen  = task->args.len;
+				sc_ctx.argbuf = task->args.data;
+				sc_ctx.arglen = task->args.len;
 				sc_ctx.argspec = task->args.args;
 			}
 
@@ -119,15 +120,14 @@ static int run_script_for_rstack(struct uftrace_data *handle,
 	}
 	else if (rstack->type == UFTRACE_EVENT) {
 		struct script_context sc_ctx = {
-			.tid       = task->tid,
-			.depth     = rstack->depth,
+			.tid = task->tid,
+			.depth = rstack->depth,
 			.timestamp = rstack->time,
-			.address   = rstack->addr,
+			.address = rstack->addr,
 		};
 
 		sc_ctx.name = event_get_name(handle, rstack->addr);
-		sc_ctx.argbuf = event_get_data_str(rstack->addr,
-						   task->args.data, false);
+		sc_ctx.argbuf = event_get_data_str(rstack->addr, task->args.data, false);
 
 		script_uftrace_event(&sc_ctx);
 
@@ -149,8 +149,8 @@ int command_script(int argc, char *argv[], struct uftrace_opts *opts)
 	struct uftrace_data handle;
 	struct uftrace_task_reader *task;
 	struct script_info info = {
-		.name           = opts->script_file,
-		.version        = UFTRACE_VERSION,
+		.name = opts->script_file,
+		.version = UFTRACE_VERSION,
 	};
 
 	if (!SCRIPT_ENABLED) {

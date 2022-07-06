@@ -40,13 +40,13 @@
 #include <stdlib.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT     "demangle"
-#define PR_DOMAIN  DBG_DEMANGLE
+#define PR_FMT "demangle"
+#define PR_DOMAIN DBG_DEMANGLE
 
 #include "utils/utils.h"
 #include "utils/symbol.h"
 
-#define MAX_DEBUG_DEPTH  128
+#define MAX_DEBUG_DEPTH 128
 
 enum symbol_demangler demangler = DEMANGLE_SIMPLE;
 
@@ -125,41 +125,46 @@ static char __dd_consume(struct demangle_data *dd, const char *dbg)
 	return __dd_consume_n(dd, 1, dbg);
 }
 
-#define dd_consume(dd)       __dd_consume(dd, __func__)
-#define dd_consume_n(dd, n)  __dd_consume_n(dd, n, __func__)
-#define dd_add_debug(dd)     __dd_add_debug(dd, __func__)
+#define dd_consume(dd) __dd_consume(dd, __func__)
+#define dd_consume_n(dd, n) __dd_consume_n(dd, n, __func__)
+#define dd_add_debug(dd) __dd_add_debug(dd, __func__)
 
-#define DD_DEBUG(dd, exp, inc)						\
-({	dd->func = __func__; dd->line = __LINE__ - 1; dd->pos += inc;	\
-	dd->expected = exp;						\
-	return -1;							\
-})
+#define DD_DEBUG(dd, exp, inc)                                                                     \
+	({                                                                                         \
+		dd->func = __func__;                                                               \
+		dd->line = __LINE__ - 1;                                                           \
+		dd->pos += inc;                                                                    \
+		dd->expected = exp;                                                                \
+		return -1;                                                                         \
+	})
 
-#define DD_DEBUG_CONSUME(dd, exp_c)					\
-({	if (dd_consume(dd) != exp_c) {					\
-		if (!dd->expected) {					\
-			dd->func = __func__;				\
-			dd->line = __LINE__;				\
-			dd->pos--;					\
-			dd->expected = dd_expbuf;			\
-			dd_expbuf[0] = exp_c;				\
-		}							\
-		return -1;						\
-	}								\
-})
+#define DD_DEBUG_CONSUME(dd, exp_c)                                                                \
+	({                                                                                         \
+		if (dd_consume(dd) != exp_c) {                                                     \
+			if (!dd->expected) {                                                       \
+				dd->func = __func__;                                               \
+				dd->line = __LINE__;                                               \
+				dd->pos--;                                                         \
+				dd->expected = dd_expbuf;                                          \
+				dd_expbuf[0] = exp_c;                                              \
+			}                                                                          \
+			return -1;                                                                 \
+		}                                                                                  \
+	})
 
-#define __DD_DEBUG_CONSUME(dd, exp_c)					\
-({	if (__dd_consume(dd, NULL) != exp_c) {				\
-		if (!dd->expected) {					\
-			dd->func = __func__;				\
-			dd->line = __LINE__;				\
-			dd->pos--;					\
-			dd->expected = dd_expbuf;			\
-			dd_expbuf[0] = exp_c;				\
-		}							\
-		return -1;						\
-	}								\
-})
+#define __DD_DEBUG_CONSUME(dd, exp_c)                                                              \
+	({                                                                                         \
+		if (__dd_consume(dd, NULL) != exp_c) {                                             \
+			if (!dd->expected) {                                                       \
+				dd->func = __func__;                                               \
+				dd->line = __LINE__;                                               \
+				dd->pos--;                                                         \
+				dd->expected = dd_expbuf;                                          \
+				dd_expbuf[0] = exp_c;                                              \
+			}                                                                          \
+			return -1;                                                                 \
+		}                                                                                  \
+	})
 
 static void dd_debug_print(struct demangle_data *dd)
 {
@@ -182,17 +187,17 @@ static void dd_debug_print(struct demangle_data *dd)
 	}
 
 	pr_dbg4("simple demangle failed:%s%s\n%s\n%*c\n%s:%d: \"%s\" expected\n",
-		dd_eof(dd) ? " (EOF)" : "", dd->level ? " (not finished)" : "",
-		dd->old, dd->pos + 1, '^', dd->func, dd->line, expected);
+		dd_eof(dd) ? " (EOF)" : "", dd->level ? " (not finished)" : "", dd->old,
+		dd->pos + 1, '^', dd->func, dd->line, expected);
 
 	pr_dbg4("current: %s (pos: %d/%d)\n", dd->new, dd->pos, dd->len);
 	for (i = 0; i < dd->nr_dbg; i++) {
 		struct demangle_debug *dbg = &dd->debug[i];
 
-		pr_dbg4("  [%02d] (%03d/%c%c) %*s%s\n",
-			i, dbg->pos, dbg->pos < dd->len ? dd->old[dbg->pos] : ' ',
-			dbg->pos + 1 < dd->len ? dd->old[dbg->pos+1] : ' ',
-			dbg->level * 2, "", dbg->func);
+		pr_dbg4("  [%02d] (%03d/%c%c) %*s%s\n", i, dbg->pos,
+			dbg->pos < dd->len ? dd->old[dbg->pos] : ' ',
+			dbg->pos + 1 < dd->len ? dd->old[dbg->pos + 1] : ' ', dbg->level * 2, "",
+			dbg->func);
 	}
 }
 
@@ -200,81 +205,41 @@ static const struct {
 	char op[2];
 	char *name;
 } ops[] = {
-	{ { 'n','w' }, " new" },
-	{ { 'n','a' }, " new[]" },
-	{ { 'd','l' }, " delete" },
-	{ { 'd','a' }, " delete[]" },
-	{ { 'p','s' }, "+" }, /* unary */
-	{ { 'n','g' }, "-" }, /* unary */
-	{ { 'a','d' }, "&" }, /* unary */
-	{ { 'd','e' }, "*" }, /* unary */
-	{ { 'c','o' }, "~" },
-	{ { 'p','l' }, "+" },
-	{ { 'm','i' }, "-" },
-	{ { 'm','l' }, "*" },
-	{ { 'd','v' }, "/" },
-	{ { 'r','m' }, "%" },
-	{ { 'a','n' }, "&" },
-	{ { 'o','r' }, "|" },
-	{ { 'e','o' }, "^" },
-	{ { 'a','S' }, "=" },
-	{ { 'p','L' }, "+=" },
-	{ { 'm','I' }, "-=" },
-	{ { 'm','L' }, "*=" },
-	{ { 'd','V' }, "/=" },
-	{ { 'r','M' }, "%=" },
-	{ { 'a','N' }, "&=" },
-	{ { 'o','R' }, "|=" },
-	{ { 'e','O' }, "^=" },
-	{ { 'l','s' }, "<<" },
-	{ { 'r','s' }, ">>" },
-	{ { 'l','S' }, "<<=" },
-	{ { 'r','S' }, ">>=" },
-	{ { 'e','q' }, "==" },
-	{ { 'n','e' }, "!=" },
-	{ { 'l','t' }, "<" },
-	{ { 'g','t' }, ">" },
-	{ { 'l','e' }, "<=" },
-	{ { 'g','e' }, ">=" },
-	{ { 'n','t' }, "!" },
-	{ { 'a','a' }, "&&" },
-	{ { 'o','o' }, "||" },
-	{ { 'p','p' }, "++" },
-	{ { 'm','m' }, "--" },
-	{ { 'c','m' }, "," },
-	{ { 'p','m' }, "->*" },
-	{ { 'p','t' }, "->" },
-	{ { 'c','l' }, "()" },
-	{ { 'i','x' }, "[]" },
-	{ { 'q','u' }, "?" },
-	{ { 'c','v' }, "(cast)" },
-	{ { 'l','i' }, "\"\"" },
+	{ { 'n', 'w' }, " new" },      { { 'n', 'a' }, " new[]" }, { { 'd', 'l' }, " delete" },
+	{ { 'd', 'a' }, " delete[]" }, { { 'p', 's' }, "+" }, /* unary */
+	{ { 'n', 'g' }, "-" }, /* unary */
+	{ { 'a', 'd' }, "&" }, /* unary */
+	{ { 'd', 'e' }, "*" }, /* unary */
+	{ { 'c', 'o' }, "~" },	       { { 'p', 'l' }, "+" },	   { { 'm', 'i' }, "-" },
+	{ { 'm', 'l' }, "*" },	       { { 'd', 'v' }, "/" },	   { { 'r', 'm' }, "%" },
+	{ { 'a', 'n' }, "&" },	       { { 'o', 'r' }, "|" },	   { { 'e', 'o' }, "^" },
+	{ { 'a', 'S' }, "=" },	       { { 'p', 'L' }, "+=" },	   { { 'm', 'I' }, "-=" },
+	{ { 'm', 'L' }, "*=" },	       { { 'd', 'V' }, "/=" },	   { { 'r', 'M' }, "%=" },
+	{ { 'a', 'N' }, "&=" },	       { { 'o', 'R' }, "|=" },	   { { 'e', 'O' }, "^=" },
+	{ { 'l', 's' }, "<<" },	       { { 'r', 's' }, ">>" },	   { { 'l', 'S' }, "<<=" },
+	{ { 'r', 'S' }, ">>=" },       { { 'e', 'q' }, "==" },	   { { 'n', 'e' }, "!=" },
+	{ { 'l', 't' }, "<" },	       { { 'g', 't' }, ">" },	   { { 'l', 'e' }, "<=" },
+	{ { 'g', 'e' }, ">=" },	       { { 'n', 't' }, "!" },	   { { 'a', 'a' }, "&&" },
+	{ { 'o', 'o' }, "||" },	       { { 'p', 'p' }, "++" },	   { { 'm', 'm' }, "--" },
+	{ { 'c', 'm' }, "," },	       { { 'p', 'm' }, "->*" },	   { { 'p', 't' }, "->" },
+	{ { 'c', 'l' }, "()" },	       { { 'i', 'x' }, "[]" },	   { { 'q', 'u' }, "?" },
+	{ { 'c', 'v' }, "(cast)" },    { { 'l', 'i' }, "\"\"" },
 };
 
 static const struct {
 	char code;
 	char *name;
 } types[] = {
-	{ 'v', "void" },
-	{ 'w', "wchar_t" },
-	{ 'b', "bool" },
-	{ 'c', "char" },
-	{ 'a', "signed char" },
-	{ 'h', "unsigned char" },
-	{ 's', "short" },
-	{ 't', "unsigned short" },
-	{ 'i', "int" },
-	{ 'j', "unsigned int" },
-	{ 'l', "long" },
-	{ 'm', "unsigned long" },
-	{ 'x', "long long" },
-	{ 'y', "unsigned long long" },
-	{ 'n', "__int128" },
-	{ 'o', "unsigned __int128" },
-	{ 'f', "float" },
-	{ 'd', "double" },
-	{ 'e', "long double" },
-	{ 'g', "__float128" },
+	{ 'v', "void" },	{ 'w', "wchar_t" },
+	{ 'b', "bool" },	{ 'c', "char" },
+	{ 'a', "signed char" }, { 'h', "unsigned char" },
+	{ 's', "short" },	{ 't', "unsigned short" },
+	{ 'i', "int" },		{ 'j', "unsigned int" },
+	{ 'l', "long" },	{ 'm', "unsigned long" },
+	{ 'x', "long long" },	{ 'y', "unsigned long long" },
+	{ 'n', "__int128" },	{ 'o', "unsigned __int128" },
+	{ 'f', "float" },	{ 'd', "double" },
+	{ 'e', "long double" }, { 'g', "__float128" },
 	{ 'z', "..." },
 };
 
@@ -292,7 +257,7 @@ static const struct {
 };
 
 static const struct {
-	char *code;  /* surrounded by $..$ */
+	char *code; /* surrounded by $..$ */
 	char *punc;
 } rust_mappings[] = {
 	{ "SP", "@" },
@@ -302,7 +267,7 @@ static const struct {
 	{ "GT", ">" },
 	{ "LP", "(" },
 	{ "RP", ")" },
-	{ "C",  "," },
+	{ "C", "," },
 	/* some selected unicode characters */
 	{ "u20", " " },
 	{ "u22", "\"" },
@@ -791,8 +756,8 @@ static int dd_expression(struct demangle_data *dd)
 	char c1 = dd_peek(dd, 1);
 	char *exp = &dd->old[dd->pos];
 	char *unary_ops[] = {
-		"ps", "ng", "ad", "de", "pp_", "mm_", "pp", "mm", "dl", "da",
-		"te", "sz", "az", "nx", "sp", "tw", "nt",
+		"ps", "ng", "ad", "de", "pp_", "mm_", "pp", "mm", "dl",
+		"da", "te", "sz", "az", "nx",  "sp",  "tw", "nt",
 	};
 
 	if (dd_eof(dd))
@@ -993,9 +958,9 @@ static int dd_ptr_to_member_type(struct demangle_data *dd)
 
 	DD_DEBUG_CONSUME(dd, 'M');
 
-	if (dd_type(dd) < 0)  /* class */
+	if (dd_type(dd) < 0) /* class */
 		return -1;
-	return dd_type(dd);   /* member */
+	return dd_type(dd); /* member */
 }
 
 static int dd_decltype(struct demangle_data *dd)
@@ -1204,8 +1169,8 @@ static int dd_special_name(struct demangle_data *dd)
 	char c0 = dd_curr(dd);
 	char c1 = dd_peek(dd, 1);
 	char T_type[] = "VTISFJ";
-	char *T_type_name[] = { "vtable", "VTT", "typeinfo_name", "typeinfo",
-				"typeinfo_fn", "java_class" };
+	char *T_type_name[] = { "vtable",   "VTT",	   "typeinfo_name",
+				"typeinfo", "typeinfo_fn", "java_class" };
 
 	if (dd_eof(dd))
 		return -1;
@@ -1466,7 +1431,7 @@ static int dd_source_name(struct demangle_data *dd)
 		dd_append_len(dd, p, num);
 
 		for (i = 0; i < ARRAY_SIZE(rust_mappings); i++) {
-			if (strncmp(rust_mappings[i].code, dollar+1,
+			if (strncmp(rust_mappings[i].code, dollar + 1,
 				    strlen(rust_mappings[i].code)))
 				continue;
 
@@ -1554,7 +1519,7 @@ static int dd_unqualified_name(struct demangle_data *dd)
 		ret = dd_operator_name(dd);
 	else {
 		if (c0 == 'L')
-			dd_consume(dd);  /* local-source-name ? */
+			dd_consume(dd); /* local-source-name ? */
 		ret = dd_source_name(dd);
 	}
 
@@ -1592,9 +1557,9 @@ static int dd_nested_name(struct demangle_data *dd)
 		else if (c0 == 'S')
 			ret = dd_substitution(dd);
 		else if (c0 == 'M')
-			dd_consume(dd);  /* assumed data-member-prefix */
+			dd_consume(dd); /* assumed data-member-prefix */
 		else if (c0 == 'L')
-			dd_consume(dd);  /* local-source-name ? */
+			dd_consume(dd); /* local-source-name ? */
 		else if (strchr(qual, c0))
 			dd_qualifier(dd);
 		else
@@ -1678,7 +1643,7 @@ static int dd_encoding(struct demangle_data *dd)
 		return -1;
 
 	if (dd->pos == 0)
-		dd_consume_n(dd, 2);  /* skip initial "_Z" */
+		dd_consume_n(dd, 2); /* skip initial "_Z" */
 	else
 		dd_add_debug(dd);
 
@@ -1759,7 +1724,7 @@ static char *demangle_simple(char *str)
 static char *demangle_full(char *str)
 {
 	char *symname;
-	size_t len = 64;  /* minimum length */
+	size_t len = 64; /* minimum length */
 	int status;
 
 	__cxa_demangle(str, NULL, &len, &status);
@@ -1804,14 +1769,13 @@ char *demangle(char *str)
 
 #ifdef UNIT_TEST
 
-#define DEMANGLE_TEST(m, d)				\
-do {							\
-	char *name = demangle_simple(m);		\
-	pr_dbg("%.64s should be converted to %s\n",	\
-	       m, d);					\
-	TEST_STREQ(d, name);				\
-	free(name);					\
-} while (0)
+#define DEMANGLE_TEST(m, d)                                                                        \
+	do {                                                                                       \
+		char *name = demangle_simple(m);                                                   \
+		pr_dbg("%.64s should be converted to %s\n", m, d);                                 \
+		TEST_STREQ(d, name);                                                               \
+		free(name);                                                                        \
+	} while (0)
 
 TEST_CASE(demangle_simple1)
 {
@@ -1826,8 +1790,7 @@ TEST_CASE(demangle_simple1)
 
 TEST_CASE(demangle_simple2)
 {
-	DEMANGLE_TEST("_ZThn8_N13FtraceServiceD0Ev",
-		      "FtraceService::~FtraceService");
+	DEMANGLE_TEST("_ZThn8_N13FtraceServiceD0Ev", "FtraceService::~FtraceService");
 	DEMANGLE_TEST("_ZN2v88internal12ScopedVectorIcEC1Ei",
 		      "v8::internal::ScopedVector::ScopedVector");
 	DEMANGLE_TEST("_ZNSt16allocator_traitsISaISt13_Rb_tree_node"
@@ -1841,8 +1804,7 @@ TEST_CASE(demangle_simple2)
 
 TEST_CASE(demangle_simple3)
 {
-	DEMANGLE_TEST("_ZN4node8Watchdog7DestroyEv.part.0",
-		      "node::Watchdog::Destroy");
+	DEMANGLE_TEST("_ZN4node8Watchdog7DestroyEv.part.0", "node::Watchdog::Destroy");
 	DEMANGLE_TEST("_ZN2v88internal8CodeStub6GetKeyEv.constprop.17",
 		      "v8::internal::CodeStub::GetKey");
 	DEMANGLE_TEST("_ZSteqIPN2v88internal8compiler4NodeERKS4_PS5_E"
@@ -1859,7 +1821,8 @@ TEST_CASE(demangle_simple3)
 	DEMANGLE_TEST("_ZSt3powIidEN9__gnu_cxx11__promote_2IT_T0_NS0_"
 		      "9__promoteIS2_XsrSt12__is_integerIS2_E7__valueEE"
 		      "6__typeENS4_IS3_XsrS5_IS3_E7__valueEE6__typeEE"
-		      "6__typeES2_S3_", "std::pow");
+		      "6__typeES2_S3_",
+		      "std::pow");
 
 	return TEST_OK;
 }
@@ -1880,8 +1843,7 @@ TEST_CASE(demangle_simple4)
 		      "IKS0_EENSt9enable_ifIXntsrNS1_15__select_helper"
 		      "IT_EE5valueES6_E4typeERS6_",
 		      "std::allocator_traits::_S_select");
-	DEMANGLE_TEST("_ZN6icu_5416umtx_loadAcquireERU7_Atomici",
-		      "icu_54::umtx_loadAcquire");
+	DEMANGLE_TEST("_ZN6icu_5416umtx_loadAcquireERU7_Atomici", "icu_54::umtx_loadAcquire");
 
 	return TEST_OK;
 }
@@ -1898,16 +1860,13 @@ TEST_CASE(demangle_simple5)
 		      "1EE18IterateWithWrapperIPFvPPNS0_10HeapObjectE"
 		      "S8_EEEvPNS0_4HeapET_EUlPhE_EEiSE_",
 		      "v8::internal::SlotSet::Iterate");
-	DEMANGLE_TEST("_ZNSt5tupleIJPbSt14default_deleteIA_bEEEC2Ev",
-		      "std::tuple::tuple");
+	DEMANGLE_TEST("_ZNSt5tupleIJPbSt14default_deleteIA_bEEEC2Ev", "std::tuple::tuple");
 	DEMANGLE_TEST("_Z26storageIndexFromLayoutItemRK"
 		      "N51_GLOBAL__N_kernel_qformlayout.cpp_C3DE8A26_2E30FA86"
 		      "17FixedColumnMatrixIP15QFormLayoutItemLi2EEES2_",
 		      "storageIndexFromLayoutItem");
-	DEMANGLE_TEST("_ZGTtNSt11range_errorD1Ev",
-		      "std::range_error::~range_error");
-	DEMANGLE_TEST("_ZNSi6ignoreEl@@GLIBCXX_3.4.5",
-		      "std::basic_istream::ignore");
+	DEMANGLE_TEST("_ZGTtNSt11range_errorD1Ev", "std::range_error::~range_error");
+	DEMANGLE_TEST("_ZNSi6ignoreEl@@GLIBCXX_3.4.5", "std::basic_istream::ignore");
 	DEMANGLE_TEST("_ZN4llvm12function_refIFN5clang12ActionResult"
 		      "IPNS1_4ExprELb1EEES4_EE11callback_fnIZNS1_4Sema"
 		      "25CorrectDelayedTyposInExprES4_PNS1_7VarDeclE"
@@ -1935,16 +1894,12 @@ TEST_CASE(demangle_simple6)
 
 TEST_CASE(demangle_simple7)
 {
-	DEMANGLE_TEST("_ZTSSt12system_error",
-		      "__typeinfo__std::system_error");
-	DEMANGLE_TEST("_ZNSs4nposE",
-		      "std::basic_string<>::npos");
-	DEMANGLE_TEST("_ZNSt14numeric_limitsIoE5radixE",
-		      "std::numeric_limits::radix");
+	DEMANGLE_TEST("_ZTSSt12system_error", "__typeinfo__std::system_error");
+	DEMANGLE_TEST("_ZNSs4nposE", "std::basic_string<>::npos");
+	DEMANGLE_TEST("_ZNSt14numeric_limitsIoE5radixE", "std::numeric_limits::radix");
 	DEMANGLE_TEST("_ZGVNSt7__cxx117collateIcE2idE",
 		      "__guard_variable__std::__cxx11::collate::id");
-	DEMANGLE_TEST("_ZNSbIwSt11char_traitsIwESaIwEE4nposE",
-		      "std::basic_string::npos");
+	DEMANGLE_TEST("_ZNSbIwSt11char_traitsIwESaIwEE4nposE", "std::basic_string::npos");
 
 	return TEST_OK;
 }
@@ -1960,12 +1915,11 @@ TEST_CASE(demangle_simple8)
 		      "__construction_vtable__v8::internal::StdoutStream");
 	DEMANGLE_TEST("_ZGRZNK5blink8Variable27GetPropertyNameAtomicStringEvE4name_",
 		      "__ref_temp__blink::Variable::GetPropertyNameAtomicString::name");
-	DEMANGLE_TEST("_ZNSt14numeric_limitsIDuE8is_exactE",
-		      "std::numeric_limits::is_exact");
-	DEMANGLE_TEST("_ZTCSt10istrstream0_Si",
-		      "__construction_vtable__std::istrstream");
-	DEMANGLE_TEST("_ZTCNSt7__cxx1119basic_istringstreamIwSt11char_traitsIwESaIwEEE0_St13basic_istreamIwS2_E",
-		      "__construction_vtable__std::__cxx11::basic_istringstream::std::std::allocator");
+	DEMANGLE_TEST("_ZNSt14numeric_limitsIDuE8is_exactE", "std::numeric_limits::is_exact");
+	DEMANGLE_TEST("_ZTCSt10istrstream0_Si", "__construction_vtable__std::istrstream");
+	DEMANGLE_TEST(
+		"_ZTCNSt7__cxx1119basic_istringstreamIwSt11char_traitsIwESaIwEEE0_St13basic_istreamIwS2_E",
+		"__construction_vtable__std::__cxx11::basic_istringstream::std::std::allocator");
 
 	return TEST_OK;
 }
@@ -1973,8 +1927,7 @@ TEST_CASE(demangle_simple8)
 TEST_CASE(demangle_rust1)
 {
 	DEMANGLE_TEST("_ZN8$BP$test3fooE", "*test::foo");
-	DEMANGLE_TEST("_ZN35Bar$LT$$u5b$u32$u3b$$u20$4$u5d$$GT$E",
-		      "Bar<[u32; 4]>");
+	DEMANGLE_TEST("_ZN35Bar$LT$$u5b$u32$u3b$$u20$4$u5d$$GT$E", "Bar<[u32; 4]>");
 	DEMANGLE_TEST("_ZN71_$LT$Test$u20$$u2b$$u20$$u27$static"
 		      "$u20$as$u20$foo..Bar$LT$Test$GT$$GT$3barE",
 		      "_<Test + 'static as foo..Bar<Test>>::bar");

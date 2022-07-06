@@ -17,9 +17,9 @@ struct field_data {
 };
 
 enum display_field_id {
-	DISPLAY_F_NONE          = -1,
+	DISPLAY_F_NONE = -1,
 
-	REPLAY_F_DURATION       = 0,
+	REPLAY_F_DURATION = 0,
 	REPLAY_F_TID,
 	REPLAY_F_ADDR,
 	REPLAY_F_TIMESTAMP,
@@ -28,7 +28,7 @@ enum display_field_id {
 	REPLAY_F_TASK,
 	REPLAY_F_MODULE,
 
-	GRAPH_F_TOTAL_TIME      = 0,
+	GRAPH_F_TOTAL_TIME = 0,
 	GRAPH_F_SELF_TIME,
 	GRAPH_F_ADDR,
 
@@ -36,7 +36,7 @@ enum display_field_id {
 	GRAPH_F_TASK_SELF_TIME,
 	GRAPH_F_TASK_TID,
 
-	REPORT_F_TOTAL_TIME      = 0,
+	REPORT_F_TOTAL_TIME = 0,
 	REPORT_F_TOTAL_TIME_AVG,
 	REPORT_F_TOTAL_TIME_MIN,
 	REPORT_F_TOTAL_TIME_MAX,
@@ -63,7 +63,7 @@ struct display_field {
 	const char *alias;
 };
 
-typedef void (*setup_default_field_t)(struct list_head *fields, struct uftrace_opts*,
+typedef void (*setup_default_field_t)(struct list_head *fields, struct uftrace_opts *,
 				      struct display_field *p_field_table[]);
 
 static inline uint64_t effective_addr(uint64_t addr)
@@ -72,19 +72,16 @@ static inline uint64_t effective_addr(uint64_t addr)
 	return addr & ((1ULL << 48) - 1);
 }
 
-void print_header(struct list_head *output_fields, const char *prefix,
-		  const char *postfix, int space, bool new_line);
-void print_header_align(struct list_head *output_fields, const char *prefix,
-			const char *postfix, int space, enum align_pos align,
-			bool new_line);
-int print_field_data(struct list_head *output_fields, struct field_data *fd,
-		     int space);
+void print_header(struct list_head *output_fields, const char *prefix, const char *postfix,
+		  int space, bool new_line);
+void print_header_align(struct list_head *output_fields, const char *prefix, const char *postfix,
+			int space, enum align_pos align, bool new_line);
+int print_field_data(struct list_head *output_fields, struct field_data *fd, int space);
 int print_empty_field(struct list_head *output_fields, int space);
 void add_field(struct list_head *output_fields, struct display_field *field);
 void del_field(struct display_field *field);
 void setup_field(struct list_head *output_fields, struct uftrace_opts *opts,
-		 setup_default_field_t setup_default_field,
-		 struct display_field *field_table[],
+		 setup_default_field_t setup_default_field, struct display_field *field_table[],
 		 size_t field_table_size);
 
 #endif /* UFTRACE_FIELD_H */
