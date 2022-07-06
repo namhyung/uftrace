@@ -19,7 +19,13 @@ with the help of [pre-commit](https://pre-commit.com) and
 [clang-format](https://clang.llvm.org/docs/ClangFormat.html) so that
 our source code has a consistent coding style at all times.
 
-You can install pre-commit as follows.
+You need to install pre-commit package but please note that python version 3.7
+or higher is required.  The installation can be done as follows.
+
+    $ python3 -m pip install pre-commit
+
+Then you can simply install a pre-commit hook inside the uftrace source
+directory as follows.
 
     $ pre-commit install
     pre-commit installed at .git/hooks/pre-commit
