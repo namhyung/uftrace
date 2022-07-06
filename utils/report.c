@@ -841,56 +841,52 @@ static void print_time_or_dash(uint64_t time_nsec)
 		pr_out("%10s", NODATA);
 }
 
+/* clang-format off */
 FIELD_TIME(REPORT_F_TOTAL_TIME, total, total.sum, total, "Total time");
-FIELD_TIME(REPORT_F_TOTAL_TIME_AVG, total - avg, total.avg, total_avg, "Total avg");
-FIELD_TIME(REPORT_F_TOTAL_TIME_MIN, total - min, total.min, total_min, "Total min");
-FIELD_TIME(REPORT_F_TOTAL_TIME_MAX, total - max, total.max, total_max, "Total max");
+FIELD_TIME(REPORT_F_TOTAL_TIME_AVG, total-avg, total.avg, total_avg, "Total avg");
+FIELD_TIME(REPORT_F_TOTAL_TIME_MIN, total-min, total.min, total_min, "Total min");
+FIELD_TIME(REPORT_F_TOTAL_TIME_MAX, total-max, total.max, total_max, "Total max");
 FIELD_TIME(REPORT_F_SELF_TIME, self, self.sum, self, "Self time");
-FIELD_TIME(REPORT_F_SELF_TIME_AVG, self - avg, self.avg, self_avg, "Self avg");
-FIELD_TIME(REPORT_F_SELF_TIME_MIN, self - min, self.min, self_min, "Self min");
-FIELD_TIME(REPORT_F_SELF_TIME_MAX, self - max, self.max, self_max, "Self max");
+FIELD_TIME(REPORT_F_SELF_TIME_AVG, self-avg, self.avg, self_avg, "Self avg");
+FIELD_TIME(REPORT_F_SELF_TIME_MIN, self-min, self.min, self_min, "Self min");
+FIELD_TIME(REPORT_F_SELF_TIME_MAX, self-max, self.max, self_max, "Self max");
 FIELD_CALL(REPORT_F_CALL, call, call, call, "Calls");
 
 FIELD_TIME_DIFF(REPORT_F_TOTAL_TIME, total, total.sum, total, "Total time");
-FIELD_TIME_DIFF(REPORT_F_TOTAL_TIME_AVG, total - avg, total.avg, total_avg, "Total avg");
-FIELD_TIME_DIFF(REPORT_F_TOTAL_TIME_MIN, total - min, total.min, total_min, "Total min");
-FIELD_TIME_DIFF(REPORT_F_TOTAL_TIME_MAX, total - max, total.max, total_max, "Total max");
+FIELD_TIME_DIFF(REPORT_F_TOTAL_TIME_AVG, total-avg, total.avg, total_avg, "Total avg");
+FIELD_TIME_DIFF(REPORT_F_TOTAL_TIME_MIN, total-min, total.min, total_min, "Total min");
+FIELD_TIME_DIFF(REPORT_F_TOTAL_TIME_MAX, total-max, total.max, total_max, "Total max");
 FIELD_TIME_DIFF(REPORT_F_SELF_TIME, self, self.sum, self, "Self time");
-FIELD_TIME_DIFF(REPORT_F_SELF_TIME_AVG, self - avg, self.avg, self_avg, "Self avg");
-FIELD_TIME_DIFF(REPORT_F_SELF_TIME_MIN, self - min, self.min, self_min, "Self min");
-FIELD_TIME_DIFF(REPORT_F_SELF_TIME_MAX, self - max, self.max, self_max, "Self max");
+FIELD_TIME_DIFF(REPORT_F_SELF_TIME_AVG, self-avg, self.avg, self_avg, "Self avg");
+FIELD_TIME_DIFF(REPORT_F_SELF_TIME_MIN, self-min, self.min, self_min, "Self min");
+FIELD_TIME_DIFF(REPORT_F_SELF_TIME_MAX, self-max, self.max, self_max, "Self max");
 FIELD_CALL_DIFF(REPORT_F_CALL, call, call, call, "Calls");
 
 FIELD_TIME_DIFF_FULL(REPORT_F_TOTAL_TIME, total, total.sum, total, "Total time (diff)");
-FIELD_TIME_DIFF_FULL(REPORT_F_TOTAL_TIME_AVG, total - avg, total.avg, total_avg,
-		     "Total avg (diff)");
-FIELD_TIME_DIFF_FULL(REPORT_F_TOTAL_TIME_MIN, total - min, total.min, total_min,
-		     "Total min (diff)");
-FIELD_TIME_DIFF_FULL(REPORT_F_TOTAL_TIME_MAX, total - max, total.max, total_max,
-		     "Total max (diff)");
+FIELD_TIME_DIFF_FULL(REPORT_F_TOTAL_TIME_AVG, total-avg, total.avg, total_avg, "Total avg (diff)");
+FIELD_TIME_DIFF_FULL(REPORT_F_TOTAL_TIME_MIN, total-min, total.min, total_min, "Total min (diff)");
+FIELD_TIME_DIFF_FULL(REPORT_F_TOTAL_TIME_MAX, total-max, total.max, total_max, "Total max (diff)");
 FIELD_TIME_DIFF_FULL(REPORT_F_SELF_TIME, self, self.sum, self, "Self time (diff)");
-FIELD_TIME_DIFF_FULL(REPORT_F_SELF_TIME_AVG, self - avg, self.avg, self_avg, "Self avg (diff)");
-FIELD_TIME_DIFF_FULL(REPORT_F_SELF_TIME_MIN, self - min, self.min, self_min, "Self min (diff)");
-FIELD_TIME_DIFF_FULL(REPORT_F_SELF_TIME_MAX, self - max, self.max, self_max, "Self min (diff)");
+FIELD_TIME_DIFF_FULL(REPORT_F_SELF_TIME_AVG, self-avg, self.avg, self_avg, "Self avg (diff)");
+FIELD_TIME_DIFF_FULL(REPORT_F_SELF_TIME_MIN, self-min, self.min, self_min, "Self min (diff)");
+FIELD_TIME_DIFF_FULL(REPORT_F_SELF_TIME_MAX, self-max, self.max, self_max, "Self min (diff)");
 FIELD_CALL_DIFF_FULL(REPORT_F_CALL, call, call, call_diff_full, "Calls (diff)");
 
 FIELD_TIME_DIFF_FULL_PCT(REPORT_F_TOTAL_TIME, total, total.sum, total, "Total time (diff)");
-FIELD_TIME_DIFF_FULL_PCT(REPORT_F_TOTAL_TIME_AVG, total - avg, total.avg, total_avg,
-			 "Total avg (diff)");
-FIELD_TIME_DIFF_FULL_PCT(REPORT_F_TOTAL_TIME_MIN, total - min, total.min, total_min,
-			 "Total min (diff)");
-FIELD_TIME_DIFF_FULL_PCT(REPORT_F_TOTAL_TIME_MAX, total - max, total.max, total_max,
-			 "Total max (diff)");
+FIELD_TIME_DIFF_FULL_PCT(REPORT_F_TOTAL_TIME_AVG, total-avg, total.avg, total_avg, "Total avg (diff)");
+FIELD_TIME_DIFF_FULL_PCT(REPORT_F_TOTAL_TIME_MIN, total-min, total.min, total_min, "Total min (diff)");
+FIELD_TIME_DIFF_FULL_PCT(REPORT_F_TOTAL_TIME_MAX, total-max, total.max, total_max, "Total max (diff)");
 FIELD_TIME_DIFF_FULL_PCT(REPORT_F_SELF_TIME, self, self.sum, self, "Self time (diff)");
-FIELD_TIME_DIFF_FULL_PCT(REPORT_F_SELF_TIME_AVG, self - avg, self.avg, self_avg, "Self avg (diff)");
-FIELD_TIME_DIFF_FULL_PCT(REPORT_F_SELF_TIME_MIN, self - min, self.min, self_min, "Self min (diff)");
-FIELD_TIME_DIFF_FULL_PCT(REPORT_F_SELF_TIME_MAX, self - max, self.max, self_max, "Self min (diff)");
+FIELD_TIME_DIFF_FULL_PCT(REPORT_F_SELF_TIME_AVG, self-avg, self.avg, self_avg, "Self avg (diff)");
+FIELD_TIME_DIFF_FULL_PCT(REPORT_F_SELF_TIME_MIN, self-min, self.min, self_min, "Self min (diff)");
+FIELD_TIME_DIFF_FULL_PCT(REPORT_F_SELF_TIME_MAX, self-max, self.max, self_max, "Self min (diff)");
 FIELD_CALL_DIFF_FULL(REPORT_F_CALL, call, call, call_diff_full_percent, "Calls (diff)");
 
 FIELD_TIME(REPORT_F_TASK_TOTAL_TIME, total, total.sum, task_total, "Total time");
 FIELD_TIME(REPORT_F_TASK_SELF_TIME, self, self.sum, task_self, "Self time");
 FIELD_TID(REPORT_F_TASK_TID, tid, task_tid, "TID");
 FIELD_CALL(REPORT_F_TASK_NR_FUNC, func, call, task_nr_func, "Num funcs");
+/* clang-format on */
 
 /* index of this table should be matched to display_field_id */
 static struct display_field *field_table[] = {
