@@ -351,17 +351,17 @@ static void print_report_##_func(struct field_data *fd)                         
 }                                                                                                  \
 REPORT_FIELD_STRUCT(_id, _name, _func, _header, 11)
 
-/* clang-format on */
-
 REPORT_FIELD_TIME(REPORT_F_TOTAL_TIME, total, total.sum, total, "TOTAL TIME");
-REPORT_FIELD_TIME(REPORT_F_TOTAL_TIME_AVG, total - avg, total.avg, total_avg, "TOTAL AVG");
-REPORT_FIELD_TIME(REPORT_F_TOTAL_TIME_MIN, total - min, total.min, total_min, "TOTAL MIN");
-REPORT_FIELD_TIME(REPORT_F_TOTAL_TIME_MAX, total - max, total.max, total_max, "TOTAL MAX");
+REPORT_FIELD_TIME(REPORT_F_TOTAL_TIME_AVG, total-avg, total.avg, total_avg, "TOTAL AVG");
+REPORT_FIELD_TIME(REPORT_F_TOTAL_TIME_MIN, total-min, total.min, total_min, "TOTAL MIN");
+REPORT_FIELD_TIME(REPORT_F_TOTAL_TIME_MAX, total-max, total.max, total_max, "TOTAL MAX");
 REPORT_FIELD_TIME(REPORT_F_SELF_TIME, self, self.sum, self, "SELF TIME");
-REPORT_FIELD_TIME(REPORT_F_SELF_TIME_AVG, self - avg, self.avg, self_avg, "SELF AVG");
-REPORT_FIELD_TIME(REPORT_F_SELF_TIME_MIN, self - min, self.min, self_min, "SELF MIN");
-REPORT_FIELD_TIME(REPORT_F_SELF_TIME_MAX, self - max, self.max, self_max, "SELF MAX");
+REPORT_FIELD_TIME(REPORT_F_SELF_TIME_AVG, self-avg, self.avg, self_avg, "SELF AVG");
+REPORT_FIELD_TIME(REPORT_F_SELF_TIME_MIN, self-min, self.min, self_min, "SELF MIN");
+REPORT_FIELD_TIME(REPORT_F_SELF_TIME_MAX, self-max, self.max, self_max, "SELF MAX");
 REPORT_FIELD_CALL(REPORT_F_CALL, call, call, call, "CALL");
+
+/* clang-format on */
 
 static struct display_field *report_field_table[] = {
 	&report_field_total,	 &report_field_total_avg, &report_field_total_min,
