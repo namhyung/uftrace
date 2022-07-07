@@ -3,6 +3,10 @@
 
 #include <link.h>
 
+#ifdef HAVE_LIBCAPSTONE
+#include <capstone/capstone.h>
+#endif
+
 #include "utils/symbol.h"
 
 #define PAGE_SIZE 4096
