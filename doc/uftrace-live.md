@@ -287,7 +287,7 @@ FILTERS
 =======
 The uftrace tool supports filtering out uninteresting functions.  Filtering is
 highly recommended since it helps users focus on the interesting functions and
-reduces the data size.  When uftrace is called it receives two types of function
+reduces the data size.  When uftrace is called, it receives two types of function
 filter; an opt-in filter with `-F`/`--filter` and an opt-out filter with
 `-N`/`--notrace`.  These filters can be applied either at record time or
 replay time.
@@ -402,7 +402,7 @@ In addition, you can limit the nesting level of functions with the `-D` option.
 In the above example, uftrace only prints functions up to a depth of 3, so
 leaf function `c()` was omitted.  Note that the `-D` option works with `-F`.
 
-Sometimes it's useful to see long-running functions only.  This is good because
+Sometimes, it's useful to see long-running functions only.  This is good because
 there are usually many tiny functions that are not interesting.
 The `-t`/`--time-filter` option implements the time-based filter that only
 records functions which run longer than the given threshold.  In the above
@@ -487,16 +487,16 @@ callstack directly.  During tracing of the v8 javascript engine, for example, it
 kept getting segfaults in the garbage collection stage.  It was because v8
 incorporates the return address into compiled code objects(?).  The `recover`
 trigger restores the original return address at the function entry point and
-resets to the uftrace return hook address again at function exit.  I was managed
-to work around the segfault by setting the `recover` trigger on the related
-function (specifically `ExitFrame::Iterate`).
+resets to the uftrace return hook address again at function exit.  This was used
+to work around segfaults by setting the `recover` trigger on the related
+function (specifically `ExitFrame::Iterate`)
 
 The `time` trigger is to change time filter setting during execution of the
 function.  It can be used to apply different time filter for different functions.
 
 The `read` trigger is to read some information at runtime.  The result will be
 recorded as (builtin) events at the beginning and the end of a given function.
-As of now, following events are supported:
+As of now, the following events are supported:
 
  * "proc/statm": process memory stat from /proc filesystem
  * "page-fault": number of page faults using getrusage(2)
@@ -520,14 +520,14 @@ The results are printed as events (comments) like below.
       18.380 us [ 1234] |   } /* a */
       19.537 us [ 1234] | } /* main */
 
-The `finish` trigger is to end recording.  The process still can run and this
-can be useful to trace unterminated processes like daemon.
+The `finish` trigger is to end recording.  The process can still run, which
+can be useful to trace non-terminating processes like daemon.
 
 The `filter` and `notrace` triggers have same effect as `-F`/`--filter` and
 `-N`/`--notrace` options respectively.
 
 The `hide` trigger has the same effect as `-H`/`--hide` option that hides the
-given functions, but do not affect to the functions in their subtree unlike
+given functions, but does not affect to the functions in their subtree unlike
 the `notrace` trigger.
 
 Triggers only work for user-level functions for now.
@@ -588,7 +588,7 @@ for argument:
  * x86: rdi, rsi, rdx, rcx, r8, r9 (for integer), xmm[0-7] (for floating-point)
  * arm: r[0-3] (for integer), s[0-15] or d[0-7] (for floating-point)
 
-Examples are below:
+Examples are shown below:
 
     $ uftrace -A main@arg1/x -R main@retval/i32 ./abc
     # DURATION    TID     FUNCTION
@@ -683,15 +683,15 @@ FULL DYNAMIC TRACING
 The uftrace tool supports dynamic function tracing which can be enabled at
 runtime (load-time, to be precise) on x86_64 and AArch64.  Before recording
 functions, normally you need to build the target program with `-pg` (or
-`-finstrument-functions`), then it has some performance impact because all
+`-finstrument-functions`), incurring some performance impact because all
 functions call `mcount()`.
 
 With dynamic tracing, you can trace specific functions only given by the
 `-P`/`--patch` option and can also disable specific functions given by the
-`-U`/`--unpatch` option.  With capstone disassembly engine you even don't need
+`-U`/`--unpatch` option.  With capstone disassembly engine, you don't even need
 to (re)compile the target with the option above.  Now uftrace can analyze the
 instructions and (if possible) it can copy them to a different place and rewrite
-it to call `mcount()` function so that it can be traced by uftrace.  After that
+it to call `mcount()` function so that it can be traced by uftrace.  After that,
 the control is passed to the copied instructions and then returned back to the
 remaining instructions.
 
@@ -705,7 +705,7 @@ Because the binary doesn't call any instrumentation code (i.e. 'mcount').
              It seems not to be compiled with -pg or -finstrument-functions flag
              which generates traceable code.  Please check your binary file.
 
-But when the `-P a` patch option is used, and then only it can dynamically
+But when the `-P a` patch option is used, uftrace can dynamically
 trace `a()`.
 
     $ uftrace --no-libcall -P a abc
@@ -726,7 +726,7 @@ matches to any character in a regex pattern with `P` option.
        3.289 us [19387] | } /* main */
 
 Note that `-U` option has the opposite effect of `-P` option so users can
-the both to fine-control.  The option comes later will override the formers.
+use both for fine-control.  The option that comes later will override the formers.
 For example if you want to trace all functions but 'a' in the above:
 
     $ uftrace --no-libcall -P . -U a  abc
@@ -737,8 +737,8 @@ For example if you want to trace all functions but 'a' in the above:
        2.012 us [19390] |   } /* b */
        3.373 us [19390] | } /* main */
 
-The order of the options is important, if you change it like `-U a -P .` then
-it will trace all the functions since `-P .` will be effective for all.
+The order of the options is important. If you change it like `-U a -P .` then
+it will trace all the functions since `-P .` will take precedence and match everything.
 
 
 GCC FENTRY
@@ -947,10 +947,10 @@ Please see `uftrace-script`(1) for details about scripting.
 WATCH POINT
 ===========
 The uftrace watch point is to display certain value only if it's changed.
-It's conceptually same as debugger's but only works at function entry and exit
+It's conceptually the same as that of a debugger's but only works at function entry and exit
 so it might miss some updates.
 
-As of now, following watch points are supported:
+As of now, the following watch points are supported:
 
  * "cpu" : cpu number current task is running on
 

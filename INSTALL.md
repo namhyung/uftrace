@@ -1,7 +1,7 @@
 QUICK GUIDE
 ===========
 
-On Linux distros, following commands will build and install uftrace from source.
+On Linux distros, the following commands will build and install uftrace from source.
 
     $ sudo misc/install-deps.sh    # optional for advanced features
     $ ./configure                  # --prefix can be used to change install dir
@@ -25,18 +25,18 @@ The uftrace is written in C and tried to minimize external dependencies.
 Currently, uftrace can be built without any external libraries.  But in order to
 use more advanced features, it'd be better to install them like below.
 
-Firstly, please make sure `pkg-config` is installed in the system to properly
+Firstly, please make sure `pkg-config` is installed on the system to properly
 detect the dependencies of uftrace.  Otherwise, some packages may not be
-detected even if they are already installed and it disables some features of
-uftrace.
+detected even if they are already installed, causing some features of
+uftrace to be disabled.
 
-Historically uftrace depended on the `libelf` from elfutils project for ELF
+Historically, uftrace depended on the `libelf` from elfutils project for ELF
 file manipulation.  While it's not mandatory anymore, we recommend you to
 install it for better handling of ELF binaries.  Also `libdw` library is
 recommended to be installed in order to process DWARF debug information.  The
 libdw itself depends on the `libelf`, so you can just install `libdw`.
 
-On debian based systems (like Ubuntu), `libdw-dev` package will provide
+On debian based systems (like Ubuntu), `libdw-dev` package will provide the
 required libraries/files.
 
     $ sudo apt-get install libdw-dev
@@ -45,29 +45,29 @@ On redhat based systems (like Fedora, RHEL), it'll be `elfutils-devel`.
 
     $ sudo dnf install elfutils-devel
 
-It also uses libstdc++ library to demangle C++ symbols in full detail.
+uftrace also uses libstdc++ library to demangle C++ symbols in full detail.
 But it's not mandatory as uftrace has its own demangler for shorter symbol
 name (it omits arguments, templates and so on).
 
-And ncursesw library is to implement text user interface (TUI) on console.
-The ncurses(w) library provides terminal handling routines so `uftrace tui`
-command is built on top of them.  As it improves user experience of trace data
-analysis, you need to consider install it if you do things like `uftrace graph`
+The ncursesw library is used to implement text user interface (TUI) on console.
+The ncurses(w) library provides terminal handling routines which `uftrace tui`
+command is built on top of.  As it improves user experience of trace data
+analysis, you should consider installing it if you do things like `uftrace graph`
 or `uftrace report` frequently.
 
-Also it needs `pandoc` to build man pages from the markdown document.
+Also uftrace needs `pandoc` to build man pages from the markdown document.
 
 
 BUILD
 =====
 
 To build uftrace, you need to install basic software development tools first -
-like gcc and make.  And also you need to install dependent softwares, please
-see DEPENDENCY section for details.
+like gcc and make.  And you also need to install dependent softwares. Please
+see DEPENDENCY section for more details.
 
-Once you installed required software(s), you need to run `configure` to set
-install directory and other features.  It installs the uftrace under /usr/local
-by default, if you want install it to other location, you can set the `prefix`
+Once you have installed the required software(s), you need to run `configure` to set
+the install directory and other features.  It installs the uftrace under /usr/local
+by default. If you want install it to some other location, you can set the `prefix`
 variable (see below).
 
     $ ./configure --prefix=/usr
@@ -91,12 +91,12 @@ Then you can run `make` to build the source.
 
     $ make
 
-It builds uftrace and resulting binary exists in the current directory.
+It builds uftrace, placing the resulting binaries in the current directory.
 This is good for testing, but you'll want to install it for normal use.
 
     $ sudo make install
 
-The output of build looks like linux kernel style, users can see original
+The output of the build looks like linux kernel style, and users can see the original
 build command lines with V=1 (like kernel).
 
     $ make V=1
@@ -105,9 +105,9 @@ build command lines with V=1 (like kernel).
 CONFIGURATION
 =============
 
-The uftrace implements own version of configure script to save user
-preferences.  The config file (named `.config`) is created if not exist
-on build time with default options.  User can set custom installation
+The uftrace implements its own version of configure script to save user
+preferences.  The config file (named `.config`) is created, if it doesn't exist,
+at build time with default options.  User can set custom installation
 directories or build directory with this script.
 
     $ ./configure --help
@@ -152,11 +152,11 @@ directories or build directory with this script.
 
 Also you can set the target architecture and compiler options like CC, CFLAGS.
 
-It's also possible to disable some features depending on external libraries or
-system behaviors.  For example --without-libpython option will make scripting
-feature disabled - `uftrace script` command will still exist but won't work.
+It's also possible to disable some features that depend on external libraries or
+system behaviors.  For example --without-libpython option will disable scripting
+feature - `uftrace script` command will still exist but won't work.
 
-For cross compile, you may want to setup the toolchain something like below:
+For cross compilation, you may want to setup the toolchain to something like below:
 
     $ export CROSS_COMPILE=/path/to/cross/toolchain/arm-unknown-linux-gnueabihf-
     $ ARCH=arm CFLAGS='--sysroot /path/to/sysroot' ./configure
@@ -187,6 +187,6 @@ The below is the way to compile uftrace together with libelf/libdw.
     $ make
     $ make install
 
-`misc/install-elfutils.sh` downloads and builds elfutils and install both
+`misc/install-elfutils.sh` downloads and builds elfutils and installs both
 libelf and libdw to prefix directory.  The installed libelf and libdw can be
-found using `--with-elfutils` in `configure` script.
+found using `--with-elfutils` in the `configure` script.
