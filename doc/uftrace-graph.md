@@ -16,7 +16,7 @@ DESCRIPTION
 ===========
 This command shows a function call graph for the binary or the given function
 in a uftrace record datafile.  If the function name is omitted, whole function
-call graph will be shown.  If user gives a function name it will show backtrace
+call graph will be shown.  If a user provides a function name, it will show backtrace
 and calling functions.  Each function in the output is annotated with a hit
 count and the total time spent running that function.
 
@@ -29,8 +29,8 @@ GRAPH OPTIONS
     used (solely) to hide all fields.  Default is 'total'.  See *FIELDS*.
 
 --task
-:   Print task graph instead of normal function graph.  The each node in the
-    output shows process or thread(printed in green color).
+:   Print task graph instead of normal function graph.  Each node in the
+    output shows a process or thread(printed in green color).
 
 \--srcline
 :   Show source location of each function if available.
@@ -160,17 +160,17 @@ Running the `graph` command shows function call graph like below:
       10.138 ms :  +-(1) bar
       10.100 ms :    (1) usleep
 
-The topmost node is not for function but for the executable.
+The graph root is not a function, but the executing process itself.
 The left side shows total time running the function on the right side.
 The number in parentheses before the function name is the invocation count.
-As you can see, `main` was called once and ran around 10 msec.  It called
-`foo` twice and then `foo` called `loop` 6 times in total.  The time is the
-sum of all execution time of the function.
+As you can see, `main` was called once and ran for 10 msec.  It called
+`foo` twice and then `foo` called `loop` 6 times in total.  The printed time is the
+total execution time for all function invocations.
 
 It can also be seen that `main` called `bar` once and that `bar` then called
-`usleep` once.  To avoid too deep nesting level, it shows calls that have only
-a single call path at the same level.  So `usleep` is not called from `main`
-directly.
+`usleep` once.  To minimize nesting, the output shows calls at the same level if
+only a single call path exists.  Since the nodes `usleep` and `main` are not
+directly connected, `usleep` is not called from `main` directly.
 
 Running the `graph` command on the `main` function shows called functions and
 backtrace like below:
@@ -191,7 +191,7 @@ backtrace like below:
        10.100 ms :    (1) usleep
 
 Note that the 'main' is the top-level function so it has no backtrace above
-itself.  Running graph command on a leaf function looks like below.
+itself.  Running the graph command on a leaf function looks like below.
 
     $ uftrace graph loop
     # Function Call Graph for 'loop' (session: 073f1e84aa8b09d3)
