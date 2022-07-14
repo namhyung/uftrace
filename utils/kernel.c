@@ -26,9 +26,10 @@
 #include "utils/fstack.h"
 #include "utils/kernel.h"
 #include "utils/rbtree.h"
+#include "utils/tracefs.h"
 #include "utils/utils.h"
 
-#define TRACING_DIR "/sys/kernel/debug/tracing"
+static char *TRACING_DIR = NULL;
 
 static bool kernel_tracing_enabled;
 
@@ -50,6 +51,9 @@ static int load_kernel_files(struct uftrace_kernel_reader *kernel);
 static char *get_tracing_file(const char *name)
 {
 	char *file = NULL;
+
+	if (!TRACING_DIR && !find_tracing_dir(&TRACING_DIR))
+		return NULL;
 
 	xasprintf(&file, "%s/%s", TRACING_DIR, name);
 	return file;
@@ -1042,7 +1046,7 @@ static int load_current_kernel(struct uftrace_kernel_reader *kernel)
 	pevent_set_file_bigendian(pevent, is_big_endian);
 	pevent_set_host_bigendian(pevent, is_big_endian);
 
-	fd = open(TRACING_DIR "/events/header_page", O_RDONLY);
+	fd = open_tracing_file("events/header_page", O_RDONLY);
 	if (fd < 0)
 		return -1;
 
@@ -1050,7 +1054,7 @@ static int load_current_kernel(struct uftrace_kernel_reader *kernel)
 	pevent_parse_header_page(pevent, buf, len, sizeof(long));
 	close(fd);
 
-	fd = open(TRACING_DIR "/events/ftrace/funcgraph_entry/format", O_RDONLY);
+	fd = open_tracing_file("events/ftrace/funcgraph_entry/format", O_RDONLY);
 	if (fd < 0)
 		return -1;
 
@@ -1058,7 +1062,7 @@ static int load_current_kernel(struct uftrace_kernel_reader *kernel)
 	pevent_parse_event(pevent, buf, len, "ftrace");
 	close(fd);
 
-	fd = open(TRACING_DIR "/events/ftrace/funcgraph_exit/format", O_RDONLY);
+	fd = open_tracing_file("events/ftrace/funcgraph_exit/format", O_RDONLY);
 	if (fd < 0)
 		return -1;
 

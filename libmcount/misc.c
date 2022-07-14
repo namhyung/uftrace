@@ -10,16 +10,21 @@
 
 #include "libmcount/internal.h"
 #include "libmcount/mcount.h"
+#include "utils/tracefs.h"
 #include "utils/utils.h"
+
+static char *TRACING_DIR = NULL;
 
 /* old kernel never updates pid filter for a forked child */
 void update_kernel_tid(int tid)
 {
-	static const char TRACING_DIR[] = "/sys/kernel/debug/tracing";
 	char *filename = NULL;
 	char buf[8];
 	int fd;
 	ssize_t len;
+
+	if (!TRACING_DIR && !find_tracing_dir(&TRACING_DIR))
+		return;
 
 	if (!kernel_pid_update)
 		return;
