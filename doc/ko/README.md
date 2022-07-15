@@ -261,7 +261,7 @@ flame-graph 형식의 결과 또한 지원한다. 해당 데이터는 `uftrace d
     # disk iops           : 0 / 24 (read / write)
 
 `script` 명령어는 기록된 데이터에 사용자 정의 스크립트를 실행할 수 있게 한다.
-현재까지 지원되는 스크립트는 Python 2.7 과 Lua 5.1 이다.
+현재까지 지원되는 스크립트는 Python 3, Python 2.7 과 Lua 5.1 이다.
 
 `tui` 명령어는 ncurses 를 이용한 텍스트 기반 대화형 사용자 인터페이스를 위한 명령어이다.
 현재 `graph`, `report`, `info` 명령어의 기본적인 기능을 제공한다.
