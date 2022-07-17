@@ -25,6 +25,9 @@ check-deps/*
 FLAGS
 version.h
 .config
+.cache
+.clangd/
+.vscode
 .build/
 GPATH
 GRTAGS
@@ -32,6 +35,7 @@ GTAGS
 TAGS
 tags
 cscope.*
+compile_commands.json
 *.pyc
 *.sw[opn]
 *.patch
