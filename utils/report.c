@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <string.h>
-#include <inttypes.h>
 
 #include "uftrace.h"
 #include "utils/report.h"
