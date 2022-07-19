@@ -1829,8 +1829,6 @@ struct uftrace_record *get_kernel_record(struct uftrace_kernel_reader *kernel,
 
 #ifdef UNIT_TEST
 
-#include <sys/stat.h>
-
 #define NUM_CPU 2
 #define NUM_TASK 2
 #define NUM_RECORD 4
