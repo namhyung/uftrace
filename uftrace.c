@@ -1219,7 +1219,6 @@ static void free_opts(struct uftrace_opts *opts)
 	free(opts->caller);
 	free(opts->watch);
 	free(opts->hide);
-	free(opts->exename);
 	free_parsed_cmdline(opts->run_cmd);
 }
 
