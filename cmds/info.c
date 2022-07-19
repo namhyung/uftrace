@@ -898,7 +898,7 @@ void fill_uftrace_info(uint64_t *info_mask, int fd, struct uftrace_opts *opts, i
 
 			continue;
 		}
-		*info_mask |= (1UL << fill_handlers[i].bit);
+		*info_mask |= fill_handlers[i].bit;
 	}
 }
 
@@ -928,12 +928,11 @@ int read_uftrace_info(uint64_t info_mask, struct uftrace_data *handle)
 	memset(&handle->info, 0, sizeof(handle->info));
 
 	for (i = 0; i < ARRAY_SIZE(read_handlers); i++) {
-		if (!(info_mask & (1UL << read_handlers[i].bit)))
+		if (!(info_mask & read_handlers[i].bit))
 			continue;
 
 		if (read_handlers[i].handler(&arg) < 0) {
-			pr_dbg("error during read uftrace info (%x)\n",
-			       (1U << read_handlers[i].bit));
+			pr_dbg("error during read uftrace info (%x)\n", read_handlers[i].bit);
 			return -1;
 		}
 	}
@@ -989,31 +988,31 @@ void process_uftrace_info(struct uftrace_data *handle, struct uftrace_opts *opts
 	process(data, "# system information\n");
 	process(data, "# ==================\n");
 
-	if (info_mask & (1UL << VERSION))
+	if (info_mask & VERSION)
 		process(data, fmt, "program version", info->uftrace_version);
 
-	if (info_mask & (1UL << RECORD_DATE))
+	if (info_mask & RECORD_DATE)
 		process(data, fmt, "recorded on", info->record_date);
 	else
 		process(data, "# %-20s: %s", "recorded on", ctime(&statbuf.st_mtime));
 
-	if (info_mask & (1UL << CMDLINE))
+	if (info_mask & CMDLINE)
 		process(data, fmt, "cmdline", info->cmdline);
 
-	if (info_mask & (1UL << CPUINFO)) {
+	if (info_mask & CPUINFO) {
 		process(data, fmt, "cpu info", info->cpudesc);
 		process(data, "# %-20s: %d / %d (online / possible)\n", "number of cpus",
 			info->nr_cpus_online, info->nr_cpus_possible);
 	}
 
-	if (info_mask & (1UL << MEMINFO))
+	if (info_mask & MEMINFO)
 		process(data, fmt, "memory info", info->meminfo);
 
-	if (info_mask & (1UL << LOADINFO))
+	if (info_mask & LOADINFO)
 		process(data, "# %-20s: %.02f / %.02f / %.02f (1 / 5 / 15 min)\n", "system load",
 			info->load1, info->load5, info->load15);
 
-	if (info_mask & (1UL << OSINFO)) {
+	if (info_mask & OSINFO) {
 		process(data, fmt, "kernel version", info->kernel);
 		process(data, fmt, "hostname", info->hostname);
 		process(data, fmt, "distro", info->distro);
@@ -1023,7 +1022,7 @@ void process_uftrace_info(struct uftrace_data *handle, struct uftrace_opts *opts
 	process(data, "# process information\n");
 	process(data, "# ===================\n");
 
-	if (info_mask & (1UL << TASKINFO)) {
+	if (info_mask & TASKINFO) {
 		int i;
 		int nr = info->nr_tid;
 		bool first = true;
@@ -1063,10 +1062,10 @@ void process_uftrace_info(struct uftrace_data *handle, struct uftrace_opts *opts
 		free(task_list);
 	}
 
-	if (info_mask & (1UL << EXE_NAME))
+	if (info_mask & EXE_NAME)
 		process(data, fmt, "exe image", info->exename);
 
-	if (info_mask & (1UL << EXE_BUILD_ID)) {
+	if (info_mask & EXE_BUILD_ID) {
 		int i;
 		char bid[BUILD_ID_SIZE * 2 + 1];
 
@@ -1076,7 +1075,7 @@ void process_uftrace_info(struct uftrace_data *handle, struct uftrace_opts *opts
 		process(data, "# %-20s: %s\n", "build id", bid);
 	}
 
-	if (info_mask & (1UL << ARG_SPEC)) {
+	if (info_mask & ARG_SPEC) {
 		if (info->argspec)
 			process(data, fmt, "arguments", info->argspec);
 		if (info->retspec)
@@ -1085,10 +1084,10 @@ void process_uftrace_info(struct uftrace_data *handle, struct uftrace_opts *opts
 			process(data, fmt, "auto-args", "true");
 	}
 
-	if (info_mask & (1UL << PATTERN_TYPE))
+	if (info_mask & PATTERN_TYPE)
 		process(data, fmt, "pattern", get_filter_pattern(info->patt_type));
 
-	if (info_mask & (1UL << EXIT_STATUS)) {
+	if (info_mask & EXIT_STATUS) {
 		int status = info->exit_status;
 
 		if (status == UFTRACE_EXIT_FINISHED) {
@@ -1107,10 +1106,10 @@ void process_uftrace_info(struct uftrace_data *handle, struct uftrace_opts *opts
 		process(data, fmt, "exit status", buf);
 	}
 
-	if (info_mask & (1UL << RECORD_DATE))
+	if (info_mask & RECORD_DATE)
 		process(data, fmt, "elapsed time", info->elapsed_time);
 
-	if (info_mask & (1UL << USAGEINFO)) {
+	if (info_mask & USAGEINFO) {
 		process(data, "# %-20s: %.3lf / %.3lf sec (sys / user)\n", "cpu time", info->stime,
 			info->utime);
 		process(data, "# %-20s: %ld / %ld (voluntary / involuntary)\n", "context switch",

@@ -982,7 +982,7 @@ static void dump_chrome_footer(struct uftrace_dump_ops *ops, struct uftrace_data
 	pr_out("\n], \"displayTimeUnit\": \"ns\", \"metadata\": {\n");
 	pr_out("\"version\":\"uftrace %s\",\n", UFTRACE_VERSION);
 	pr_out("\"recorded_time\":\"%s\",\n", buf);
-	if (handle->hdr.info_mask & (1UL << CMDLINE))
+	if (handle->hdr.info_mask & CMDLINE)
 		pr_out("\"command_line\":\"%s\"\n", handle->info.cmdline);
 	pr_out("} }\n");
 
@@ -1164,7 +1164,7 @@ static void dump_graphviz_header(struct uftrace_dump_ops *ops, struct uftrace_da
 {
 	pr_out("# version\":\"uftrace %s\"\n", UFTRACE_VERSION);
 
-	if (handle->hdr.info_mask & (1UL << CMDLINE))
+	if (handle->hdr.info_mask & CMDLINE)
 		pr_out("# command_line \"%s\"\n", handle->info.cmdline);
 
 	pr_out("\ndigraph ");
@@ -1600,7 +1600,7 @@ int command_dump(int argc, char *argv[], struct uftrace_opts *opts)
 			.sample_time = opts->sample_time,
 		};
 
-		if (!opts->sample_time && handle.hdr.info_mask & (1UL << RECORD_DATE)) {
+		if (!opts->sample_time && handle.hdr.info_mask & RECORD_DATE) {
 			uint64_t total_time, sample_time;
 
 			/* elapsed time is saved in second */
