@@ -852,7 +852,10 @@ if __name__ == "__main__":
     res.append(TestBase.TEST_UNSUPP_LANG)
     res.append(TestBase.TEST_SKIP)
 
-    ftests = open("failed-tests.txt", "w")
+    failed_tests = "failed-tests.txt"
+    if os.path.exists(failed_tests):
+        os.rename(failed_tests, failed_tests + ".old")
+    ftests = open(failed_tests, "w")
 
     shared.stats = dict.fromkeys(res, 0)
     pool = multiprocessing.Pool(arg.worker)
