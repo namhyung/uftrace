@@ -83,7 +83,8 @@ class TestBase:
     TEST_SKIP = -7
     TEST_SUCCESS_FIXED = -8
 
-    basedir = os.path.dirname(os.getcwd())
+    origdir = os.getcwd()
+    basedir = os.path.dirname(origdir)
     objdir = 'objdir' in os.environ and os.environ['objdir'] or basedir
     uftrace_cmd = objdir + '/uftrace'
     default_opt = '--no-pager --no-event --libmcount-path=' + objdir
@@ -94,6 +95,7 @@ class TestBase:
 
     def __init__(self, name, result, lang='C', cflags='', ldflags='', sort='task', serial=False):
         _tmp = tempfile.mkdtemp(prefix='test_%s_' % name)
+        self.keep = False
         os.chdir(_tmp)
         self.test_dir = _tmp
         self.name = name
@@ -127,6 +129,9 @@ class TestBase:
     def pr_debug(self, msg):
         if self.debug:
             print(msg)
+
+    def set_keep(self, keep):
+        self.keep = keep
 
     def gen_port(self):
         self.port = random.randint(40000, 50000)
@@ -623,7 +628,10 @@ class TestBase:
         return ret, ''
 
     def __del__(self):
-        sp.call(['rm', '-rf', self.test_dir])
+        if self.keep:
+            sp.call(['mv', self.test_dir, TestBase.origdir])
+        else:
+            sp.call(['rm', '-rf', self.test_dir])
 
 RED     = '\033[1;31m'
 GREEN   = '\033[1;32m'
@@ -684,6 +692,7 @@ def run_single_case(case, flags, opts, arg):
     tc = _locals['tc']
     tc.set_debug(arg.debug)
     tc.set_compiler(arg.compiler)
+    tc.set_keep(arg.keep)
     timeout = int(arg.timeout)
 
     for flag in flags:
@@ -801,6 +810,8 @@ def parse_argument():
                         help="Parallel worker count; using all core for default")
     parser.add_argument("-c", "--compiler", dest='compiler', default="gcc",
                         help="Select compiler gcc or clang. (gcc by default)")
+    parser.add_argument("-k", "--keep", dest='keep', action='store_true',
+                        help="keep the test directories with compiled binaries")
 
     return parser.parse_args()
 
