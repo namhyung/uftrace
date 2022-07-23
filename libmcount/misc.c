@@ -1,15 +1,15 @@
-#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <sys/uio.h>
+#include <time.h>
+#include <unistd.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "mcount"
 #define PR_DOMAIN DBG_MCOUNT
 
-#include "libmcount/mcount.h"
 #include "libmcount/internal.h"
+#include "libmcount/mcount.h"
 #include "utils/utils.h"
 
 /* old kernel never updates pid filter for a forked child */

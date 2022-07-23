@@ -1,22 +1,22 @@
+#include <byteswap.h>
+#include <errno.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
-#include <errno.h>
-#include <byteswap.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "fstack"
 #define PR_DOMAIN DBG_FSTACK
 
+#include "libmcount/mcount.h"
 #include "uftrace.h"
-#include "utils/utils.h"
-#include "utils/filter.h"
-#include "utils/fstack.h"
-#include "utils/rbtree.h"
-#include "utils/kernel.h"
 #include "utils/arch.h"
 #include "utils/event.h"
-#include "libmcount/mcount.h"
+#include "utils/filter.h"
+#include "utils/fstack.h"
+#include "utils/kernel.h"
+#include "utils/rbtree.h"
+#include "utils/utils.h"
 
 bool fstack_enabled = true;
 bool live_disabled = false;

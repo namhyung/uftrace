@@ -1,17 +1,17 @@
+#include <byteswap.h>
+#include <errno.h>
+#include <glob.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
-#include <glob.h>
-#include <errno.h>
-#include <unistd.h>
-#include <byteswap.h>
 #include <sys/mman.h>
 #include <sys/syscall.h>
+#include <time.h>
+#include <unistd.h>
 
 #include "uftrace.h"
-#include "utils/perf.h"
-#include "utils/fstack.h"
 #include "utils/compiler.h"
+#include "utils/fstack.h"
+#include "utils/perf.h"
 
 /* It needs to synchronize records using monotonic clock */
 #ifdef HAVE_PERF_CLOCKID

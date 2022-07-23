@@ -1,15 +1,15 @@
-#include <stdio.h>
-#include <unistd.h>
 #include <dirent.h>
-#include <signal.h>
 #include <errno.h>
+#include <signal.h>
+#include <stdio.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
+#include "libmcount/mcount.h"
 #include "uftrace.h"
-#include "utils/utils.h"
 #include "utils/fstack.h"
 #include "utils/kernel.h"
-#include "libmcount/mcount.h"
+#include "utils/utils.h"
 
 static char *tmp_dirname;
 static void cleanup_tempdir(void)

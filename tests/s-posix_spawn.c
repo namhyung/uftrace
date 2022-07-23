@@ -1,10 +1,10 @@
 /*
  * This test calls posix_spawn() to run the t-abc and t-openclose executables.
  */
-#include <stdio.h>
 #include <spawn.h>
-#include <unistd.h>
+#include <stdio.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 #define TEST_PROG1 "t-abc"
 #define TEST_PROG2 "t-openclose"

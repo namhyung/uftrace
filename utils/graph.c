@@ -1,7 +1,7 @@
 #include "utils/graph.h"
+#include "utils/filter.h"
 #include "utils/list.h"
 #include "utils/rbtree.h"
-#include "utils/filter.h"
 
 static graph_fn entry_cb;
 static graph_fn exit_cb;

@@ -1,9 +1,9 @@
 #ifndef UFTRACE_DWARF_H
 #define UFTRACE_DWARF_H
 
-#include <stdio.h>
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
 
 #include "utils/filter.h"
 #include "utils/rbtree.h"

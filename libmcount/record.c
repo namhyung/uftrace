@@ -1,24 +1,24 @@
-#include <stdio.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <sched.h>
+#include <stdio.h>
 #include <sys/mman.h>
-#include <sys/stat.h>
 #include <sys/resource.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "mcount"
 #define PR_DOMAIN DBG_MCOUNT
 
-#include "libmcount/mcount.h"
 #include "libmcount/internal.h"
+#include "libmcount/mcount.h"
 #include "mcount-arch.h"
-#include "utils/utils.h"
 #include "utils/event.h"
 #include "utils/filter.h"
 #include "utils/symbol.h"
+#include "utils/utils.h"
 
 #define SHMEM_SESSION_FMT "/uftrace-%s-%d-%03d" /* session-id, tid, seq */
 

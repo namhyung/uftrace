@@ -1,6 +1,6 @@
-#include <stdlib.h>
-#include <link.h>
 #include <elf.h>
+#include <link.h>
+#include <stdlib.h>
 
 #ifndef EF_ARM_VFP_FLOAT
 #define EF_ARM_VFP_FLOAT 0x400
@@ -11,10 +11,10 @@
 #endif
 
 #include "libmcount/internal.h"
-#include "utils/utils.h"
-#include "utils/symbol.h"
-#include "utils/rbtree.h"
 #include "utils/filter.h"
+#include "utils/rbtree.h"
+#include "utils/symbol.h"
+#include "utils/utils.h"
 
 struct lr_offset {
 	int offset; // 4-byte unit

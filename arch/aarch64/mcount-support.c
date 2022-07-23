@@ -1,8 +1,8 @@
 #include <stdlib.h>
 
 #include "libmcount/internal.h"
-#include "utils/utils.h"
 #include "utils/filter.h"
+#include "utils/utils.h"
 
 /* FIXME: x0 is overwritten before calling _mcount() */
 static int mcount_get_register_arg(struct mcount_arg_context *ctx, struct uftrace_arg_spec *spec)

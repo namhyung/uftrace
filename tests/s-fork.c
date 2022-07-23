@@ -2,8 +2,8 @@
  * This is test to trace child task after calling fork().
  */
 #include <stdlib.h>
-#include <unistd.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 static int a(void);
 static int b(void);

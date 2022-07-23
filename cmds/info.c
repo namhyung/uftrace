@@ -6,22 +6,22 @@
  * Released under the GPL v2.
  */
 
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/utsname.h>
-#include <sys/stat.h>
-#include <sys/resource.h>
-#include <time.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
+#include <stdio.h>
+#include <sys/resource.h>
+#include <sys/stat.h>
+#include <sys/utsname.h>
+#include <time.h>
+#include <unistd.h>
 
-#include "uftrace.h"
 #include "libmcount/mcount.h"
-#include "utils/utils.h"
+#include "uftrace.h"
 #include "utils/filter.h"
-#include "utils/symbol.h"
 #include "utils/fstack.h"
+#include "utils/symbol.h"
+#include "utils/utils.h"
 #include "version.h"
 
 struct read_handler_arg {

@@ -2,8 +2,8 @@
 #define PR_FMT "dynamic"
 #define PR_DOMAIN DBG_DYNAMIC
 
-#include "libmcount/internal.h"
 #include "libmcount/dynamic.h"
+#include "libmcount/internal.h"
 #include "mcount-arch.h"
 #include "utils/utils.h"
 

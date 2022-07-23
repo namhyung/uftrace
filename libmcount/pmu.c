@@ -1,16 +1,16 @@
-#include <stdint.h>
-#include <unistd.h>
-#include <sys/syscall.h>
 #include <linux/perf_event.h>
+#include <stdint.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "mcount"
 #define PR_DOMAIN DBG_MCOUNT
 
-#include "libmcount/mcount.h"
 #include "libmcount/internal.h"
-#include "utils/utils.h"
+#include "libmcount/mcount.h"
 #include "utils/list.h"
+#include "utils/utils.h"
 
 /* PMU management data for given event */
 struct pmu_data {

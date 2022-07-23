@@ -1,14 +1,14 @@
-#include <stdio.h>
 #include <inttypes.h>
+#include <stdio.h>
 
 #include "uftrace.h"
-#include "utils/utils.h"
-#include "utils/rbtree.h"
-#include "utils/symbol.h"
-#include "utils/list.h"
-#include "utils/fstack.h"
-#include "utils/report.h"
 #include "utils/field.h"
+#include "utils/fstack.h"
+#include "utils/list.h"
+#include "utils/rbtree.h"
+#include "utils/report.h"
+#include "utils/symbol.h"
+#include "utils/utils.h"
 
 enum avg_mode avg_mode = AVG_NONE;
 

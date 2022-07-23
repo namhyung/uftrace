@@ -6,11 +6,11 @@
 #define PR_FMT "dynamic"
 #define PR_DOMAIN DBG_DYNAMIC
 
-#include "mcount-arch.h"
-#include "libmcount/internal.h"
 #include "libmcount/dynamic.h"
-#include "utils/utils.h"
+#include "libmcount/internal.h"
+#include "mcount-arch.h"
 #include "utils/symbol.h"
+#include "utils/utils.h"
 
 static const unsigned char fentry_nop_patt1[] = { 0x67, 0x0f, 0x1f, 0x04, 0x00 };
 static const unsigned char fentry_nop_patt2[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };

@@ -6,29 +6,29 @@
  * Released under the GPL v2.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
-#include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
+#include <unistd.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "mcount"
 #define PR_DOMAIN DBG_MCOUNT
 
-#include "libmcount/mcount.h"
-#include "libmcount/internal.h"
 #include "libmcount/dynamic.h"
+#include "libmcount/internal.h"
+#include "libmcount/mcount.h"
 #include "mcount-arch.h"
-#include "version.h"
-#include "utils/utils.h"
-#include "utils/symbol.h"
 #include "utils/filter.h"
 #include "utils/script.h"
+#include "utils/symbol.h"
+#include "utils/utils.h"
+#include "version.h"
 
 /* time filter in nsec */
 uint64_t mcount_threshold;

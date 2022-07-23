@@ -4,8 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 #define TEST_PROG1 "t-abc"
 #define TEST_PROG2 "t-openclose"

@@ -1,12 +1,12 @@
+#include <getopt.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <getopt.h>
 #include <unistd.h>
-#include <inttypes.h>
 
-#include "utils/symbol.h"
 #include "utils/dwarf.h"
 #include "utils/filter.h"
+#include "utils/symbol.h"
 
 void print_debug_info(struct uftrace_dbg_info *dinfo, bool auto_args)
 {

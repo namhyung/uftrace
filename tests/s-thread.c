@@ -2,8 +2,8 @@
  * This is a basic test that checks uftrace can trace functions
  * properly within a multi-thread environment.
  */
-#include <stdlib.h>
 #include <pthread.h>
+#include <stdlib.h>
 
 #define NUM_THREAD 4
 

@@ -10,13 +10,13 @@
 #define PR_FMT "script"
 #define PR_DOMAIN DBG_SCRIPT
 
-#include <unistd.h>
 #include "utils/script.h"
 #include "utils/filter.h"
 #include "utils/list.h"
-#include "utils/utils.h"
-#include "utils/script-python.h"
 #include "utils/script-luajit.h"
+#include "utils/script-python.h"
+#include "utils/utils.h"
+#include <unistd.h>
 
 /* This will be set by getenv("UFTRACE_SCRIPT"). */
 char *script_str;

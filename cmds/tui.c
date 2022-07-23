@@ -1,26 +1,26 @@
 #ifdef HAVE_LIBNCURSES
 
+#include <errno.h>
+#include <inttypes.h>
+#include <locale.h>
+#include <ncurses.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <ncurses.h>
-#include <locale.h>
-#include <inttypes.h>
-#include <unistd.h>
-#include <errno.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 #include "uftrace.h"
-#include "version.h"
-#include "utils/utils.h"
+#include "utils/dwarf.h"
+#include "utils/field.h"
 #include "utils/fstack.h"
 #include "utils/graph.h"
-#include "utils/report.h"
 #include "utils/list.h"
 #include "utils/rbtree.h"
-#include "utils/field.h"
-#include "utils/dwarf.h"
+#include "utils/report.h"
+#include "utils/utils.h"
+#include "version.h"
 
 #define KEY_ESCAPE 27
 #define BLANK 32

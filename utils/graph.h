@@ -1,13 +1,13 @@
 #ifndef UFTRACE_GRAPH_H
 #define UFTRACE_GRAPH_H
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "uftrace.h"
+#include "utils/fstack.h"
 #include "utils/list.h"
 #include "utils/rbtree.h"
-#include "utils/fstack.h"
 
 struct uftrace_graph_node {
 	uint64_t addr;

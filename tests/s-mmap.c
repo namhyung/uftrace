@@ -1,7 +1,7 @@
-#include <stdlib.h>
 #include <fcntl.h>
-#include <unistd.h>
+#include <stdlib.h>
 #include <sys/mman.h>
+#include <unistd.h>
 
 int foo(long sz)
 {

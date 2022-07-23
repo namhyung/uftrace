@@ -1,22 +1,22 @@
-#include <stdio.h>
 #include <dirent.h>
-#include <stdbool.h>
-#include <unistd.h>
-#include <signal.h>
 #include <errno.h>
-#include <sys/uio.h>
-#include <sys/stat.h>
 #include <libgen.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <sys/stat.h>
+#include <sys/uio.h>
+#include <unistd.h>
 
 #ifdef HAVE_LIBUNWIND
 #define UNW_LOCAL_ONLY
 #include <libunwind.h>
 #endif
 
-#include "uftrace.h"
-#include "utils/utils.h"
-#include "utils/kernel.h"
 #include "libtraceevent/event-parse.h"
+#include "uftrace.h"
+#include "utils/kernel.h"
+#include "utils/utils.h"
 
 volatile bool uftrace_done;
 

@@ -1,7 +1,7 @@
 #define _GNU_SOURCE
-#include <unistd.h>
-#include <sys/syscall.h>
 #include <linux/perf_event.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 
 int main(void)
 {

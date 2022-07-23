@@ -10,18 +10,18 @@
  *  ...
  */
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "fstack"
 #define PR_DOMAIN DBG_FSTACK
 
 #include "uftrace.h"
-#include "utils/utils.h"
 #include "utils/fstack.h"
+#include "utils/utils.h"
 
 #define DEFAULT_FILENAME "extern.dat"
 
@@ -128,8 +128,8 @@ int finish_extern_data(struct uftrace_data *handle)
 #ifdef UNIT_TEST
 
 #include <fcntl.h>
-#include <unistd.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 TEST_CASE(fstack_extern_data)
 {

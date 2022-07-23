@@ -1,6 +1,6 @@
 
-#include "utils/utils.h"
 #include "utils/arch.h"
+#include "utils/utils.h"
 
 struct uftrace_reg_table {
 	const char *name;

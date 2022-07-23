@@ -12,24 +12,24 @@
  * -. find original code from hashmap
  * -. unpatch function
  */
-#include <string.h>
-#include <stdint.h>
 #include <link.h>
+#include <stdint.h>
+#include <string.h>
 #include <sys/mman.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "dynamic"
 #define PR_DOMAIN DBG_DYNAMIC
 
-#include "libmcount/mcount.h"
-#include "libmcount/internal.h"
 #include "libmcount/dynamic.h"
-#include "utils/utils.h"
-#include "utils/symbol.h"
+#include "libmcount/internal.h"
+#include "libmcount/mcount.h"
 #include "utils/filter.h"
-#include "utils/rbtree.h"
-#include "utils/list.h"
 #include "utils/hashmap.h"
+#include "utils/list.h"
+#include "utils/rbtree.h"
+#include "utils/symbol.h"
+#include "utils/utils.h"
 
 static struct mcount_dynamic_info *mdinfo;
 static struct mcount_dynamic_stats {

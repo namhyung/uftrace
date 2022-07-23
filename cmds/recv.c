@@ -1,22 +1,22 @@
-#include <stdio.h>
-#include <signal.h>
-#include <unistd.h>
+#include <errno.h>
 #include <fcntl.h>
-#include <stdarg.h>
 #include <inttypes.h>
-#include <sys/socket.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <netdb.h>
-#include <sys/signalfd.h>
+#include <signal.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <sys/epoll.h>
+#include <sys/signalfd.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
-#include <errno.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 #include "uftrace.h"
-#include "utils/utils.h"
 #include "utils/list.h"
+#include "utils/utils.h"
 
 struct client_data {
 	struct list_head list;

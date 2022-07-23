@@ -1,6 +1,6 @@
+#include <stdlib.h>
 #include <ucontext.h>
 #include <unistd.h>
-#include <stdlib.h>
 
 int foo(ucontext_t *old, ucontext_t *new)
 {

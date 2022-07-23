@@ -1,15 +1,15 @@
 #ifdef HAVE_LIBELF
 
-#include <gelf.h>
 #include <fcntl.h>
+#include <gelf.h>
 #include <unistd.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "symbol"
 #define PR_DOMAIN DBG_SYMBOL
 
-#include "utils/utils.h"
 #include "utils/symbol-libelf.h"
+#include "utils/utils.h"
 
 int elf_init(const char *filename, struct uftrace_elf_data *elf)
 {

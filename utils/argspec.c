@@ -1,7 +1,7 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include <ctype.h>
 #include <link.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "filter"

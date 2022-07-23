@@ -1,19 +1,19 @@
+#include <link.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <link.h>
-#include <pthread.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "event"
 #define PR_DOMAIN DBG_EVENT
 
-#include "libmcount/mcount.h"
 #include "libmcount/internal.h"
-#include "utils/utils.h"
-#include "utils/list.h"
+#include "libmcount/mcount.h"
 #include "utils/filter.h"
+#include "utils/list.h"
+#include "utils/utils.h"
 
 #define SDT_SECT ".note.stapsdt"
 #define SDT_NAME "stapsdt"

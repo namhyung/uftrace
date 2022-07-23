@@ -9,9 +9,9 @@
 #ifndef UFTRACE_MCOUNT_H
 #define UFTRACE_MCOUNT_H
 
-#include <stdint.h>
-#include <stdbool.h>
 #include <inttypes.h>
+#include <stdbool.h>
+#include <stdint.h>
 
 #define UFTRACE_DIR_NAME "uftrace.data"
 

@@ -1,8 +1,8 @@
 #define _GNU_SOURCE
+#include <linux/perf_event.h>
+#include <sys/syscall.h>
 #include <time.h>
 #include <unistd.h>
-#include <sys/syscall.h>
-#include <linux/perf_event.h>
 
 int main(void)
 {

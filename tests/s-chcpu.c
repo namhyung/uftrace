@@ -1,6 +1,6 @@
 #define _GNU_SOURCE
-#include <stdio.h>
 #include <sched.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 

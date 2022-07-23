@@ -1,7 +1,7 @@
-#include <stdio.h>
-#include <unistd.h>
 #include <fcntl.h>
+#include <stdio.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 int main(void)
 {

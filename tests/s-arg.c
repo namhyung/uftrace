@@ -2,8 +2,8 @@
  * This is to test uftrace can work well with passing various arguments
  * to the functions.
  */
-#include <stdio.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 

@@ -1,21 +1,21 @@
+#include <fnmatch.h>
+#include <regex.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <regex.h>
-#include <fnmatch.h>
 #include <sys/utsname.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "filter"
 #define PR_DOMAIN DBG_FILTER
 
-#include "uftrace.h"
 #include "libmcount/mcount.h"
-#include "utils/filter.h"
-#include "utils/symbol.h"
-#include "utils/rbtree.h"
-#include "utils/utils.h"
-#include "utils/list.h"
+#include "uftrace.h"
 #include "utils/dwarf.h"
+#include "utils/filter.h"
+#include "utils/list.h"
+#include "utils/rbtree.h"
+#include "utils/symbol.h"
+#include "utils/utils.h"
 
 static void snprintf_trigger_read(char *buf, size_t len, enum trigger_read_type type)
 {
