@@ -1,10 +1,10 @@
 #ifndef UFTRACE_ARGSPEC_H
 #define UFTRACE_ARGSPEC_H
 
-#include <stdio.h>
-#include <stdbool.h>
 #include "utils/list.h"
 #include "utils/rbtree.h"
+#include <stdbool.h>
+#include <stdio.h>
 
 enum uftrace_arg_format {
 	ARG_FMT_AUTO,

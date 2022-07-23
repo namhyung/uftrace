@@ -3,16 +3,16 @@
 #define PR_FMT "script"
 #define PR_DOMAIN DBG_SCRIPT
 
+#include "utils/script-luajit.h"
+#include "utils/filter.h"
+#include "utils/fstack.h"
+#include "utils/script.h"
+#include "utils/symbol.h"
+#include "utils/utils.h"
 #include <dlfcn.h>
+#include <lauxlib.h>
 #include <lua.h>
 #include <lualib.h>
-#include <lauxlib.h>
-#include "utils/utils.h"
-#include "utils/symbol.h"
-#include "utils/fstack.h"
-#include "utils/filter.h"
-#include "utils/script.h"
-#include "utils/script-luajit.h"
 
 static const char *libluajit = "libluajit-5.1.so";
 static void *luajit_handle;

@@ -6,9 +6,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <sys/wait.h>
 #include <sys/select.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 static int pager_pid;
 static int pager_fd;

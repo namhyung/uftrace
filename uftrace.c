@@ -18,21 +18,21 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#include <fcntl.h>
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <sys/stat.h>
 #include <time.h>
-#include <getopt.h>
+#include <unistd.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "uftrace"
 
 #include "uftrace.h"
-#include "version.h"
-#include "utils/utils.h"
 #include "utils/script.h"
+#include "utils/utils.h"
+#include "version.h"
 
 static const char uftrace_version[] = "uftrace " UFTRACE_VERSION;
 

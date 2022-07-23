@@ -1,23 +1,23 @@
-#include <stdio.h>
-#include <stdbool.h>
+#include <dlfcn.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <inttypes.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <dlfcn.h>
-#include <stdlib.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "dwarf"
 #define PR_DOMAIN DBG_DWARF
 
-#include "uftrace.h"
 #include "mcount-arch.h"
-#include "utils/utils.h"
+#include "uftrace.h"
 #include "utils/dwarf.h"
-#include "utils/symbol.h"
 #include "utils/filter.h"
+#include "utils/symbol.h"
+#include "utils/utils.h"
 
 bool debug_info_has_argspec(struct uftrace_dbg_info *dinfo)
 {
@@ -177,9 +177,9 @@ static void release_debug_file(struct rb_root *root)
 
 #ifdef HAVE_LIBDW
 
-#include <libelf.h>
-#include <gelf.h>
 #include <dwarf.h>
+#include <gelf.h>
+#include <libelf.h>
 
 /*
  * symbol table contains normalized (zero-based) relative address.

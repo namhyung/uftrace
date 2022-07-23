@@ -1,21 +1,21 @@
-#include <stdio.h>
-#include <stdint.h>
-#include <stdbool.h>
 #include <inttypes.h>
-#include <time.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <sys/stat.h>
+#include <time.h>
 
+#include "libtraceevent/event-parse.h"
+#include "libtraceevent/kbuffer.h"
 #include "uftrace.h"
-#include "version.h"
+#include "utils/event.h"
+#include "utils/filter.h"
+#include "utils/fstack.h"
+#include "utils/graph.h"
+#include "utils/kernel.h"
 #include "utils/list.h"
 #include "utils/utils.h"
-#include "utils/event.h"
-#include "utils/fstack.h"
-#include "utils/filter.h"
-#include "utils/kernel.h"
-#include "utils/graph.h"
-#include "libtraceevent/kbuffer.h"
-#include "libtraceevent/event-parse.h"
+#include "version.h"
 
 /* target sampling frequency for flame graph */
 #define FLAME_GRAPH_SAMPLE_FREQ 1000000

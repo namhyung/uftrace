@@ -1,17 +1,17 @@
+#include <errno.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
-#include <errno.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "symbol"
 #define PR_DOMAIN DBG_SYMBOL
 
-#include "uftrace.h"
-#include "utils/utils.h"
-#include "utils/symbol.h"
 #include "libmcount/internal.h"
 #include "mcount-arch.h"
+#include "uftrace.h"
+#include "utils/symbol.h"
+#include "utils/utils.h"
 
 #define R_OFFSET_POS 2
 #define JMP_INSN_SIZE 6

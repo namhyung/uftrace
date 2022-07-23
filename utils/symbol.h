@@ -9,13 +9,13 @@
 #ifndef UFTRACE_SYMBOL_H
 #define UFTRACE_SYMBOL_H
 
-#include <stdint.h>
 #include <elf.h>
+#include <stdint.h>
 
-#include "utils/utils.h"
+#include "utils/dwarf.h"
 #include "utils/list.h"
 #include "utils/rbtree.h"
-#include "utils/dwarf.h"
+#include "utils/utils.h"
 
 #ifdef HAVE_LIBELF
 #include "utils/symbol-libelf.h"

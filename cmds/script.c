@@ -7,17 +7,17 @@
  */
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <stdio_ext.h>
+#include <stdlib.h>
 
 #include "uftrace.h"
-#include "version.h"
-#include "utils/utils.h"
-#include "utils/symbol.h"
+#include "utils/event.h"
 #include "utils/filter.h"
 #include "utils/fstack.h"
 #include "utils/script.h"
-#include "utils/event.h"
+#include "utils/symbol.h"
+#include "utils/utils.h"
+#include "version.h"
 
 #include "libtraceevent/event-parse.h"
 

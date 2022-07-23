@@ -1,18 +1,18 @@
-#include <string.h>
 #include <stdint.h>
+#include <string.h>
 #include <sys/mman.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "dynamic"
 #define PR_DOMAIN DBG_DYNAMIC
 
-#include "libmcount/mcount.h"
-#include "libmcount/internal.h"
 #include "libmcount/dynamic.h"
+#include "libmcount/internal.h"
+#include "libmcount/mcount.h"
 #include "mcount-arch.h"
-#include "utils/utils.h"
-#include "utils/symbol.h"
 #include "utils/rbtree.h"
+#include "utils/symbol.h"
+#include "utils/utils.h"
 
 #define CODE_SIZE 8
 

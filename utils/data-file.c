@@ -1,22 +1,22 @@
-#include <stdio.h>
-#include <stdint.h>
-#include <inttypes.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
 #include <byteswap.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <glob.h>
+#include <inttypes.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
+#include "libmcount/mcount.h"
 #include "uftrace.h"
 #include "utils/event.h"
-#include "utils/utils.h"
-#include "utils/fstack.h"
 #include "utils/filter.h"
-#include "utils/symbol.h"
+#include "utils/fstack.h"
 #include "utils/kernel.h"
 #include "utils/perf.h"
-#include "libmcount/mcount.h"
+#include "utils/symbol.h"
+#include "utils/utils.h"
 
 /**
  * read_task_file - read 'task' file from data directory

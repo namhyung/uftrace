@@ -1,17 +1,17 @@
 #ifndef HAVE_LIBELF
 
-#include <stdio.h>
 #include <fcntl.h>
-#include <unistd.h>
-#include <sys/stat.h>
+#include <stdio.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "symbol"
 #define PR_DOMAIN DBG_SYMBOL
 
-#include "utils/utils.h"
 #include "utils/symbol-rawelf.h"
+#include "utils/utils.h"
 
 /*
  *  ELF File Header validation logic.

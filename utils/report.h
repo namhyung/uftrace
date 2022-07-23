@@ -1,8 +1,8 @@
 #ifndef UFTRACE_REPORT_H
 #define UFTRACE_REPORT_H
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "uftrace.h"
 #include "utils/rbtree.h"

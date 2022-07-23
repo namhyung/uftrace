@@ -9,25 +9,25 @@
 #ifndef UFTRACE_MCOUNT_INTERNAL_H
 #define UFTRACE_MCOUNT_INTERNAL_H
 
-#include <stdint.h>
-#include <stdbool.h>
 #include <inttypes.h>
+#include <link.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
-#include <sys/types.h>
-#include <sys/syscall.h>
-#include <link.h>
 
 #ifdef HAVE_LIBCAPSTONE
 #include <capstone/capstone.h>
 #endif
 
-#include "uftrace.h"
 #include "mcount-arch.h"
+#include "uftrace.h"
+#include "utils/compiler.h"
+#include "utils/filter.h"
 #include "utils/rbtree.h"
 #include "utils/symbol.h"
-#include "utils/filter.h"
-#include "utils/compiler.h"
 
 /* could be defined in mcount-arch.h */
 #ifndef ARCH_SUPPORT_AUTO_RECOVER

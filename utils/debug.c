@@ -6,11 +6,11 @@
  * Released under the GPL v2.
  */
 
-#include <stdio.h>
-#include <stdarg.h>
-#include <unistd.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <unistd.h>
 
 #include "utils/utils.h"
 

@@ -1,20 +1,20 @@
-#include <string.h>
-#include <pthread.h>
-#include <unistd.h>
 #include <dlfcn.h>
 #include <link.h>
-#include <sys/uio.h>
+#include <pthread.h>
 #include <spawn.h>
+#include <string.h>
+#include <sys/uio.h>
+#include <unistd.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "wrap"
 #define PR_DOMAIN DBG_WRAP
 
-#include "libmcount/mcount.h"
-#include "libmcount/internal.h"
 #include "libmcount/dynamic.h"
-#include "utils/utils.h"
+#include "libmcount/internal.h"
+#include "libmcount/mcount.h"
 #include "utils/compiler.h"
+#include "utils/utils.h"
 
 extern struct uftrace_sym_info mcount_sym_info;
 

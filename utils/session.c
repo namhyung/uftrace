@@ -1,16 +1,16 @@
-#include <stdlib.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #define PR_FMT "session"
 #define PR_DOMAIN DBG_SESSION
 
-#include "uftrace.h"
-#include "utils/symbol.h"
-#include "utils/rbtree.h"
-#include "utils/utils.h"
-#include "utils/fstack.h"
 #include "libmcount/mcount.h"
+#include "uftrace.h"
+#include "utils/fstack.h"
+#include "utils/rbtree.h"
+#include "utils/symbol.h"
+#include "utils/utils.h"
 
 static void delete_tasks(struct uftrace_session_link *sessions);
 

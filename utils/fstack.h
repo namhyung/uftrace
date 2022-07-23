@@ -1,9 +1,9 @@
 #ifndef UFTRACE_FSTACK_H
 #define UFTRACE_FSTACK_H
 
-#include <stdio.h>
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
 
 #include "uftrace.h"
 #include "utils/filter.h"

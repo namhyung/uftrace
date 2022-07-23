@@ -1,11 +1,11 @@
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <getopt.h>
 
 #include "uftrace.h"
-#include "version.h"
 #include "utils/utils.h"
+#include "version.h"
 
 char *demangle(char *str);
 

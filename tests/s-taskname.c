@@ -1,6 +1,6 @@
 #define _GNU_SOURCE
-#include <sys/prctl.h>
 #include <pthread.h>
+#include <sys/prctl.h>
 
 void task_name1(const char *name)
 {

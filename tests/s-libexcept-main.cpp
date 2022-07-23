@@ -1,6 +1,6 @@
+#include "s-libexcept.hpp"
 #include <exception>
 #include <stdexcept>
-#include "s-libexcept.hpp"
 
 class YYY {
     public:

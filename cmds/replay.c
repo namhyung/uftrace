@@ -1,18 +1,18 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <signal.h>
 #include <inttypes.h>
+#include <signal.h>
+#include <stdio.h>
 #include <stdio_ext.h>
+#include <stdlib.h>
 
 #include "uftrace.h"
-#include "utils/utils.h"
-#include "utils/symbol.h"
+#include "utils/event.h"
+#include "utils/field.h"
 #include "utils/filter.h"
 #include "utils/fstack.h"
-#include "utils/list.h"
 #include "utils/kernel.h"
-#include "utils/field.h"
-#include "utils/event.h"
+#include "utils/list.h"
+#include "utils/symbol.h"
+#include "utils/utils.h"
 
 #include "libtraceevent/event-parse.h"
 

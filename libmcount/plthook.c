@@ -1,24 +1,24 @@
-#include <stdbool.h>
-#include <unistd.h>
-#include <signal.h>
-#include <link.h>
-#include <sys/mman.h>
-#include <pthread.h>
 #include <dlfcn.h>
-#include <fnmatch.h>
 #include <errno.h>
+#include <fnmatch.h>
+#include <link.h>
+#include <pthread.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "plthook"
 #define PR_DOMAIN DBG_PLTHOOK
 
-#include "libmcount/mcount.h"
 #include "libmcount/internal.h"
+#include "libmcount/mcount.h"
 #include "mcount-arch.h"
-#include "utils/utils.h"
 #include "utils/filter.h"
 #include "utils/script.h"
 #include "utils/symbol.h"
+#include "utils/utils.h"
 
 #ifndef PT_GNU_RELRO
 #define PT_GNU_RELRO 0x6474e552 /* Read-only after relocation */

@@ -1,7 +1,7 @@
+#include "../utils/compiler.h"
 #include <signal.h>
 #include <stdlib.h>
 #include <sys/time.h>
-#include "../utils/compiler.h"
 
 void foo(void);
 void bar(void);

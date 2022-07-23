@@ -1,7 +1,7 @@
 #include <signal.h>
 #include <stdbool.h>
-#include <ucontext.h>
 #include <sys/mman.h>
+#include <ucontext.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "event"

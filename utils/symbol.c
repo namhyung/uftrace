@@ -6,23 +6,23 @@
  * Released under the GPL v2.
  */
 
+#include <errno.h>
+#include <fcntl.h>
+#include <inttypes.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
-#include <fcntl.h>
-#include <errno.h>
 #include <unistd.h>
-#include <inttypes.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "symbol"
 #define PR_DOMAIN DBG_SYMBOL
 
 #include "uftrace.h"
-#include "utils/utils.h"
-#include "utils/symbol.h"
 #include "utils/filter.h"
 #include "utils/rbtree.h"
+#include "utils/symbol.h"
+#include "utils/utils.h"
 
 #ifndef EM_AARCH64
 #define EM_AARCH64 183

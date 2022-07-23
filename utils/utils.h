@@ -9,15 +9,15 @@
 #ifndef UFTRACE_UTILS_H
 #define UFTRACE_UTILS_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <endian.h>
-#include <string.h>
 #include <ctype.h>
+#include <endian.h>
 #include <limits.h>
 #include <signal.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #include "compiler.h"

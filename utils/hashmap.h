@@ -17,8 +17,8 @@
 #ifndef __HASHMAP_H
 #define __HASHMAP_H
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 
 #if defined(__amd64__) || defined(__aarch64__)

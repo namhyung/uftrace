@@ -1,5 +1,5 @@
-#include <stdexcept>
 #include "s-libexcept.hpp"
+#include <stdexcept>
 
 XXX::XXX()
 {

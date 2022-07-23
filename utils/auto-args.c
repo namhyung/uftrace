@@ -6,14 +6,14 @@
 #define PR_DOMAIN DBG_FILTER
 
 #include "uftrace.h"
-#include "utils/filter.h"
-#include "utils/utils.h"
-#include "utils/symbol.h"
-#include "utils/rbtree.h"
-#include "utils/list.h"
+#include "utils/argspec.h"
 #include "utils/auto-args.h"
 #include "utils/dwarf.h"
-#include "utils/argspec.h"
+#include "utils/filter.h"
+#include "utils/list.h"
+#include "utils/rbtree.h"
+#include "utils/symbol.h"
+#include "utils/utils.h"
 
 /* RB-tree maintaining automatic arguments and return value */
 static struct rb_root auto_argspec = RB_ROOT;

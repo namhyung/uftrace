@@ -9,8 +9,8 @@
 #define UFTRACE_SCRIPT_H
 
 #include "libmcount/mcount.h"
-#include "utils/script-python.h"
 #include "utils/script-luajit.h"
+#include "utils/script-python.h"
 #include "utils/utils.h"
 
 #define SCRIPT_ENABLED (SCRIPT_LUAJIT_ENABLED || SCRIPT_PYTHON_ENABLED)

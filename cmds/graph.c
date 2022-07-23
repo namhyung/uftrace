@@ -1,16 +1,16 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <signal.h>
 #include <inttypes.h>
+#include <signal.h>
+#include <stdio.h>
 #include <stdio_ext.h>
+#include <stdlib.h>
 
 #include "uftrace.h"
-#include "utils/utils.h"
-#include "utils/symbol.h"
+#include "utils/field.h"
 #include "utils/filter.h"
 #include "utils/fstack.h"
-#include "utils/field.h"
 #include "utils/graph.h"
+#include "utils/symbol.h"
+#include "utils/utils.h"
 
 static LIST_HEAD(output_fields);
 static LIST_HEAD(output_task_fields);

@@ -7,11 +7,11 @@
 #define PR_FMT "mcount"
 #define PR_DOMAIN DBG_MCOUNT
 
-#include "uftrace.h"
-#include "libmcount/mcount.h"
 #include "libmcount/internal.h"
-#include "utils/utils.h"
+#include "libmcount/mcount.h"
+#include "uftrace.h"
 #include "utils/symbol.h"
+#include "utils/utils.h"
 
 #define TRAMP_ENT_SIZE 16 /* size of trampoilne for each entry */
 #define TRAMP_PLT0_SIZE 32 /* module id + address of plthook_addr() */

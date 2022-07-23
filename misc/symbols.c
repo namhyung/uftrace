@@ -1,13 +1,13 @@
+#include <getopt.h>
 #include <inttypes.h>
 #include <unistd.h>
-#include <getopt.h>
 
 #include "uftrace.h"
-#include "version.h"
-#include "utils/utils.h"
-#include "utils/symbol.h"
-#include "utils/dwarf.h"
 #include "utils/arch.h"
+#include "utils/dwarf.h"
+#include "utils/symbol.h"
+#include "utils/utils.h"
+#include "version.h"
 
 /* needs to print session info with symbol */
 static bool needs_session;

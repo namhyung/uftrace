@@ -1,14 +1,14 @@
 #ifndef UFTRACE_FILTER_H
 #define UFTRACE_FILTER_H
 
-#include <stdio.h>
-#include <stdint.h>
 #include <regex.h>
+#include <stdint.h>
+#include <stdio.h>
 
-#include "utils/rbtree.h"
-#include "utils/list.h"
 #include "utils/arch.h"
 #include "utils/argspec.h"
+#include "utils/list.h"
+#include "utils/rbtree.h"
 
 /**
  * REGEX_CHARS: characters for regex matching.

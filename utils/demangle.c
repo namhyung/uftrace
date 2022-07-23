@@ -43,8 +43,8 @@
 #define PR_FMT "demangle"
 #define PR_DOMAIN DBG_DEMANGLE
 
-#include "utils/utils.h"
 #include "utils/symbol.h"
+#include "utils/utils.h"
 
 #define MAX_DEBUG_DEPTH 128
 

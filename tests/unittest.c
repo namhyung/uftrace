@@ -1,14 +1,14 @@
-#include <stdio.h>
 #include <fcntl.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <unistd.h>
-#include <sys/wait.h>
 #include <link.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
-#include "utils/utils.h"
-#include "utils/symbol.h"
 #include "tests/unittest.h"
+#include "utils/symbol.h"
+#include "utils/utils.h"
 
 static bool color = true;
 

@@ -6,27 +6,27 @@
  * Released under the GPL v2.
  */
 
-#include <stdio.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
 #include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <inttypes.h>
-#include <sys/stat.h>
+#include <stdio.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "kernel"
 #define PR_DOMAIN DBG_KERNEL
 
-#include "uftrace.h"
-#include "utils/utils.h"
-#include "utils/fstack.h"
-#include "utils/filter.h"
-#include "utils/rbtree.h"
-#include "utils/kernel.h"
-#include "libtraceevent/kbuffer.h"
 #include "libtraceevent/event-parse.h"
+#include "libtraceevent/kbuffer.h"
+#include "uftrace.h"
+#include "utils/filter.h"
+#include "utils/fstack.h"
+#include "utils/kernel.h"
+#include "utils/rbtree.h"
+#include "utils/utils.h"
 
 #define TRACING_DIR "/sys/kernel/debug/tracing"
 

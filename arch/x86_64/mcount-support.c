@@ -6,8 +6,8 @@
 #define PR_DOMAIN DBG_MCOUNT
 
 #include "libmcount/internal.h"
-#include "utils/filter.h"
 #include "utils/arch.h"
+#include "utils/filter.h"
 
 #define COPY_XMM(xmm)                                                                              \
 	do {                                                                                       \

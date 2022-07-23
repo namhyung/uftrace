@@ -12,14 +12,14 @@
 #define PR_FMT "script"
 #define PR_DOMAIN DBG_SCRIPT
 
+#include "utils/script-python.h"
+#include "utils/filter.h"
+#include "utils/fstack.h"
+#include "utils/script.h"
+#include "utils/symbol.h"
+#include "utils/utils.h"
 #include <dlfcn.h>
 #include <pthread.h>
-#include "utils/utils.h"
-#include "utils/symbol.h"
-#include "utils/fstack.h"
-#include "utils/filter.h"
-#include "utils/script.h"
-#include "utils/script-python.h"
 
 /* python library name, it should support any version python v2 or v3 */
 static const char libpython[] = "libpython" stringify(LIBPYTHON_VERSION) ".so";
