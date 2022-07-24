@@ -297,10 +297,11 @@ __visible_default int backtrace(void **buffer, int sz)
 		mcount_hook_functions();
 
 	mtdp = get_thread_data();
-	if (!check_thread_data(mtdp))
+	if (!check_thread_data(mtdp)) {
 		mcount_rstack_restore(mtdp);
+		pr_dbg("%s is called from [%d]\n", __func__, mtdp->idx);
+	}
 
-	pr_dbg("%s is called from [%d]\n", __func__, mtdp->idx);
 	ret = real_backtrace(buffer, sz);
 
 	if (!check_thread_data(mtdp))
@@ -484,7 +485,7 @@ __visible_default __noreturn void pthread_exit(void *retval)
 		mcount_rstack_restore(mtdp);
 	}
 
-	if (mtdp)
+	if (!check_thread_data(mtdp))
 		pr_dbg("%s: pthread exited on [%d]\n", __func__, mtdp->idx);
 	real_pthread_exit(retval);
 }
