@@ -106,9 +106,10 @@ SCRIPT EXECUTION
 uftrace 는 함수의 진입과 반환 시점에 스크립트 실행이 가능하다.
 현재 지원되는 스크립트 타입은 Python 2.7, Python 3 그리고 Lua 5.1 이다.
 
-사용자는 네 개의 함수를 작성할 수 있다. 'uftrace_entry' 와 'uftracce_exit' 은
+사용자는 다섯 개의 함수를 작성할 수 있다. 'uftrace_entry' 와 'uftracce_exit' 은
 각 함수의 진입시점과 반환시점에 항상 실행된다.  하지만 'uftrace_begin' 과
 'uftrace_end' 는 분석 대상 프로그램이 초기화되고 종료될때 한 번씩만 실행된다.
+'uftrace_event' 는 이벤트를 만나면 호출된다.
 
     $ cat scripts/simple.py
     def uftrace_begin(ctx):
@@ -121,6 +122,10 @@ uftrace 는 함수의 진입과 반환 시점에 스크립트 실행이 가능�
     def uftrace_exit(ctx):
         func = ctx["name"]
         print("exit  : " + func + "()")
+
+    def uftrace_event(ctx):
+        name = ctx["name"]
+        print("event : " + name)
 
     def uftrace_end():
         print("program is finished")
@@ -221,6 +226,27 @@ record 옵션들을 자동으로 추가할 수 있다.
     $ uftrace script -S arg.py
     a has args
     b has retval
+
+또한, 스크립트는 이벤트 레코드와 원하는 이벤트 데이터를 "args" 로 받아
+처리할 수 있다.
+"args" 인자는 여러 개의 KEY=VALUE 쌍으로 이루어진 문자열이다.
+record 로는 동작하지 않고 `uftrace script` 로 실행할 수 있다.
+
+    $ cat event.py
+    def uftrace_entry(ctx):
+        pass
+    def uftrace_exit(ctx):
+        pass
+    def uftrace_event(ctx):
+        if "args" in ctx:
+            print(ctx["name"] + " ::: " + ctx["args"])
+        else:
+            print(ctx["name"])
+
+    $ uftrace record -T a@read=proc/statm abc
+    $ uftrace script -S event.py
+    read:proc/statm ::: vmsize=31060KB vmrss=15412KB shared=11064KB
+    diff:proc/statm ::: vmsize=+0KB vmrss=+0KB shared=+0KB
 
 
 함께 보기
