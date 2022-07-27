@@ -2409,8 +2409,10 @@ static int check_test_debug_info(struct uftrace_dbg_info *dinfo1, struct uftrace
 		TEST_STREQ(save_entry->spec, load_entry->spec);
 		TEST_EQ(save_entry->offset, load_entry->offset);
 
-		save_entry = rb_entry(rb_next(&save_entry->node), struct debug_entry, node);
-		load_entry = rb_entry(rb_next(&load_entry->node), struct debug_entry, node);
+		node = rb_next(&save_entry->node);
+		save_entry = node ? rb_entry(node, struct debug_entry, node) : NULL;
+		node = rb_next(&load_entry->node);
+		load_entry = node ? rb_entry(node, struct debug_entry, node) : NULL;
 	}
 	TEST_EQ(save_entry == NULL, load_entry == NULL);
 
