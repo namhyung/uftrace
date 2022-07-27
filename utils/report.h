@@ -30,6 +30,7 @@ struct uftrace_report_node {
 	uint64_t call;
 	struct rb_node name_link;
 	struct rb_node sort_link;
+	unsigned size;
 
 	/* used by diff */
 	struct uftrace_report_node *pair;

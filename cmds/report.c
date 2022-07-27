@@ -50,6 +50,7 @@ static void find_insert_node(struct rb_root *root, struct uftrace_task_reader *t
 	if (needs_srcline)
 		loc = task_find_loc_addr(&task->h->sessions, task, timestamp, addr);
 
+	task->func = sym;
 	symname = symbol_getname(sym, addr);
 	insert_node(root, task, symname, loc);
 	symbol_putname(sym, symname);
