@@ -11,6 +11,11 @@
 #include <unistd.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <elf.h>
 
 #include "utils/utils.h"
 
@@ -89,6 +94,30 @@ static void color(const char *code, FILE *fp)
 		pr_dbg("resetting terminal color failed");
 }
 
+static bool is_elf_file(const char *pathname)
+{
+	int fd;
+	char buf[EI_NIDENT];
+	bool ret = true;
+
+	fd = open(pathname, O_RDONLY);
+	if (fd < 0)
+		return false;
+
+	/*
+	 * #define EI_NIDENT (16)
+	 * #define ELFMAG          "\177ELF"
+	 * #define SELFMAG         4
+	 */
+	if (read(fd, buf, SELFMAG) < 0)
+		ret = false;
+	else if (memcmp(buf, ELFMAG, SELFMAG))
+		ret = false;
+
+	close(fd);
+	return ret;
+}
+
 static bool check_busybox(const char *pager)
 {
 	struct strv path_strv = STRV_INIT;
@@ -118,7 +147,9 @@ static bool check_busybox(const char *pager)
 check:
 	path = realpath(pager, NULL);
 	if (path) {
-		ret = !strncmp("busybox", basename(path), 7);
+		if (!strncmp("busybox", basename(path), 7) ||
+		    !is_elf_file(path))
+			ret = true;
 		free(path);
 	}
 
