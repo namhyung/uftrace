@@ -1162,19 +1162,14 @@ static struct uftrace_graph graphviz_graph = {
 static void dump_graphviz_header(struct uftrace_dump_ops *ops, struct uftrace_data *handle,
 				 struct uftrace_opts *opts)
 {
-	pr_out("# version\":\"uftrace %s\",\n", UFTRACE_VERSION);
+	pr_out("# version\":\"uftrace %s\"\n", UFTRACE_VERSION);
 
 	if (handle->hdr.info_mask & (1UL << CMDLINE))
 		pr_out("# command_line \"%s\"\n", handle->info.cmdline);
 
-	pr_out("digraph \"");
-	pr_out("%s", (&handle->info)->exename);
-	pr_out("\" { \n");
-	pr_out("\n\t# Attributes \n");
-	pr_out("\tsplines=ortho;\n");
-	pr_out("\tconcentrate=true;\n");
-	pr_out("\tnode [shape=\"rect\",fontsize=\"7\",style=\"filled\"];\n");
-	pr_out("\tedge [fontsize=\"7\"];\n\n");
+	pr_out("\ndigraph ");
+	pr_out("\"%s\"", basename(handle->info.exename));
+	pr_out(" { \n");
 
 	graph_init_callbacks(NULL, NULL, NULL, ops);
 }
@@ -1225,14 +1220,14 @@ static void print_graph_to_graphviz(struct uftrace_graph_node *node, struct uftr
 	if (n_calls) {
 		struct uftrace_graph_node *parent = node->parent;
 
-		pr_out("\t");
+		pr_out("    ");
 		if (parent != NULL && parent->name != NULL) {
 			pr_out("\"%s\" -> ", parent->name);
 		}
 		pr_out("\"%s\"", node->name);
 
 		// Edge Attributes
-		pr_out(" [xlabel = \"Calls : %lu\"]\n", n_calls);
+		pr_out(" [xlabel = \"%lu\"]\n", n_calls);
 	}
 
 	list_for_each_entry(child, &node->head, list)
@@ -1242,7 +1237,6 @@ static void print_graph_to_graphviz(struct uftrace_graph_node *node, struct uftr
 static void dump_graphviz_footer(struct uftrace_dump_ops *ops, struct uftrace_data *handle,
 				 struct uftrace_opts *opts)
 {
-	pr_out("\t# Elements \n");
 	print_graph_to_graphviz(&graphviz_graph.root, opts);
 	pr_out("}\n");
 
