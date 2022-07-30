@@ -260,7 +260,7 @@ print_feature "cxa_demangle" "cxa_demangle" "full demangler support with libstdc
 print_feature "perf_event" "perf_clockid" "perf (PMU) event support"
 print_feature "schedule" "perf_context_switch" "scheduler event support"
 print_feature "capstone" "have_libcapstone" "full dynamic tracing support"
-print_feature "libunwind" "have_libunwind" "libunwind support"
+print_feature "libunwind" "have_libunwind" "stacktrace support (optional for debugging)"
 
 cat >$output <<EOF
 # this file is generated automatically
