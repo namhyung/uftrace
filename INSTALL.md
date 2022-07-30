@@ -85,7 +85,7 @@ It will show the prefix directory and detected features like:
     ...     perf_event: [ on  ] - perf (PMU) event support
     ...       schedule: [ on  ] - scheduler event support
     ...       capstone: [ on  ] - full dynamic tracing support
-    ...      libunwind: [ OFF ] - libunwind support
+    ...      libunwind: [ OFF ] - stacktrace support (optional for debugging)
 
 Then you can run `make` to build the source.
 
