@@ -13,8 +13,6 @@
 #include "utils/tracefs.h"
 #include "utils/utils.h"
 
-static char *TRACING_DIR = NULL;
-
 /* old kernel never updates pid filter for a forked child */
 void update_kernel_tid(int tid)
 {
@@ -23,16 +21,13 @@ void update_kernel_tid(int tid)
 	int fd;
 	ssize_t len;
 
-	if (!TRACING_DIR && !find_tracing_dir(&TRACING_DIR))
-		return;
-
 	if (!kernel_pid_update)
 		return;
 
 	/* update pid filter for function tracing */
-	xasprintf(&filename, "%s/set_ftrace_pid", TRACING_DIR);
+	filename = get_tracing_file("set_ftrace_pid");
 	fd = open(filename, O_WRONLY | O_APPEND);
-	free(filename);
+	put_tracing_file(filename);
 
 	if (fd < 0) {
 		pr_dbg("open kernel ftrace pid filter failed\n");
@@ -47,9 +42,9 @@ void update_kernel_tid(int tid)
 	close(fd);
 
 	/* update pid filter for event tracing */
-	xasprintf(&filename, "%s/set_event_pid", TRACING_DIR);
+	filename = get_tracing_file("set_event_pid");
 	fd = open(filename, O_WRONLY | O_APPEND);
-	free(filename);
+	put_tracing_file(filename);
 	if (fd < 0) {
 		pr_dbg("open kernel event pid filter failed\n");
 		return;

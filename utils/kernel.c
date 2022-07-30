@@ -29,8 +29,6 @@
 #include "utils/tracefs.h"
 #include "utils/utils.h"
 
-static char *TRACING_DIR = NULL;
-
 static bool kernel_tracing_enabled;
 
 /* tree of executed kernel functions */
@@ -47,142 +45,6 @@ static int generic_event_handler(struct trace_seq *s, struct pevent_record *reco
 
 static int save_kernel_files(struct uftrace_kernel_writer *kernel);
 static int load_kernel_files(struct uftrace_kernel_reader *kernel);
-
-static char *get_tracing_file(const char *name)
-{
-	char *file = NULL;
-
-	if (!TRACING_DIR && !find_tracing_dir(&TRACING_DIR))
-		return NULL;
-
-	xasprintf(&file, "%s/%s", TRACING_DIR, name);
-	return file;
-}
-
-static void put_tracing_file(char *file)
-{
-	free(file);
-}
-
-static int open_tracing_file(const char *name, bool append)
-{
-	char *file;
-	int fd;
-	int flags = O_WRONLY;
-
-	file = get_tracing_file(name);
-	if (!file) {
-		pr_dbg("cannot get tracing file: %s: %m\n", name);
-		return -1;
-	}
-
-	if (append)
-		flags |= O_APPEND;
-	else
-		flags |= O_TRUNC;
-
-	fd = open(file, flags);
-	if (fd < 0)
-		pr_dbg("cannot open tracing file: %s: %m\n", name);
-
-	put_tracing_file(file);
-	return fd;
-}
-
-static int __write_tracing_file(int fd, const char *name, const char *val, bool append,
-				bool correct_sys_prefix)
-{
-	int ret = -1;
-	ssize_t size = strlen(val);
-
-	if (correct_sys_prefix) {
-		char *newval = (char *)val;
-
-		if (!strncmp(val, "sys_", 4))
-			newval[0] = newval[2] = 'S';
-		else if (!strncmp(val, "compat_sys_", 11))
-			newval[7] = newval[9] = 'S';
-		else
-			correct_sys_prefix = false;
-	}
-
-	pr_dbg2("%s '%s' to tracing/%s\n", append ? "appending" : "writing", val, name);
-
-	if (write(fd, val, size) == size)
-		ret = 0;
-
-	if (correct_sys_prefix) {
-		char *newval = (char *)val;
-
-		if (!strncmp(val, "SyS_", 4))
-			newval[0] = newval[2] = 's';
-		else if (!strncmp(val, "compat_SyS_", 11))
-			newval[7] = newval[9] = 's';
-
-		/* write a whitespace to distinguish the previous pattern */
-		if (write(fd, " ", 1) < 0)
-			ret = -1;
-
-		pr_dbg2("%s '%s' to tracing/%s\n", append ? "appending" : "writing", val, name);
-
-		if (write(fd, val, size) == size)
-			ret = 0;
-	}
-
-	if (ret < 0)
-		pr_dbg("write '%s' to tracing/%s failed: %m\n", val, name);
-
-	return ret;
-}
-
-static int write_tracing_file(const char *name, const char *val)
-{
-	int ret;
-	int fd = open_tracing_file(name, false);
-
-	if (fd < 0)
-		return -1;
-
-	ret = __write_tracing_file(fd, name, val, false, false);
-
-	close(fd);
-	return ret;
-}
-
-static int append_tracing_file(const char *name, const char *val)
-{
-	int ret;
-	int fd = open_tracing_file(name, true);
-
-	if (fd < 0)
-		return -1;
-
-	ret = __write_tracing_file(fd, name, val, true, false);
-
-	close(fd);
-	return ret;
-}
-
-static int set_tracing_pid(int pid)
-{
-	char buf[16];
-
-	snprintf(buf, sizeof(buf), "%d", pid);
-	if (append_tracing_file("set_ftrace_pid", buf) < 0)
-		return -1;
-
-	/* ignore error on old kernel */
-	append_tracing_file("set_event_pid", buf);
-	return 0;
-}
-
-static int set_tracing_clock(char *clock_str)
-{
-	/* set to default clock source if not given */
-	if (clock_str == NULL)
-		clock_str = "mono";
-	return write_tracing_file("trace_clock", clock_str);
-}
 
 struct kfilter {
 	struct list_head list;
@@ -901,15 +763,20 @@ static int save_kernel_file(FILE *fp, const char *name)
 {
 	ssize_t len;
 	char buf[PATH_MAX];
+	char *filename = NULL;
 
-	snprintf(buf, sizeof(buf), "%s/%s", TRACING_DIR, name);
+	filename = get_tracing_file(name);
+	if (filename == NULL)
+		return -1;
 
-	len = read_file(buf, buf, sizeof(buf));
+	len = read_file(filename, buf, sizeof(buf));
 	if (len < 0)
 		return -1;
 
 	fprintf(fp, "TRACEFS: %s: %zd\n", name, len);
 	fwrite(buf, len, 1, fp);
+
+	put_tracing_file(filename);
 
 	return 0;
 }
@@ -918,13 +785,16 @@ static int save_event_files(struct uftrace_kernel_writer *kernel, FILE *fp)
 {
 	int ret = -1;
 	char buf[PATH_MAX];
+	char *filename = NULL;
 	DIR *subsys = NULL;
 	DIR *event = NULL;
 	struct dirent *sys, *name;
 
-	snprintf(buf, sizeof(buf), "%s/events/enable", TRACING_DIR);
+	filename = get_tracing_file("events/enable");
+	if (filename == NULL)
+		return ret;
 
-	if (read_file(buf, buf, sizeof(buf)) < 0)
+	if (read_file(filename, buf, sizeof(buf)) < 0)
 		goto out;
 
 	/* no events enabled: exit */
@@ -933,9 +803,13 @@ static int save_event_files(struct uftrace_kernel_writer *kernel, FILE *fp)
 		goto out;
 	}
 
-	snprintf(buf, sizeof(buf), "%s/events", TRACING_DIR);
+	put_tracing_file(filename);
 
-	subsys = opendir(buf);
+	filename = get_tracing_file("events");
+	if (filename == NULL)
+		goto out;
+
+	subsys = opendir(filename);
 	if (subsys == NULL)
 		goto out;
 
@@ -947,7 +821,7 @@ static int save_event_files(struct uftrace_kernel_writer *kernel, FILE *fp)
 		if (!strcmp(sys->d_name, "ftrace"))
 			continue;
 
-		snprintf(buf, sizeof(buf), "%s/events/%s/enable", TRACING_DIR, sys->d_name);
+		snprintf(buf, sizeof(buf), "%s/%s/enable", filename, sys->d_name);
 
 		if (read_file(buf, buf, sizeof(buf)) < 0)
 			goto out;
@@ -956,7 +830,7 @@ static int save_event_files(struct uftrace_kernel_writer *kernel, FILE *fp)
 		if (buf[0] == '0')
 			continue;
 
-		snprintf(buf, sizeof(buf), "%s/events/%s", TRACING_DIR, sys->d_name);
+		snprintf(buf, sizeof(buf), "%s/%s", filename, sys->d_name);
 
 		event = opendir(buf);
 		if (event == NULL)
@@ -966,8 +840,8 @@ static int save_event_files(struct uftrace_kernel_writer *kernel, FILE *fp)
 			if (name->d_name[0] == '.' || name->d_type != DT_DIR)
 				continue;
 
-			snprintf(buf, sizeof(buf), "%s/events/%s/%s/enable", TRACING_DIR,
-				 sys->d_name, name->d_name);
+			snprintf(buf, sizeof(buf), "%s/%s/%s/enable", filename, sys->d_name,
+				 name->d_name);
 
 			if (read_file(buf, buf, sizeof(buf)) < 0)
 				goto out;
@@ -993,6 +867,8 @@ out:
 		closedir(event);
 	if (subsys)
 		closedir(subsys);
+	if (filename)
+		put_tracing_file(filename);
 	return ret;
 }
 
