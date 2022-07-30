@@ -16,46 +16,20 @@
 /* old kernel never updates pid filter for a forked child */
 void update_kernel_tid(int tid)
 {
-	char *filename = NULL;
 	char buf[8];
-	int fd;
-	ssize_t len;
 
 	if (!kernel_pid_update)
 		return;
 
-	/* update pid filter for function tracing */
-	filename = get_tracing_file("set_ftrace_pid");
-	fd = open(filename, O_WRONLY | O_APPEND);
-	put_tracing_file(filename);
-
-	if (fd < 0) {
-		pr_dbg("open kernel ftrace pid filter failed\n");
-		return;
-	}
-
 	snprintf(buf, sizeof(buf), "%d", tid);
-	len = strlen(buf);
-	if (write(fd, buf, len) != len)
-		pr_dbg("update kernel ftrace pid filter failed\n");
 
-	close(fd);
+	/* update pid filter for function tracing */
+	if (append_tracing_file("set_ftrace_pid", buf) < 0)
+		pr_dbg("write to kernel ftrace pid filter failed\n");
 
 	/* update pid filter for event tracing */
-	filename = get_tracing_file("set_event_pid");
-	fd = open(filename, O_WRONLY | O_APPEND);
-	put_tracing_file(filename);
-	if (fd < 0) {
-		pr_dbg("open kernel event pid filter failed\n");
-		return;
-	}
-
-	snprintf(buf, sizeof(buf), "%d", tid);
-	len = strlen(buf);
-	if (write(fd, buf, len) != len)
-		pr_dbg("update kernel event pid filter failed\n");
-
-	close(fd);
+	if (append_tracing_file("set_event_pid", buf) < 0)
+		pr_dbg("write to kernel ftrace pid filter failed\n");
 }
 
 const char *mcount_session_name(void)
