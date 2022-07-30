@@ -98,6 +98,20 @@ int open_tracing_file(const char *name, int flags)
 	return fd;
 }
 
+ssize_t read_tracing_file(const char *name, char *buf, size_t len)
+{
+	ssize_t ret;
+	int fd = open_tracing_file(name, O_RDONLY);
+
+	if (fd < 0)
+		return -1;
+
+	ret = read(fd, buf, len);
+	close(fd);
+
+	return ret;
+}
+
 int __write_tracing_file(int fd, const char *name, const char *val, bool append,
 			 bool correct_sys_prefix)
 {

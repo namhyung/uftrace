@@ -745,38 +745,17 @@ static const char *get_endian_str(void)
 		return "BE";
 }
 
-static int read_file(char *filename, char *buf, size_t len)
-{
-	int fd, ret;
-
-	fd = open(filename, O_RDONLY);
-	if (fd < 0)
-		return -errno;
-
-	ret = read(fd, buf, len);
-	close(fd);
-
-	return ret;
-}
-
 static int save_kernel_file(FILE *fp, const char *name)
 {
 	ssize_t len;
 	char buf[PATH_MAX];
-	char *filename = NULL;
 
-	filename = get_tracing_file(name);
-	if (filename == NULL)
-		return -1;
-
-	len = read_file(filename, buf, sizeof(buf));
+	len = read_tracing_file(name, buf, sizeof(buf));
 	if (len < 0)
 		return -1;
 
 	fprintf(fp, "TRACEFS: %s: %zd\n", name, len);
 	fwrite(buf, len, 1, fp);
-
-	put_tracing_file(filename);
 
 	return 0;
 }
@@ -790,11 +769,7 @@ static int save_event_files(struct uftrace_kernel_writer *kernel, FILE *fp)
 	DIR *event = NULL;
 	struct dirent *sys, *name;
 
-	filename = get_tracing_file("events/enable");
-	if (filename == NULL)
-		return ret;
-
-	if (read_file(filename, buf, sizeof(buf)) < 0)
+	if (read_tracing_file("events/enable", buf, sizeof(buf)))
 		goto out;
 
 	/* no events enabled: exit */
@@ -802,8 +777,6 @@ static int save_event_files(struct uftrace_kernel_writer *kernel, FILE *fp)
 		ret = 0;
 		goto out;
 	}
-
-	put_tracing_file(filename);
 
 	filename = get_tracing_file("events");
 	if (filename == NULL)
@@ -821,16 +794,16 @@ static int save_event_files(struct uftrace_kernel_writer *kernel, FILE *fp)
 		if (!strcmp(sys->d_name, "ftrace"))
 			continue;
 
-		snprintf(buf, sizeof(buf), "%s/%s/enable", filename, sys->d_name);
+		snprintf(buf, sizeof(buf), "events/%s/enable", sys->d_name);
 
-		if (read_file(buf, buf, sizeof(buf)) < 0)
+		if (read_tracing_file(buf, buf, sizeof(buf)) < 0)
 			goto out;
 
 		/* this subsystem has no events enabled */
 		if (buf[0] == '0')
 			continue;
 
-		snprintf(buf, sizeof(buf), "%s/%s", filename, sys->d_name);
+		snprintf(buf, sizeof(buf), "events/%s", sys->d_name);
 
 		event = opendir(buf);
 		if (event == NULL)
@@ -840,10 +813,10 @@ static int save_event_files(struct uftrace_kernel_writer *kernel, FILE *fp)
 			if (name->d_name[0] == '.' || name->d_type != DT_DIR)
 				continue;
 
-			snprintf(buf, sizeof(buf), "%s/%s/%s/enable", filename, sys->d_name,
+			snprintf(buf, sizeof(buf), "events/%s/%s/enable", sys->d_name,
 				 name->d_name);
 
-			if (read_file(buf, buf, sizeof(buf)) < 0)
+			if (read_tracing_file(buf, buf, sizeof(buf)) < 0)
 				goto out;
 
 			/* this event is not enabled */
