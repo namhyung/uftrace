@@ -236,7 +236,7 @@ Also a script can have options for record if it requires some form of data
     b has retval
 
 Also a script can handle event records and optional event data in "args".  The
-arguments is a string containing KEY=VALUE pairs.  Currently it only works with
+argument is a string containing KEY=VALUE pairs.  Currently it only works with
 `uftrace script` and not for record.
 
     $ cat event.py
