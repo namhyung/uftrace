@@ -26,9 +26,8 @@
 #include "utils/fstack.h"
 #include "utils/kernel.h"
 #include "utils/rbtree.h"
+#include "utils/tracefs.h"
 #include "utils/utils.h"
-
-#define TRACING_DIR "/sys/kernel/debug/tracing"
 
 static bool kernel_tracing_enabled;
 
@@ -46,139 +45,6 @@ static int generic_event_handler(struct trace_seq *s, struct pevent_record *reco
 
 static int save_kernel_files(struct uftrace_kernel_writer *kernel);
 static int load_kernel_files(struct uftrace_kernel_reader *kernel);
-
-static char *get_tracing_file(const char *name)
-{
-	char *file = NULL;
-
-	xasprintf(&file, "%s/%s", TRACING_DIR, name);
-	return file;
-}
-
-static void put_tracing_file(char *file)
-{
-	free(file);
-}
-
-static int open_tracing_file(const char *name, bool append)
-{
-	char *file;
-	int fd;
-	int flags = O_WRONLY;
-
-	file = get_tracing_file(name);
-	if (!file) {
-		pr_dbg("cannot get tracing file: %s: %m\n", name);
-		return -1;
-	}
-
-	if (append)
-		flags |= O_APPEND;
-	else
-		flags |= O_TRUNC;
-
-	fd = open(file, flags);
-	if (fd < 0)
-		pr_dbg("cannot open tracing file: %s: %m\n", name);
-
-	put_tracing_file(file);
-	return fd;
-}
-
-static int __write_tracing_file(int fd, const char *name, const char *val, bool append,
-				bool correct_sys_prefix)
-{
-	int ret = -1;
-	ssize_t size = strlen(val);
-
-	if (correct_sys_prefix) {
-		char *newval = (char *)val;
-
-		if (!strncmp(val, "sys_", 4))
-			newval[0] = newval[2] = 'S';
-		else if (!strncmp(val, "compat_sys_", 11))
-			newval[7] = newval[9] = 'S';
-		else
-			correct_sys_prefix = false;
-	}
-
-	pr_dbg2("%s '%s' to tracing/%s\n", append ? "appending" : "writing", val, name);
-
-	if (write(fd, val, size) == size)
-		ret = 0;
-
-	if (correct_sys_prefix) {
-		char *newval = (char *)val;
-
-		if (!strncmp(val, "SyS_", 4))
-			newval[0] = newval[2] = 's';
-		else if (!strncmp(val, "compat_SyS_", 11))
-			newval[7] = newval[9] = 's';
-
-		/* write a whitespace to distinguish the previous pattern */
-		if (write(fd, " ", 1) < 0)
-			ret = -1;
-
-		pr_dbg2("%s '%s' to tracing/%s\n", append ? "appending" : "writing", val, name);
-
-		if (write(fd, val, size) == size)
-			ret = 0;
-	}
-
-	if (ret < 0)
-		pr_dbg("write '%s' to tracing/%s failed: %m\n", val, name);
-
-	return ret;
-}
-
-static int write_tracing_file(const char *name, const char *val)
-{
-	int ret;
-	int fd = open_tracing_file(name, false);
-
-	if (fd < 0)
-		return -1;
-
-	ret = __write_tracing_file(fd, name, val, false, false);
-
-	close(fd);
-	return ret;
-}
-
-static int append_tracing_file(const char *name, const char *val)
-{
-	int ret;
-	int fd = open_tracing_file(name, true);
-
-	if (fd < 0)
-		return -1;
-
-	ret = __write_tracing_file(fd, name, val, true, false);
-
-	close(fd);
-	return ret;
-}
-
-static int set_tracing_pid(int pid)
-{
-	char buf[16];
-
-	snprintf(buf, sizeof(buf), "%d", pid);
-	if (append_tracing_file("set_ftrace_pid", buf) < 0)
-		return -1;
-
-	/* ignore error on old kernel */
-	append_tracing_file("set_event_pid", buf);
-	return 0;
-}
-
-static int set_tracing_clock(char *clock_str)
-{
-	/* set to default clock source if not given */
-	if (clock_str == NULL)
-		clock_str = "mono";
-	return write_tracing_file("trace_clock", clock_str);
-}
 
 struct kfilter {
 	struct list_head list;
@@ -879,28 +745,12 @@ static const char *get_endian_str(void)
 		return "BE";
 }
 
-static int read_file(char *filename, char *buf, size_t len)
-{
-	int fd, ret;
-
-	fd = open(filename, O_RDONLY);
-	if (fd < 0)
-		return -errno;
-
-	ret = read(fd, buf, len);
-	close(fd);
-
-	return ret;
-}
-
 static int save_kernel_file(FILE *fp, const char *name)
 {
 	ssize_t len;
 	char buf[PATH_MAX];
 
-	snprintf(buf, sizeof(buf), "%s/%s", TRACING_DIR, name);
-
-	len = read_file(buf, buf, sizeof(buf));
+	len = read_tracing_file(name, buf, sizeof(buf));
 	if (len < 0)
 		return -1;
 
@@ -914,13 +764,12 @@ static int save_event_files(struct uftrace_kernel_writer *kernel, FILE *fp)
 {
 	int ret = -1;
 	char buf[PATH_MAX];
+	char *filename = NULL;
 	DIR *subsys = NULL;
 	DIR *event = NULL;
 	struct dirent *sys, *name;
 
-	snprintf(buf, sizeof(buf), "%s/events/enable", TRACING_DIR);
-
-	if (read_file(buf, buf, sizeof(buf)) < 0)
+	if (read_tracing_file("events/enable", buf, sizeof(buf)))
 		goto out;
 
 	/* no events enabled: exit */
@@ -929,9 +778,11 @@ static int save_event_files(struct uftrace_kernel_writer *kernel, FILE *fp)
 		goto out;
 	}
 
-	snprintf(buf, sizeof(buf), "%s/events", TRACING_DIR);
+	filename = get_tracing_file("events");
+	if (filename == NULL)
+		goto out;
 
-	subsys = opendir(buf);
+	subsys = opendir(filename);
 	if (subsys == NULL)
 		goto out;
 
@@ -943,16 +794,16 @@ static int save_event_files(struct uftrace_kernel_writer *kernel, FILE *fp)
 		if (!strcmp(sys->d_name, "ftrace"))
 			continue;
 
-		snprintf(buf, sizeof(buf), "%s/events/%s/enable", TRACING_DIR, sys->d_name);
+		snprintf(buf, sizeof(buf), "events/%s/enable", sys->d_name);
 
-		if (read_file(buf, buf, sizeof(buf)) < 0)
+		if (read_tracing_file(buf, buf, sizeof(buf)) < 0)
 			goto out;
 
 		/* this subsystem has no events enabled */
 		if (buf[0] == '0')
 			continue;
 
-		snprintf(buf, sizeof(buf), "%s/events/%s", TRACING_DIR, sys->d_name);
+		snprintf(buf, sizeof(buf), "events/%s", sys->d_name);
 
 		event = opendir(buf);
 		if (event == NULL)
@@ -962,10 +813,10 @@ static int save_event_files(struct uftrace_kernel_writer *kernel, FILE *fp)
 			if (name->d_name[0] == '.' || name->d_type != DT_DIR)
 				continue;
 
-			snprintf(buf, sizeof(buf), "%s/events/%s/%s/enable", TRACING_DIR,
-				 sys->d_name, name->d_name);
+			snprintf(buf, sizeof(buf), "events/%s/%s/enable", sys->d_name,
+				 name->d_name);
 
-			if (read_file(buf, buf, sizeof(buf)) < 0)
+			if (read_tracing_file(buf, buf, sizeof(buf)) < 0)
 				goto out;
 
 			/* this event is not enabled */
@@ -989,6 +840,8 @@ out:
 		closedir(event);
 	if (subsys)
 		closedir(subsys);
+	if (filename)
+		put_tracing_file(filename);
 	return ret;
 }
 
@@ -1042,7 +895,7 @@ static int load_current_kernel(struct uftrace_kernel_reader *kernel)
 	pevent_set_file_bigendian(pevent, is_big_endian);
 	pevent_set_host_bigendian(pevent, is_big_endian);
 
-	fd = open(TRACING_DIR "/events/header_page", O_RDONLY);
+	fd = open_tracing_file("events/header_page", O_RDONLY);
 	if (fd < 0)
 		return -1;
 
@@ -1050,7 +903,7 @@ static int load_current_kernel(struct uftrace_kernel_reader *kernel)
 	pevent_parse_header_page(pevent, buf, len, sizeof(long));
 	close(fd);
 
-	fd = open(TRACING_DIR "/events/ftrace/funcgraph_entry/format", O_RDONLY);
+	fd = open_tracing_file("events/ftrace/funcgraph_entry/format", O_RDONLY);
 	if (fd < 0)
 		return -1;
 
@@ -1058,7 +911,7 @@ static int load_current_kernel(struct uftrace_kernel_reader *kernel)
 	pevent_parse_event(pevent, buf, len, "ftrace");
 	close(fd);
 
-	fd = open(TRACING_DIR "/events/ftrace/funcgraph_exit/format", O_RDONLY);
+	fd = open_tracing_file("events/ftrace/funcgraph_exit/format", O_RDONLY);
 	if (fd < 0)
 		return -1;
 

@@ -10,52 +10,26 @@
 
 #include "libmcount/internal.h"
 #include "libmcount/mcount.h"
+#include "utils/tracefs.h"
 #include "utils/utils.h"
 
 /* old kernel never updates pid filter for a forked child */
 void update_kernel_tid(int tid)
 {
-	static const char TRACING_DIR[] = "/sys/kernel/debug/tracing";
-	char *filename = NULL;
 	char buf[8];
-	int fd;
-	ssize_t len;
 
 	if (!kernel_pid_update)
 		return;
 
-	/* update pid filter for function tracing */
-	xasprintf(&filename, "%s/set_ftrace_pid", TRACING_DIR);
-	fd = open(filename, O_WRONLY | O_APPEND);
-	free(filename);
-
-	if (fd < 0) {
-		pr_dbg("open kernel ftrace pid filter failed\n");
-		return;
-	}
-
 	snprintf(buf, sizeof(buf), "%d", tid);
-	len = strlen(buf);
-	if (write(fd, buf, len) != len)
-		pr_dbg("update kernel ftrace pid filter failed\n");
 
-	close(fd);
+	/* update pid filter for function tracing */
+	if (append_tracing_file("set_ftrace_pid", buf) < 0)
+		pr_dbg("write to kernel ftrace pid filter failed\n");
 
 	/* update pid filter for event tracing */
-	xasprintf(&filename, "%s/set_event_pid", TRACING_DIR);
-	fd = open(filename, O_WRONLY | O_APPEND);
-	free(filename);
-	if (fd < 0) {
-		pr_dbg("open kernel event pid filter failed\n");
-		return;
-	}
-
-	snprintf(buf, sizeof(buf), "%d", tid);
-	len = strlen(buf);
-	if (write(fd, buf, len) != len)
-		pr_dbg("update kernel event pid filter failed\n");
-
-	close(fd);
+	if (append_tracing_file("set_event_pid", buf) < 0)
+		pr_dbg("write to kernel ftrace pid filter failed\n");
 }
 
 const char *mcount_session_name(void)
