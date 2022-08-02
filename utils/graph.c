@@ -147,7 +147,7 @@ static int add_graph_exit(struct uftrace_task_graph *tg)
 			return 1;
 
 		/*
-		 * LOST only occures in kernel, so clear tg->lost
+		 * LOST only occurs in kernel, so clear tg->lost
 		 * when return to userspace
 		 */
 		tg->lost = false;

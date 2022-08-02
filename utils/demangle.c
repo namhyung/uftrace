@@ -1368,7 +1368,7 @@ static int dd_operator_name(struct demangle_data *dd)
 		}
 	}
 	if (c0 == 'v' && isdigit(c1)) {
-		/* vender extended operator */
+		/* vendor extended operator */
 		dd->type++;
 		dd_source_name(dd);
 		dd->type--;

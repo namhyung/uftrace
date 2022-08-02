@@ -244,7 +244,7 @@ out:
 #endif /* HAVE_PERF_CLOCKID */
 
 /**
- * setup_perf_data - preapre reading perf event data
+ * setup_perf_data - prepare reading perf event data
  * @handle - uftrace data file handle
  *
  * This function prepares to read perf event data from perf-cpu*.dat

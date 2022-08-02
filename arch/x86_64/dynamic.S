@@ -146,7 +146,7 @@ ENTRY(dynamic_return)
 	/* restore original stack pointer */
 	movq   (%rsp), %rsp
 
-	/* restore orignal return address in parent */
+	/* restore original return address in parent */
 	movq   %rax,   88(%rsp)
 
 	movq    0(%rsp), %rax

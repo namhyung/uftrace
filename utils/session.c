@@ -339,7 +339,7 @@ struct uftrace_session *get_session_from_sid(struct uftrace_session_link *sessio
  * @sess: pointer to a current session
  * @timestamp: timestamp at the dlopen call
  * @base_addr: load address of text segment of the library
- * @libname: name of the librarry
+ * @libname: name of the library
  *
  * This functions adds the info of a library which was loaded by dlopen.
  * Instead of creating a new session, it just adds the library information
@@ -412,7 +412,7 @@ void delete_session(struct uftrace_session *sess)
 }
 
 /**
- * delete_sessions - free all resouces in the @sessions
+ * delete_sessions - free all resources in the @sessions
  * @sessions: session link to manage sessions and tasks
  *
  * This function removes all session-related data structure in
@@ -466,7 +466,7 @@ static void add_session_ref(struct uftrace_task *task, struct uftrace_session *s
  *
  * This function searches the sessions tree using @task and @timestamp.
  * The most recent session that has a smaller than the @timestamp will
- * be returned.  If it didn't find a session tries to search sesssion
+ * be returned.  If it didn't find a session tries to search session
  * list of parent or thread-leader.
  */
 struct uftrace_session *find_task_session(struct uftrace_session_link *sessions,

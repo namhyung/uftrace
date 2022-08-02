@@ -10,7 +10,7 @@ fi
 OPT="${@}"
 
 if [ ! -f /etc/os-release ]; then
-    echo "Your distribution is not supported, so please install pacakges manually."
+    echo "Your distribution is not supported, so please install packages manually."
     echo
     exit
 fi

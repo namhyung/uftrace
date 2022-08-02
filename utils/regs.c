@@ -143,7 +143,7 @@ static const size_t arch_reg_sizes[] = {
 	ARRAY_SIZE(uft_i386_reg_table),
 };
 
-/* number of integer reigsters */
+/* number of integer registers */
 static const int arch_reg_int_sizes[] = {
 	0, 6, 4, 8, 2,
 };

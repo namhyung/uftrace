@@ -62,7 +62,7 @@ BUILD
 =====
 
 To build uftrace, you need to install basic software development tools first -
-like gcc and make.  And you also need to install dependent softwares. Please
+like gcc and make.  And you also need to install dependent packages. Please
 see DEPENDENCY section for more details.
 
 Once you have installed the required software(s), you need to run `configure` to set

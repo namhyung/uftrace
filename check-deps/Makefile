@@ -22,7 +22,7 @@ CHECK_LIST += cc_has_minline_all_stringops
 CHECK_CFLAGS  = $(CFLAGS)  $(CFLAGS_$@) -Werror
 CHECK_LDFLAGS = $(LDFLAGS) $(LDFLAGS_$@)
 
-# libpython3 provides an embed verison of pkg-config file since python3.8
+# libpython3 provides an embed version of pkg-config file since python3.8
 ifeq ($(shell pkg-config python3-embed --exists 2> /dev/null; echo $$?), 0)
   EMBED := -embed
 endif

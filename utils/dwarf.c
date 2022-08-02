@@ -282,7 +282,7 @@ static int setup_dwarf_info(const char *filename, struct uftrace_dbg_info *dinfo
 
 	/*
 	 * symbol table already uses relative address but non-PIE
-	 * executble needs to use absolute address for DWARF info.
+	 * executable needs to use absolute address for DWARF info.
 	 * Also as filter entry uses absolute address, it needs to
 	 * keep the offset to recover relative address back.
 	 */

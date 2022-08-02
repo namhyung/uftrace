@@ -661,7 +661,7 @@ void get_argspec_string(struct uftrace_task_reader *task, char *args, size_t len
 		else if (spec->fmt == ARG_FMT_STRUCT) {
 			if (spec->type_name) {
 				/*
-				 * gcc puts "<lambda" to annoymous lambda
+				 * gcc puts "<lambda" to anonymous lambda
 				 * but let's ignore to make it same as clang.
 				 */
 				if (strcmp(spec->type_name, "<lambda")) {

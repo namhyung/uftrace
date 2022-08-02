@@ -84,7 +84,7 @@ END(mcount)
 /*
  * Now, we are just returned from the child, RSP points to the right above the
  * stack address containing the return address (now it is mcount_return), but we
- * should restore the orignal address and the RSP to return.
+ * should restore the original address and the RSP to return.
  */
 ENTRY(mcount_return)
 	.cfi_startproc
@@ -112,7 +112,7 @@ ENTRY(mcount_return)
 	/* restore original stack pointer */
 	movq    0(%rsp), %rsp
 
-	/* restore orignal return address in parent */
+	/* restore original return address in parent */
 	movq    %rax, 40(%rsp)
 
 	movq    0(%rsp), %rax

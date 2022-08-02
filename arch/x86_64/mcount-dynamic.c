@@ -204,7 +204,7 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi, struct uftrace_sym
 		if (sym->type != ST_LOCAL_FUNC && sym->type != ST_GLOBAL_FUNC)
 			continue;
 
-		/* dont' check special functions */
+		/* don't check special functions */
 		if (sym->name[0] == '_')
 			continue;
 
@@ -727,7 +727,7 @@ void mcount_arch_patch_branch(struct mcount_disasm_info *info, struct mcount_ori
 			pr_err("target is not in reach");
 		}
 
-		/* patch jcc displacement to target correspending entry in the table */
+		/* patch jcc displacement to target corresponding entry in the table */
 		info->insns[jcc_index + 1] = disp;
 
 		entry_offset += ARCH_BRANCH_ENTRY_SIZE;
