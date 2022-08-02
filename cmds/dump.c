@@ -1324,6 +1324,12 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct uftrace_opts *opts
 		struct uftrace_kernel_reader *kernel = handle->kernel;
 		struct uftrace_record *frs = &kernel->rstacks[i];
 		struct uftrace_session *fsess = handle->sessions.first;
+		struct stat statbuf;
+
+		if (fstat(kernel->fds[i], &statbuf) < 0)
+			continue;
+		if (statbuf.st_size == 0)
+			continue;
 
 		call_if_nonull(ops->cpu_start, ops, kernel, i);
 
@@ -1364,6 +1370,12 @@ perf:
 
 	for (i = 0; i < handle->nr_perf; i++) {
 		struct uftrace_perf_reader *perf = &handle->perf[i];
+		struct stat statbuf;
+
+		if (fstat(fileno(perf->fp), &statbuf) < 0)
+			continue;
+		if (statbuf.st_size == 0)
+			continue;
 
 		call_if_nonull(ops->perf_start, ops, perf, i);
 
