@@ -505,21 +505,18 @@ static void pr_event(struct uftrace_task_reader *task, unsigned evt_id)
 	free(evt_data);
 }
 
-static void get_feature_string(char *buf, size_t sz, uint64_t feature_mask)
+static void get_header_string(char *buf, size_t sz, uint64_t hdr_mask, const char **hdr_str,
+			      int hdr_max)
 {
 	int i;
 	size_t len;
 	bool first = true;
-	const char *feat_str[] = { "PLTHOOK",	 "TASK_SESSION", "KERNEL",     "ARGUMENT",
-				   "RETVAL",	 "SYM_REL_ADDR", "MAX_STACK",  "EVENT",
-				   "PERF_EVENT", "AUTO_ARGS",	 "DEBUG_INFO", "ESTIMATE_RETURN" };
 
-	/* feat_str should match to enum uftrace_feat_bits */
-	for (i = 0; i < FEAT_BIT_MAX; i++) {
-		if (!((1U << i) & feature_mask))
+	for (i = 0; i < hdr_max; i++) {
+		if (!((1U << i) & hdr_mask))
 			continue;
 
-		len = snprintf(buf, sz, "%s%s", first ? "" : " | ", feat_str[i]);
+		len = snprintf(buf, sz, "%s%s", first ? "" : " | ", hdr_str[i]);
 		buf += len;
 		sz -= len;
 
@@ -533,6 +530,13 @@ static void dump_raw_header(struct uftrace_dump_ops *ops, struct uftrace_data *h
 	int i;
 	char buf[1024];
 	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
+	const char *feat_str[] = { "PLTHOOK",	 "TASK_SESSION", "KERNEL",     "ARGUMENT",
+				   "RETVAL",	 "SYM_REL_ADDR", "MAX_STACK",  "EVENT",
+				   "PERF_EVENT", "AUTO_ARGS",	 "DEBUG_INFO", "ESTIMATE_RETURN" };
+	const char *info_str[] = { "EXE_NAME",	   "EXE_BUILD_ID", "EXIT_STATUS", "CMDLINE",
+				   "CPUINFO",	   "MEMINFO",	   "OSINFO",	  "TASKINFO",
+				   "USAGEINFO",	   "LOADINFO",	   "ARG_SPEC",	  "RECORD_DATE",
+				   "PATTERN_TYPE", "VERSION" };
 
 	pr_out("uftrace file header: magic         = ");
 	for (i = 0; i < UFTRACE_MAGIC_LEN; i++)
@@ -544,10 +548,12 @@ static void dump_raw_header(struct uftrace_dump_ops *ops, struct uftrace_data *h
 	       handle->hdr.endian == 1 ? "little" : "big");
 	pr_out("uftrace file header: class         = %u (%s bit)\n", handle->hdr.elf_class,
 	       handle->hdr.elf_class == 2 ? "64" : "32");
-	get_feature_string(buf, sizeof(buf), handle->hdr.feat_mask);
+	get_header_string(buf, sizeof(buf), handle->hdr.feat_mask, feat_str, FEAT_BIT_MAX);
 	pr_out("uftrace file header: features      = %#" PRIx64 " (%s)\n", handle->hdr.feat_mask,
 	       buf);
-	pr_out("uftrace file header: info          = %#" PRIx64 "\n", handle->hdr.info_mask);
+	get_header_string(buf, sizeof(buf), handle->hdr.info_mask, info_str, INFO_BIT_MAX);
+	pr_out("uftrace file header: info          = %#" PRIx64 " (%s)\n", handle->hdr.info_mask,
+	       buf);
 	pr_hex(&raw->file_offset, &handle->hdr, handle->hdr.header_size);
 	pr_out("\n");
 
