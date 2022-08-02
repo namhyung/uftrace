@@ -134,7 +134,7 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi, struct uftrace_sym
 		if (sym->type != ST_LOCAL_FUNC && sym->type != ST_GLOBAL_FUNC)
 			continue;
 
-		/* dont' check special functions */
+		/* don't check special functions */
 		if (sym->name[0] == '_')
 			continue;
 

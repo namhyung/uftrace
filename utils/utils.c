@@ -600,7 +600,7 @@ char *strjoin(char *left, char *right, const char *delim)
  * @str:   input string
  * @delim: delimiter to split the string
  *
- * This function build a string vector using @str splitted by @delim.
+ * This function builds a string vector using @str split by @delim.
  */
 void strv_split(struct strv *strv, const char *str, const char *delim)
 {

@@ -568,7 +568,7 @@ char *get_enum_string(struct rb_root *root, char *name, int val)
  * This function parses @enum_str and add it to @root so that it can be
  * used for argument/return later.  The syntax of enum is same as C
  * (except for the 'enum' keyword) but it only accepts a simple integer
- * contant or other enum constant in RHS.
+ * constant or other enum constant in RHS.
  *
  * For example, following string should be accepted:
  *

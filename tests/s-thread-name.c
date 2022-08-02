@@ -41,15 +41,15 @@ static void *thread_fourth(void *arg)
 int main(void)
 {
 	int i;
-	pthread_t thid[4];
+	pthread_t thrd_id[4];
 
-	pthread_create(&thid[0], NULL, thread_first, NULL);
-	pthread_create(&thid[1], NULL, thread_second, NULL);
-	pthread_create(&thid[2], NULL, thread_third, NULL);
-	pthread_create(&thid[3], NULL, thread_fourth, NULL);
+	pthread_create(&thrd_id[0], NULL, thread_first, NULL);
+	pthread_create(&thrd_id[1], NULL, thread_second, NULL);
+	pthread_create(&thrd_id[2], NULL, thread_third, NULL);
+	pthread_create(&thrd_id[3], NULL, thread_fourth, NULL);
 
 	for (i = 0; i < 4; i++)
-		pthread_join(thid[i], NULL);
+		pthread_join(thrd_id[i], NULL);
 
 	return 0;
 }

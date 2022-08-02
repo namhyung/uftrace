@@ -70,9 +70,9 @@ Note that TYPE and ELEMENT have to be quoted as strings."""
 ContainerOf()
 
 
-def gdb_eval_or_none(expresssion):
+def gdb_eval_or_none(expression):
     try:
-        return gdb.parse_and_eval(expresssion)
+        return gdb.parse_and_eval(expression)
     except:
         return None
 

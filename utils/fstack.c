@@ -683,7 +683,7 @@ void fstack_exit(struct uftrace_task_reader *task)
  * @task   - tracee task
  * @fstack - function tracing stack
  *
- * This funciton updates current display depth according to @type and
+ * This function updates current display depth according to @type and
  * flags of @fstack, and return a new depth.
  */
 int fstack_update(int type, struct uftrace_task_reader *task, struct uftrace_fstack *fstack)

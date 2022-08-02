@@ -13,3 +13,9 @@ repos:
     rev: v14.0.6
     hooks:
     -   id: clang-format
+-   repo: https://github.com/codespell-project/codespell
+    rev: v2.1.0
+    hooks:
+    -   id: codespell
+        args: ['-I', '.codespell_ignore']
+        exclude: "libtraceevent/.*"

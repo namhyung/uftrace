@@ -11,10 +11,10 @@ void *thread_func(void *arg)
 
 int main(void)
 {
-	pthread_t thid;
+	pthread_t thrd_id;
 
-	pthread_create(&thid, NULL, thread_func, "t-abc");
-	pthread_join(thid, NULL);
+	pthread_create(&thrd_id, NULL, thread_func, "t-abc");
+	pthread_join(thrd_id, NULL);
 
 	return 0;
 }

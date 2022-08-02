@@ -83,7 +83,7 @@ static int x86_reg_index(int capstone_reg)
  * This function relocates jcc8 and jcc32 instructions by replacing them with a jcc8
  * that has a null offset. The offset will be patched later when the code is saved
  * in the of line execution buffer. The new jcc8 will bounce (if condition is met)
- * on a trampoline that jumps to the target of the orginal instruction.
+ * on a trampoline that jumps to the target of the original instruction.
  *
  * The relocation of jmp8 and jmp32 is achieved by replacing them with an absolute
  * indirect jump to the target.
@@ -545,7 +545,7 @@ static bool check_unsupported(struct mcount_disasm_engine *disasm, cs_insn *insn
 			if (info->addr > target || target >= info->addr + info->sym->size) {
 				/* also mark the target function as invalid */
 				if (!mcount_add_badsym(mdi, insn->address, target)) {
-					/* it was actuall ok (like tail call) */
+					/* it was actually ok (like tail call) */
 					return true;
 				}
 

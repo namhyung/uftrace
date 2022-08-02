@@ -120,7 +120,7 @@ struct uftrace_sym_info {
 	uint64_t kernel_base;
 	/* map for the main executable (cached) */
 	struct uftrace_mmap *exec_map;
-	/* list of memory maping info for executable and libraries */
+	/* list of memory mapping info for executable and libraries */
 	struct uftrace_mmap *maps;
 };
 
