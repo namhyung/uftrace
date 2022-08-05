@@ -18,7 +18,7 @@ jobs:
         run: make ASAN=1
 
       - name: "run unit tests"
-        run: make unittest ASAN=1
+        run: make unittest ASAN=1 TESTARG="-v"
 
   pre-commit-check:
     runs-on: ubuntu-latest
