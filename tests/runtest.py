@@ -822,6 +822,9 @@ if __name__ == "__main__":
 
     arg = parse_argument()
 
+    # Arg is checked before being bounded to be explicitly toggleable
+    use_pool = arg.worker > 1
+
     if arg.case == 'all':
         testcases = glob.glob('t???_*.py')
     else:
@@ -843,9 +846,14 @@ if __name__ == "__main__":
         flags = arg.flags.split()
 
     from functools import partial
+    class dotdict(dict):
+        """dot.notation access to dictionary attributes"""
+        __getattr__ = dict.get
+        __setattr__ = dict.__setitem__
+        __delattr__ = dict.__delitem__
 
-    manager = multiprocessing.Manager()
-    shared = manager.dict()
+    manager = multiprocessing.Manager() if use_pool else None
+    shared = manager.dict() if use_pool else dotdict()
 
     shared.tests_count = len(testcases)
     shared.progress = 0
@@ -869,20 +877,25 @@ if __name__ == "__main__":
     ftests = open(failed_tests, "w")
 
     shared.stats = dict.fromkeys(res, 0)
-    pool = multiprocessing.Pool(arg.worker)
-    serial_pool = multiprocessing.Pool(1)
+    pool = multiprocessing.Pool(arg.worker) if use_pool else None
+    serial_pool = multiprocessing.Pool(1) if use_pool else None
 
     for tc in sorted(testcases):
-        _pool = pool
         name = tc.split('.')[0]  # remove '.py'
-        clbk = partial(save_test_result, case=name, shared=shared)
-        if check_serial_case(name):
-            _pool = serial_pool
+        if use_pool:
+            _pool = serial_pool if check_serial_case(name) else pool
+            clbk = partial(save_test_result, case=name, shared=shared)
 
-        _pool.apply_async(run_single_case, callback=clbk,
-                         args=[name, flags, opts.split(), arg])
+            _pool.apply_async(run_single_case, callback=clbk,
+                            args=[name, flags, opts.split(), arg])
+        else:
+            results = run_single_case(name, flags, opts.split(), arg)
+            save_test_result(results, case=name, shared=shared)
 
-    print("Start %s tests with %d worker" % (shared.tests_count, arg.worker))
+    if use_pool:
+        print("Start %s tests with %d worker" % (shared.tests_count, arg.worker))
+    else:
+        print("Start %s tests without worker pool" % shared.tests_count)
     print_test_header(opts, flags, ftests)
 
     color = arg.color
@@ -899,8 +912,9 @@ if __name__ == "__main__":
 
         print_test_result(name, shared.results[name], shared.diffs[name], color, ftests)
 
-    pool.close()
-    pool.join()
+    if use_pool:
+        pool.close()
+        pool.join()
 
     ftests.close()
 
