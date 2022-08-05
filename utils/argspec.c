@@ -267,7 +267,7 @@ TEST_CASE(argspec_parse_struct)
 
 	/* parse_argspec might change the string, copy it */
 	str = strdup("arg3/t16:mystruct%RDI+RSI");
-	pr_dbg("parsing a struct passed by value: %s\n");
+	pr_dbg("parsing a struct passed by value: %s\n", str);
 
 	spec = parse_argspec(str, &setting);
 	TEST_NE(spec, NULL);
