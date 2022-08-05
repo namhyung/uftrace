@@ -503,7 +503,7 @@ struct uftrace_fstack *fstack_get(struct uftrace_task_reader *task, int idx)
 	if (task->func_stack == NULL)
 		return NULL;
 
-	if (idx >= task->h->hdr.max_stack) {
+	if (task->h && idx >= task->h->hdr.max_stack) {
 		if (!task->fstack_warned) {
 			pr_dbg("call stack overflow (task: %d)\n", task->tid);
 			task->fstack_warned = true;

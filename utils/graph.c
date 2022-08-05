@@ -97,7 +97,7 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name, size_t nod
 
 		node->loc = loc;
 
-		if (uftrace_match_filter(fstack->addr, &sess->fixups, &tr)) {
+		if (sess && uftrace_match_filter(fstack->addr, &sess->fixups, &tr)) {
 			struct uftrace_symbol *sym;
 			struct uftrace_special_node *snode;
 			enum uftrace_graph_node_type type = NODE_T_NORMAL;
@@ -213,6 +213,18 @@ int graph_add_node(struct uftrace_task_graph *tg, int type, char *name, size_t n
 		return 0;
 }
 
+struct uftrace_graph_node *graph_find_node(struct uftrace_graph_node *parent, uint64_t addr)
+{
+	struct uftrace_graph_node *node;
+
+	list_for_each_entry(node, &parent->head, list) {
+		if (addr == node->addr)
+			return node;
+	}
+
+	return NULL;
+}
+
 static void graph_destroy_node(struct uftrace_graph_node *node)
 {
 	struct uftrace_graph_node *child, *tmp;
@@ -252,3 +264,145 @@ void graph_remove_task(void)
 		free(tg);
 	}
 }
+
+#ifdef UNIT_TEST
+
+struct test_data {
+	int type;
+	uint64_t addr;
+	uint64_t total_time;
+	uint64_t child_time;
+	const char *name;
+};
+
+static void setup_fstack_and_graph(struct uftrace_graph *graph, struct test_data *data, size_t len)
+{
+	size_t i;
+	struct uftrace_task_graph *tg;
+	struct uftrace_graph_node *node;
+	struct uftrace_task_reader task = {
+		.tid = 1234,
+	};
+
+	tg = graph_get_task(&task, sizeof(*tg));
+	tg->graph = graph;
+	tg->new_sess = true;
+
+	/* TODO: de-couple graph from fstack */
+	task.func_stack = xcalloc(sizeof(*task.func_stack), len);
+
+	for (i = 0; i < len; i++) {
+		struct uftrace_fstack *fstack = NULL;
+
+		if (data[i].type == UFTRACE_ENTRY)
+			fstack = &task.func_stack[task.stack_count++];
+		else if (data[i].type == UFTRACE_EXIT)
+			fstack = &task.func_stack[--task.stack_count];
+
+		if (fstack) {
+			fstack->addr = data[i].addr;
+			fstack->total_time = data[i].total_time;
+			fstack->child_time = data[i].child_time;
+		}
+
+		graph_add_node(tg, data[i].type, (char *)data[i].name, sizeof(*node), NULL);
+	}
+
+	free(task.func_stack);
+}
+
+TEST_CASE(graph_basic)
+{
+	struct uftrace_graph graph;
+	struct uftrace_graph_node *node;
+	/*
+	 * (root)
+	 *  +-- (1) foo
+	 *  |
+	 *  +-- (1) bar
+	 *      (1) baz
+	 */
+	struct test_data data[] = {
+		{
+			UFTRACE_ENTRY,
+			0x1000,
+			0,
+			0,
+			"foo",
+		},
+		{
+			UFTRACE_EXIT,
+			0x1000,
+			100,
+			0,
+			"foo",
+		},
+		{
+			UFTRACE_ENTRY,
+			0x2000,
+			0,
+			0,
+			"bar",
+		},
+		{
+			UFTRACE_ENTRY,
+			0x3000,
+			0,
+			0,
+			"baz",
+		},
+		{
+			UFTRACE_EXIT,
+			0x3000,
+			200,
+			0,
+			"baz",
+		},
+		{
+			UFTRACE_EXIT,
+			0x2000,
+			500,
+			200,
+			"bar",
+		},
+	};
+
+	pr_dbg("init graph and add data\n");
+	graph_init(&graph, NULL);
+	setup_fstack_and_graph(&graph, data, ARRAY_SIZE(data));
+
+	pr_dbg("check graph root\n");
+	TEST_EQ(graph.root.nr_edges, 2);
+
+	pr_dbg("check graph node: foo\n");
+	node = graph_find_node(&graph.root, data[1].addr);
+	TEST_NE(node, NULL);
+	TEST_STREQ(node->name, data[1].name);
+	TEST_EQ(node->time, data[1].total_time);
+	TEST_EQ(node->child_time, data[1].child_time);
+	TEST_EQ(node->nr_calls, 1);
+
+	pr_dbg("check graph node: bar\n");
+	node = graph_find_node(&graph.root, data[5].addr);
+	TEST_NE(node, NULL);
+	TEST_STREQ(node->name, data[5].name);
+	TEST_EQ(node->time, data[5].total_time);
+	TEST_EQ(node->child_time, data[5].child_time);
+	TEST_EQ(node->nr_calls, 1);
+
+	pr_dbg("check graph node: baz\n");
+	node = graph_find_node(node, data[4].addr);
+	TEST_NE(node, NULL);
+	TEST_STREQ(node->name, data[4].name);
+	TEST_EQ(node->time, data[4].total_time);
+	TEST_EQ(node->child_time, data[4].child_time);
+	TEST_EQ(node->nr_calls, 1);
+
+	pr_dbg("destory graph and data\n");
+	graph_destroy(&graph);
+	graph_remove_task();
+
+	return TEST_OK;
+}
+
+#endif /* UNIT_TEST */
