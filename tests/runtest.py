@@ -880,18 +880,6 @@ if __name__ == "__main__":
     pool = multiprocessing.Pool(arg.worker) if use_pool else None
     serial_pool = multiprocessing.Pool(1) if use_pool else None
 
-    for tc in sorted(testcases):
-        name = tc.split('.')[0]  # remove '.py'
-        if use_pool:
-            _pool = serial_pool if check_serial_case(name) else pool
-            clbk = partial(save_test_result, case=name, shared=shared)
-
-            _pool.apply_async(run_single_case, callback=clbk,
-                            args=[name, flags, opts.split(), arg])
-        else:
-            results = run_single_case(name, flags, opts.split(), arg)
-            save_test_result(results, case=name, shared=shared)
-
     if use_pool:
         print("Start %s tests with %d worker" % (shared.tests_count, arg.worker))
     else:
@@ -904,13 +892,31 @@ if __name__ == "__main__":
     if 'TERM' in os.environ and os.environ['TERM'] == 'dumb':
         color = False
 
+
     for tc in sorted(testcases):
         name = tc.split('.')[0]  # remove '.py'
+        if use_pool:
+            _pool = serial_pool if check_serial_case(name) else pool
+            clbk = partial(save_test_result, case=name, shared=shared)
 
-        while name not in shared.results:
-            time.sleep(1)
+            _pool.apply_async(run_single_case, callback=clbk,
+                            args=[name, flags, opts.split(), arg])
+        else:
+            results = run_single_case(name, flags, opts.split(), arg)
+            save_test_result(results, case=name, shared=shared)
 
-        print_test_result(name, shared.results[name], shared.diffs[name], color, ftests)
+            # Print sequentially when executing in serial
+            print_test_result(name, shared.results[name], shared.diffs[name], color, ftests)
+
+    if use_pool:
+        # Print via polling when using multiprocessing pool
+        for tc in sorted(testcases):
+            name = tc.split('.')[0]  # remove '.py'
+
+            while name not in shared.results:
+                time.sleep(1)
+
+            print_test_result(name, shared.results[name], shared.diffs[name], color, ftests)
 
     if use_pool:
         pool.close()
