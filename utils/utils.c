@@ -290,23 +290,84 @@ out:
 	return ret;
 }
 
+int archive_directory(const char *dirname, int limit)
+{
+	// Rename dirname -> dirname.old# (1 = oldest, bigger # = newer)
+	// Return -1 for shift failure, 0 for success, 1 for rename failure
+	int ret = -1;
+	char name_fmt[] = "%s.old%d";
+
+	// Rename dirname to newest id
+	int id = 0;
+	while (ret < 0) {
+		++id;
+		char *oldname;
+		oldname = NULL;
+		xasprintf(&oldname, name_fmt, dirname, id);
+		if (access(oldname, F_OK) != 0 || is_empty_directory(oldname)) {
+			ret = 0;
+			if (rename(dirname, oldname) < 0) {
+				pr_warn("rename %s -> %s failed: %m\n", dirname, oldname);
+				ret = 1;
+			}
+		}
+		free(oldname);
+	}
+
+	if (ret != 0 || id <= limit)
+		return ret;
+
+	pr_dbg("Shifting old directory id\n");
+
+	// Shift oldname to be within limit
+	int offset = id - limit;
+	for (int n = 1; n <= id; ++n) {
+		char *src;
+		src = NULL;
+		xasprintf(&src, name_fmt, dirname, n);
+
+		if (n <= offset) {
+			// Discard old directory
+			if (can_remove_directory(src)) {
+				if (remove_directory(src) < 0) {
+					pr_warn("removing old directory failed: %m\n");
+					ret = -1;
+				}
+			}
+		}
+		else {
+			// Shift old directory
+			char *dest;
+			dest = NULL;
+			xasprintf(&dest, name_fmt, dirname, n - offset);
+			if (can_remove_directory(src)) {
+				if (rename(src, dest) < 0) {
+					pr_warn("rename %s -> %s failed: %m\n", src, dest);
+					ret = -1;
+				}
+			}
+			free(dest);
+		}
+
+		free(src);
+	}
+
+	return ret;
+}
+
 int create_directory(const char *dirname)
 {
 	int ret = -1;
-	char *oldname = NULL;
-
-	xasprintf(&oldname, "%s.old", dirname);
 
 	if (can_remove_directory(dirname)) {
-		if (can_remove_directory(oldname)) {
-			if (remove_directory(oldname) < 0) {
-				pr_warn("removing old directory failed: %m\n");
-				goto out;
-			}
+		int archive_res;
+		archive_res = archive_directory(dirname, 10); // Replace with opt
+		if (archive_res > 0) {
+			pr_warn("archiving old directory failed: %m\n");
+			goto out;
 		}
-
-		if (rename(dirname, oldname) < 0) {
-			pr_warn("rename %s -> %s failed: %m\n", dirname, oldname);
+		else if (archive_res < 0) {
+			pr_warn("shifting old directory failed: %m\n");
 			goto out;
 		}
 	}
@@ -318,7 +379,6 @@ int create_directory(const char *dirname)
 	create_default_opts(dirname);
 
 out:
-	free(oldname);
 	return ret;
 }
 
