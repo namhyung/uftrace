@@ -21,23 +21,28 @@ case $distro in
     "ubuntu" | "debian" | "raspbian" | "kali" | "linuxmint")
         apt-get $OPT install pandoc libdw-dev python3-dev libncursesw5-dev pkg-config
         apt-get $OPT install libluajit-5.1-dev || true
+        [ $DEBUG ] && apt-get $OPT install libunwind-dev || true
         apt-get $OPT install libcapstone-dev || true ;;
-    "fedora")
+    "fedora"*)
         dnf install $OPT pandoc elfutils-devel python3-devel ncurses-devel pkgconf-pkg-config
         dnf install $OPT luajit-devel || true
+        [ $DEBUG ] && dnf install $OPT libunwind-devel || true
         dnf install $OPT capstone-devel || true ;;
     "rhel" | "centos")
         rpm -ivh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
         yum install $OPT pandoc elfutils-devel python3-devel ncurses-devel pkgconfig
         yum install $OPT luajit-devel || true
+        [ $DEBUG ] && yum install $OPT libunwind-devel || true
         yum install $OPT capstone-devel || true ;;
     "arch" | "manjaro")
         pacman $OPT -S pandoc libelf python3 ncurses pkgconf
         pacman $OPT -S luajit || true
+        [ $DEBUG ] && pacman $OPT -S libunwind || true
         pacman $OPT -S capstone || true ;;
     "alpine")
         apk $OPT add elfutils-dev python3-dev ncurses-dev pkgconf
         apk $OPT add luajit-dev || true
+        [ $DEBUG ] && apk $OPT add libunwind-dev || true
         apk $OPT add capstone-dev || true ;;
     *) # we can add more install command for each distros.
         echo "\"$distro\" is not supported distro, so please install packages manually."
