@@ -6,22 +6,15 @@ from runtest import TestBase
 
 class TestCase(TestBase):
     def __init__(self):
-        TestBase.__init__(self, 'abc', """digraph "%s" {
-
-        # Attributes
-        splines=ortho;
-        concentrate=true;
-        node [shape="rect",fontsize="7",style="filled"];
-        edge [fontsize="7"];
-
+        TestBase.__init__(self, 'abc', """
         # Elements
-        "main" [xlabel = "Calls : 1"]
-        "main" -> "a" [xlabel = "Calls : 1"]
-        "a" -> "b" [xlabel = "Calls : 1"]
-        "b" -> "c" [xlabel = "Calls : 1"]
+        digraph "t-abc" {
+            "main" [xlabel = "1"]
+            "main" -> "a" [xlabel = "1"]
+            "a" -> "b" [xlabel = "1"]
+            "b" -> "c" [xlabel = "1"]
         }
         """)
-        self.result = self.result % os.path.join(self.test_dir, "t-abc")
 
     def prepare(self):
         self.subcmd = 'record'
