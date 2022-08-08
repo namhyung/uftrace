@@ -1,0 +1,33 @@
+name: "Push test"
+on: push
+
+jobs:
+  unit-test-with-asan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "checkout"
+        uses: actions/checkout@v3
+
+      - name: "install dependencies"
+        run: sudo ./misc/install-deps.sh -y
+
+      - name: "configure build env"
+        run: ./configure
+
+      - name: "build the source"
+        run: make ASAN=1
+
+      - name: "run unit tests"
+        run: make unittest ASAN=1 TESTARG="-v"
+
+  pre-commit-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "check out uftrace source"
+        uses: actions/checkout@v3
+
+      - name: "install dependencies"
+        uses: actions/setup-python@v3
+
+      - name: "run pre-commit"
+        uses: pre-commit/action@v3.0.0
