@@ -403,7 +403,7 @@ TEST_CASE(graph_basic)
 	TEST_EQ(node->child_time, data[4].child_time);
 	TEST_EQ(node->nr_calls, 1);
 
-	pr_dbg("destory graph and data\n");
+	pr_dbg("destroy graph and data\n");
 	graph_destroy(&graph);
 	graph_remove_task();
 
