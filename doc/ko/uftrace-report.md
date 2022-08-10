@@ -24,7 +24,7 @@ REPORT 옵션
 ===========
 -f *FIELD*, \--output-fields=*FIELD*
 :   결과로 보여지는 필드를 사용자가 지정한다.  가능한 값들로는 `total`, `total-avg`,
-    `total-min`, `total-max`, `self`, `self-avg`, `self-min`, `self-max` 그리고
+    `total-min`, `total-max`, `self`, `self-avg`, `self-min`, `self-max`, `size` 그리고
     `call`이 있다.  여러 필드를 갖는 경우 콤마로 구분된다.
     모든 필드를 감추기 위한 (단일하게 사용되는) 'none' 특수 필드가 있으며
     기본적으로 'total,self,call' 이 사용된다.  상세한 설명은 *FIELDS* 를 참고한다.
@@ -32,7 +32,7 @@ REPORT 옵션
 -s *KEYS*[,*KEYS*,...], \--sort=*KEYS*[,*KEYS*,...]
 :   주어진 키를 기반으로 함수들을 정렬한다. 여러 키들을 적용할 경우, 키들을 쉼표(,)로 나누어 표현한다.
     `total` (time), `total-avg`, `total-min`, `total-max`, `self` (time), `self-avg`, `self-min`,
-    `self-max`, `call`, `func`를 키로 이용할 수 있다. 그러나 `--avg-total` 또는 `--avg-self`
+    `self-max`, `size`, `call`, `func`를 키로 이용할 수 있다. 그러나 `--avg-total` 또는 `--avg-self`
     옵션이 사용된 경우, 총 시간(total time) 또는 자체 시간(self time에)에 적용되는
     `avg`, `min`, `max`를 키로 이용할 수 있다.
 
