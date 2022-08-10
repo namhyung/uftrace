@@ -24,7 +24,7 @@ REPORT OPTIONS
 ==============
 -f *FIELD*, \--output-fields=*FIELD*
 :   Customize field in the output.  Possible values are: `total`, `total-avg`,
-    `total-min`, `total-max`, `self`, `self-avg`, `self-min`, `self-max`,
+    `total-min`, `total-max`, `self`, `self-avg`, `self-min`, `self-max`, `size`,
     `call` and `all`.  Multiple fields can be set by using comma.  Special field
     of 'none' can be used (solely) to hide all fields and 'all' can be used to
     show all fields.
@@ -33,9 +33,9 @@ REPORT OPTIONS
 -s *KEYS*[,*KEYS*,...], \--sort=*KEYS*[,*KEYS*,...]
 :   Sort functions by given KEYS.  Multiple KEYS can be given, separated by
     comma (,).  Possible keys are `total` (time), `total-avg`, `total-min`,
-    `total-max`, `self` (time), `self-avg`, `self-min`, `self-max`, `call`
-    and `func`.  But if either `--avg-total` or `--avg-self` is used, the
-    possible keys can be `avg`, `min` and `max` that apply to total or self
+    `total-max`, `self` (time), `self-avg`, `self-min`, `self-max`, `size`,
+    `call` and `func`.  But if either `--avg-total` or `--avg-self` is used,
+    the possible keys can be `avg`, `min` and `max` that apply to total or self
     time respectively.
 
 \--avg-total
