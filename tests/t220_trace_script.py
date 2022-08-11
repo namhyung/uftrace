@@ -24,12 +24,13 @@ class TestCase(TestBase):
    3.005 us [28141] | } /* main */
 """, sort='simple')
 
-        f = open(TEST_SCRIPT, "w")
-        f.write("""#!/bin/sh
+    def prerun(self, timeout):
+        with open(TEST_SCRIPT, "w") as f:
+            f.write("""#!/bin/sh
 ./t-abc
 """)
-        f.close()
         os.chmod(TEST_SCRIPT, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+        return TestBase.TEST_SUCCESS
 
     def setup(self):
         self.option = "--force -F fork -F main"
