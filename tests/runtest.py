@@ -683,7 +683,7 @@ def check_serial_case(case):
     return tc.serial
 
 
-def run_single_case(case, flags, opts, arg):
+def run_single_case(case, flags, opts, arg, compilers):
     result = []
 
     # for python3
@@ -691,21 +691,22 @@ def run_single_case(case, flags, opts, arg):
     exec("import %s; tc = %s.TestCase()" % (case, case), globals(), _locals)
     tc = _locals['tc']
     tc.set_debug(arg.debug)
-    tc.set_compiler(arg.compiler)
     tc.set_keep(arg.keep)
     timeout = int(arg.timeout)
 
-    for flag in flags:
-        for opt in opts:
-            cflags = ' '.join(["-" + flag, "-" + opt])
-            dif = ''
-            ret = tc.build(tc.name, cflags)
-            if ret == TestBase.TEST_SUCCESS:
-                ret = tc.prerun(timeout)
+    for compiler in compilers:
+        tc.set_compiler(compiler)
+        for flag in flags:
+            for opt in opts:
+                cflags = ' '.join(["-" + flag, "-" + opt])
+                dif = ''
+                ret = tc.build(tc.name, cflags)
                 if ret == TestBase.TEST_SUCCESS:
-                    ret, dif = tc.run(case, cflags, arg.diff, timeout)
-                    ret = tc.postrun(ret)
-            result.append((ret, dif))
+                    ret = tc.prerun(timeout)
+                    if ret == TestBase.TEST_SUCCESS:
+                        ret, dif = tc.run(case, cflags, arg.diff, timeout)
+                        ret = tc.postrun(ret)
+                result.append((ret, dif))
 
     return result
 
@@ -720,7 +721,7 @@ def save_test_result(result, case, shared):
         shared.total += 1
 
 
-def print_test_result(case, result, diffs, color, ftests):
+def print_test_result(case, result, diffs, color, ftests, nr_compilers):
     plain_result = [text_result[r] for r in result]
 
     if color:
@@ -733,7 +734,16 @@ def print_test_result(case, result, diffs, color, ftests):
             sys.stdout.write(dif + '\n')
 
     output = case[1:4]
-    output += ' %-20s' % case[5:] + ': ' + ' '.join(result_list) + '\n'
+    output += ' %-20s' % case[5:] + ':'
+    result_per_compiler = len(result_list) // nr_compilers
+    for i in range(nr_compilers):
+        output += ' '
+        if i != 0:
+            output += ' '
+        begin = result_per_compiler * i
+        end = result_per_compiler * (i + 1)
+        output += ' '.join(result_list[begin:end])
+    output += '\n'
 
     sys.stdout.write(output)
 
@@ -748,22 +758,30 @@ def print_test_result(case, result, diffs, color, ftests):
             break
 
 
-def print_test_header(opts, flags, ftests):
+def print_test_header(opts, flags, ftests, compilers):
     optslen = len(opts)
+    header1 = '%-24s ' % 'Compiler'
+    header2 = '%-24s ' % 'Test case'
+    header3 = '-' * 24 + ':'
+    empty = '                             '
 
-    header1 = '%-24s ' % 'Test case'
-    header2 = '-' * 24 + ':'
-    empty = '                      '
-
-    for flag in flags:
-        # align with optimization flags
-        header1 += ' ' + flag[:optslen] + empty[len(flag):optslen]
-        header2 += ' ' + opts
+    for i, compiler in enumerate(compilers):
+        if i != 0:
+            header1 += ' '
+            header2 += ' '
+            header3 += ' '
+        for flag in flags:
+            # align with optimization flags
+            header2 += ' ' + flag[:optslen] + empty[len(flag):optslen]
+            header3 += ' ' + opts
+        header1 += ' ' + compiler[:optslen*len(flags)+len(flags)-1] + empty[len(compiler):len(header3)-len(header1)-1]
 
     print(header1)
     print(header2)
+    print(header3)
     ftests.write(header1 + '\n')
     ftests.write(header2 + '\n')
+    ftests.write(header3 + '\n')
     ftests.flush()
 
 
@@ -808,8 +826,8 @@ def parse_argument():
                         help="fail test if it runs more than TIMEOUT seconds")
     parser.add_argument("-j", "--worker", dest='worker', type=int, default=multiprocessing.cpu_count(),
                         help="Parallel worker count; using all core for default")
-    parser.add_argument("-c", "--compiler", dest='compiler', default="gcc",
-                        help="Select compiler gcc or clang. (gcc by default)")
+    parser.add_argument("-c", "--compiler", dest='compiler', default="all",
+                        help="Select compiler gcc or clang. (use both by default)")
     parser.add_argument("-k", "--keep", dest='keep', action='store_true',
                         help="keep the test directories with compiled binaries")
 
@@ -844,6 +862,23 @@ if __name__ == "__main__":
         flags = ['finstrument-functions']
     else:
         flags = arg.flags.split()
+
+    def has_compiler(compiler):
+        installed = os.system('command -v %s > /dev/null' % compiler) == 0
+        return installed
+
+    compilers = []
+    if arg.compiler == 'all':
+        for compiler in ['gcc', 'clang']:
+            if has_compiler(compiler):
+                compilers.append(compiler)
+    else:
+        if has_compiler(arg.compiler):
+            compilers.append(arg.compiler)
+    nr_compilers = len(compilers)
+    if nr_compilers == 0:
+        print('no compilers available for testing\n')
+        sys.exit(-1)
 
     from functools import partial
     class dotdict(dict):
@@ -884,7 +919,7 @@ if __name__ == "__main__":
         print("Start %s tests with %d worker" % (shared.tests_count, arg.worker))
     else:
         print("Start %s tests without worker pool" % shared.tests_count)
-    print_test_header(opts, flags, ftests)
+    print_test_header(opts, flags, ftests, compilers)
 
     color = arg.color
     if not sys.stdout.isatty():
@@ -900,13 +935,13 @@ if __name__ == "__main__":
             clbk = partial(save_test_result, case=name, shared=shared)
 
             _pool.apply_async(run_single_case, callback=clbk,
-                            args=[name, flags, opts.split(), arg])
+                            args=[name, flags, opts.split(), arg, compilers])
         else:
-            results = run_single_case(name, flags, opts.split(), arg)
+            results = run_single_case(name, flags, opts.split(), arg, compilers)
             save_test_result(results, case=name, shared=shared)
 
             # Print sequentially when executing in serial
-            print_test_result(name, shared.results[name], shared.diffs[name], color, ftests)
+            print_test_result(name, shared.results[name], shared.diffs[name], color, ftests, nr_compilers)
 
     if use_pool:
         # Print via polling when using multiprocessing pool
@@ -916,7 +951,7 @@ if __name__ == "__main__":
             while name not in shared.results:
                 time.sleep(1)
 
-            print_test_result(name, shared.results[name], shared.diffs[name], color, ftests)
+            print_test_result(name, shared.results[name], shared.diffs[name], color, ftests, nr_compilers)
 
     if use_pool:
         pool.close()
