@@ -37,5 +37,11 @@ jobs:
       - name: "build the source"
         run: make
 
+      - name: "setup run-time env"
+        run: |
+          sudo sh -c "echo 1 > /proc/sys/kernel/perf_event_paranoid"
+          sudo sh -c "echo 0 > /proc/sys/kernel/kptr_restrict"
+          sudo sh -c "chmod +x /sys/kernel/tracing"
+
       - name: "run tests"
         run: make test -j1 TESTARG="${{ inputs.args }}" UNITTESTARG="${{ inputs.unit_args }}" RUNTESTARG="${{ inputs.run_args }}"
