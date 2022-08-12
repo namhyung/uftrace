@@ -1172,13 +1172,15 @@ static struct uftrace_graph graphviz_graph = {
 static void dump_graphviz_header(struct uftrace_dump_ops *ops, struct uftrace_data *handle,
 				 struct uftrace_opts *opts)
 {
+	char *exename = basename(handle->info.exename);
+	graphviz_graph.root.name = exename;
 	pr_out("# version\":\"uftrace %s\"\n", UFTRACE_VERSION);
 
 	if (handle->hdr.info_mask & CMDLINE)
 		pr_out("# command_line \"%s\"\n", handle->info.cmdline);
 
 	pr_out("\ndigraph ");
-	pr_out("\"%s\"", basename(handle->info.exename));
+	pr_out("\"%s\"", exename);
 	pr_out(" { \n");
 
 	graph_init_callbacks(NULL, NULL, NULL, ops);
