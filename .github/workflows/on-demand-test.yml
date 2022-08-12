@@ -1,0 +1,31 @@
+name: "On-demand test"
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch or tag to test'
+        required: true
+        default: 'master'
+        type: string
+
+jobs:
+  run-uftrace-tests:
+    if: github.repository == 'namhyung/uftrace'
+    runs-on: ubuntu-latest
+    steps:
+      - name: "checkout"
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.branch }}
+
+      - name: "install dependencies"
+        run: sudo ./misc/install-deps.sh -y
+
+      - name: "configure build env"
+        run: ./configure
+
+      - name: "build the source"
+        run: make
+
+      - name: "run tests"
+        run: make test -j1 TESTARG="-v"
