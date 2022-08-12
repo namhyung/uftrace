@@ -82,6 +82,10 @@ struct uftrace_graphviz_dump {
 	struct uftrace_dump_ops ops;
 };
 
+struct uftrace_mermaid_dump {
+	struct uftrace_dump_ops ops;
+};
+
 static const char *rstack_type(struct uftrace_record *frs)
 {
 	return frs->type == UFTRACE_EXIT  ? "exit " :
@@ -1250,6 +1254,101 @@ static void dump_graphviz_footer(struct uftrace_dump_ops *ops, struct uftrace_da
 	graph_remove_task();
 }
 
+/* mermaid support */
+static struct uftrace_graph mermaid_graph = {
+	.root.head = LIST_HEAD_INIT(mermaid_graph.root.head),
+	.special_nodes = LIST_HEAD_INIT(mermaid_graph.special_nodes),
+};
+
+static void dump_mermaid_task_rstack(struct uftrace_dump_ops *ops, struct uftrace_task_reader *task,
+				     char *name)
+{
+	struct uftrace_record *frs = task->rstack;
+	struct uftrace_task_graph *graph;
+
+	graph = graph_get_task(task, sizeof(*graph));
+
+	graph->graph = &mermaid_graph;
+	mermaid_graph.sess = find_task_session(&task->h->sessions, task->t, frs->time);
+	if (graph->node == NULL)
+		graph->node = &mermaid_graph.root;
+
+	graph_add_node(graph, frs->type, name, sizeof(struct uftrace_graph_node), NULL);
+}
+
+static void dump_mermaid_kernel_rstack(struct uftrace_dump_ops *ops,
+				       struct uftrace_kernel_reader *kernel, int cpu,
+				       struct uftrace_record *rec, char *name)
+{
+	int tid;
+	struct uftrace_task_reader *task;
+	struct uftrace_task_graph *graph;
+
+	tid = kernel->tids[cpu];
+	task = get_task_handle(kernel->handle, tid);
+
+	graph = graph_get_task(task, sizeof(*graph));
+
+	graph->graph = &mermaid_graph;
+	mermaid_graph.sess = kernel->handle->sessions.first;
+
+	if (graph->node == NULL)
+		graph->node = &mermaid_graph.root;
+
+	graph_add_node(graph, rec->type, name, sizeof(struct uftrace_graph_node), NULL);
+}
+
+static void dump_mermaid_header(struct uftrace_dump_ops *ops, struct uftrace_data *handle,
+				struct uftrace_opts *opts)
+{
+	graph_init_callbacks(NULL, NULL, NULL, ops);
+	mermaid_graph.root.name = basename(handle->info.exename);
+
+	pr_out("<html>\n");
+	pr_out("<body>\n");
+	pr_out("<script src=\"https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js\"></script>\n");
+	pr_out("<script>\n");
+	pr_out("  var config = {\n");
+	pr_out("  startOnLoad: true,\n");
+	pr_out("  maxTextSize: 99999999,\n");
+	pr_out("  flowchart: { useMaxWidth: false }\n");
+	pr_out("  };\n");
+	pr_out("  mermaid.initialize(config);\n");
+	pr_out("</script>\n");
+}
+
+static void print_graph_node_mermaid(struct uftrace_graph *graph, struct uftrace_graph_node *node)
+{
+	char *symname = node->name;
+	struct uftrace_graph_node *child;
+
+	list_for_each_entry(child, &node->head, list) {
+		pr_out("  %d[\"%s\"] -->|%d| %d[\"%s\"];\n", node->id, symname, child->nr_calls,
+		       child->id, child->name);
+		print_graph_node_mermaid(graph, child);
+	}
+}
+
+static void dump_mermaid_footer(struct uftrace_dump_ops *ops, struct uftrace_data *handle,
+				struct uftrace_opts *opts)
+{
+	/* skip empty graph */
+	if (mermaid_graph.root.time == 0 && mermaid_graph.root.nr_edges == 0)
+		return;
+
+	if (mermaid_graph.root.time || mermaid_graph.root.nr_edges) {
+		pr_out("<h2>Function Call Graph for <span style=\"color:blue\">%s</span>",
+		       mermaid_graph.root.name);
+		pr_out("</h2>\n");
+		pr_out("<div class=\"mermaid\">\n");
+		pr_out("flowchart TB\n");
+		print_graph_node_mermaid(&mermaid_graph, &mermaid_graph.root);
+		pr_out("</div>\n");
+	}
+	pr_out("</body>\n");
+	pr_out("</html>\n");
+}
+
 static void do_dump_file(struct uftrace_dump_ops *ops, struct uftrace_opts *opts,
 			 struct uftrace_data *handle)
 {
@@ -1643,6 +1742,18 @@ int command_dump(int argc, char *argv[], struct uftrace_opts *opts)
 				.task_rstack    = dump_graphviz_task_rstack,
 				.kernel_func    = dump_graphviz_kernel_rstack,
 				.footer         = dump_graphviz_footer,
+			},
+		};
+
+		do_dump_replay(&dump.ops, opts, &handle);
+	}
+	else if (opts->mermaid) {
+		struct uftrace_mermaid_dump dump = {
+			.ops = {
+				.header         = dump_mermaid_header,
+				.task_rstack    = dump_mermaid_task_rstack,
+				.kernel_func    = dump_mermaid_kernel_rstack,
+				.footer         = dump_mermaid_footer,
 			},
 		};
 

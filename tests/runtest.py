@@ -442,6 +442,28 @@ class TestBase:
                 result.append("%s %s" % (ln['ph'], ln['name']))
         return '\n'.join(result)
 
+    def mermaid_sort(self, output, ignore_children=False):
+        """ This function post-processes output of the test to be compared .
+            It ignores blank and comment (#) lines and remaining functions.  """
+        result = []
+        start_mermaid = False
+
+        for ln in output.split('\n'):
+            if ln.find('<div class=\"mermaid\">') >= 0:
+                start_mermaid = True
+                continue
+            if start_mermaid == False:
+                continue
+            if ln.find('</div>') >= 0:
+                break
+
+            m = re.match( r'\s+(?P<start_id>\d+)\[\"(?P<start_name>\S+)\"\]\s+-->\|(?P<call_num>\d+)\|\s+(?P<end_id>\d+)\[\"(?P<end_name>\S+)\"\];', ln)
+            if m:
+                result.append("%s_%s %s> %s_%s" % (m.group('start_id'), m.group('start_name'), m.group('call_num'), m.group('end_id'), m.group('end_name')))
+            else:
+                continue
+        return '\n'.join(result)
+
     def sort(self, output, ignore_children=False):
         if not hasattr(TestBase, self.sort_method + '_sort'):
             print('cannot find the sort function: %s' % self.sort_method)

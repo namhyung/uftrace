@@ -31,6 +31,9 @@ DUMP OPTIONS
 \--graphviz
 :   Show DOT style output used by the graphviz toolkit.
 
+\--mermaid
+:   Show graph as mermaid flowchart diagram. It can be rendered in the browser.
+
 \--debug
 :   Show hex dump of data as well
 

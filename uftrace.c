@@ -100,6 +100,7 @@ enum uftrace_short_options {
 	OPT_clock,
 	OPT_usage,
 	OPT_libmcount_path,
+	OPT_mermaid,
 };
 
 /* clang-format off */
@@ -285,6 +286,7 @@ static const struct option uftrace_options[] = {
 	NO_ARG(chrome, OPT_chrome_trace),
 	NO_ARG(graphviz, OPT_graphviz),
 	NO_ARG(flame-graph, OPT_flame_graph),
+	NO_ARG(mermaid, OPT_mermaid),
 	REQ_ARG(sample-time, OPT_sample_time),
 	REQ_ARG(diff, OPT_diff),
 	REQ_ARG(format, OPT_format),
@@ -998,6 +1000,10 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 			arg = "mono";
 		}
 		opts->clock = arg;
+		break;
+
+	case OPT_mermaid:
+		opts->mermaid = true;
 		break;
 
 	default:
