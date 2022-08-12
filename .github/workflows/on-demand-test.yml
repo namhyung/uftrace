@@ -7,6 +7,16 @@ on:
         required: true
         default: 'master'
         type: string
+      args:
+        description: 'Common test options'
+        default: '-d'
+        type: string
+      unit_args:
+        description: 'Unit test options'
+        type: string
+      run_args:
+        description: 'Run test options'
+        type: string
 
 jobs:
   run-uftrace-tests:
@@ -28,4 +38,4 @@ jobs:
         run: make
 
       - name: "run tests"
-        run: make test -j1 TESTARG="-v"
+        run: make test -j1 TESTARG="${{ inputs.args }}" UNITTESTARG="${{ inputs.unit_args }}" RUNTESTARG="${{ inputs.run_args }}"
