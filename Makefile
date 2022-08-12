@@ -358,13 +358,13 @@ uninstall:
 	@$(MAKE) -sC $(docdir) uninstall DESTDIR=$(DESTDIR)$(mandir)
 
 test: all
-	@$(MAKE) -C $(srcdir)/tests TESTARG="$(TESTARG)" test
+	@$(MAKE) -C $(srcdir)/tests TESTARG="$(TESTARG)" UNITTESTARG="$(UNITTESTARG)" RUNTESTARG="$(RUNTESTARG)" test
 
 unittest: all
-	@$(MAKE) -C $(srcdir)/tests TESTARG="$(TESTARG)" test_unit
+	@$(MAKE) -C $(srcdir)/tests TESTARG="$(TESTARG)" UNITTESTARG="$(UNITTESTARG)" test_unit
 
 runtest: all
-	@$(MAKE) -C $(srcdir)/tests TESTARG="$(TESTARG)" test_run
+	@$(MAKE) -C $(srcdir)/tests TESTARG="$(TESTARG)" RUNTESTARG="$(RUNTESTARG)" test_run
 
 dist:
 	@git archive --prefix=uftrace-$(VERSION)/ $(VERSION_GIT) -o $(objdir)/uftrace-$(VERSION).tar
