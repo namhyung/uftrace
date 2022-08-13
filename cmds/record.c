@@ -146,6 +146,46 @@ void put_libmcount_path(char *libpath)
 	free(libpath);
 }
 
+/* check whether the given library is linked in the elf file. */
+static bool has_shared_object_in_file(const char *elf_filename, const char *soname)
+{
+	struct uftrace_elf_data elf;
+	struct uftrace_elf_iter iter;
+	FILE *fp;
+	off_t offset = 0;
+	char buf[BUFSIZ];
+	bool found = false;
+
+	if (elf_init(elf_filename, &elf) < 0)
+		return false;
+
+	fp = fdopen(elf.fd, "r");
+	if (!fp)
+		return false;
+
+	elf_for_each_shdr(&elf, &iter) {
+		if (iter.shdr.sh_type == SHT_STRTAB)
+			offset = iter.shdr.sh_offset;
+		else if (iter.shdr.sh_type == SHT_DYNAMIC)
+			break;
+	}
+
+	elf_for_each_dynamic(&elf, &iter) {
+		switch (iter.dyn.d_tag) {
+		case DT_NEEDED:
+			fseek(fp, offset + iter.dyn.d_un.d_val, SEEK_SET);
+			if (fscanf(fp, "%s", buf) < 0)
+				goto out;
+			if (!strcmp(buf, soname))
+				found = true;
+			break;
+		}
+	}
+out:
+	fclose(fp);
+	return found;
+}
+
 static void setup_child_environ(struct uftrace_opts *opts, int argc, char *argv[])
 {
 	char buf[PATH_MAX];
@@ -352,6 +392,14 @@ static void setup_child_environ(struct uftrace_opts *opts, int argc, char *argv[
 	 * ----- end of option processing -----
 	 */
 
+	setenv("XRAY_OPTIONS", "patch_premain=false", 1);
+	setenv("GLIBC_TUNABLES", "glibc.cpu.hwcaps=-IBT,-SHSTK", 1);
+
+	if (has_shared_object_in_file(opts->exename, "libmcount.so")) {
+		pr_dbg("libmcount.so is already linked so do not preload it.\n");
+		return;
+	}
+
 	libpath = get_libmcount_path(opts);
 	if (libpath == NULL)
 		pr_err_ns("uftrace could not find libmcount.so for record-tracing\n");
@@ -371,8 +419,6 @@ static void setup_child_environ(struct uftrace_opts *opts, int argc, char *argv[
 		setenv("LD_PRELOAD", libpath, 1);
 
 	put_libmcount_path(libpath);
-	setenv("XRAY_OPTIONS", "patch_premain=false", 1);
-	setenv("GLIBC_TUNABLES", "glibc.cpu.hwcaps=-IBT,-SHSTK", 1);
 }
 
 static uint64_t calc_feat_mask(struct uftrace_opts *opts)
@@ -2274,6 +2320,8 @@ int command_record(int argc, char *argv[], struct uftrace_opts *opts)
 	}
 
 	fflush(stdout);
+
+	setenv("UFTRACE_TRACING_ON", "1", 0);
 
 	ready = eventfd(0, EFD_CLOEXEC | EFD_SEMAPHORE);
 	if (ready < 0)
