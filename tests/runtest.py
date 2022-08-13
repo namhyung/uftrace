@@ -822,9 +822,6 @@ if __name__ == "__main__":
 
     arg = parse_argument()
 
-    # Arg is checked before being bounded to be explicitly toggleable
-    use_pool = arg.worker > 1
-
     if arg.case == 'all':
         testcases = glob.glob('t???_*.py')
     else:
@@ -835,6 +832,9 @@ if __name__ == "__main__":
             if len(testcases) == 0:
                 print("cannot find testcase for : %s" % arg.case)
                 sys.exit(0)
+
+    # Use multiprocessing pool if the number of workers is greater than 1.
+    use_pool = arg.worker > 1
 
     opts = ' '.join(sorted(['O' + o for o in arg.opts]))
 
