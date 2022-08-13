@@ -1,4 +1,4 @@
-_uftrace() 
+_uftrace()
 {
     local CMD=${COMP_WORDS[0]}
     local CUR=${COMP_WORDS[COMP_CWORD]}
@@ -11,7 +11,7 @@ _uftrace()
     IFS=$'\n'
     for TMP in $( $CMD --help | sed -En '/^\s+-/{ s/^\s{,10}((-\w),?\s)?(--[[:alnum:]-]+=?)?.*/ \2 \3/p }')
     do
-        if [[ $TMP =~ "=" ]]; then 
+        if [[ $TMP =~ "=" ]]; then
             TMP=${TMP/=/} OPT1+=( ${TMP// /$'\n'} )
         else
             OPT2+=( ${TMP// /$'\n'} )
@@ -38,7 +38,7 @@ _uftrace()
             WORDS="total self call avg min max"
         else
             WORDS="record replay live report info dump recv graph script tui"
-            if printf '%s\n' "${OPT1[@]}" | grep -xq -- "$PREV" || 
+            if printf '%s\n' "${OPT1[@]}" | grep -xq -- "$PREV" ||
                 [[ $PREV = @(,|@) ]] || [[ $CUR = @(,|@) ]]; then
                 WORDS=""
             else
