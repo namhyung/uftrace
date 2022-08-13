@@ -56,4 +56,3 @@ _uftrace()
 }
 
 complete -o default -o bashdefault -F _uftrace uftrace
-
