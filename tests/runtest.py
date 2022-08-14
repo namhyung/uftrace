@@ -171,7 +171,7 @@ class TestBase:
 
     def build(self, name, cflags='', ldflags=''):
         if self.lang not in TestBase.supported_lang:
-            pr_debug("%s: unsupported language: %s" % (name, self.lang))
+            self.pr_debug("%s: unsupported language: %s" % (name, self.lang))
             return TestBase.TEST_UNSUPP_LANG
 
         lang = TestBase.supported_lang[self.lang]
