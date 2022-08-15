@@ -396,12 +396,18 @@ char *uftrace_strerror(int errnum, char *buf, size_t buflen);
 
 void stacktrace(void);
 
+#if defined(__x86_64__) || defined(__i386__)
+#define TRAP() asm volatile("int $3")
+#else
+#define TRAP() raise(SIGTRAP)
+#endif
+
 #define ASSERT(cond)                                                                               \
 	if (unlikely(!(cond))) {                                                                   \
 		pr_red("%s:%d: %s: ASSERT `%s' failed.\n", __FILE__, __LINE__, __func__, #cond);   \
 		stacktrace();                                                                      \
 		pr_red(BUG_REPORT_MSG);                                                            \
-		raise(SIGTRAP);                                                                    \
+		TRAP();                                                                            \
 	}
 
 #define DASSERT(cond)                                                                              \
@@ -410,7 +416,7 @@ void stacktrace(void);
 		       #cond);                                                                     \
 		stacktrace();                                                                      \
 		pr_red(BUG_REPORT_MSG);                                                            \
-		raise(SIGTRAP);                                                                    \
+		TRAP();                                                                            \
 	}
 
 int copy_file(const char *path_in, const char *path_out);
