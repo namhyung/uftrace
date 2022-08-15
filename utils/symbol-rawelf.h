@@ -2,6 +2,7 @@
 #define UFTRACE_SYMBOL_RAWELF_H
 
 #include <elf.h>
+#include <stdbool.h>
 
 #ifdef __LP64__
 #define ELF_SIZE 64
