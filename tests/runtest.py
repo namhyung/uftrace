@@ -350,7 +350,7 @@ class TestBase:
                     continue
             except:
                 pass
-            result.append('%s %s' % (line[4], line[5]))
+            result.append('%s %s' % (line[-2], line[-1]))
 
         return '\n'.join(result)
 
