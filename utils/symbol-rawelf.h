@@ -3,6 +3,7 @@
 
 #include <elf.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 #ifdef __LP64__
 #define ELF_SIZE 64

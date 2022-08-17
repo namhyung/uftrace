@@ -4,6 +4,7 @@
 #include <linux/perf_event.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #define PERF_MMAP_SIZE (132 * 1024) /* 32 + 1 pages */
 #define PERF_WATERMARK (8 * 1024) /* 2 pages */

@@ -2,6 +2,7 @@
 #define UFTRACE_MCOUNT_DYNAMIC_H
 
 #include <link.h>
+#include <stdlib.h>
 
 #ifdef HAVE_LIBCAPSTONE
 #include <capstone/capstone.h>
