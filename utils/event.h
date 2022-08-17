@@ -2,6 +2,7 @@
 #define UFTRACE_EVENT_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 struct uftrace_data;
 

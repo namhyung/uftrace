@@ -2,6 +2,8 @@
 #define UFTRACE_KERNEL_H
 
 #include "libtraceevent/event-parse.h"
+#include "uftrace.h"
+#include "utils/list.h"
 #include "utils/utils.h"
 
 #define KERNEL_NOP_TRACER "nop"
