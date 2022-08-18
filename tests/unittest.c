@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include <fcntl.h>
 #include <link.h>
 #include <stdbool.h>
