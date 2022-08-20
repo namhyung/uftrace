@@ -50,7 +50,7 @@ class TestCase(TestBase):
             nsec = int(t[point+1:point+10])
 
             # add the external data right after the first line
-            msg = '%s.%d %s\n' % (t[:point], nsec + 1, 'user message')
+            msg = '%s.%09d %s\n' % (t[:point], nsec + 1, 'user message')
 
             data_file = open(os.path.join('uftrace.data', 'extern.dat'), 'w')
             data_file.write(msg)
