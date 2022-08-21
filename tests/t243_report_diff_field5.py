@@ -15,13 +15,13 @@ class TestCase(TestBase):
 #  [0] base: xxx   (from uftrace record -d xxx -F main tests/t-diff 0 )
 #  [1] diff: yyy   (from uftrace record -d yyy -F main tests/t-diff 1 )
 #
-   Total time     Self time         Calls   Function
-  ===========   ===========   ===========   ====================
-    +0.027 us     +0.027 us            +0   atoi
-  +158.853 us     +1.319 us            +0   bar
-    +1.235 ms     +2.749 us            +0   foo
-    +1.305 ms     +0.319 us            +0   main
-    +1.300 ms     +1.300 ms            +3   usleep
+    Total time     Self time         Calls   Function
+   ===========   ===========   ===========   ====================
+     +0.089 us     +0.089 us            +0   atoi
+   -314.912 us     -1.346 us            +2   bar
+     -1.262 ms     -1.819 us            +1   foo
+     -1.490 ms     -1.005 us            +0   main
+     -1.486 ms     -1.486 ms            +4   usleep
 """)
 
     def prerun(self, timeout):
