@@ -15,13 +15,13 @@ class TestCase(TestBase):
 #  [0] base: xxx   (from uftrace record -d yyy -F main tests/t-diff 1 )
 #  [1] diff: yyy   (from uftrace record -d xxx -F main tests/t-diff 0 )
 #
-                    Total time (diff)                      Self time (diff)                       Calls (diff)   Function
-  ===================================   ===================================   ================================   ================================================
-    1.075 us    1.048 us    -0.027 us     1.075 us    1.048 us    -0.027 us            1          1         +0   atoi
-  158.971 us    0.118 us  -158.853 us     1.437 us    0.118 us    -1.319 us            1          1         +0   bar
-    1.235 ms    0.645 us    -1.235 ms     3.276 us    0.527 us    -2.749 us            1          1         +0   foo
-    1.309 ms    3.975 us    -1.305 ms     2.601 us    2.282 us    -0.319 us            1          1         +0   main
-    1.300 ms           -    -1.300 ms     1.300 ms           -    -1.300 ms            3          0         -3   usleep
+                     Total time (diff)                      Self time (diff)                       Calls (diff)   Function
+   ===================================   ===================================   ================================   ====================
+     1.012 us    1.017 us    -0.005 us     1.012 us    1.017 us    -0.005 us            1          1         +0   atoi
+     2.796 ms    1.268 ms    +1.528 ms     3.031 us    1.644 us    +1.387 us            1          1         +0   main
+     2.563 ms    1.265 ms    +1.297 ms     5.972 us    2.706 us    +3.266 us            2          1         -1   foo
+   484.028 us  157.853 us  +326.175 us     4.056 us    0.979 us    +3.077 us            3          1         -2   bar
+     2.782 ms    1.261 ms    +1.521 ms     2.782 ms    1.261 ms    +1.521 ms            6          2         -4   usleep
 """)
 
     def prerun(self, timeout):
@@ -42,7 +42,7 @@ class TestCase(TestBase):
 
     def setup(self):
         self.subcmd = 'report'
-        self.option = '-f total,self,call --diff-policy full,no-abs -s call,total'
+        self.option = '-f total,self,call --diff-policy full,no-abs -s call,func'
         self.exearg = '-d %s --diff %s' % (YDIR, XDIR)
 
     def sort(self, output):

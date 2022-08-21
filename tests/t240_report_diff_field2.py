@@ -15,13 +15,13 @@ class TestCase(TestBase):
 #  [0] base: xxx   (from uftrace record -d xxx -F main tests/t-diff 0 )
 #  [1] diff: yyy   (from uftrace record -d yyy -F main tests/t-diff 1 )
 #
-    Total time        Calls   Function
-  ============   ==========   ====================
-     +1.296 ms           +0   main
-     +1.292 ms           +3   usleep
-     +1.225 ms           +0   foo
-   +158.450 us           +0   bar
-     -0.066 us           +0   atoi
+    Total time         Calls   Function
+   ===========   ===========   ====================
+     -1.524 ms            +4   usleep
+   -326.342 us            +2   bar
+     -1.302 ms            +1   foo
+     -0.115 us            +0   atoi
+     -1.533 ms            +0   main
 """)
 
     def prerun(self, timeout):
@@ -42,7 +42,7 @@ class TestCase(TestBase):
 
     def setup(self):
         self.subcmd = 'report'
-        self.option = '-f total,call --diff-policy compact,no-percent,abs'  # new default
+        self.option = '-f total,call --diff-policy compact,no-percent,abs -s call'  # new default
         self.exearg = '-d %s --diff %s' % (XDIR, YDIR)
 
     def sort(self, output):

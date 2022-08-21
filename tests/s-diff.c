@@ -1,18 +1,15 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-int bar(int do_sleep)
+int bar()
 {
-	if (do_sleep)
-		usleep(100);
+	usleep(100);
 }
 
-int foo(int do_sleep)
+int foo()
 {
-	if (do_sleep)
-		usleep(1000);
-
-	bar(do_sleep);
+	usleep(1000);
+	bar();
 }
 
 int main(int argc, char *argv[])
@@ -22,9 +19,12 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		do_sleep = atoi(argv[1]);
 
-	if (do_sleep)
+	if (do_sleep) {
 		usleep(10);
+		foo();
+		bar();
+	}
+	foo();
 
-	foo(do_sleep);
 	return 0;
 }
