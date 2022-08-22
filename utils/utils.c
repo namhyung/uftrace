@@ -475,13 +475,13 @@ uint64_t parse_time(char *arg, int limited_digits)
 	char *unit, *pos;
 	int i, decimal_places = 0, exp = 0;
 	uint64_t limited, decimal = 0;
-	uint64_t val = strtoull(arg, &unit, 0);
+	uint64_t val = strtoull(arg, &unit, 10);
 
 	pos = strchr(arg, '.');
 	if (pos != NULL) {
 		while (*(++pos) == '0')
 			decimal_places++;
-		decimal = strtoull(pos, &unit, 0);
+		decimal = strtoull(pos, &unit, 10);
 	}
 
 	limited = 10;
@@ -532,12 +532,12 @@ uint64_t parse_timestamp(char *arg)
 	uint64_t ts, tmp;
 	int len;
 
-	tmp = strtoull(arg, &sep, 0);
+	tmp = strtoull(arg, &sep, 10);
 	ts = tmp * NSEC_PER_SEC;
 
 	if (*sep == '.') {
 		arg = sep + 1;
-		tmp = strtoull(arg, &sep, 0);
+		tmp = strtoull(arg, &sep, 10);
 
 		len = 0;
 		while (isdigit(*arg)) {
@@ -1065,4 +1065,59 @@ TEST_CASE(utils_strv)
 
 	return TEST_OK;
 }
+
+TEST_CASE(utils_parse_time)
+{
+	struct TC {
+		char *arg;
+		int limit;
+		uint64_t val;
+	} tc[] = {
+		{ "10.123ns", 5, 10 },
+		{ "50.987us", 5, 50987 },
+		{ "100.654ms", 5, 100654000 },
+		{ "123.123s", 5, 123123000000 },
+		{ "17.1m", 5, 1026000000000 },
+		{ "8960070.725168293s", 9, 8960070725168293 },
+		{ "8959832.082682731s", 9, 8959832082682731 },
+		{ "426883.003490100s", 9, 426883003490100 },
+		{ "8107.0641850s", 9, 8107064185000 },
+		{ "8107.006418501s", 9, 8107006418501 },
+	};
+	uint64_t time;
+	int i;
+
+	pr_dbg("parsing time with a unit\n");
+	for (i = 0; i < sizeof(tc) / sizeof(struct TC); i++) {
+		time = parse_time(tc[i].arg, tc[i].limit);
+		TEST_EQ(time, tc[i].val);
+	}
+
+	return TEST_OK;
+}
+
+TEST_CASE(utils_parse_timestamp)
+{
+	struct TC {
+		char *arg;
+		uint64_t val;
+	} tc[] = {
+		{ "8960070.725168293", 8960070725168293 },
+		{ "8959832.082682731", 8959832082682731 },
+		{ "426883.003490100", 426883003490100 },
+		{ "8107.0641850", 8107064185000 },
+		{ "8107.006418501234567890", 8107006418501 },
+	};
+	uint64_t time;
+	int i;
+
+	pr_dbg("parsing timestamp in various precisions with leading zeros\n");
+	for (i = 0; i < sizeof(tc) / sizeof(struct TC); i++) {
+		time = parse_timestamp(tc[i].arg);
+		TEST_EQ(time, tc[i].val);
+	}
+
+	return TEST_OK;
+}
+
 #endif /* UNIT_TEST */
