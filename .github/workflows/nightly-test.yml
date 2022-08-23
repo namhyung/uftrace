@@ -27,4 +27,4 @@ jobs:
           sudo sh -c "chmod +x /sys/kernel/tracing"
 
       - name: "run tests"
-        run: make test -j1
+        run: make test -j1 RUNTESTARG='--color on'
