@@ -820,8 +820,8 @@ def parse_argument():
                         help="show diff result if not matched")
     parser.add_argument("-v", "--verbose", dest='debug', action='store_true',
                         help="show internal command and result for debugging")
-    parser.add_argument("-n", "--no-color", dest='color', action='store_false',
-                        help="suppress color in the output")
+    parser.add_argument("-l", "--color", dest='color', default='auto',
+                        help="set color in the output. 'auto', 'on' or 'off'")
     parser.add_argument("-t", "--timeout", dest='timeout', default=5,
                         help="fail test if it runs more than TIMEOUT seconds")
     parser.add_argument("-j", "--worker", dest='worker', type=int, default=multiprocessing.cpu_count(),
@@ -921,12 +921,19 @@ if __name__ == "__main__":
         print("Start %s tests without worker pool" % shared.tests_count)
     print_test_header(opts, flags, ftests, compilers)
 
-    color = arg.color
-    if not sys.stdout.isatty():
+    color = True
+    if arg.color == 'auto':
+        if not sys.stdout.isatty():
+            color = False
+        if 'TERM' in os.environ and os.environ['TERM'] == 'dumb':
+            color = False
+    elif arg.color == 'on':
+        color = True
+    elif arg.color == 'off':
         color = False
-    if 'TERM' in os.environ and os.environ['TERM'] == 'dumb':
-        color = False
-
+    else:
+        print("unknown color: %s" % arg.color)
+        sys.exit(-1)
 
     for tc in sorted(testcases):
         name = tc.split('.')[0]  # remove '.py'
