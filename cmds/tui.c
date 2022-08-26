@@ -170,11 +170,11 @@ static const char *graph_field_names[NUM_GRAPH_FIELD] = {
 	"ADDRESS",
 };
 
-#define NUM_REPORT_FIELD 9
+#define NUM_REPORT_FIELD 10
 
 static const char *report_field_names[NUM_REPORT_FIELD] = {
 	"TOTAL TIME", "TOTAL AVG", "TOTAL MIN", "TOTAL MAX", "SELF TIME",
-	"SELF AVG",   "SELF MIN",  "SELF MAX",	"CALL",
+	"SELF AVG",   "SELF MIN",  "SELF MAX",	"CALL",	     "SIZE",
 };
 
 static const char *field_help[] = {
@@ -191,8 +191,10 @@ enum tui_mode {
 	TUI_MODE_OTHER,
 };
 
-static char *report_sort_key[] = { OPT_SORT_KEYS, "total_avg", "total_min", "total_max", "self",
-				   "self_avg",	  "self_min",  "self_max",  "call" };
+static char *report_sort_key[] = {
+	OPT_SORT_KEYS, "total_avg", "total_min", "total_max", "self",
+	"self_avg",    "self_min",  "self_max",	 "call",      "size",
+};
 
 static char *selected_report_sort_key[NUM_REPORT_FIELD];
 
@@ -341,7 +343,7 @@ static void print_report_##_func(struct field_data *fd)                         
 }                                                                                                  \
 REPORT_FIELD_STRUCT(_id, _name, _func, _header, 11)
 
-#define REPORT_FIELD_CALL(_id, _name, _field, _func, _header)                                      \
+#define REPORT_FIELD_UINT(_id, _name, _field, _func, _header)                                      \
 static void print_report_##_func(struct field_data *fd)                                            \
 {                                                                                                  \
 	struct uftrace_report_node *node = fd->arg;                                                \
@@ -359,7 +361,8 @@ REPORT_FIELD_TIME(REPORT_F_SELF_TIME, self, self.sum, self, "SELF TIME");
 REPORT_FIELD_TIME(REPORT_F_SELF_TIME_AVG, self-avg, self.avg, self_avg, "SELF AVG");
 REPORT_FIELD_TIME(REPORT_F_SELF_TIME_MIN, self-min, self.min, self_min, "SELF MIN");
 REPORT_FIELD_TIME(REPORT_F_SELF_TIME_MAX, self-max, self.max, self_max, "SELF MAX");
-REPORT_FIELD_CALL(REPORT_F_CALL, call, call, call, "CALL");
+REPORT_FIELD_UINT(REPORT_F_CALL, call, call, call, "CALL");
+REPORT_FIELD_UINT(REPORT_F_SIZE, size, size, size, "SIZE");
 
 /* clang-format on */
 
@@ -367,6 +370,7 @@ static struct display_field *report_field_table[] = {
 	&report_field_total,	 &report_field_total_avg, &report_field_total_min,
 	&report_field_total_max, &report_field_self,	  &report_field_self_avg,
 	&report_field_self_min,	 &report_field_self_max,  &report_field_call,
+	&report_field_size,
 };
 
 static void setup_default_graph_field(struct list_head *fields, struct uftrace_opts *opts,
@@ -524,6 +528,7 @@ static int build_tui_node(struct uftrace_task_reader *task, struct uftrace_recor
 
 	if (rec->type == UFTRACE_ENTRY || rec->type == UFTRACE_EXIT) {
 		sym = task_find_sym_addr(&task->h->sessions, task, rec->time, addr);
+		task->func = sym;
 
 		/* skip it if --no-libcall is given */
 		if (!opts->libcall && sym && sym->type == ST_PLT_FUNC)
