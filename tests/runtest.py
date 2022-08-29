@@ -773,8 +773,6 @@ def print_test_result(case, result, diffs, color, ftests, nr_compilers):
     normal = [TestBase.TEST_SUCCESS, TestBase.TEST_SUCCESS_FIXED, TestBase.TEST_SKIP]
     for r in result:
         if r not in normal:
-            output = case[1:4]
-            output += ' %-20s' % case[5:] + ': ' + ' '.join(plain_result) + '\n'
             ftests.write(output)
             ftests.flush()
             break
