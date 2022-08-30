@@ -16,6 +16,7 @@ struct uftrace_graph_node {
 	int nr_calls;
 	uint64_t time;
 	uint64_t child_time;
+	uint32_t id;
 	struct list_head head;
 	struct list_head list;
 	struct uftrace_graph_node *parent;

@@ -62,6 +62,7 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name, size_t nod
 	struct uftrace_graph_node *node = NULL;
 	struct uftrace_graph_node *curr = tg->node;
 	struct uftrace_fstack *fstack;
+	static uint32_t next_id = 1;
 
 	if (tg->lost)
 		return 1; /* ignore kernel functions after LOST */
@@ -87,6 +88,7 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name, size_t nod
 
 		node = xzalloc(node_size);
 
+		node->id = next_id++;
 		node->addr = fstack->addr;
 		node->name = xstrdup(name ?: "none");
 		INIT_LIST_HEAD(&node->head);
@@ -205,6 +207,7 @@ static int add_graph_event(struct uftrace_task_graph *tg, size_t node_size)
 	return -1;
 }
 
+/* graph_add_node is not thread-safe due to static id of uftrace_graph_node */
 int graph_add_node(struct uftrace_task_graph *tg, int type, char *name, size_t node_size,
 		   struct uftrace_dbg_loc *loc)
 {

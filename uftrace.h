@@ -300,6 +300,7 @@ struct uftrace_opts {
 	bool graphviz;
 	bool srcline;
 	bool estimate_return;
+	bool mermaid;
 	struct uftrace_time_range range;
 	enum uftrace_pattern_type patt_type;
 };
