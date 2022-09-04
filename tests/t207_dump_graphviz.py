@@ -9,7 +9,7 @@ class TestCase(TestBase):
         TestBase.__init__(self, 'abc', """
         # Elements
         digraph "t-abc" {
-            "main" [xlabel = "1"]
+            "t-abc" -> "main" [xlabel = "1"]
             "main" -> "a" [xlabel = "1"]
             "a" -> "b" [xlabel = "1"]
             "b" -> "c" [xlabel = "1"]
