@@ -20,7 +20,7 @@ function uftrace_entry(ctx)
     local _name       = ctx['name']
 
     local unit = 1000000000
-    print(string.format('%d.%d %6d: [entry] %s(%x) depth: %d',
+    print(string.format('%d.%09d %6d: [entry] %s(%x) depth: %d',
             _time / unit, _time % unit, _tid, _name, _address, _depth))
 
     if ctx['args'] ~= nil then
@@ -39,7 +39,7 @@ function uftrace_exit(ctx)
     local _name       = ctx["name"]
 
     local unit = 1000000000
-    print(string.format('%d.%d %6d: [exit ] %s(%x) depth: %d',
+    print(string.format('%d.%09d %6d: [exit ] %s(%x) depth: %d',
             _time / unit, _time % unit, _tid, _name, _address, _depth))
 
     if ctx['retval'] ~= nil then
@@ -55,7 +55,7 @@ function uftrace_event(ctx)
     local _name       = ctx["name"]
 
     local unit = 1000000000
-    print(string.format('%d.%d %6d: [event] %s(%x)',
+    print(string.format('%d.%09d %6d: [event] %s(%x)',
             _time / unit, _time % unit, _tid, _name, _address))
 end
 
