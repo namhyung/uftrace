@@ -1,0 +1,57 @@
+<style>
+#options {
+  border-collapse: collapse;
+  width: 100%;
+}
+#options td, #options th {
+  border: 1px solid #ddd;
+  padding: 8px;
+}
+#options tr:hover{ background-color : #fffff4; }
+#options th {
+  padding-top : 10px;
+  padding-bottom : 10px;
+  text-align : left;
+  background-color : #58becd;
+}
+.button {
+  padding: 8px 16px;
+  transition-duration: 0.4s;
+  border: none;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.button:hover {
+  box-shadow: 0 4px 8px 0 rgba(0,0,0,0.24);
+}
+</style>
+<details>
+  <summary> Show option </summary>
+  <table id="options">
+    <tr>
+      <th>Full/Sub Graph</th>
+      <th>Show/Hide Depth</th>
+    </tr>
+    <tr>
+      <td>
+          <button class="button" onclick="drawBaseGraph(0)">Full-Graph</button>
+          <button class="button" onclick="drawSelectGraph()">Sub-Graph Selection</button>
+          <span id="description" style="color:blue" > </span>
+      </td>
+      <td>
+        Depth:
+        <select id="depth-select">
+          <option value="1024" selected>Full</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+          <option value="7">7</option>
+        </select>
+    </td>
+  </tr>
+</table>
+<br>
+</details>

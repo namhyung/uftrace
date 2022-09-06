@@ -449,7 +449,7 @@ class TestBase:
         start_mermaid = False
 
         for ln in output.split('\n'):
-            if ln.find('<div class=\"mermaid\">') >= 0:
+            if ln.find('<div class=\"mermaid\"') >= 0:
                 start_mermaid = True
                 continue
             if start_mermaid == False:
@@ -457,9 +457,11 @@ class TestBase:
             if ln.find('</div>') >= 0:
                 break
 
-            m = re.match( r'\s+(?P<start_id>\d+)\[\"(?P<start_name>\S+)\"\]\s+-->\|(?P<call_num>\d+)\|\s+(?P<end_id>\d+)\[\"(?P<end_name>\S+)\"\];', ln)
+            m = re.match( r'\s+(?P<start_depth>\d+)_(?P<start_id>\d+)\[\"(?P<start_name>\S+)\"\]\s+'
+                + '-->\|(?P<call_num>\d+)\|\s+(?P<end_depth>\d+)_(?P<end_id>\d+)\[\"(?P<end_name>\S+)\"\];', ln)
             if m:
-                result.append("%s_%s %s> %s_%s" % (m.group('start_id'), m.group('start_name'), m.group('call_num'), m.group('end_id'), m.group('end_name')))
+                result.append("%s_%s_%s %s> %s_%s_%s" % (m.group('start_depth'), m.group('start_id'), m.group('start_name'),
+                m.group('call_num'), m.group('end_depth'), m.group('end_id'), m.group('end_name')))
             else:
                 continue
         return '\n'.join(result)

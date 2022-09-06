@@ -67,6 +67,9 @@ endif
 
 COMMON_CFLAGS += -W -Wall -Wno-unused-parameter -Wno-missing-field-initializers
 
+C_STR_TARGET = utils/mermaid.js utils/mermaid.html
+C_STR_EXTENSION = cstr
+
 #
 # Note that the plain CFLAGS and LDFLAGS can be changed
 # by config/Makefile later but *_*FLAGS can not.
@@ -281,7 +284,7 @@ $(UFTRACE_ARCH_OBJS): $(wildcard $(srcdir)/arch/$(ARCH)/*.[cS]) $(COMMON_DEPS)
 $(objdir)/libtraceevent/libtraceevent.a: $(wildcard $(srcdir)/libtraceevent/*.[ch]) $(objdir)/.config
 	@$(MAKE) -C $(srcdir)/libtraceevent BUILD_SRC=$(srcdir)/libtraceevent BUILD_OUTPUT=$(objdir)/libtraceevent CONFIG_FLAGS="$(TRACEEVENT_CFLAGS)"
 
-$(objdir)/uftrace.o: $(srcdir)/uftrace.c $(objdir)/version.h $(COMMON_DEPS)
+$(objdir)/uftrace.o: $(srcdir)/uftrace.c $(objdir)/version.h c-str-conversion $(COMMON_DEPS)
 	$(QUIET_CC)$(CC) $(UFTRACE_CFLAGS) -c -o $@ $<
 
 $(objdir)/misc/demangler.o: $(srcdir)/misc/demangler.c $(objdir)/version.h $(COMMON_DEPS)
@@ -383,6 +386,7 @@ clean:
 	$(Q)$(RM) $(objdir)/uftrace-*.tar.gz $(objdir)/version.h
 	$(Q)find -name "*\.gcda" -o -name "*\.gcno" | xargs $(RM)
 	$(Q)$(RM) coverage.info
+	$(Q)$(RM) $(objdir)/utils/*.$(C_STR_EXTENSION)
 	@$(MAKE) -sC $(srcdir)/arch/$(ARCH) clean
 	@$(MAKE) -sC $(srcdir)/tests ARCH=$(ARCH) clean
 	@$(MAKE) -sC $(docdir) clean
@@ -395,5 +399,10 @@ reset-coverage:
 ctags:
 	@find . -name "*\.[chS]" -o -path ./tests -prune -o -path ./check-deps -prune \
 		| xargs ctags --regex-asm='/^(GLOBAL|ENTRY|END)\(([^)]*)\).*/\2/'
+
+c-str-conversion:
+	@for i in ${C_STR_TARGET}; do \
+		sed -e 's#\\#\\\\#g;s#\"#\\"#g;s#$$#\\n\"#;s#^#\"#' $${i} > $${i}.$(C_STR_EXTENSION); \
+	done
 
 .PHONY: all config clean test dist doc ctags PHONY
