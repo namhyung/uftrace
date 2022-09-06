@@ -19,10 +19,10 @@ class TestCase(TestBase):
 <h2>Function Call Graph for <span style="color:blue">t-abc</span></h2>
 <div class="mermaid">
 flowchart TB
-  0["t-abc"] -->|1| 1["main"];
-  1["main"] -->|1| 2["a"];
-  2["a"] -->|1| 3["b"];
-  3["b"] -->|1| 4["c"];
+  0_0["t-abc"] -->|1| 1_1["main"];
+  1_1["main"] -->|1| 2_2["a"];
+  2_2["a"] -->|1| 3_3["b"];
+  3_3["b"] -->|1| 4_4["c"];
 </div>
 </body>
 </html>

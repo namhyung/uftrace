@@ -1311,45 +1311,65 @@ static void dump_mermaid_header(struct uftrace_dump_ops *ops, struct uftrace_dat
 
 	pr_out("<html>\n");
 	pr_out("<body>\n");
-	pr_out("<script src=\"https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js\"></script>\n");
-	pr_out("<script>\n");
-	pr_out("  var config = {\n");
-	pr_out("  startOnLoad: true,\n");
-	pr_out("  maxTextSize: 99999999,\n");
-	pr_out("  flowchart: { useMaxWidth: false }\n");
-	pr_out("  };\n");
-	pr_out("  mermaid.initialize(config);\n");
-	pr_out("</script>\n");
 }
 
 static void print_graph_node_mermaid(struct uftrace_graph *graph, struct uftrace_graph_node *node)
 {
 	char *symname = node->name;
 	struct uftrace_graph_node *child;
-
+	static int depth = -1;
+	depth++;
 	list_for_each_entry(child, &node->head, list) {
-		pr_out("  %d[\"%s\"] -->|%d| %d[\"%s\"];\n", node->id, symname, child->nr_calls,
-		       child->id, child->name);
+		pr_out("  %d_%d[\"%s\"] -->|%d| %d_%d[\"%s\"];\n", depth, node->id, symname,
+		       child->nr_calls, depth + 1, child->id, child->name);
 		print_graph_node_mermaid(graph, child);
+	}
+	if (list_no_entry(child, &node->head, list)) {
+		depth--;
 	}
 }
 
 static void dump_mermaid_footer(struct uftrace_dump_ops *ops, struct uftrace_data *handle,
 				struct uftrace_opts *opts)
 {
+	const char *interactive_option_html;
+	const char *interactive_option_js;
+
 	/* skip empty graph */
 	if (mermaid_graph.root.time == 0 && mermaid_graph.root.nr_edges == 0)
 		return;
 
-	if (mermaid_graph.root.time || mermaid_graph.root.nr_edges) {
-		pr_out("<h2>Function Call Graph for <span style=\"color:blue\">%s</span>",
-		       mermaid_graph.root.name);
-		pr_out("</h2>\n");
-		pr_out("<div class=\"mermaid\">\n");
-		pr_out("flowchart TB\n");
-		print_graph_node_mermaid(&mermaid_graph, &mermaid_graph.root);
-		pr_out("</div>\n");
-	}
+	pr_out("<h2>Function Call Graph for <span style=\"color:blue\" id=\"baseName\">%s</span>",
+	       mermaid_graph.root.name);
+	pr_out("</h2>\n");
+
+	interactive_option_html =
+#include "utils/mermaid.html.cstr" /* This file is a converted of mermaid.html to one string literal in build-time */
+		;
+
+	pr_out("%s", interactive_option_html);
+
+	pr_out("<div class=\"mermaid\" id=\"meraid_graph\">\n");
+	pr_out("flowchart TB\n");
+	print_graph_node_mermaid(&mermaid_graph, &mermaid_graph.root);
+	pr_out("</div>\n");
+	pr_out("<script src=\"https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js\"></script>\n");
+	pr_out("<script>\n");
+	pr_out("var config = {\n");
+	pr_out("	startOnLoad: true,\n");
+	pr_out("	maxTextSize: 99999999,\n");
+	pr_out("	flowchart: { useMaxWidth: false, curve : \'basis\', htmlLabels: \'false\'},\n");
+	pr_out("	securityLevel:\'loose\'\n");
+	pr_out("};\n");
+	pr_out("mermaid.initialize(config);\n");
+
+	interactive_option_js =
+#include "utils/mermaid.js.cstr" /* This file is a converted of mermaid.html to one string literal in build-time */
+		;
+
+	pr_out("%s", interactive_option_js);
+
+	pr_out("</script>\n");
 	pr_out("</body>\n");
 	pr_out("</html>\n");
 }
