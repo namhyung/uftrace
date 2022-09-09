@@ -736,7 +736,7 @@ static struct tui_graph *tui_graph_init(struct uftrace_opts *opts)
 		top->nr_calls = 1;
 
 		list_for_each_entry(node, &graph->ug.root.head, list) {
-			top->total_time.sum += node->total_time.sum;
+			graph_update_time_stat(&top->total_time, node->total_time.sum);
 			top->child_time += node->total_time.sum;
 		}
 
@@ -796,7 +796,7 @@ static void build_partial_graph(struct tui_report_node *root_node, struct tui_gr
 	root->n.name = str;
 	root->n.parent = NULL;
 
-	root->n.total_time.sum = 0;
+	graph_init_time_stat(&root->n.total_time);
 	root->n.child_time = 0;
 	root->n.nr_calls = 0;
 
