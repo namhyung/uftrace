@@ -25,6 +25,18 @@
 #define KEY_ESCAPE 27
 #define BLANK 32
 
+#define TUI_ASSERT(cond)                                                                           \
+	do {                                                                                       \
+		endwin();                                                                          \
+		ASSERT(cond);                                                                      \
+	} while (0)
+
+#define TUI_DASSERT(cond)                                                                          \
+	do {                                                                                       \
+		endwin();                                                                          \
+		DASSERT(cond);                                                                     \
+	} while (0)
+
 static bool tui_finished;
 static bool tui_debug;
 

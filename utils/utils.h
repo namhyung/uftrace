@@ -34,6 +34,9 @@
 #define ALIGN(n, a) (((n) + (a)-1) & ~((a)-1))
 #endif
 
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+
 #define DIV_ROUND_UP(v, r) (((v) + (r)-1) / (r))
 #define ROUND_UP(v, r) (DIV_ROUND_UP((v), (r)) * (r))
 #define ROUND_DOWN(v, r) (((v) / (r)) * (r))
@@ -174,6 +177,7 @@ extern void setup_signal(void);
 #define pr_bold(fmt, ...) __pr_color(COLOR_CODE_BOLD, fmt, ##__VA_ARGS__)
 #define pr_gray(fmt, ...) __pr_color(COLOR_CODE_GRAY, fmt, ##__VA_ARGS__)
 #define pr_color(c, fmt, ...) __pr_color(c, fmt, ##__VA_ARGS__)
+#define pr_flush() fflush(outfp)
 
 #define xmalloc(sz)                                                                                \
 	({                                                                                         \
@@ -407,6 +411,7 @@ void stacktrace(void);
 		pr_red("%s:%d: %s: ASSERT `%s' failed.\n", __FILE__, __LINE__, __func__, #cond);   \
 		stacktrace();                                                                      \
 		pr_red(BUG_REPORT_MSG);                                                            \
+		pr_flush();                                                                        \
 		TRAP();                                                                            \
 	}
 
@@ -416,6 +421,7 @@ void stacktrace(void);
 		       #cond);                                                                     \
 		stacktrace();                                                                      \
 		pr_red(BUG_REPORT_MSG);                                                            \
+		pr_flush();                                                                        \
 		TRAP();                                                                            \
 	}
 
