@@ -174,12 +174,10 @@ static const char *help[] = {
 	"q             Quit",
 };
 
-#define NUM_GRAPH_FIELD 3
+#define NUM_GRAPH_FIELD 6
 
 static const char *graph_field_names[NUM_GRAPH_FIELD] = {
-	"TOTAL TIME",
-	"SELF TIME",
-	"ADDRESS",
+	"TOTAL TIME", "TOTAL AVG", "TOTAL MIN", "TOTAL MAX", "SELF TIME", "ADDRESS",
 };
 
 #define NUM_REPORT_FIELD 10
@@ -271,6 +269,37 @@ static void print_graph_total(struct field_data *fd)
 	print_time(d);
 }
 
+static void print_graph_total_avg(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	uint64_t d;
+
+	TUI_ASSERT(node->nr_calls > 0);
+	d = node->total_time.sum / node->nr_calls;
+
+	print_time(d);
+}
+
+static void print_graph_total_min(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	uint64_t d;
+
+	d = node->total_time.min;
+
+	print_time(d);
+}
+
+static void print_graph_total_max(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	uint64_t d;
+
+	d = node->total_time.max;
+
+	print_time(d);
+}
+
 static void print_graph_self(struct field_data *fd)
 {
 	struct uftrace_graph_node *node = fd->arg;
@@ -301,6 +330,36 @@ static struct display_field graph_field_total = {
 	.list = LIST_HEAD_INIT(graph_field_total.list),
 };
 
+static struct display_field graph_field_total_avg = {
+	.id = GRAPH_F_TOTAL_AVG,
+	.name = "total-avg",
+	.alias = "tavg",
+	.header = "TOTAL AVG",
+	.length = 10,
+	.print = print_graph_total_avg,
+	.list = LIST_HEAD_INIT(graph_field_total_avg.list),
+};
+
+static struct display_field graph_field_total_min = {
+	.id = GRAPH_F_TOTAL_MIN,
+	.name = "total-min",
+	.alias = "tmin",
+	.header = "TOTAL MIN",
+	.length = 10,
+	.print = print_graph_total_min,
+	.list = LIST_HEAD_INIT(graph_field_total_min.list),
+};
+
+static struct display_field graph_field_total_max = {
+	.id = GRAPH_F_TOTAL_MAX,
+	.name = "total-max",
+	.alias = "tmax",
+	.header = "TOTAL MAX",
+	.length = 10,
+	.print = print_graph_total_max,
+	.list = LIST_HEAD_INIT(graph_field_total_max.list),
+};
+
 static struct display_field graph_field_self = {
 	.id = GRAPH_F_SELF_TIME,
 	.name = "self-time",
@@ -328,9 +387,8 @@ static struct display_field graph_field_addr = {
 
 /* index of this table should be matched to display_field_id */
 static struct display_field *graph_field_table[] = {
-	&graph_field_total,
-	&graph_field_self,
-	&graph_field_addr,
+	&graph_field_total,	&graph_field_total_avg, &graph_field_total_min,
+	&graph_field_total_max, &graph_field_self,	&graph_field_addr,
 };
 
 /* clang-format off */
