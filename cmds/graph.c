@@ -45,7 +45,7 @@ static void print_total_time(struct field_data *fd)
 	struct uftrace_graph_node *node = fd->arg;
 	uint64_t d;
 
-	d = node->time;
+	d = node->total_time.sum;
 
 	print_time_unit(d);
 }
@@ -55,7 +55,7 @@ static void print_self_time(struct field_data *fd)
 	struct uftrace_graph_node *node = fd->arg;
 	uint64_t d;
 
-	d = node->time - node->child_time;
+	d = node->total_time.sum - node->child_time;
 
 	print_time_unit(d);
 }
@@ -489,7 +489,8 @@ static int print_graph(struct session_graph *graph, struct uftrace_opts *opts)
 	bool *indent_mask;
 
 	/* skip empty graph */
-	if (list_empty(&graph->bt_list) && graph->ug.root.time == 0 && graph->ug.root.nr_edges == 0)
+	if (list_empty(&graph->bt_list) && graph->ug.root.total_time.sum == 0 &&
+	    graph->ug.root.nr_edges == 0)
 		return 0;
 
 	pr_out("# Function Call Graph for '%s' (session: %.16s)\n", graph->func,
@@ -503,7 +504,7 @@ static int print_graph(struct session_graph *graph, struct uftrace_opts *opts)
 	setup_field(&output_fields, opts, &setup_default_field, field_table,
 		    ARRAY_SIZE(field_table));
 
-	if (graph->ug.root.time || graph->ug.root.nr_edges) {
+	if (graph->ug.root.total_time.sum || graph->ug.root.nr_edges) {
 		pr_out("========== FUNCTION CALL GRAPH ==========\n");
 		print_header(&output_fields, "# ", "FUNCTION", 2, false);
 		if (!list_empty(&output_fields)) {
@@ -695,8 +696,8 @@ static void build_graph(struct uftrace_opts *opts, struct uftrace_data *handle, 
 		struct uftrace_graph_node *node;
 
 		list_for_each_entry(node, &graph->ug.root.head, list) {
-			graph->ug.root.time += node->time;
-			graph->ug.root.child_time += node->time;
+			graph->ug.root.total_time.sum += node->total_time.sum;
+			graph->ug.root.child_time += node->total_time.sum;
 		}
 
 		graph = graph->next;

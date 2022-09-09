@@ -172,7 +172,7 @@ static int add_graph_exit(struct uftrace_task_graph *tg)
 	}
 
 out:
-	node->time += fstack->total_time;
+	node->total_time.sum += fstack->total_time;
 	node->child_time += fstack->child_time;
 
 	if (exit_cb)
@@ -386,7 +386,7 @@ TEST_CASE(graph_basic)
 	node = graph_find_node(&graph.root, data[1].addr);
 	TEST_NE(node, NULL);
 	TEST_STREQ(node->name, data[1].name);
-	TEST_EQ(node->time, data[1].total_time);
+	TEST_EQ(node->total_time.sum, data[1].total_time);
 	TEST_EQ(node->child_time, data[1].child_time);
 	TEST_EQ(node->nr_calls, 1);
 
@@ -394,7 +394,7 @@ TEST_CASE(graph_basic)
 	node = graph_find_node(&graph.root, data[5].addr);
 	TEST_NE(node, NULL);
 	TEST_STREQ(node->name, data[5].name);
-	TEST_EQ(node->time, data[5].total_time);
+	TEST_EQ(node->total_time.sum, data[5].total_time);
 	TEST_EQ(node->child_time, data[5].child_time);
 	TEST_EQ(node->nr_calls, 1);
 
@@ -402,7 +402,7 @@ TEST_CASE(graph_basic)
 	node = graph_find_node(node, data[4].addr);
 	TEST_NE(node, NULL);
 	TEST_STREQ(node->name, data[4].name);
-	TEST_EQ(node->time, data[4].total_time);
+	TEST_EQ(node->total_time.sum, data[4].total_time);
 	TEST_EQ(node->child_time, data[4].child_time);
 	TEST_EQ(node->nr_calls, 1);
 
