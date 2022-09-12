@@ -8,9 +8,9 @@ int foo(void)
 	return 0;
 }
 
-int bar(void)
+int bar(int a)
 {
-	return -1;
+	return a - 2;
 }
 
 int main(int argc, char *argv[])
@@ -20,6 +20,6 @@ int main(int argc, char *argv[])
 	if (!setjmp(env))
 		ret = foo();
 	else
-		ret = bar();
+		ret = bar(argc);
 	return !(ret == -1);
 }
