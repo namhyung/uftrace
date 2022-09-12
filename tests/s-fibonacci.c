@@ -15,6 +15,5 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		n = atoi(argv[1]);
 
-	fib(n);
-	return 0;
+	return !!fib(n);
 }
