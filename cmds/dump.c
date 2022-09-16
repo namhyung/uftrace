@@ -733,6 +733,9 @@ static void dump_raw_kernel_event(struct uftrace_dump_ops *ops,
 	int size = 0;
 
 	event = pevent_find_event(kernel->pevent, frs->addr);
+	if (!event)
+		return;
+
 	event_data = read_kernel_event(kernel, cpu, &size);
 
 	pr_time(frs->time);

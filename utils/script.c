@@ -41,6 +41,9 @@ enum script_type_t get_script_type(const char *str)
 {
 	char *ext = strrchr(str, '.');
 
+	if (ext == NULL)
+		return SCRIPT_UNKNOWN;
+
 	/*
 	 * The given script will be detected by the file suffix.
 	 * As of now, it only handles ".py" suffix for python.
