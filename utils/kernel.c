@@ -127,6 +127,9 @@ bool check_kernel_pid_filter(void)
 	bool ret = true;
 	char *filename = get_tracing_file("options/function-fork");
 
+	if (filename == NULL)
+		return false;
+
 	if (!access(filename, F_OK))
 		ret = false;
 
