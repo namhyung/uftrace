@@ -279,7 +279,8 @@ static struct task_graph *get_task_graph(struct uftrace_task_reader *task, uint6
 	graph = get_graph(task, time, addr);
 
 	if (tg->utg.graph && tg->utg.graph != graph) {
-		pr_dbg("detect new session: %.*s\n", SESSION_ID_LEN, graph->sess->sid);
+		if (graph && graph->sess)
+			pr_dbg("detect new session: %.*s\n", SESSION_ID_LEN, graph->sess->sid);
 		tg->utg.new_sess = true;
 	}
 	tg->utg.graph = graph;
