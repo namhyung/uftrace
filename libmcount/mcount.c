@@ -2012,7 +2012,9 @@ static __used void mcount_startup(void)
 	if (clock_str)
 		setup_clock_id(clock_str);
 
-	agent_spawn();
+	if (getenv("UFTRACE_AGENT"))
+		agent_spawn();
+
 	pthread_atfork(atfork_prepare_handler, NULL, atfork_child_handler);
 
 	mcount_hook_functions();

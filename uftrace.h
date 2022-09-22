@@ -301,6 +301,7 @@ struct uftrace_opts {
 	bool srcline;
 	bool estimate_return;
 	bool mermaid;
+	bool agent;
 	struct uftrace_time_range range;
 	enum uftrace_pattern_type patt_type;
 };
