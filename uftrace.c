@@ -190,6 +190,7 @@ __used static const char uftrace_help[] =
 "      --num-thread=NUM       Create NUM recorder threads\n"
 "  -N, --notrace=FUNC         Don't trace those FUNCs\n"
 "      --opt-file=FILE        Read command-line options from FILE\n"
+"  -p  --pid=PID              PID of an interactive mcount instance\n"
 "      --port=PORT            Use PORT for network connection (default: "
 	stringify(UFTRACE_RECV_PORT) ")\n"
 "  -P, --patch=FUNC           Apply dynamic patching for FUNCs\n"
@@ -234,7 +235,7 @@ __used static const char uftrace_footer[] =
 "\n";
 
 static const char uftrace_shopts[] =
-	"+aA:b:C:d:D:eE:f:F:ghH:kK:lN:P:r:R:s:S:t:T:U:vVW:Z:";
+	"+aA:b:C:d:D:eE:f:F:ghH:kK:lN:p:P:r:R:s:S:t:T:U:vVW:Z:";
 
 #define REQ_ARG(name, shopt) { #name, required_argument, 0, shopt }
 #define NO_ARG(name, shopt)  { #name, no_argument, 0, shopt }
@@ -330,6 +331,7 @@ static const struct option uftrace_options[] = {
 	NO_ARG(estimate-return, 'e'),
 	REQ_ARG(with-syms, OPT_with_syms),
 	NO_ARG(agent, 'g'),
+	REQ_ARG(pid, 'p'),
 	{ 0 }
 };
 /* clang-format on */
@@ -704,6 +706,11 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 
 	case 'h':
 		return -3;
+
+	case 'p':
+		opts->pid = strtol(arg, NULL, 0);
+		opts->exename = "";
+		break;
 
 	case OPT_libmcount_path:
 		opts->lib_path = arg;

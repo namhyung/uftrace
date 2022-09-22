@@ -258,6 +258,7 @@ struct uftrace_opts {
 	int nr_thread;
 	int rt_prio;
 	int size_filter;
+	int pid;
 	unsigned long bufsize;
 	unsigned long kernel_bufsize;
 	uint64_t threshold;

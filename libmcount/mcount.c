@@ -1796,6 +1796,8 @@ void *agent_apply_commands(void *arg)
 			switch (dopt) {
 			case UFTRACE_DOPT_CLOSE:
 				close_connection = true;
+				if (agent_run)
+					socket_send_option(cfd, UFTRACE_DOPT_CLOSE, NULL, 0);
 				break;
 
 			default:

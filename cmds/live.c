@@ -3,12 +3,14 @@
 #include <signal.h>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <sys/un.h>
 #include <unistd.h>
 
 #include "libmcount/mcount.h"
 #include "uftrace.h"
 #include "utils/fstack.h"
 #include "utils/kernel.h"
+#include "utils/socket.h"
 #include "utils/utils.h"
 
 static char *tmp_dirname;
@@ -95,6 +97,37 @@ static void setup_child_environ(struct uftrace_opts *opts)
 	free(libpath);
 }
 
+/* Forward all client options to the agent */
+static int forward_options(struct uftrace_opts *opts)
+{
+	int sfd;
+	struct sockaddr_un addr;
+	int ret = 0;
+
+	sfd = socket_create(&addr, opts->pid);
+	if (sfd == -1)
+		return -1;
+
+	if (socket_connect(sfd, &addr) == -1) {
+		ret = -1;
+		goto socket_error;
+	}
+
+	if (socket_send_option(sfd, UFTRACE_DOPT_CLOSE, NULL, 0) == -1) {
+		pr_warn("cannot terminate agent connection\n");
+		ret = -1;
+	}
+	else {
+		enum uftrace_dopt ack;
+		if (read(sfd, &ack, sizeof(enum uftrace_dopt)) < 0 || ack != UFTRACE_DOPT_CLOSE)
+			ret = -1;
+	}
+
+socket_error:
+	close(sfd);
+	return ret;
+}
+
 int command_live(int argc, char *argv[], struct uftrace_opts *opts)
 {
 	char template[32] = "/tmp/uftrace-live-XXXXXX";
@@ -144,6 +177,9 @@ int command_live(int argc, char *argv[], struct uftrace_opts *opts)
 		}
 		return 0;
 	}
+
+	if (opts->pid)
+		return forward_options(opts);
 
 	ret = command_record(argc, argv, opts);
 	if (!can_skip_replay(opts, ret)) {
