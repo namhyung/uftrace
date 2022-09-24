@@ -318,6 +318,11 @@ static void update_mem_regions(struct mcount_mem_regions *regions)
 		p = next + 1;
 		end = strtoul(p, &next, 16);
 
+		/* prot: rwxp */
+		p = next + 1;
+		if (p[0] != 'r')
+			continue;
+
 		if (strstr(next, "[heap]")) {
 			end = ROUND_UP(end, HEAP_REGION_UNIT);
 			if (end > regions->brk)
