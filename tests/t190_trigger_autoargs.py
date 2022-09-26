@@ -15,4 +15,4 @@ class TestCase(TestBase):
 
     def setup(self):
         self.option  = '-F main -T calloc@trace-off -T strcmp@trace-on,auto-args'
-        self.exearg += ' hello'
+        self.exearg = 't-' + self.name + ' hello'

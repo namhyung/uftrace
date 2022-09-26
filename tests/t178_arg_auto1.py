@@ -17,4 +17,4 @@ class TestCase(TestBase):
 
     def setup(self):
         self.option  = '-F main -A ^str -R ^str'
-        self.exearg += ' hello'
+        self.exearg = 't-' + self.name + ' hello'
