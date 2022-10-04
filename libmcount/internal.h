@@ -51,6 +51,12 @@ struct filter_control {
 	int out_count;
 	uint16_t depth;
 	uint16_t saved_depth;
+	/* call depth relative to the closest parent with default depth (e.g.
+	 * matched entry) */
+	uint16_t depth_relative;
+	uint16_t saved_depth_relative;
+	bool depth_trigger;
+	bool saved_depth_trigger;
 	uint64_t time;
 	uint64_t saved_time;
 };

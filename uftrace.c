@@ -1311,7 +1311,6 @@ int main(int argc, char *argv[])
 		.dirname = UFTRACE_DIR_NAME,
 		.libcall = true,
 		.bufsize = SHMEM_BUFFER_SIZE,
-		.depth = OPT_DEPTH_DEFAULT,
 		.max_stack = OPT_RSTACK_DEFAULT,
 		.port = UFTRACE_RECV_PORT,
 		.use_pager = true,
@@ -1412,6 +1411,10 @@ int main(int argc, char *argv[])
 
 	if (opts.use_pager)
 		pager = setup_pager();
+
+	if (!opts.pid && !opts.depth)
+		/* ignore implicit depth when in client mode */
+		opts.depth = OPT_DEPTH_DEFAULT;
 
 	setup_color(opts.color, pager);
 	setup_signal();

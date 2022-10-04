@@ -834,7 +834,27 @@ static void mcount_save_filter(struct mcount_thread_data *mtdp)
 {
 	/* save original depth and time to restore at exit time */
 	mtdp->filter.saved_depth = mtdp->filter.depth;
+	mtdp->filter.saved_depth_relative = mtdp->filter.depth_relative;
+	mtdp->filter.saved_depth_trigger = mtdp->filter.depth_trigger;
 	mtdp->filter.saved_time = mtdp->filter.time;
+}
+
+static void mcount_sync_depth(struct mcount_thread_data *mtdp)
+{
+	int max_depth;
+
+	if (mtdp->filter.depth_trigger)
+		return;
+
+	max_depth = mcount_depth - mtdp->filter.depth_relative;
+	if (mtdp->filter.depth > max_depth) {
+		mtdp->filter.depth = max_depth < 0 ? 0 : max_depth;
+		pr_dbg2("depth decreased\n");
+	}
+	else if (mtdp->filter.depth < max_depth) {
+		mtdp->filter.depth = max_depth;
+		pr_dbg2("depth increased\n");
+	}
 }
 
 /* update filter state from trigger result */
@@ -846,6 +866,7 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 	if (mcount_check_rstack(mtdp))
 		return FILTER_RSTACK;
 
+	mcount_sync_depth(mtdp);
 	mcount_save_filter(mtdp);
 
 	/* already filtered by notrace option */
@@ -865,6 +886,7 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 
 		/* apply default filter depth when match */
 		mtdp->filter.depth = mcount_depth;
+		mtdp->filter.depth_relative = 0;
 	}
 	else {
 		/* not matched by filter */
@@ -876,8 +898,10 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 	(TRIGGER_FL_DEPTH | TRIGGER_FL_TRACE_ON | TRIGGER_FL_TRACE_OFF | TRIGGER_FL_TIME_FILTER)
 
 	if (tr->flags & FLAGS_TO_CHECK) {
-		if (tr->flags & TRIGGER_FL_DEPTH)
+		if (tr->flags & TRIGGER_FL_DEPTH) {
 			mtdp->filter.depth = tr->depth;
+			mtdp->filter.depth_trigger = true;
+		}
 
 		if (tr->flags & TRIGGER_FL_TRACE_ON)
 			mcount_enabled = true;
@@ -895,6 +919,7 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 		return FILTER_OUT;
 
 	mtdp->filter.depth--;
+	mtdp->filter.depth_relative++;
 	return FILTER_IN;
 }
 
@@ -978,6 +1003,8 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp, struct mcount_r
 		rstack->flags |= MCOUNT_FL_NORECORD;
 
 	rstack->filter_depth = mtdp->filter.saved_depth;
+	rstack->filter_depth_relative = mtdp->filter.saved_depth_relative;
+	rstack->filter_depth_trigger = mtdp->filter.saved_depth_trigger;
 	rstack->filter_time = mtdp->filter.saved_time;
 
 #define FLAGS_TO_CHECK                                                                             \
@@ -1097,6 +1124,8 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp, struct mcount_re
 #undef FLAGS_TO_CHECK
 
 	mtdp->filter.depth = rstack->filter_depth;
+	mtdp->filter.depth_relative = rstack->filter_depth_relative;
+	mtdp->filter.depth_trigger = rstack->filter_depth_trigger;
 	mtdp->filter.time = rstack->filter_time;
 
 	if (!(rstack->flags & MCOUNT_FL_NORECORD)) {
@@ -1794,6 +1823,11 @@ void *agent_apply_commands(void *arg)
 			}
 
 			switch (dopt) {
+			case UFTRACE_DOPT_DEPTH:
+				read(cfd, &mcount_depth, sizeof(int));
+				pr_dbg3("dynamic depth: %d\n", mcount_depth);
+				break;
+
 			case UFTRACE_DOPT_CLOSE:
 				close_connection = true;
 				if (agent_run)

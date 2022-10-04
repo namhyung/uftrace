@@ -416,6 +416,7 @@ enum uftrace_msg_type {
 
 /* Dynamic options sent by the client to the agent */
 enum uftrace_dopt {
+	UFTRACE_DOPT_DEPTH,
 	UFTRACE_DOPT_CLOSE, /* Close the connection with the client */
 };
 

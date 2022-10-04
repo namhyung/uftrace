@@ -113,6 +113,15 @@ static int forward_options(struct uftrace_opts *opts)
 		goto socket_error;
 	}
 
+	if (opts->depth) {
+		if (socket_send_option(sfd, UFTRACE_DOPT_DEPTH, &opts->depth, sizeof(int)) == -1) {
+			ret = -1;
+			pr_warn("cannot send option 'depth'\n");
+		}
+		else
+			pr_dbg3("sent option depth = %d\n", opts->depth);
+	}
+
 	if (socket_send_option(sfd, UFTRACE_DOPT_CLOSE, NULL, 0) == -1) {
 		pr_warn("cannot terminate agent connection\n");
 		ret = -1;
