@@ -205,7 +205,7 @@ LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
 LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/script.c $(srcdir)/utils/script-python.c $(srcdir)/utils/script-luajit.c
 LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/auto-args.c $(srcdir)/utils/dwarf.c
 LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/hashmap.c $(srcdir)/utils/argspec.c
-LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/tracefs.c
+LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/tracefs.c $(srcdir)/utils/socket.c
 LIBMCOUNT_UTILS_SRCS += $(wildcard $(srcdir)/utils/symbol*.c)
 LIBMCOUNT_UTILS_OBJS := $(patsubst $(srcdir)/utils/%.c,$(objdir)/libmcount/%.op,$(LIBMCOUNT_UTILS_SRCS))
 
