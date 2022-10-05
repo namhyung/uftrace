@@ -52,6 +52,7 @@ struct mcount_ret_stack {
 	int tid;
 	unsigned dyn_idx;
 	uint64_t filter_time;
+	bool filter_time_trigger;
 	unsigned short depth;
 	unsigned short filter_depth;
 	unsigned short filter_depth_relative;

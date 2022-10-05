@@ -59,6 +59,8 @@ struct filter_control {
 	bool saved_depth_trigger;
 	uint64_t time;
 	uint64_t saved_time;
+	bool time_trigger;
+	bool saved_time_trigger;
 };
 #else
 struct filter_control {};

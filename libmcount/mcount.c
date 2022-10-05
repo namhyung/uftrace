@@ -837,6 +837,7 @@ static void mcount_save_filter(struct mcount_thread_data *mtdp)
 	mtdp->filter.saved_depth_relative = mtdp->filter.depth_relative;
 	mtdp->filter.saved_depth_trigger = mtdp->filter.depth_trigger;
 	mtdp->filter.saved_time = mtdp->filter.time;
+	mtdp->filter.saved_time_trigger = mtdp->filter.time_trigger;
 }
 
 static void mcount_sync_depth(struct mcount_thread_data *mtdp)
@@ -857,6 +858,20 @@ static void mcount_sync_depth(struct mcount_thread_data *mtdp)
 	}
 }
 
+static void mcount_sync_time(struct mcount_thread_data *mtdp)
+{
+	if (mtdp->filter.time_trigger)
+		return;
+
+	if (mtdp->filter.time == mcount_threshold)
+		return;
+	else if (mtdp->filter.time < mcount_threshold)
+		pr_dbg2("time threshold increased\n");
+	else
+		pr_dbg2("time threshold decreased\n");
+	mtdp->filter.time = mcount_threshold;
+}
+
 /* update filter state from trigger result */
 enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, unsigned long child,
 					     struct uftrace_trigger *tr)
@@ -867,6 +882,7 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 		return FILTER_RSTACK;
 
 	mcount_sync_depth(mtdp);
+	mcount_sync_time(mtdp);
 	mcount_save_filter(mtdp);
 
 	/* already filtered by notrace option */
@@ -909,8 +925,10 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 		if (tr->flags & TRIGGER_FL_TRACE_OFF)
 			mcount_enabled = false;
 
-		if (tr->flags & TRIGGER_FL_TIME_FILTER)
+		if (tr->flags & TRIGGER_FL_TIME_FILTER) {
 			mtdp->filter.time = tr->time;
+			mtdp->filter.time_trigger = true;
+		}
 	}
 
 #undef FLAGS_TO_CHECK
@@ -1006,6 +1024,7 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp, struct mcount_r
 	rstack->filter_depth_relative = mtdp->filter.saved_depth_relative;
 	rstack->filter_depth_trigger = mtdp->filter.saved_depth_trigger;
 	rstack->filter_time = mtdp->filter.saved_time;
+	rstack->filter_time_trigger = mtdp->filter.saved_time_trigger;
 
 #define FLAGS_TO_CHECK                                                                             \
 	(TRIGGER_FL_FILTER | TRIGGER_FL_RETVAL | TRIGGER_FL_TRACE | TRIGGER_FL_FINISH |            \
@@ -1127,6 +1146,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp, struct mcount_re
 	mtdp->filter.depth_relative = rstack->filter_depth_relative;
 	mtdp->filter.depth_trigger = rstack->filter_depth_trigger;
 	mtdp->filter.time = rstack->filter_time;
+	mtdp->filter.time_trigger = rstack->filter_time_trigger;
 
 	if (!(rstack->flags & MCOUNT_FL_NORECORD)) {
 		if (mtdp->record_idx > 0)
@@ -1826,6 +1846,11 @@ void *agent_apply_commands(void *arg)
 			case UFTRACE_DOPT_DEPTH:
 				read(cfd, &mcount_depth, sizeof(int));
 				pr_dbg3("dynamic depth: %d\n", mcount_depth);
+				break;
+
+			case UFTRACE_DOPT_THRESHOLD:
+				read(cfd, &mcount_threshold, sizeof(uint64_t));
+				pr_dbg3("dynamic threshold: %d\n", mcount_threshold);
 				break;
 
 			case UFTRACE_DOPT_CLOSE:

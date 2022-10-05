@@ -122,6 +122,16 @@ static int forward_options(struct uftrace_opts *opts)
 			pr_dbg3("sent option depth = %d\n", opts->depth);
 	}
 
+	if (opts->threshold) {
+		if (socket_send_option(sfd, UFTRACE_DOPT_THRESHOLD, &opts->threshold,
+				       sizeof(uint64_t)) == -1) {
+			ret = -1;
+			pr_warn("cannot send option 'threshold'\n");
+		}
+		else
+			pr_dbg3("sent option threshold = %d\n", opts->threshold);
+	}
+
 	if (socket_send_option(sfd, UFTRACE_DOPT_CLOSE, NULL, 0) == -1) {
 		pr_warn("cannot terminate agent connection\n");
 		ret = -1;
