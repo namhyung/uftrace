@@ -26,11 +26,11 @@ case $distro in
         dnf install $OPT pandoc elfutils-devel python3-devel ncurses-devel pkgconf-pkg-config
         dnf install $OPT luajit-devel || true
         dnf install $OPT capstone-devel || true ;;
-    "rhel" | "centos")
+    "rhel" | "centos" | "amzn")
         rpm -ivh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
-        yum install $OPT pandoc elfutils-devel python3-devel ncurses-devel pkgconfig
-        yum install $OPT luajit-devel || true
-        yum install $OPT capstone-devel || true ;;
+        yum install -y $OPT pandoc libunwind-devel elfutils-devel python3-devel ncurses-devel pkgconfig
+        yum install -y $OPT luajit-devel || true
+        yum install -y $OPT capstone-devel || true ;;
     "arch" | "manjaro")
         pacman $OPT -S pandoc libelf python3 ncurses pkgconf
         pacman $OPT -S luajit || true
