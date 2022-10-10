@@ -81,6 +81,7 @@ struct uftrace_task_reader {
 		uint64_t child_time;
 	} * func_stack;
 	struct uftrace_fstack_args args;
+	bool sched_preempt_seen;
 };
 
 enum uftrace_argspec_string_bits {
@@ -153,6 +154,7 @@ bool fstack_check_opts(struct uftrace_task_reader *task, struct uftrace_opts *op
 void fstack_check_filter_done(struct uftrace_task_reader *task);
 
 bool is_sched_event(uint64_t addr);
+bool is_sched_preempt_event(struct uftrace_task_reader *task, uint64_t addr);
 
 void get_argspec_string(struct uftrace_task_reader *task, char *args, size_t len,
 			enum uftrace_argspec_string_bits str_mode);

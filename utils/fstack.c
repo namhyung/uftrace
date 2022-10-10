@@ -993,6 +993,30 @@ bool is_sched_event(uint64_t addr)
 }
 
 /**
+ * is_preempt_sched_event - check whether the given task is schedule preempt event
+ * @task               - tracee task
+ * @addr               - address to check whether it's a schedule event to be filtered or not
+ *
+ * This function returns true if the given address is a schedule preempt event or
+ * given address is a EVENT_ID_PERF_SCHED_IN right after schedule preempt event otherwise
+ * returns false
+ */
+bool is_sched_preempt_event(struct uftrace_task_reader *task, uint64_t addr)
+{
+	if (addr == EVENT_ID_PERF_SCHED_OUT_PREEMPT || addr == EVENT_ID_PERF_SCHED_BOTH_PREEMPT) {
+		task->sched_preempt_seen = true;
+		return true;
+	}
+
+	if (addr == EVENT_ID_PERF_SCHED_IN && task->sched_preempt_seen) {
+		task->sched_preempt_seen = false;
+		return true;
+	}
+
+	return false;
+}
+
+/**
  * fstack_check_opt - Check filter options for current function
  * @task       - tracee task
  * @opts       - options given by user
@@ -1028,6 +1052,10 @@ bool fstack_check_opts(struct uftrace_task_reader *task, struct uftrace_opts *op
 
 	if (opts->no_sched && is_sched_event(rec->addr))
 		return false;
+
+	if (opts->no_sched_preempt && is_sched_preempt_event(task, rec->addr)) {
+		return false;
+	}
 
 	return true;
 }
