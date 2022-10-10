@@ -116,6 +116,10 @@ COMMON OPTIONS
 \--no-sched
 :   Do not show schedule events.
 
+\--no-sched-preempt
+:   Do not show preempt schedule events
+    but show regular(sleeping) schedule events.
+
 \--match=*TYPE*
 :   Use pattern match using TYPE.  Possible types are `regex` and `glob`.
     Default is `regex`.
