@@ -37,6 +37,67 @@ static void reset_live_opts(struct uftrace_opts *opts)
 	free(opts->caller);
 	opts->caller = NULL;
 
+	/*
+	 * Likewise, most trigger options are ignored, but color settings
+	 * are effective only in replay.
+	 */
+	if (opts->trigger) {
+		char *new_triggers = NULL;
+		struct strv trs = STRV_INIT;
+		char *s;
+		int i;
+
+		if (strstr(opts->trigger, "color=") == NULL) {
+			free(opts->trigger);
+			opts->trigger = NULL;
+			goto others;
+		}
+
+		/*
+		 * Split trigger options for each function.
+		 * Example trigger option string like this:
+		 *
+		 *  a@depth=1;b@trace,read=pmu-cycle;c@color=red,time=1us
+		 */
+		strv_split(&trs, opts->trigger, ";");
+
+		strv_for_each(&trs, s, i) {
+			struct strv sv = STRV_INIT;
+			char *name, *tmp, *o;
+			int k;
+
+			if (strstr(s, "color=") == NULL)
+				continue;
+
+			name = xstrdup(s);
+			tmp = strchr(name, '@');
+			if (tmp == NULL) {
+				pr_dbg("invalid trigger option: %s\n", s);
+				continue;
+			}
+			*tmp = '\0';
+
+			/* split trigger option into actions */
+			strv_split(&sv, tmp + 1, ",");
+
+			strv_for_each(&sv, o, k) {
+				if (strncmp(o, "color=", 6))
+					continue;
+
+				tmp = strjoin(name, o, "@");
+				new_triggers = strjoin(new_triggers, tmp, ";");
+				free(tmp);
+				break;
+			}
+			strv_free(&sv);
+		}
+		strv_free(&trs);
+
+		free(opts->trigger);
+		opts->trigger = new_triggers;
+	}
+
+others:
 	opts->depth = MCOUNT_DEFAULT_DEPTH;
 	opts->disabled = false;
 	opts->no_event = false;
@@ -210,3 +271,40 @@ int command_live(int argc, char *argv[], struct uftrace_opts *opts)
 
 	return ret;
 }
+
+#ifdef UNIT_TEST
+
+TEST_CASE(live_reset_options)
+{
+	struct uftrace_opts o = {
+		.depth = 3,
+		.disabled = true,
+		.no_event = true,
+		.no_sched = true,
+	};
+
+	pr_dbg("setup live options\n");
+	o.filter = strjoin(o.filter, "foo", ";");
+	o.caller = strjoin(o.caller, "bar", ";");
+	/* add different types of triggers */
+	o.trigger = strjoin(o.trigger, "foo@filter,depth=1", ";");
+	o.trigger = strjoin(o.trigger, "bar@time=1us,color=red", ";");
+	o.trigger = strjoin(o.trigger, "baz@trace", ";");
+
+	pr_dbg("reset live options (filter, triggers, ...)\n");
+	reset_live_opts(&o);
+
+	TEST_EQ(o.depth, MCOUNT_DEFAULT_DEPTH);
+	TEST_EQ(o.filter, NULL);
+	TEST_EQ(o.caller, NULL);
+	/* it should only have the color trigger */
+	TEST_STREQ(o.trigger, "bar@color=red");
+	TEST_EQ(o.disabled, false);
+	TEST_EQ(o.no_event, false);
+	TEST_EQ(o.no_sched, false);
+
+	free(o.trigger);
+	return TEST_OK;
+}
+
+#endif /* UNIT_TEST */
