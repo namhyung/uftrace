@@ -50,6 +50,36 @@ static void print_total_time(struct field_data *fd)
 	print_time_unit(d);
 }
 
+static void print_total_avg_time(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	uint64_t d;
+
+	d = node->total_time.sum / node->nr_calls;
+
+	print_time_unit(d);
+}
+
+static void print_total_min_time(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	uint64_t d;
+
+	d = node->total_time.min;
+
+	print_time_unit(d);
+}
+
+static void print_total_max_time(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	uint64_t d;
+
+	d = node->total_time.max;
+
+	print_time_unit(d);
+}
+
 static void print_self_time(struct field_data *fd)
 {
 	struct uftrace_graph_node *node = fd->arg;
@@ -78,6 +108,36 @@ static struct display_field field_total_time = {
 	.length = 10,
 	.print = print_total_time,
 	.list = LIST_HEAD_INIT(field_total_time.list),
+};
+
+static struct display_field field_total_avg_time = {
+	.id = GRAPH_F_TOTAL_AVG,
+	.name = "total-avg",
+	.alias = "tavg",
+	.header = "TOTAL AVG",
+	.length = 10,
+	.print = print_total_avg_time,
+	.list = LIST_HEAD_INIT(field_total_avg_time.list),
+};
+
+static struct display_field field_total_min_time = {
+	.id = GRAPH_F_TOTAL_MIN,
+	.name = "total-min",
+	.alias = "tmin",
+	.header = "TOTAL MIN",
+	.length = 10,
+	.print = print_total_min_time,
+	.list = LIST_HEAD_INIT(field_total_min_time.list),
+};
+
+static struct display_field field_total_max_time = {
+	.id = GRAPH_F_TOTAL_MAX,
+	.name = "total-max",
+	.alias = "tmax",
+	.header = "TOTAL MAX",
+	.length = 10,
+	.print = print_total_max_time,
+	.list = LIST_HEAD_INIT(field_total_max_time.list),
 };
 
 static struct display_field field_self_time = {
@@ -162,9 +222,8 @@ static struct display_field field_task_tid = {
 
 /* index of this table should be matched to display_field_id */
 static struct display_field *field_table[] = {
-	&field_total_time,
-	&field_self_time,
-	&field_addr,
+	&field_total_time,     &field_total_avg_time, &field_total_min_time,
+	&field_total_max_time, &field_self_time,      &field_addr,
 };
 
 /* index of this task table should be matched to display_field_id */
