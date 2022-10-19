@@ -246,6 +246,7 @@ struct uftrace_opts {
 	char *hide;
 	char *with_syms;
 	char *clock;
+	char *tracer;
 	int mode;
 	int idx;
 	int depth;

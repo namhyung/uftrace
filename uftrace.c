@@ -101,6 +101,7 @@ enum uftrace_short_options {
 	OPT_usage,
 	OPT_libmcount_path,
 	OPT_mermaid,
+	OPT_tracer,
 };
 
 /* clang-format off */
@@ -173,6 +174,7 @@ __used static const char uftrace_help[] =
 "  -l, --nest-libcall         Show nested library calls\n"
 "      --libname              Show libname name with symbol name\n"
 "      --libmcount-path=PATH  Load libmcount libraries from this PATH\n"
+"      --tracer=TRACER        Record event using TRACER: uftrace, lttng (default: uftrace)\n"
 "      --match=TYPE           Support pattern match: regex, glob (default:\n"
 "                             regex)\n"
 "      --max-stack=DEPTH      Set max stack depth to DEPTH (default: "
@@ -332,6 +334,7 @@ static const struct option uftrace_options[] = {
 	REQ_ARG(with-syms, OPT_with_syms),
 	NO_ARG(agent, 'g'),
 	REQ_ARG(pid, 'p'),
+	REQ_ARG(tracer, OPT_tracer),
 	{ 0 }
 };
 /* clang-format on */
@@ -1019,6 +1022,16 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 		opts->mermaid = true;
 		break;
 
+	case OPT_tracer:
+		if (strcmp(arg, "uftrace") && strcmp(arg, "lttng")) {
+			pr_use("invalid tracer: '%s' "
+			       "(force to use 'uftrace')\n",
+			       arg);
+			arg = "uftrace";
+		}
+		opts->tracer = arg;
+		break;
+
 	default:
 		return -1;
 	}
@@ -1325,6 +1338,7 @@ int main(int argc, char *argv[])
 		.patt_type = PATT_REGEX,
 		.show_args = true,
 		.clock = "mono",
+		.tracer = "uftrace",
 	};
 	int ret = -1;
 	char *pager = NULL;
@@ -1371,6 +1385,9 @@ int main(int argc, char *argv[])
 
 	if (opts.mode == UFTRACE_MODE_INVALID)
 		opts.mode = UFTRACE_MODE_DEFAULT;
+
+	if (opts.mode == UFTRACE_MODE_LIVE && strcmp(opts.tracer, "uftrace"))
+		opts.mode = UFTRACE_MODE_RECORD; /* replay: no trace to read */
 
 	if (dbg_domain_set && !debug)
 		debug = 1;
