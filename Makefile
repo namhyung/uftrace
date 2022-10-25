@@ -262,7 +262,7 @@ $(LIBMCOUNT_SINGLE_OBJS): $(objdir)/%-single.op: $(srcdir)/%.c $(LIBMCOUNT_DEPS)
 $(LIBMCOUNT_FAST_SINGLE_OBJS): $(objdir)/%-fast-single.op: $(srcdir)/%.c $(LIBMCOUNT_DEPS)
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) $(LIBMCOUNT_FAST_SINGLE_CFLAGS) -c -o $@ $<
 
-$(LIBMCOUNT_LTTNG_OBJS): $(objdir)/%-lttng.op: $(srcdir)/%.c $(LIBMCOUNT_DEPS)
+$(LIBMCOUNT_LTTNG_OBJS): $(objdir)/%-lttng.op: $(srcdir)/%.c $(LIBMCOUNT_DEPS) $(srcdir)/libmcount/lttng-tp.h
 	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) $(LIBMCOUNT_LTTNG_CFLAGS) -c -o $@ $<
 
 $(LIBMCOUNT_NOP_OBJS): $(objdir)/%.op: $(srcdir)/%.c $(LIBMCOUNT_DEPS)
