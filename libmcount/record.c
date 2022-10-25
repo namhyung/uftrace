@@ -20,10 +20,29 @@
 #include "utils/symbol.h"
 #include "utils/utils.h"
 
+#ifdef ENABLE_LTTNG
+#define LTTNG_UST_TRACEPOINT_CREATE_PROBES
+#define LTTNG_UST_TRACEPOINT_DEFINE
+#include "libmcount/lttng-tp.h"
+#endif // ENABLE_LTTNG
+
 #define SHMEM_SESSION_FMT "/uftrace-%s-%d-%03d" /* session-id, tid, seq */
 
 #define ARG_STR_MAX 98
 
+#ifdef ENABLE_LTTNG
+void prepare_shmem_buffer(struct mcount_thread_data *mtdp)
+{
+}
+
+void clear_shmem_buffer(struct mcount_thread_data *mtdp)
+{
+}
+
+void shmem_finish(struct mcount_thread_data *mtdp)
+{
+}
+#else
 static struct mcount_shmem_buffer *allocate_shmem_buffer(char *sess_id, size_t size, int tid,
 							 int idx)
 {
@@ -224,6 +243,7 @@ void shmem_finish(struct mcount_thread_data *mtdp)
 
 	clear_shmem_buffer(mtdp);
 }
+#endif // ENABLE_LTTNG
 
 static struct mcount_event *get_event_pointer(void *base, unsigned idx)
 {
@@ -400,6 +420,103 @@ void finish_mem_region(struct mcount_mem_regions *regions)
 	}
 }
 
+#ifdef ENABLE_LTTNG
+int save_to_array(long **_args, struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
+		  struct list_head *args_spec, struct mcount_regs *regs)
+{
+	struct mcount_arg_context ctx;
+	struct uftrace_arg_spec *spec;
+	long *args = *_args;
+	void *value;
+	int arg_count = 0;
+	int size = 0;
+	int i = 0;
+
+	list_for_each_entry(spec, args_spec, list) {
+		if (spec->idx == RETVAL_IDX)
+			continue;
+		arg_count++;
+	}
+	args = xcalloc(sizeof(unsigned long), arg_count);
+
+	mcount_memset4(&ctx, 0, sizeof(ctx));
+	ctx.regs = regs;
+	ctx.stack_base = rstack->parent_loc;
+	ctx.regions = &mtdp->mem_regions;
+	ctx.arch = &mtdp->arch;
+
+	list_for_each_entry(spec, args_spec, list) {
+		if (spec->idx == RETVAL_IDX)
+			continue;
+
+		mcount_arch_get_arg(&ctx, spec);
+
+		switch (spec->type) {
+		case ARG_FMT_SINT:
+		case ARG_FMT_UINT:
+		case ARG_FMT_HEX:
+			value = &ctx.val.v;
+			break;
+		case ARG_FMT_PTR:
+			value = &ctx.val.p;
+			break;
+		case ARG_FMT_AUTO: /* TODO */
+			pr_dbg("auto format not supported\n");
+			break;
+		default:
+			i++;
+			pr_dbg("argument type not supported\n");
+			continue;
+		}
+		size = ALIGN(spec->size, 4);
+		mcount_memcpy4(&args[i++], value, size);
+	}
+	*_args = args;
+	return arg_count;
+}
+
+void record_event_entry(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
+			struct uftrace_trigger *tr, struct mcount_regs *regs)
+{
+	long *args = NULL;
+	int count = 0;
+
+	if (tr->flags & TRIGGER_FL_ARGUMENT)
+		count = save_to_array(&args, mtdp, rstack, tr->pargs, regs);
+
+	lttng_ust_tracepoint(lttng_ust_cyg_profile, func_entry, (void *)rstack->child_ip,
+			     (void *)rstack->parent_ip, args, count);
+	free(args);
+}
+
+void record_event_exit(struct mcount_ret_stack *rstack, long *retval)
+{
+	unsigned long ret = 0;
+	if (retval)
+		ret = *retval;
+
+	lttng_ust_tracepoint(lttng_ust_cyg_profile, func_exit, (void *)rstack->child_ip,
+			     (void *)rstack->parent_ip, ret);
+}
+
+void save_argument(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
+		   struct list_head *args_spec, struct mcount_regs *regs)
+{
+}
+
+void save_retval(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack, long *retval)
+{
+}
+#else
+void record_event_entry(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
+			struct uftrace_trigger *tr, struct mcount_regs *regs)
+{
+}
+
+void record_event_exit(struct mcount_ret_stack *rstack, long *retval)
+{
+}
+
 static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 			       struct mcount_arg_context *ctx)
 {
@@ -553,6 +670,7 @@ void save_retval(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstac
 
 	*(uint32_t *)argbuf = size;
 }
+#endif // ENABLE_LTTNG
 
 static int save_proc_statm(void *ctx, void *buf)
 {
@@ -812,6 +930,13 @@ bool check_mem_region(struct mcount_arg_context *ctx, unsigned long addr)
 }
 #endif
 
+#ifdef ENABLE_LTTNG
+int record_trace_data(struct mcount_thread_data *mtdp, struct mcount_ret_stack *mrstack,
+		      long *retval)
+{
+	return 0;
+}
+#else
 static struct mcount_shmem_buffer *get_shmem_buffer(struct mcount_thread_data *mtdp, size_t size)
 {
 	struct mcount_shmem *shmem = &mtdp->shmem;
@@ -1085,6 +1210,7 @@ int record_trace_data(struct mcount_thread_data *mtdp, struct mcount_ret_stack *
 	ASSERT(count == 0);
 	return 0;
 }
+#endif // ENABLE_LTTNG
 
 static void write_map(FILE *out, struct uftrace_mmap *map, unsigned char major, unsigned char minor,
 		      uint32_t ino, uint64_t off)
