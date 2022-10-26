@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
+#include <sys/un.h>
 #include <unistd.h>
 
 /* This should be defined before #include "utils.h" */
@@ -26,6 +27,7 @@
 #include "mcount-arch.h"
 #include "utils/filter.h"
 #include "utils/script.h"
+#include "utils/socket.h"
 #include "utils/symbol.h"
 #include "utils/utils.h"
 #include "version.h"
@@ -91,6 +93,12 @@ unsigned long mcount_return_fn;
 
 /* do not hook return address and inject EXIT record between functions */
 bool mcount_estimate_return;
+
+/* agent thread */
+static pthread_t agent;
+
+/* state flag for the agent */
+static bool agent_run = false;
 
 __weak void dynamic_return(void)
 {
@@ -1716,6 +1724,141 @@ static void mcount_script_init(enum uftrace_pattern_type patt_type)
 	strv_free(&info.cmds);
 }
 
+static int agent_init(struct sockaddr_un *addr)
+{
+	int sfd;
+
+	if (mkdir(MCOUNT_AGENT_SOCKET_DIR, 0775) == -1) {
+		if (errno != EEXIST) {
+			pr_dbg("error creating run directory %s\n", MCOUNT_AGENT_SOCKET_DIR);
+			return -1;
+		}
+	}
+
+	sfd = socket_create(addr, getpid());
+	if (sfd == -1)
+		return sfd;
+
+	if (access(addr->sun_path, F_OK) == 0) {
+		pr_dbg("agent socket file already exists\n");
+		goto error;
+	}
+
+	if (socket_listen(sfd, addr) == -1)
+		goto error;
+
+	return sfd;
+
+error:
+	close(sfd);
+	return -1;
+}
+
+static void agent_fini(struct sockaddr_un *addr, int sfd)
+{
+	if (sfd != -1)
+		close(sfd);
+
+	socket_unlink(addr);
+}
+
+/* Agent routine, applying instructions from the CLI. */
+void *agent_apply_commands(void *arg)
+{
+	int sfd, cfd; /* socket fd, connection fd */
+	bool close_connection;
+	enum uftrace_dopt dopt;
+	struct sockaddr_un addr;
+
+	sfd = agent_init(&addr);
+	if (sfd == -1) {
+		pr_warn("agent cannot start\n");
+		return NULL;
+	}
+	agent_run = true;
+	pr_dbg("agent started on socket %s\n", addr.sun_path);
+
+	while (agent_run) {
+		cfd = socket_accept(sfd);
+		if (cfd == -1) {
+			pr_warn("error accepting socket connection\n");
+			continue;
+		}
+		pr_dbg2("agent connection open\n");
+
+		close_connection = false;
+		while (!close_connection) {
+			if (read(cfd, &dopt, sizeof(enum uftrace_dopt)) == -1) {
+				pr_warn("error reading option\n", errno);
+				break;
+			}
+
+			switch (dopt) {
+			case UFTRACE_DOPT_CLOSE:
+				close_connection = true;
+				if (agent_run)
+					socket_send_option(cfd, UFTRACE_DOPT_CLOSE, NULL, 0);
+				break;
+
+			default:
+				close_connection = true;
+				pr_warn("option not recognized: %d\n", dopt);
+			}
+		}
+		if (close(cfd) == -1)
+			pr_dbg2("cannot close socket connection\n");
+		else
+			pr_dbg2("agent connection closed\n");
+	}
+
+	agent_fini(&addr, sfd);
+	pr_dbg("agent exited\n");
+	return 0;
+}
+
+static void agent_spawn()
+{
+	errno = pthread_create(&agent, NULL, &agent_apply_commands, NULL);
+	if (errno != 0)
+		pr_warn("cannot start agent: %s\n", strerror((errno)));
+}
+
+/* Check if the agent is up. If so, set its run flag to false, open and close
+ * connection . */
+static void agent_kill()
+{
+	int sfd;
+	struct sockaddr_un addr;
+
+	if (!agent_run)
+		return;
+
+	agent_run = false;
+
+	sfd = socket_create(&addr, getpid());
+	if (sfd == -1)
+		goto error;
+
+	if (socket_connect(sfd, &addr) == -1) {
+		if (errno != ENOENT) /* The agent may have ended and deleted the socket */
+			goto error;
+	}
+
+	if (socket_send_option(sfd, UFTRACE_DOPT_CLOSE, NULL, 0) == -1) {
+		pr_dbg("cannot stop agent loop\n");
+		goto error;
+	}
+
+	close(sfd);
+
+	if (pthread_join(agent, NULL) != 0)
+		pr_dbg("agent left in unknown state\n");
+	return;
+
+error:
+	pthread_cancel(agent);
+}
+
 static __used void mcount_startup(void)
 {
 	char *pipefd_str;
@@ -1871,6 +2014,9 @@ static __used void mcount_startup(void)
 	if (clock_str)
 		setup_clock_id(clock_str);
 
+	if (getenv("UFTRACE_AGENT"))
+		agent_spawn();
+
 	pthread_atfork(atfork_prepare_handler, NULL, atfork_child_handler);
 
 	mcount_hook_functions();
@@ -1888,6 +2034,7 @@ static __used void mcount_startup(void)
 
 static void mcount_cleanup(void)
 {
+	agent_kill();
 	mcount_finish();
 	destroy_dynsym_indexes();
 	mcount_dynamic_finish();

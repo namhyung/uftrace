@@ -156,6 +156,7 @@ __used static const char uftrace_help[] =
 "      --format=FORMAT        Use FORMAT for output: normal, html (default: normal)\n"
 "  -f, --output-fields=FIELD  Show FIELDs in the replay or graph output\n"
 "  -F, --filter=FUNC          Only trace those FUNCs\n"
+"  -g  --agent                Start an agent in mcount to listen to commands\n"
 "      --graphviz             Dump recorded data in DOT format\n"
 "  -H, --hide=FUNC            Hide FUNCs from trace\n"
 "      --host=HOST            Send trace data to HOST instead of write to file\n"
@@ -189,6 +190,7 @@ __used static const char uftrace_help[] =
 "      --num-thread=NUM       Create NUM recorder threads\n"
 "  -N, --notrace=FUNC         Don't trace those FUNCs\n"
 "      --opt-file=FILE        Read command-line options from FILE\n"
+"  -p  --pid=PID              PID of an interactive mcount instance\n"
 "      --port=PORT            Use PORT for network connection (default: "
 	stringify(UFTRACE_RECV_PORT) ")\n"
 "  -P, --patch=FUNC           Apply dynamic patching for FUNCs\n"
@@ -233,7 +235,7 @@ __used static const char uftrace_footer[] =
 "\n";
 
 static const char uftrace_shopts[] =
-	"+aA:b:C:d:D:eE:f:F:hH:kK:lN:P:r:R:s:S:t:T:U:vVW:Z:";
+	"+aA:b:C:d:D:eE:f:F:ghH:kK:lN:p:P:r:R:s:S:t:T:U:vVW:Z:";
 
 #define REQ_ARG(name, shopt) { #name, required_argument, 0, shopt }
 #define NO_ARG(name, shopt)  { #name, no_argument, 0, shopt }
@@ -328,6 +330,8 @@ static const struct option uftrace_options[] = {
 	NO_ARG(version, 'V'),
 	NO_ARG(estimate-return, 'e'),
 	REQ_ARG(with-syms, OPT_with_syms),
+	NO_ARG(agent, 'g'),
+	REQ_ARG(pid, 'p'),
 	{ 0 }
 };
 /* clang-format on */
@@ -696,8 +700,17 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 		pr_out("%s\n", uftrace_version);
 		return -1;
 
+	case 'g':
+		opts->agent = true;
+		break;
+
 	case 'h':
 		return -3;
+
+	case 'p':
+		opts->pid = strtol(arg, NULL, 0);
+		opts->exename = "";
+		break;
 
 	case OPT_libmcount_path:
 		opts->lib_path = arg;

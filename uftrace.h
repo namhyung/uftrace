@@ -258,6 +258,7 @@ struct uftrace_opts {
 	int nr_thread;
 	int rt_prio;
 	int size_filter;
+	int pid;
 	unsigned long bufsize;
 	unsigned long kernel_bufsize;
 	uint64_t threshold;
@@ -301,6 +302,7 @@ struct uftrace_opts {
 	bool srcline;
 	bool estimate_return;
 	bool mermaid;
+	bool agent;
 	struct uftrace_time_range range;
 	enum uftrace_pattern_type patt_type;
 };
@@ -410,6 +412,11 @@ enum uftrace_msg_type {
 	UFTRACE_MSG_SEND_INFO,
 	UFTRACE_MSG_SEND_META_DATA,
 	UFTRACE_MSG_SEND_END,
+};
+
+/* Dynamic options sent by the client to the agent */
+enum uftrace_dopt {
+	UFTRACE_DOPT_CLOSE, /* Close the connection with the client */
 };
 
 /* msg format for communicating by pipe */

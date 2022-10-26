@@ -71,7 +71,7 @@ static bool can_use_fast_libmcount(struct uftrace_opts *opts)
 	if (getenv("UFTRACE_FILTER") || getenv("UFTRACE_TRIGGER") || getenv("UFTRACE_ARGUMENT") ||
 	    getenv("UFTRACE_RETVAL") || getenv("UFTRACE_PATCH") || getenv("UFTRACE_SCRIPT") ||
 	    getenv("UFTRACE_AUTO_ARGS") || getenv("UFTRACE_WATCH") || getenv("UFTRACE_CALLER") ||
-	    getenv("UFTRACE_SIGNAL"))
+	    getenv("UFTRACE_SIGNAL") || getenv("UFTRACE_AGENT"))
 		return false;
 	return true;
 }
@@ -322,6 +322,9 @@ static void setup_child_environ(struct uftrace_opts *opts, int argc, char *argv[
 
 	if (opts->with_syms)
 		setenv("UFTRACE_SYMBOL_DIR", opts->with_syms, 1);
+
+	if (opts->agent)
+		setenv("UFTRACE_AGENT", "1", 1);
 
 	if (argc > 0) {
 		char *args = NULL;
