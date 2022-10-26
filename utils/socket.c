@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <unistd.h>
 
 #include "uftrace.h"
 #include "utils/socket.h"
