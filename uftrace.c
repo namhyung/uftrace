@@ -670,9 +670,11 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 		break;
 
 	case 't':
-		/* do not override time-filter if it's already set */
-		if (parsing_default_opts && opts->threshold)
-			break;
+		/* do not override time-filter or time-range if it's already set */
+		if (parsing_default_opts) {
+			if (opts->threshold || opts->range.start || opts->range.stop)
+				break;
+		}
 
 		/* add time-filter to uftrace.data/default.opts */
 		strv_append(&default_opts, "-t");
