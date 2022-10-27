@@ -100,6 +100,9 @@ char *get_libmcount_path(struct uftrace_opts *opts)
 	if (opts->nop) {
 		libmcount = "libmcount-nop.so";
 	}
+	else if (!strcmp(opts->tracer, "lttng")) {
+		libmcount = "libmcount-lttng.so";
+	}
 	else if (opts->libmcount_single && !must_use_multi_thread) {
 		if (can_use_fast_libmcount(opts))
 			libmcount = "libmcount-fast-single.so";
@@ -362,6 +365,13 @@ static void setup_child_environ(struct uftrace_opts *opts, int argc, char *argv[
 	put_libmcount_path(libpath);
 	setenv("XRAY_OPTIONS", "patch_premain=false", 1);
 	setenv("GLIBC_TUNABLES", "glibc.cpu.hwcaps=-IBT,-SHSTK", 1);
+}
+
+static void signal_child_ready(int ready_fd)
+{
+	uint64_t go = 1;
+	if (write(ready_fd, &go, sizeof(go)) != (ssize_t)sizeof(go))
+		pr_err("signal to child failed");
 }
 
 static uint64_t calc_feat_mask(struct uftrace_opts *opts)
@@ -1813,7 +1823,6 @@ out:
 static void start_tracing(struct writer_data *wd, struct uftrace_opts *opts, int ready_fd)
 {
 	int i, k;
-	uint64_t go = 1;
 
 	clock_gettime(CLOCK_MONOTONIC, &wd->ts1);
 
@@ -1851,9 +1860,7 @@ static void start_tracing(struct writer_data *wd, struct uftrace_opts *opts, int
 		pthread_create(&wd->writers[i], NULL, writer_thread, warg);
 	}
 
-	/* signal child that I'm ready */
-	if (write(ready_fd, &go, sizeof(go)) != (ssize_t)sizeof(go))
-		pr_err("signal to child failed");
+	signal_child_ready(ready_fd);
 }
 
 static int stop_tracing(struct writer_data *wd, struct uftrace_opts *opts)
@@ -2055,6 +2062,11 @@ int do_main_loop(int ready, struct uftrace_opts *opts, int pid)
 	int ret;
 	struct writer_data wd;
 	char *channel = NULL;
+
+	if (strcmp(opts->tracer, "uftrace")) {
+		signal_child_ready(ready);
+		return 0;
+	}
 
 	if (opts->nop) {
 		setup_writers(&wd, opts);

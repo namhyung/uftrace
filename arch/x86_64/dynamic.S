@@ -42,8 +42,16 @@
 
 GLOBAL(__dentry__)
 	.cfi_startproc
-	sub $48, %rsp
+#ifdef ENABLE_LTTNG
+	sub $112, %rsp
+	.cfi_adjust_cfa_offset 112
+
+    vmovdqu %ymm0, 80(%rsp)
+    vmovdqu %ymm1, 48(%rsp)
+#else
+    sub $48, %rsp
 	.cfi_adjust_cfa_offset 48
+#endif // ENABLE_LTTNG
 
 	movq %rdi, 40(%rsp)
 	movq %rsi, 32(%rsp)
@@ -53,10 +61,18 @@ GLOBAL(__dentry__)
 	movq %r9,   0(%rsp)
 
 	/* child addr */
-	movq 48(%rsp), %rsi
+#ifdef ENABLE_LTTNG
+	movq 112(%rsp), %rsi
+#else
+    movq 48(%rsp), %rsi
+#endif // ENABLE_LTTNG
 
 	/* parent location */
-	lea 56(%rsp), %rdi
+#ifdef ENABLE_LTTNG
+	lea 120(%rsp), %rdi
+#else
+    lea 56(%rsp), %rdi
+#endif // ENABLE_LTTNG
 
 	/* mcount_args */
 	movq %rsp, %rdx
@@ -79,7 +95,11 @@ GLOBAL(__dentry__)
 	movq 24(%rsp), %rdx
 
 	/* child addr */
+#ifdef ENABLE_LTTNG
+    movq 112(%rdx), %rdi
+#else
 	movq 48(%rdx), %rdi
+#endif // ENABLE_LTTNG
 
 	/* find location that has the original code */
 	call mcount_find_code
@@ -88,7 +108,11 @@ GLOBAL(__dentry__)
 	movq 24(%rsp), %rdx
 
 	/* overwrite return address */
-	movq %rax, 48(%rdx)
+#ifdef ENABLE_LTTNG
+	movq %rax, 112(%rdx)
+#else
+    movq %rax, 48(%rdx)
+#endif // ENABLE_LTTNG
 
 	pop  %r11
 	pop  %r10
@@ -103,9 +127,17 @@ GLOBAL(__dentry__)
 	movq 24(%rsp), %rdx
 	movq 32(%rsp), %rsi
 	movq 40(%rsp), %rdi
+#ifdef ENABLE_LTTNG
+    vmovdqu 48(%rsp), %ymm1
+    vmovdqu 80(%rsp), %ymm0
 
-	add $48, %rsp
+    add $112, %rsp
+	.cfi_adjust_cfa_offset -112
+#else
+    add $48, %rsp
 	.cfi_adjust_cfa_offset -48
+#endif // ENABLE_LTTNG
+
 
 	retq
 	.cfi_endproc
@@ -114,8 +146,16 @@ END(__dentry__)
 
 ENTRY(dynamic_return)
 	.cfi_startproc
+#ifdef ENABLE_LTTNG
+    sub    $160, %rsp
+	.cfi_def_cfa_offset 160
+
+    vmovdqu %ymm0, 120(%rsp)
+    vmovdqu %ymm1, 88(%rsp)
+#else
 	sub    $96, %rsp
 	.cfi_def_cfa_offset 96
+#endif // ENABLE_LTTNG
 
 	/* save all caller-saved registers due to -fipa-ra */
 	movq   %r11,  80(%rsp)
@@ -147,7 +187,11 @@ ENTRY(dynamic_return)
 	movq   (%rsp), %rsp
 
 	/* restore original return address in parent */
+#ifdef ENABLE_LTTNG
+    movq   %rax,   152(%rsp)
+#else
 	movq   %rax,   88(%rsp)
+#endif // ENABLE_LTTNG
 
 	movq    0(%rsp), %rax
 	movq    8(%rsp), %rdx
@@ -161,7 +205,14 @@ ENTRY(dynamic_return)
 	movq   72(%rsp), %r10
 	movq   80(%rsp), %r11
 
-	add    $88, %rsp
+#ifdef ENABLE_LTTNG
+    vmovdqu 88(%rsp),  %ymm1
+    vmovdqu 120(%rsp), %ymm0
+
+    add $152, %rsp
+#else
+	add $88, %rsp
+#endif // ENABLE_LTTNG
 	.cfi_def_cfa_offset 8
 	retq
 	.cfi_endproc

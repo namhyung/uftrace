@@ -33,6 +33,7 @@ usage() {
   --without-libncurses  build without libncursesw            (even if found on the system)
   --without-libunwind   build without libunwind              (even if found on the system)
   --without-capstone    build without libcapstone            (even if found on the system)
+  --without-lttng       build without liblttng-ust           (even if found on the system)
   --without-perf        build without perf event             (even if available)
   --without-schedule    build without scheduler event        (even if available)
 
@@ -192,6 +193,7 @@ for dep in $IGNORE; do
         libunwind)   TARGET=have_libunwind     ;;
         libstdc++)   TARGET=cxa_demangle       ;;
         capstone)    TARGET=have_libcapstone   ;;
+        lttng)       TARGET=have_liblttng      ;;
         perf*)       TARGET=perf_clockid       ;;
         sched*)      TARGET=perf_context_switch;;
         *)           ;;
@@ -261,6 +263,7 @@ print_feature "perf_event" "perf_clockid" "perf (PMU) event support"
 print_feature "schedule" "perf_context_switch" "scheduler event support"
 print_feature "capstone" "have_libcapstone" "full dynamic tracing support"
 print_feature "libunwind" "have_libunwind" "stacktrace support (optional for debugging)"
+print_feature "lttng" "have_liblttng" "LTTng-UST tracing support"
 
 cat >$output <<EOF
 # this file is generated automatically

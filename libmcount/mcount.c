@@ -1028,8 +1028,11 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp, struct mcount_r
 				record_trace_data(mtdp, rstack, NULL);
 		}
 		else {
+			record_event_entry(mtdp, rstack, tr, regs);
+
 			if (tr->flags & TRIGGER_FL_ARGUMENT)
 				save_argument(mtdp, rstack, tr->pargs, regs);
+
 			if (tr->flags & TRIGGER_FL_READ) {
 				save_trigger_read(mtdp, rstack, tr->read, false);
 				rstack->flags |= MCOUNT_FL_READ;
@@ -1123,6 +1126,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp, struct mcount_re
 		if (((rstack->end_time - rstack->start_time > time_filter) &&
 		     (!mcount_has_caller || rstack->flags & MCOUNT_FL_CALLER)) ||
 		    rstack->flags & (MCOUNT_FL_WRITTEN | MCOUNT_FL_TRACE)) {
+			record_event_exit(rstack, retval);
 			if (record_trace_data(mtdp, rstack, retval) < 0)
 				pr_err("error during record");
 		}

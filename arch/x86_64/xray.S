@@ -7,8 +7,16 @@
 
 GLOBAL(__xray_entry)
 	.cfi_startproc
+#ifdef ENABLE_LTTNG
+	sub $112, %rsp
+	.cfi_adjust_cfa_offset 112
+
+	vmovdqu %ymm0, 80(%rsp)
+    vmovdqu %ymm1, 48(%rsp)
+#else
 	sub $48, %rsp
 	.cfi_adjust_cfa_offset 48
+#endif // ENABLE_LTTNG
 
 	movq %rdi, 40(%rsp)
 	movq %rsi, 32(%rsp)
@@ -18,10 +26,18 @@ GLOBAL(__xray_entry)
 	movq %r9,   0(%rsp)
 
 	/* child ip */
+#ifdef ENABLE_LTTNG
+	movq 112(%rsp), %rsi
+#else
 	movq 48(%rsp), %rsi
+#endif // ENABLE_LTTNG
 
 	/* parent location */
+#ifdef ENABLE_LTTNG
+	lea 120(%rsp), %rdi
+#else
 	lea 56(%rsp), %rdi
+#endif // ENABLE_LTTNG
 
 	/* mcount_args */
 	movq %rsp, %rdx
@@ -50,9 +66,17 @@ GLOBAL(__xray_entry)
 	movq 24(%rsp), %rdx
 	movq 32(%rsp), %rsi
 	movq 40(%rsp), %rdi
+#ifdef ENABLE_LTTNG
+	vmovdqu 48(%rsp), %ymm1
+    vmovdqu 80(%rsp), %ymm0
+
+	add $112, %rsp
+	.cfi_adjust_cfa_offset -112
+#else
 
 	add $48, %rsp
 	.cfi_adjust_cfa_offset -48
+#endif // ENABLE_LTTNG
 	retq
 	.cfi_endproc
 END(__xray_entry)
@@ -60,12 +84,21 @@ END(__xray_entry)
 
 ENTRY(__xray_exit)
 	.cfi_startproc
+#ifdef ENABLE_LTTNG
+	sub $88, %rsp  /* return address already consume 8 byte */
+	.cfi_def_cfa_offset 88
+
+	vmovdqu %ymm0, 56(%rsp)
+    vmovdqu %ymm1, 24(%rsp)
+	movq    %rdi,  16(%rsp)
+#else
 	sub $40, %rsp  /* return address already consume 8 byte */
 	.cfi_def_cfa_offset 40
 
 	movq   %rdi,  32(%rsp)
 	/* save original return values */
 	movdqu %xmm0, 16(%rsp)
+#endif // ENABLE_LTTNG
 	movq   %rdx,   8(%rsp)
 	movq   %rax,   0(%rsp)
 
@@ -88,8 +121,16 @@ ENTRY(__xray_exit)
 	movq    8(%rsp), %rdx
 	movdqu 16(%rsp), %xmm0
 	movq   32(%rsp), %rdi
+#ifdef ENABLE_LTTNG
+	movq    16(%rsp), %rdi
+    vmovdqu 24(%rsp), %ymm1
+    vmovdqu 56(%rsp), %ymm0
+
+    add $88, %rsp
+#else
 
 	add $40, %rsp
+#endif // ENABLE_LTTNG
 
 	retq
 	.cfi_endproc
