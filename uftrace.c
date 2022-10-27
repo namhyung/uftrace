@@ -94,6 +94,7 @@ enum uftrace_short_options {
 	OPT_no_randomize_addr,
 	OPT_no_event,
 	OPT_no_sched,
+	OPT_no_sched_preempt,
 	OPT_signal,
 	OPT_srcline,
 	OPT_with_syms,
@@ -181,6 +182,8 @@ __used static const char uftrace_help[] =
 "      --no-comment           Don't show comments of returned functions\n"
 "      --no-event             Disable (default) events\n"
 "      --no-sched             Disable schedule events\n"
+"      --no-sched-preempt     Hide pre-emptive schedule event\n"
+"                             but show regular(sleeping) schedule event\n"
 "      --no-libcall           Don't trace library function calls\n"
 "      --no-merge             Don't merge leaf functions\n"
 "      --no-pager             Do not use pager\n"
@@ -308,6 +311,7 @@ static const struct option uftrace_options[] = {
 	REQ_ARG(Event, 'E'),
 	NO_ARG(no-event, OPT_no_event),
 	NO_ARG(no-sched, OPT_no_sched),
+	NO_ARG(no-sched-preempt, OPT_no_sched_preempt),
 	NO_ARG(list-event, OPT_list_event),
 	REQ_ARG(run-cmd, OPT_run_cmd),
 	REQ_ARG(opt-file, OPT_opt_file),
@@ -991,6 +995,10 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 
 	case OPT_no_sched:
 		opts->no_sched = true;
+		break;
+
+	case OPT_no_sched_preempt:
+		opts->no_sched_preempt = true;
 		break;
 
 	case OPT_signal:

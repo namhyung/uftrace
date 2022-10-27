@@ -292,6 +292,7 @@ struct uftrace_opts {
 	bool event_skip_out;
 	bool no_event;
 	bool no_sched;
+	bool no_sched_preempt;
 	bool nest_libcall;
 	bool record;
 	bool auto_args;
