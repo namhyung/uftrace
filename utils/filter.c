@@ -1688,4 +1688,542 @@ TEST_CASE(trigger_setup_args)
 	return TEST_OK;
 }
 
+static struct uftrace_mmap *locfilter_test_load_mmap()
+{
+	static struct uftrace_symbol syms[] = {
+		{ 0x1000, 0x1000, ST_GLOBAL_FUNC, "command_dump" },
+		{ 0x2000, 0x1000, ST_GLOBAL_FUNC, "command_replay" },
+		{ 0x3000, 0x1000, ST_GLOBAL_FUNC, "command_report" },
+		{ 0x4000, 0x1000, ST_GLOBAL_FUNC, "command_foo" },
+	};
+
+	static struct uftrace_dbg_file dfiles[] = {
+		{ .name = "uftrace/cmds/dump.c" },
+		{ .name = "uftrace/cmds/replay.c" },
+		{ .name = "uftrace/cmds/report.c" },
+		{ .name = "uftrace/cmds1/foo.c" },
+	};
+	static struct uftrace_dbg_loc locs[] = {
+		{ .file = &dfiles[0] },
+		{ .file = &dfiles[1] },
+		{ .file = &dfiles[2] },
+		{ .file = &dfiles[3] },
+	};
+
+	static struct uftrace_module mod = {
+		.symtab = {
+			.sym    = syms,
+			.nr_sym = ARRAY_SIZE(syms),
+		},
+		.dinfo = {
+			.locs = locs,
+			.nr_locs = ARRAY_SIZE(locs),
+			.loaded = true,
+		}
+	};
+	static struct uftrace_mmap map = {
+		.mod = &mod,
+		.start = 0x0,
+		.end = 0x6000,
+	};
+
+	mod.symtab.sym = syms;
+	mod.symtab.nr_sym = ARRAY_SIZE(syms);
+
+	return &map;
+}
+
+static struct uftrace_mmap *locfilter_test_load_mmap2()
+{
+	static struct uftrace_symbol syms2[] = {
+		{ 0xa000, 0x1000, ST_GLOBAL_FUNC, "util_fstack" },
+		{ 0xb000, 0x1000, ST_GLOBAL_FUNC, "util_report" },
+	};
+
+	static struct uftrace_dbg_file dfiles2[] = {
+		{ .name = "uftrace/utils/fstack.c" },
+		{ .name = "uftrace/utils/report.c" },
+	};
+	static struct uftrace_dbg_loc locs2[] = {
+		{ .file = &dfiles2[0] },
+		{ .file = &dfiles2[1] },
+	};
+
+	static struct uftrace_module mod2 = {
+		.symtab = {
+			.sym    = syms2,
+			.nr_sym = ARRAY_SIZE(syms2),
+		},
+		.dinfo = {
+			.locs = locs2,
+			.nr_locs = ARRAY_SIZE(locs2),
+			.loaded = true,
+		}
+	};
+	static struct uftrace_mmap map2 = {
+		.mod = &mod2,
+		.start = 0x0,
+		.end = 0xe000,
+	};
+
+	mod2.symtab.sym = syms2;
+	mod2.symtab.nr_sym = ARRAY_SIZE(syms2);
+
+	return &map2;
+}
+
+static void locfilter_test_load_symtabs(struct uftrace_sym_info *sinfo)
+{
+	struct uftrace_mmap *map = locfilter_test_load_mmap();
+	struct uftrace_mmap *map2 = locfilter_test_load_mmap2();
+
+	sinfo->maps = map;
+	sinfo->exec_map = map;
+	sinfo->loaded = true;
+
+	sinfo->maps->next = map2;
+}
+
+/* Simple pattern arguments are treated as regex after conversion. */
+TEST_CASE(locfilter_setup_simple)
+{
+	struct uftrace_sym_info sinfo = {
+		.loaded = false,
+	};
+	struct rb_root root = RB_ROOT;
+	struct rb_node *node;
+	struct uftrace_filter *filter;
+	struct uftrace_filter_setting setting = {
+		.ptype = PATT_REGEX,
+	};
+
+	locfilter_test_load_symtabs(&sinfo);
+
+	pr_dbg("checking simple match\n");
+	uftrace_setup_loc_filter("uftrace/cmds/replay.c", &sinfo, &root, NULL, &setting);
+	TEST_EQ(RB_EMPTY_ROOT(&root), false);
+
+	node = rb_first(&root);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "command_replay");
+	TEST_EQ(filter->start, 0x2000UL);
+	TEST_EQ(filter->end, 0x2000UL + 0x1000UL);
+
+	uftrace_cleanup_filter(&root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	pr_dbg("checking base name match\n");
+	uftrace_setup_loc_filter("dump.c", &sinfo, &root, NULL, &setting);
+	TEST_EQ(RB_EMPTY_ROOT(&root), false);
+
+	node = rb_first(&root);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "command_dump");
+	TEST_EQ(filter->start, 0x1000UL);
+	TEST_EQ(filter->end, 0x1000UL + 0x1000UL);
+	uftrace_cleanup_filter(&root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	pr_dbg("checking unknown symbol\n");
+	uftrace_setup_loc_filter("invalid_name", &sinfo, &root, NULL, &setting);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	return TEST_OK;
+}
+
+TEST_CASE(locfilter_setup_regex)
+{
+	struct uftrace_sym_info sinfo = {
+		.loaded = false,
+	};
+	struct rb_root root = RB_ROOT;
+	struct rb_node *node;
+	struct uftrace_filter *filter;
+	struct uftrace_filter_setting setting = {
+		.ptype = PATT_REGEX,
+	};
+
+	locfilter_test_load_symtabs(&sinfo);
+
+	pr_dbg("try to match with regex pattern: re.*\n");
+	uftrace_setup_loc_filter("re.*", &sinfo, &root, NULL, &setting);
+	TEST_EQ(RB_EMPTY_ROOT(&root), false);
+
+	node = rb_first(&root);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "command_replay");
+	TEST_EQ(filter->start, 0x2000UL);
+	TEST_EQ(filter->end, 0x2000UL + 0x1000UL);
+
+	node = rb_next(node);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "command_report");
+	TEST_EQ(filter->start, 0x3000UL);
+	TEST_EQ(filter->end, 0x3000UL + 0x1000UL);
+
+	node = rb_next(node);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "util_report");
+	TEST_EQ(filter->start, 0xb000UL);
+	TEST_EQ(filter->end, 0xb000UL + 0x1000UL);
+
+	TEST_EQ(rb_next(node), NULL);
+
+	pr_dbg("found 3 symbols. done\n");
+	uftrace_cleanup_filter(&root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	return TEST_OK;
+}
+
+TEST_CASE(locfilter_setup_glob)
+{
+	struct uftrace_sym_info sinfo = {
+		.loaded = false,
+	};
+	struct rb_root root = RB_ROOT;
+	struct rb_node *node;
+	struct uftrace_filter *filter;
+	struct uftrace_filter_setting setting = {
+		.ptype = PATT_GLOB,
+	};
+
+	locfilter_test_load_symtabs(&sinfo);
+
+	pr_dbg("try to match with glob pattern: *re*\n");
+	uftrace_setup_loc_filter("*re*", &sinfo, &root, NULL, &setting);
+	TEST_EQ(RB_EMPTY_ROOT(&root), false);
+
+	node = rb_first(&root);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "command_replay");
+	TEST_EQ(filter->start, 0x2000UL);
+	TEST_EQ(filter->end, 0x2000UL + 0x1000UL);
+
+	node = rb_next(node);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "command_report");
+	TEST_EQ(filter->start, 0x3000UL);
+	TEST_EQ(filter->end, 0x3000UL + 0x1000UL);
+
+	node = rb_next(node);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "util_report");
+	TEST_EQ(filter->start, 0xb000UL);
+	TEST_EQ(filter->end, 0xb000UL + 0x1000UL);
+
+	TEST_EQ(rb_next(node), NULL);
+
+	pr_dbg("found 3 symbols. done\n");
+	uftrace_cleanup_filter(&root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	return TEST_OK;
+}
+
+/* Simple pattern arguments are treated as regex after conversion. */
+TEST_CASE(locfilter_setup_dir_simple)
+{
+	struct uftrace_sym_info sinfo = {
+		.loaded = false,
+	};
+	struct rb_root root = RB_ROOT;
+	struct rb_node *node;
+	struct uftrace_filter *filter;
+	struct uftrace_filter_setting setting = {
+		.ptype = PATT_REGEX,
+	};
+
+	locfilter_test_load_symtabs(&sinfo);
+
+	pr_dbg("try to match directory with pattern: cmds\n");
+	uftrace_setup_loc_filter("cmds", &sinfo, &root, NULL, &setting);
+	TEST_EQ(RB_EMPTY_ROOT(&root), false);
+
+	node = rb_first(&root);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "command_dump");
+	TEST_EQ(filter->start, 0x1000UL);
+	TEST_EQ(filter->end, 0x1000UL + 0x1000UL);
+
+	node = rb_next(node);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "command_replay");
+	TEST_EQ(filter->start, 0x2000UL);
+	TEST_EQ(filter->end, 0x2000UL + 0x1000UL);
+
+	node = rb_next(node);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "command_report");
+	TEST_EQ(filter->start, 0x3000UL);
+	TEST_EQ(filter->end, 0x3000UL + 0x1000UL);
+
+	TEST_EQ(rb_next(node), NULL);
+
+	pr_dbg("found 3 symbols. done\n");
+	uftrace_cleanup_filter(&root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	pr_dbg("try to match directory with pattern: /cmds\n");
+	uftrace_setup_loc_filter("/cmds", &sinfo, &root, NULL, &setting);
+	TEST_EQ(RB_EMPTY_ROOT(&root), false);
+
+	node = rb_first(&root);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "command_dump");
+	TEST_EQ(filter->start, 0x1000UL);
+	TEST_EQ(filter->end, 0x1000UL + 0x1000UL);
+
+	TEST_NE(node = rb_next(node), NULL);
+	TEST_NE(node = rb_next(node), NULL);
+	TEST_EQ(node = rb_next(node), NULL);
+
+	pr_dbg("found 3 symbols. done\n");
+	uftrace_cleanup_filter(&root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	pr_dbg("try to match directory with pattern: cmds/\n");
+	uftrace_setup_loc_filter("cmds/", &sinfo, &root, NULL, &setting);
+	TEST_EQ(RB_EMPTY_ROOT(&root), false);
+
+	node = rb_first(&root);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "command_dump");
+	TEST_EQ(filter->start, 0x1000UL);
+	TEST_EQ(filter->end, 0x1000UL + 0x1000UL);
+
+	TEST_NE(node = rb_next(node), NULL);
+	TEST_NE(node = rb_next(node), NULL);
+	TEST_EQ(node = rb_next(node), NULL);
+
+	pr_dbg("found 3 symbols. done\n");
+	uftrace_cleanup_filter(&root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	pr_dbg("try to match directory with pattern: /uftrace/cmds/\n");
+	uftrace_setup_loc_filter("/uftrace/cmds/", &sinfo, &root, NULL, &setting);
+	TEST_EQ(RB_EMPTY_ROOT(&root), false);
+
+	node = rb_first(&root);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "command_dump");
+	TEST_EQ(filter->start, 0x1000UL);
+	TEST_EQ(filter->end, 0x1000UL + 0x1000UL);
+
+	TEST_NE(node = rb_next(node), NULL);
+	TEST_NE(node = rb_next(node), NULL);
+	TEST_EQ(node = rb_next(node), NULL);
+
+	pr_dbg("found 3 symbols. done\n");
+	uftrace_cleanup_filter(&root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	pr_dbg("try to match directory with pattern: uftrace/cmds/\n");
+	uftrace_setup_loc_filter("uftrace/cmds", &sinfo, &root, NULL, &setting);
+	TEST_EQ(RB_EMPTY_ROOT(&root), false);
+
+	node = rb_first(&root);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "command_dump");
+	TEST_EQ(filter->start, 0x1000UL);
+	TEST_EQ(filter->end, 0x1000UL + 0x1000UL);
+
+	TEST_NE(node = rb_next(node), NULL);
+	TEST_NE(node = rb_next(node), NULL);
+	TEST_EQ(node = rb_next(node), NULL);
+
+	pr_dbg("found 3 symbols. done\n");
+	uftrace_cleanup_filter(&root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	pr_dbg("try to match directory with pattern: /uftrace\n");
+	uftrace_setup_loc_filter("/uftrace", &sinfo, &root, NULL, &setting);
+	TEST_EQ(RB_EMPTY_ROOT(&root), false);
+
+	node = rb_first(&root);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "command_dump");
+	TEST_EQ(filter->start, 0x1000UL);
+	TEST_EQ(filter->end, 0x1000UL + 0x1000UL);
+
+	node = rb_next(node);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "command_replay");
+	TEST_EQ(filter->start, 0x2000UL);
+	TEST_EQ(filter->end, 0x2000UL + 0x1000UL);
+
+	node = rb_next(node);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "command_report");
+	TEST_EQ(filter->start, 0x3000UL);
+	TEST_EQ(filter->end, 0x3000UL + 0x1000UL);
+
+	node = rb_next(node);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "command_foo");
+	TEST_EQ(filter->start, 0x4000UL);
+	TEST_EQ(filter->end, 0x4000UL + 0x1000UL);
+
+	node = rb_next(node);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "util_fstack");
+	TEST_EQ(filter->start, 0xa000UL);
+	TEST_EQ(filter->end, 0xa000UL + 0x1000UL);
+
+	node = rb_next(node);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "util_report");
+	TEST_EQ(filter->start, 0xb000UL);
+	TEST_EQ(filter->end, 0xb000UL + 0x1000UL);
+
+	pr_dbg("found 6 symbols. done\n");
+	uftrace_cleanup_filter(&root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	pr_dbg("checking invalid directory match\n");
+	uftrace_setup_loc_filter("youftrace", &sinfo, &root, NULL, &setting);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	return TEST_OK;
+}
+
+TEST_CASE(locfilter_setup_dir_regex)
+{
+	struct uftrace_sym_info sinfo = {
+		.loaded = false,
+	};
+	struct rb_root root = RB_ROOT;
+	struct rb_node *node;
+	struct uftrace_filter *filter;
+	struct uftrace_filter_setting setting = {
+		.ptype = PATT_REGEX,
+	};
+
+	locfilter_test_load_symtabs(&sinfo);
+
+	pr_dbg("try to match directory with regex pattern: cmds/.*\n");
+	uftrace_setup_loc_filter("cmds/.*", &sinfo, &root, NULL, &setting);
+	TEST_EQ(RB_EMPTY_ROOT(&root), false);
+
+	node = rb_first(&root);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "command_dump");
+	TEST_EQ(filter->start, 0x1000UL);
+	TEST_EQ(filter->end, 0x1000UL + 0x1000UL);
+
+	node = rb_next(node);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "command_replay");
+	TEST_EQ(filter->start, 0x2000UL);
+	TEST_EQ(filter->end, 0x2000UL + 0x1000UL);
+
+	node = rb_next(node);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "command_report");
+	TEST_EQ(filter->start, 0x3000UL);
+	TEST_EQ(filter->end, 0x3000UL + 0x1000UL);
+
+	TEST_EQ(rb_next(node), NULL);
+
+	pr_dbg("found 3 symbols. done\n");
+	uftrace_cleanup_filter(&root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	pr_dbg("checking invalid directory match\n");
+	uftrace_setup_loc_filter("cmd/.*", &sinfo, &root, NULL, &setting);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	return TEST_OK;
+}
+
+TEST_CASE(locfilter_setup_dir_glob)
+{
+	struct uftrace_sym_info sinfo = {
+		.loaded = false,
+	};
+	struct rb_root root = RB_ROOT;
+	struct rb_node *node;
+	struct uftrace_filter *filter;
+	struct uftrace_filter_setting setting = {
+		.ptype = PATT_GLOB,
+	};
+
+	locfilter_test_load_symtabs(&sinfo);
+
+	pr_dbg("try to match with glob pattern: *cmds/*\n");
+	uftrace_setup_loc_filter("*cmds/*", &sinfo, &root, NULL, &setting);
+	TEST_EQ(RB_EMPTY_ROOT(&root), false);
+
+	node = rb_first(&root);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "command_dump");
+	TEST_EQ(filter->start, 0x1000UL);
+	TEST_EQ(filter->end, 0x1000UL + 0x1000UL);
+
+	node = rb_next(node);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "command_replay");
+	TEST_EQ(filter->start, 0x2000UL);
+	TEST_EQ(filter->end, 0x2000UL + 0x1000UL);
+
+	node = rb_next(node);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "command_report");
+	TEST_EQ(filter->start, 0x3000UL);
+	TEST_EQ(filter->end, 0x3000UL + 0x1000UL);
+
+	TEST_EQ(rb_next(node), NULL);
+
+	pr_dbg("found 3 symbols. done\n");
+	uftrace_cleanup_filter(&root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	return TEST_OK;
+}
+
+TEST_CASE(locfilter_match)
+{
+	struct uftrace_sym_info sinfo = {
+		.loaded = false,
+	};
+	struct rb_root root = RB_ROOT;
+	enum filter_mode fmode;
+	struct uftrace_trigger tr;
+	struct uftrace_filter_setting setting = {
+		.ptype = PATT_REGEX,
+	};
+
+	locfilter_test_load_symtabs(&sinfo);
+
+	pr_dbg("check filter address match with re.* at 0x2000-0x2fff\n");
+	uftrace_setup_filter("re.*", &sinfo, &root, &fmode, &setting);
+	TEST_EQ(RB_EMPTY_ROOT(&root), false);
+	TEST_EQ(fmode, FILTER_MODE_IN);
+
+	pr_dbg("check addresses inside the symbol\n");
+	memset(&tr, 0, sizeof(tr));
+	TEST_NE(uftrace_match_filter(0x2000, &root, &tr), NULL);
+	TEST_EQ(tr.flags, TRIGGER_FL_FILTER);
+	TEST_EQ(tr.fmode, FILTER_MODE_IN);
+
+	memset(&tr, 0, sizeof(tr));
+	TEST_NE(uftrace_match_filter(0x2fff, &root, &tr), NULL);
+	TEST_EQ(tr.flags, TRIGGER_FL_FILTER);
+	TEST_EQ(tr.fmode, FILTER_MODE_IN);
+
+	pr_dbg("addresses out of the symbol should not have FILTER flags\n");
+	memset(&tr, 0, sizeof(tr));
+	TEST_EQ(uftrace_match_filter(0x1fff, &root, &tr), NULL);
+	TEST_NE(tr.flags, TRIGGER_FL_FILTER);
+
+	memset(&tr, 0, sizeof(tr));
+	TEST_EQ(uftrace_match_filter(0xa000, &root, &tr), NULL);
+	TEST_NE(tr.flags, TRIGGER_FL_FILTER);
+
+	uftrace_cleanup_filter(&root);
+	TEST_EQ(RB_EMPTY_ROOT(&root), true);
+
+	return TEST_OK;
+}
+
 #endif /* UNIT_TEST */
