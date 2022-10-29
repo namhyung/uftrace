@@ -365,6 +365,43 @@ struct {
 	{ PATT_GLOB, "glob" },
 };
 
+void init_locfilter_pattern(enum uftrace_pattern_type type, struct uftrace_pattern *p, char *str)
+{
+	char *converted;
+
+	if (strpbrk(str, REGEX_CHARS) == NULL) {
+		/* remove trailing '/' */
+		if (str[strlen(str) - 1] == '/')
+			str[strlen(str) - 1] = '\0';
+
+		/* remove preceding '/' */
+		if (str[0] == '/')
+			str += 1;
+
+		xasprintf(&converted, "%s%s%s", "((.*/)*)", str, "($|(/.*))");
+
+		p->type = PATT_REGEX;
+		p->patt = converted;
+	}
+	else {
+		/* remaining PATT_REGEX and PATT_GLOB cases */
+		p->type = type;
+		p->patt = xstrdup(str);
+	}
+
+	if (p->type == PATT_REGEX) {
+		/* to handle full demangled operator new and delete specially */
+		const char *str_operator = "operator ";
+		if (!strncmp(p->patt, str_operator, 9)) {
+			p->type = PATT_SIMPLE;
+		}
+		else if (regcomp(&p->re, p->patt, REG_NOSUB | REG_EXTENDED)) {
+			pr_dbg("regex pattern failed: %s\n", p->patt);
+			p->type = PATT_SIMPLE;
+		}
+	}
+}
+
 void init_filter_pattern(enum uftrace_pattern_type type, struct uftrace_pattern *p, char *str)
 {
 	if (strpbrk(str, REGEX_CHARS) == NULL)
@@ -398,6 +435,19 @@ bool match_filter_pattern(struct uftrace_pattern *p, char *name)
 	default:
 		return false;
 	}
+}
+
+bool match_location_filter(struct uftrace_pattern *p, struct uftrace_dbg_info *dinfo,
+			   size_t loc_idx)
+{
+	char *loc;
+
+	if (!dinfo || loc_idx >= dinfo->nr_locs || !dinfo->locs[loc_idx].file)
+		return false;
+
+	loc = dinfo->locs[loc_idx].file->name;
+
+	return match_filter_pattern(p, loc);
 }
 
 void free_filter_pattern(struct uftrace_pattern *p)
@@ -790,22 +840,12 @@ static int add_trigger_entry(struct rb_root *root, struct uftrace_pattern *patt,
 	struct uftrace_symbol *sym;
 	size_t i;
 	int ret = 0;
-	char *pos;
 
 	for (i = 0; i < symtab->nr_sym; i++) {
 		sym = &symtab->sym[i];
 
 		if (tr->flags == TRIGGER_FL_LOC) {
-			if (!dinfo || i >= dinfo->nr_locs || !dinfo->locs[i].file)
-				continue;
-
-			if (patt->type == PATT_SIMPLE && strchr(patt->patt, '/') == NULL &&
-			    (pos = strrchr(dinfo->locs[i].file->name, '/')))
-				pos = pos + 1;
-			else
-				pos = dinfo->locs[i].file->name;
-
-			if (!match_filter_pattern(patt, pos))
+			if (!match_location_filter(patt, dinfo, i))
 				continue;
 		}
 		else {
@@ -881,7 +921,11 @@ static void setup_trigger(char *filter_str, struct uftrace_sym_info *sinfo, stru
 
 		/* use demangled name for triggers (some auto-args need it) */
 		name = demangle(name);
-		init_filter_pattern(setting->ptype, &patt, name);
+
+		if (flags & TRIGGER_FL_LOC)
+			init_locfilter_pattern(setting->ptype, &patt, name);
+		else
+			init_filter_pattern(setting->ptype, &patt, name);
 		free(name);
 
 		if (module) {
