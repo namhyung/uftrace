@@ -142,7 +142,7 @@ endif
 
 export UFTRACE_CFLAGS LIB_CFLAGS TEST_CFLAGS TEST_LDFLAGS
 
-VERSION_GIT := $(shell git describe --tags 2> /dev/null || echo v$(VERSION))
+VERSION_GIT := $(shell test -e .git && git describe --tags 2> /dev/null || echo v$(VERSION))
 
 all:
 
@@ -302,7 +302,7 @@ $(filter-out $(objdir)/uftrace.o, $(UFTRACE_OBJS)): $(objdir)/%.o: $(srcdir)/%.c
 	$(QUIET_CC)$(CC) $(UFTRACE_CFLAGS) -c -o $@ $<
 
 $(objdir)/version.h: PHONY
-	@$(srcdir)/misc/version.sh $@ $(VERSION_GIT) $(ARCH) $(objdir)
+	$(QUIET_GEN)$(srcdir)/misc/version.sh $@ $(VERSION_GIT) $(ARCH) $(objdir)
 
 $(srcdir)/utils/auto-args.h: $(srcdir)/misc/prototypes.h $(srcdir)/misc/gen-autoargs.py
 	$(QUIET_GEN)$(srcdir)/misc/gen-autoargs.py -i $< -o $@
