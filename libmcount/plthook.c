@@ -322,7 +322,8 @@ static int hook_pltgot(const char *modname, unsigned long offset)
 		ret = find_got(&elf, &iter, modname, offset);
 
 		if (relro)
-			mprotect((void *)relro_start, relro_size, PROT_READ);
+			if (relro_size <= 0x1000)
+				mprotect((void *)relro_start, relro_size, PROT_READ);
 	}
 
 	elf_finish(&elf);
