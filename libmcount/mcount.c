@@ -35,6 +35,9 @@
 /* time filter in nsec */
 uint64_t mcount_threshold;
 
+/* size filter */
+unsigned mcount_min_size;
+
 /* symbol info for current process */
 struct uftrace_sym_info mcount_sym_info = {
 	.flags = SYMTAB_FL_DEMANGLE | SYMTAB_FL_ADJ_OFFSET,
@@ -1885,6 +1888,7 @@ static __used void mcount_startup(void)
 	char *bufsize_str;
 	char *maxstack_str;
 	char *threshold_str;
+	char *minsize_str;
 	char *color_str;
 	char *demangle_str;
 	char *plthook_str;
@@ -1916,6 +1920,7 @@ static __used void mcount_startup(void)
 	maxstack_str = getenv("UFTRACE_MAX_STACK");
 	color_str = getenv("UFTRACE_COLOR");
 	threshold_str = getenv("UFTRACE_THRESHOLD");
+	minsize_str = getenv("UFTRACE_MIN_SIZE");
 	demangle_str = getenv("UFTRACE_DEMANGLE");
 	plthook_str = getenv("UFTRACE_PLTHOOK");
 	patch_str = getenv("UFTRACE_PATCH");
@@ -2011,6 +2016,9 @@ static __used void mcount_startup(void)
 
 	if (threshold_str)
 		mcount_threshold = strtoull(threshold_str, NULL, 0);
+
+	if (minsize_str)
+		mcount_min_size = strtoul(minsize_str, NULL, 0);
 
 	if (patch_str)
 		mcount_dynamic_update(&mcount_sym_info, patch_str, patt_type);

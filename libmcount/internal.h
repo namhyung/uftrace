@@ -174,6 +174,7 @@ bool mcount_guard_recursion(struct mcount_thread_data *mtdp);
 void mcount_unguard_recursion(struct mcount_thread_data *mtdp);
 
 extern uint64_t mcount_threshold; /* nsec */
+extern unsigned mcount_minsize;
 extern pthread_key_t mtd_key;
 extern int shmem_bufsize;
 extern int pfd;
