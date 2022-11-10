@@ -53,6 +53,8 @@ struct filter_control {
 	uint16_t saved_depth;
 	uint64_t time;
 	uint64_t saved_time;
+	unsigned size;
+	unsigned saved_size;
 };
 #else
 struct filter_control {};
