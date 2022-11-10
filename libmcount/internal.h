@@ -221,6 +221,17 @@ static inline uint64_t mcount_gettime(void)
 	return (uint64_t)ts.tv_sec * NSEC_PER_SEC + ts.tv_nsec;
 }
 
+static inline unsigned mcount_getsize(struct uftrace_sym_info *sinfo, uint64_t addr)
+{
+	struct uftrace_symbol *sym;
+	sym = find_symtabs(sinfo, addr);
+
+	if (sym != NULL)
+		return sym->size;
+
+	return 0;
+}
+
 static inline int mcount_gettid(struct mcount_thread_data *mtdp)
 {
 	if (!mtdp->tid)

@@ -1182,6 +1182,9 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 	if (mcount_check_rstack(mtdp))
 		return FILTER_RSTACK;
 
+	if (mcount_min_size > 0 && mcount_getsize(&mcount_sym_info, child) < mcount_min_size)
+		return FILTER_OUT;
+
 	return FILTER_IN;
 }
 
