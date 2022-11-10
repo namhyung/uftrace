@@ -37,6 +37,7 @@ enum trigger_flag {
 	TRIGGER_FL_SIGNAL = (1U << 16),
 	TRIGGER_FL_HIDE = (1U << 17),
 	TRIGGER_FL_LOC = (1U << 18),
+	TRIGGER_FL_SIZE_FILTER = (1U << 19),
 };
 
 enum filter_mode {
@@ -59,6 +60,7 @@ struct uftrace_trigger {
 	int depth;
 	char color;
 	uint64_t time;
+	unsigned size;
 	enum filter_mode fmode;
 	enum filter_mode lmode;
 	enum trigger_read_type read;

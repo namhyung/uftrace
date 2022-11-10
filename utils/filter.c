@@ -94,6 +94,8 @@ static void print_trigger(struct uftrace_trigger *tr)
 		pr_dbg("\ttrigger: time filter %" PRIu64 "\n", tr->time);
 	if (tr->flags & TRIGGER_FL_CALLER)
 		pr_dbg("\ttrigger: caller filter\n");
+	if (tr->flags & TRIGGER_FL_SIZE_FILTER)
+		pr_dbg("\ttrigger: size filter %u\n", tr->size);
 
 	if (tr->flags & TRIGGER_FL_READ) {
 		char buf[1024];
@@ -268,6 +270,8 @@ void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr, bool
 		filter->trigger.time = tr->time;
 	if (tr->flags & TRIGGER_FL_READ)
 		filter->trigger.read |= tr->read;
+	if (tr->flags & TRIGGER_FL_SIZE_FILTER)
+		filter->trigger.size = tr->size;
 }
 
 static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
@@ -563,6 +567,14 @@ static int parse_time_action(char *action, struct uftrace_trigger *tr,
 	return 0;
 }
 
+static int parse_size_action(char *action, struct uftrace_trigger *tr,
+			     struct uftrace_filter_setting *setting)
+{
+	tr->flags |= TRIGGER_FL_SIZE_FILTER;
+	tr->size = strtoul(action + 5, NULL, 10);
+	return 0;
+}
+
 static int parse_read_action(char *action, struct uftrace_trigger *tr,
 			     struct uftrace_filter_setting *setting)
 {
@@ -734,6 +746,11 @@ static const struct trigger_action_parser actions[] = {
 	{
 		"time=",
 		parse_time_action,
+		TRIGGER_FL_FILTER,
+	},
+	{
+		"size=",
+		parse_size_action,
 		TRIGGER_FL_FILTER,
 	},
 	{
