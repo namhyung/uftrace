@@ -49,9 +49,9 @@ struct uftrace_dbg_info {
 	/* array of location - same order as symbol */
 	struct uftrace_dbg_loc *locs;
 	/* number of debug location info */
-	int nr_locs;
+	size_t nr_locs;
 	/* number of actually used debug location info */
-	int nr_locs_used;
+	size_t nr_locs_used;
 	/* ELF file type - EXEC, REL, DYN */
 	int file_type;
 	/* whether it needs to parse argument info */

@@ -46,6 +46,10 @@ COMMON OPTIONS
     explicitly have the 'trace' trigger applied, those are always traced
     regardless of execution time.  See *FILTERS*.
 
+-L *LOCATION*, \--loc-filter=*LOCATION*
+:   Set filter to trace selected source locations. This option can be used more
+    than once. Applies to replay command, not record. See *FILTERS*.
+
 \--no-libcall
 :   Do not record library function invocations.  Library calls are normally
     traced by hooking calls to the resolver function of dynamic linker in the PLT.

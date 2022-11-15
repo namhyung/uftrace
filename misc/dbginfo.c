@@ -10,7 +10,7 @@
 
 void print_debug_info(struct uftrace_dbg_info *dinfo, bool auto_args)
 {
-	int i;
+	size_t i;
 	char *argspec = NULL;
 	char *retspec = NULL;
 

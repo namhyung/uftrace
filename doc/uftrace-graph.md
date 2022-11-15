@@ -68,6 +68,10 @@ COMMON OPTIONS
     explicitly have the 'trace' trigger applied, those are always traced
     regardless of execution time.
 
+-L *LOCATION*, \--loc-filter=*LOCATION*
+:   Set filter to trace selected source locations.
+    This option can be used more than once.  See *FILTERS*.
+
 \--no-libcall
 :   Do not show library calls.
 

@@ -36,6 +36,7 @@ enum trigger_flag {
 	TRIGGER_FL_CALLER = (1U << 15),
 	TRIGGER_FL_SIGNAL = (1U << 16),
 	TRIGGER_FL_HIDE = (1U << 17),
+	TRIGGER_FL_LOC = (1U << 18),
 };
 
 enum filter_mode {
@@ -59,6 +60,7 @@ struct uftrace_trigger {
 	char color;
 	uint64_t time;
 	enum filter_mode fmode;
+	enum filter_mode lmode;
 	enum trigger_read_type read;
 	struct list_head *pargs;
 };
@@ -112,6 +114,9 @@ void uftrace_setup_caller_filter(char *filter_str, struct uftrace_sym_info *sinf
 				 struct rb_root *root, struct uftrace_filter_setting *setting);
 void uftrace_setup_hide_filter(char *filter_str, struct uftrace_sym_info *sinfo,
 			       struct rb_root *root, struct uftrace_filter_setting *setting);
+void uftrace_setup_loc_filter(char *filter_str, struct uftrace_sym_info *sinfo,
+			      struct rb_root *root, enum filter_mode *mode,
+			      struct uftrace_filter_setting *setting);
 
 struct uftrace_filter *uftrace_match_filter(uint64_t ip, struct rb_root *root,
 					    struct uftrace_trigger *tr);

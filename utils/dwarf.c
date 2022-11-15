@@ -1965,7 +1965,7 @@ void save_debug_file(FILE *fp, char code, char *str, unsigned long val)
 static void save_debug_entries(struct uftrace_dbg_info *dinfo, const char *dirname,
 			       const char *filename, char *build_id)
 {
-	int i;
+	size_t i;
 	FILE *fp;
 	int idx;
 	int len;

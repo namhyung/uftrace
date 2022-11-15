@@ -22,6 +22,7 @@ bool fstack_enabled = true;
 bool live_disabled = false;
 
 static enum filter_mode fstack_filter_mode = FILTER_MODE_NONE;
+static enum filter_mode fstack_loc_mode = FILTER_MODE_NONE;
 
 static int __read_task_ustack(struct uftrace_task_reader *task);
 
@@ -247,6 +248,15 @@ static int setup_hides(struct uftrace_session *s, void *arg)
 	return 0;
 }
 
+static int setup_locs(struct uftrace_session *s, void *arg)
+{
+	struct uftrace_filter_setting *setting = arg;
+
+	uftrace_setup_loc_filter(setting->info_str, &s->sym_info, &s->filters, &fstack_loc_mode,
+				 setting);
+	return 0;
+}
+
 static int count_filters(struct uftrace_session *s, void *arg)
 {
 	int *count = arg;
@@ -271,6 +281,12 @@ static int count_hides(struct uftrace_session *s, void *arg)
 	return 0;
 }
 
+static int count_locs(struct uftrace_session *s, void *arg)
+{
+	*(int *)arg += uftrace_count_filter(&s->filters, TRIGGER_FL_LOC);
+	return 0;
+}
+
 /**
  * setup_fstack_filters - setup symbol filters and triggers
  * @handle      - handle for uftrace data
@@ -278,6 +294,7 @@ static int count_hides(struct uftrace_session *s, void *arg)
  * @trigger_str - trigger definitions
  * @caller_str  - caller filter symbol names
  * @hide_str    - hide filter symbol names
+ * @loc_str     - source location filter symbol names
  * @setting     - filter setting
  *
  * This function sets up the symbol filters and triggers using following syntax:
@@ -287,7 +304,7 @@ static int count_hides(struct uftrace_session *s, void *arg)
  *   trigger_def = "depth=" NUM | "backtrace"
  */
 static int setup_fstack_filters(struct uftrace_data *handle, char *filter_str, char *trigger_str,
-				char *caller_str, char *hide_str,
+				char *caller_str, char *hide_str, char *loc_str,
 				struct uftrace_filter_setting *setting)
 {
 	int count = 0;
@@ -345,6 +362,19 @@ static int setup_fstack_filters(struct uftrace_data *handle, char *filter_str, c
 			return -1;
 
 		pr_dbg("setup hide filters for %d function(s)\n", count);
+	}
+
+	if (loc_str) {
+		int prev = count;
+
+		setting->info_str = loc_str;
+		walk_sessions(sessions, setup_locs, setting);
+		walk_sessions(sessions, count_locs, &count);
+
+		if (prev == count)
+			return -1;
+
+		pr_dbg("setup location filters for %d function(s)\n", count);
 	}
 
 	return 0;
@@ -449,7 +479,7 @@ void setup_fstack_args(char *argspec, char *retspec, struct uftrace_data *handle
  */
 int fstack_setup_filters(struct uftrace_opts *opts, struct uftrace_data *handle)
 {
-	if (opts->filter || opts->trigger || opts->caller || opts->hide) {
+	if (opts->filter || opts->trigger || opts->caller || opts->hide || opts->loc_filter) {
 		struct uftrace_filter_setting setting = {
 			.ptype = opts->patt_type,
 			.allow_kernel = true,
@@ -458,7 +488,7 @@ int fstack_setup_filters(struct uftrace_opts *opts, struct uftrace_data *handle)
 		};
 
 		if (setup_fstack_filters(handle, opts->filter, opts->trigger, opts->caller,
-					 opts->hide, &setting) < 0) {
+					 opts->hide, opts->loc_filter, &setting) < 0) {
 			char * or = "";
 			pr_use("failed to set filter or trigger: ");
 			if (opts->filter) {
@@ -475,6 +505,10 @@ int fstack_setup_filters(struct uftrace_opts *opts, struct uftrace_data *handle)
 			}
 			if (opts->hide) {
 				pr_out("%s%s", or, opts->hide);
+				or = " or ";
+			}
+			if (opts->loc_filter) {
+				pr_out("%s%s", or, opts->loc_filter);
 				or = " or ";
 			}
 			pr_out("\n");
@@ -608,6 +642,19 @@ int fstack_entry(struct uftrace_task_reader *task, struct uftrace_record *rstack
 	}
 	else {
 		if (fstack_filter_mode == FILTER_MODE_IN && task->filter.in_count == 0) {
+			fstack->flags |= FSTACK_FL_NORECORD;
+			return -1;
+		}
+	}
+
+	if (tr->flags & TRIGGER_FL_LOC) {
+		if (tr->lmode == FILTER_MODE_OUT) {
+			fstack->flags |= FSTACK_FL_NORECORD;
+			return -1;
+		}
+	}
+	else {
+		if (fstack_loc_mode == FILTER_MODE_IN) {
 			fstack->flags |= FSTACK_FL_NORECORD;
 			return -1;
 		}
@@ -786,7 +833,12 @@ static int fstack_check_skip(struct uftrace_task_reader *task, struct uftrace_re
 
 		depth = task->h->depth;
 	}
-	else if (fstack_filter_mode == FILTER_MODE_IN && task->filter.in_count == 0) {
+	else if (tr.flags & TRIGGER_FL_LOC) {
+		if (tr.fmode == FILTER_MODE_OUT)
+			return -1;
+	}
+	else if ((fstack_filter_mode == FILTER_MODE_IN || fstack_loc_mode == FILTER_MODE_IN) &&
+		 task->filter.in_count == 0) {
 		return -1;
 	}
 
