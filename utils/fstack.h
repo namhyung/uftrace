@@ -24,10 +24,11 @@ enum uftrace_fstack_context {
 	FSTACK_CTX_KERNEL = 2,
 };
 
-struct uftrace_time_filter_stack {
-	struct uftrace_time_filter_stack *next;
+struct uftrace_task_filter_stack {
+	struct uftrace_task_filter_stack *next;
 	uint64_t threshold;
 	int depth;
+	unsigned size;
 	enum uftrace_fstack_context context;
 };
 
@@ -70,7 +71,7 @@ struct uftrace_task_reader {
 		int in_count;
 		int out_count;
 		int depth;
-		struct uftrace_time_filter_stack *time;
+		struct uftrace_task_filter_stack *stack;
 	} filter;
 	struct uftrace_fstack {
 		uint64_t addr;

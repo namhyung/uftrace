@@ -1566,6 +1566,7 @@ static struct uftrace_record *get_task_ustack(struct uftrace_data *handle, int i
 		struct uftrace_session *sess;
 		struct uftrace_trigger tr = {};
 		uint64_t time_filter = handle->time_filter;
+		unsigned size_filter = handle->size_filter;
 
 		curr = &task->ustack;
 
@@ -1580,23 +1581,40 @@ static struct uftrace_record *get_task_ustack(struct uftrace_data *handle, int i
 		if (sess && (curr->type == UFTRACE_ENTRY || curr->type == UFTRACE_EXIT))
 			uftrace_match_filter(curr->addr, &sess->filters, &tr);
 
-		if (task->filter.time)
-			time_filter = task->filter.time->threshold;
+		if (task->filter.stack) {
+			time_filter = task->filter.stack->threshold;
+			size_filter = task->filter.stack->size;
+		}
+
+		if (tr.flags & TRIGGER_FL_TIME_FILTER)
+			time_filter = tr.time;
+		if (tr.flags & TRIGGER_FL_SIZE_FILTER)
+			size_filter = tr.size;
 
 		if (curr->type == UFTRACE_ENTRY) {
-			/* it needs to wait until matching exit found */
-			add_to_rstack_list(rstack_list, curr, &task->args);
+			if (size_filter) {
+				struct uftrace_symbol *sym;
 
-			if (tr.flags & TRIGGER_FL_TIME_FILTER) {
-				struct uftrace_time_filter_stack *tfs;
+				sym = find_symtabs(&sess->sym_info, curr->addr);
+				if (sym && sym->size >= size_filter)
+					add_to_rstack_list(rstack_list, curr, &task->args);
+			}
+			else {
+				/* it needs to wait until matching exit found */
+				add_to_rstack_list(rstack_list, curr, &task->args);
+			}
+
+			if (tr.flags & (TRIGGER_FL_TIME_FILTER | TRIGGER_FL_SIZE_FILTER)) {
+				struct uftrace_task_filter_stack *tfs;
 
 				tfs = xmalloc(sizeof(*tfs));
-				tfs->next = task->filter.time;
+				tfs->next = task->filter.stack;
 				tfs->depth = curr->depth;
 				tfs->context = FSTACK_CTX_USER;
-				tfs->threshold = tr.time;
+				tfs->threshold = time_filter;
+				tfs->size = size_filter;
 
-				task->filter.time = tfs;
+				task->filter.stack = tfs;
 			}
 		}
 		else if (curr->type == UFTRACE_EXIT) {
@@ -1605,15 +1623,23 @@ static struct uftrace_record *get_task_ustack(struct uftrace_data *handle, int i
 			int last_type;
 			bool filtered = false;
 
-			if (task->filter.time) {
-				struct uftrace_time_filter_stack *tfs;
+			if (task->filter.stack) {
+				struct uftrace_task_filter_stack *tfs;
 
-				tfs = task->filter.time;
+				tfs = task->filter.stack;
 				if (tfs->depth == curr->depth && tfs->context == FSTACK_CTX_USER) {
 					/* discard stale filter */
-					task->filter.time = tfs->next;
+					task->filter.stack = tfs->next;
 					free(tfs);
 				}
+			}
+
+			if (size_filter) {
+				struct uftrace_symbol *sym;
+				sym = find_symtabs(&sess->sym_info, curr->addr);
+
+				if (sym && sym->size < size_filter)
+					continue;
 			}
 
 			list_for_each_entry_reverse(last, &rstack_list->read, list) {
