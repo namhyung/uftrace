@@ -58,7 +58,7 @@ int setup_extern_data(struct uftrace_data *handle, struct uftrace_opts *opts)
 	return 1;
 }
 
-int read_extern_data(struct uftrace_extern_reader *extn)
+int read_extern_data(struct uftrace_data *handle, struct uftrace_extern_reader *extn)
 {
 	char buf[EXTERN_DATA_MAX + 64];
 	char *pos;
@@ -82,6 +82,9 @@ retry:
 	} while (*pos == '#' || *pos == '\n'); /* ignore comment or blank */
 
 	extn->time = parse_timestamp(pos);
+
+	if (!check_time_range(&handle->time_range, extn->time))
+		goto retry;
 
 	pos = strpbrk(pos, "\t ");
 	if (pos == NULL)
@@ -165,19 +168,19 @@ TEST_CASE(fstack_extern_data1)
 	setup_extern_data(&handle, &opts);
 
 	pr_dbg("first read should return first data\n");
-	read_extern_data(handle.extn);
+	read_extern_data(&handle, handle.extn);
 	TEST_EQ(handle.extn->valid, true);
 	TEST_EQ(handle.extn->time, 1234987654321ULL);
 	TEST_STREQ(handle.extn->msg, "first data");
 
 	pr_dbg("next read should return same data\n");
-	read_extern_data(handle.extn);
+	read_extern_data(&handle, handle.extn);
 	TEST_EQ(handle.extn->time, 1234987654321ULL);
 	TEST_STREQ(handle.extn->msg, "first data");
 
 	pr_dbg("after invalidate, a read should return second data\n");
 	handle.extn->valid = false;
-	read_extern_data(handle.extn);
+	read_extern_data(&handle, handle.extn);
 
 	TEST_EQ(handle.extn->valid, true);
 	TEST_EQ(handle.extn->time, 1234123456789);
@@ -222,7 +225,7 @@ TEST_CASE(fstack_extern_data2)
 	setup_extern_data(&handle, &opts);
 
 	pr_dbg("read very very long data\n");
-	read_extern_data(handle.extn);
+	read_extern_data(&handle, handle.extn);
 	TEST_EQ(handle.extn->valid, true);
 	TEST_EQ(handle.extn->time, 1234987654321ULL);
 

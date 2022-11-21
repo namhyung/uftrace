@@ -170,7 +170,7 @@ struct uftrace_extern_reader {
 };
 
 int setup_extern_data(struct uftrace_data *handle, struct uftrace_opts *opts);
-int read_extern_data(struct uftrace_extern_reader *extn);
+int read_extern_data(struct uftrace_data *handle, struct uftrace_extern_reader *extn);
 struct uftrace_record *get_extern_record(struct uftrace_extern_reader *extn,
 					 struct uftrace_record *rec);
 int finish_extern_data(struct uftrace_data *handle);
