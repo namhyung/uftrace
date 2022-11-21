@@ -413,6 +413,9 @@ again:
 	if (unlikely(task == NULL || task->fp == NULL))
 		goto again;
 
+	if (!check_time_range(&handle->time_range, perf->time))
+		goto again;
+
 	perf->type = h.type;
 	perf->valid = true;
 	return 0;
