@@ -2269,7 +2269,7 @@ static int __read_rstack(struct uftrace_data *handle, struct uftrace_task_reader
 	}
 
 	if (has_extern_data(handle)) {
-		x = read_extern_data(extn);
+		x = read_extern_data(handle, extn);
 
 		if (x >= 0 && extn->time < min_timestamp) {
 			min_timestamp = extn->time;
