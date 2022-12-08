@@ -38,8 +38,8 @@ static void reset_live_opts(struct uftrace_opts *opts)
 	opts->caller = NULL;
 
 	/*
-	 * Likewise, most trigger options are ignored, but color settings
-	 * are effective only in replay.
+	 * Likewise, most trigger options are ignored, but color settings and
+	 * backtrace are effective only in replay.
 	 */
 	if (opts->trigger) {
 		char *new_triggers = NULL;
@@ -47,7 +47,9 @@ static void reset_live_opts(struct uftrace_opts *opts)
 		char *s;
 		int i;
 
-		if (strstr(opts->trigger, "color=") == NULL) {
+		/* fastpath: these are not used frequently */
+		if (strstr(opts->trigger, "color=") == NULL &&
+		    strstr(opts->trigger, "backtrace") == NULL) {
 			free(opts->trigger);
 			opts->trigger = NULL;
 			goto others;
@@ -57,22 +59,25 @@ static void reset_live_opts(struct uftrace_opts *opts)
 		 * Split trigger options for each function.
 		 * Example trigger option string like this:
 		 *
-		 *  a@depth=1;b@trace,read=pmu-cycle;c@color=red,time=1us
+		 *  a@depth=1;b@backtrace,read=pmu-cycle;c@color=red,time=1us
 		 */
 		strv_split(&trs, opts->trigger, ";");
 
 		strv_for_each(&trs, s, i) {
 			struct strv sv = STRV_INIT;
 			char *name, *tmp, *o;
+			bool found = false;
 			int k;
 
-			if (strstr(s, "color=") == NULL)
+			/* skip this function if it doesn't have these triggers */
+			if (strstr(s, "color=") == NULL && strstr(s, "backtrace") == NULL)
 				continue;
 
 			name = xstrdup(s);
 			tmp = strchr(name, '@');
 			if (tmp == NULL) {
 				pr_dbg("invalid trigger option: %s\n", s);
+				free(name);
 				continue;
 			}
 			*tmp = '\0';
@@ -81,15 +86,25 @@ static void reset_live_opts(struct uftrace_opts *opts)
 			strv_split(&sv, tmp + 1, ",");
 
 			strv_for_each(&sv, o, k) {
-				if (strncmp(o, "color=", 6))
+				if (strncmp(o, "color=", 6) && strcmp(o, "backtrace"))
 					continue;
 
-				tmp = strjoin(name, o, "@");
-				new_triggers = strjoin(new_triggers, tmp, ";");
-				free(tmp);
-				break;
+				if (!found) {
+					/* first action: needs func name first */
+					tmp = strjoin(name, o, "@");
+					found = true;
+					continue;
+				}
+
+				/* second or later actions: just append */
+				tmp = strjoin(tmp, o, ",");
 			}
 			strv_free(&sv);
+
+			if (found) {
+				new_triggers = strjoin(new_triggers, tmp, ";");
+				free(tmp);
+			}
 		}
 		strv_free(&trs);
 
@@ -289,7 +304,7 @@ TEST_CASE(live_reset_options)
 	/* add different types of triggers */
 	o.trigger = strjoin(o.trigger, "foo@filter,depth=1", ";");
 	o.trigger = strjoin(o.trigger, "bar@time=1us,color=red", ";");
-	o.trigger = strjoin(o.trigger, "baz@trace", ";");
+	o.trigger = strjoin(o.trigger, "baz@backtrace,trace,color=blue", ";");
 
 	pr_dbg("reset live options (filter, triggers, ...)\n");
 	reset_live_opts(&o);
@@ -298,7 +313,7 @@ TEST_CASE(live_reset_options)
 	TEST_EQ(o.filter, NULL);
 	TEST_EQ(o.caller, NULL);
 	/* it should only have the color trigger */
-	TEST_STREQ(o.trigger, "bar@color=red");
+	TEST_STREQ(o.trigger, "bar@color=red;baz@backtrace,color=blue");
 	TEST_EQ(o.disabled, false);
 	TEST_EQ(o.no_event, false);
 	TEST_EQ(o.no_sched, false);
