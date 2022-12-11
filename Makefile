@@ -78,6 +78,7 @@ UFTRACE_CFLAGS     = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_uftrace)
 DEMANGLER_CFLAGS   = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_demangler)
 SYMBOLS_CFLAGS     = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_symbols)
 DBGINFO_CFLAGS     = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_dbginfo)
+BENCH_CFLAGS       = -D_GNU_SOURCE -g -pg $(CFLAGS_$@) $(CFLAGS_bench)
 TRACEEVENT_CFLAGS  = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_traceevent)
 LIB_CFLAGS         = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_lib)
 LIB_CFLAGS        += -fPIC -fvisibility=hidden -fno-omit-frame-pointer
@@ -87,6 +88,7 @@ UFTRACE_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_uftrace)
 DEMANGLER_LDFLAGS  = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_demangler)
 SYMBOLS_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_symbols)
 DBGINFO_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_dbginfo)
+BENCH_LDFLAGS      = -Wl,-z,noexecstack $(LDFLAGS_$@) $(LDFLAGS_bench)
 LIB_LDFLAGS        = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_lib) -Wl,--no-undefined
 TEST_LDFLAGS       = $(COMMON_LDFLAGS) -L$(objdir)/libtraceevent -ltraceevent
 
@@ -158,7 +160,7 @@ LIBMCOUNT_TARGETS += libmcount/libmcount-single.so libmcount/libmcount-fast-sing
 
 _TARGETS := uftrace libtraceevent/libtraceevent.a
 _TARGETS += $(LIBMCOUNT_TARGETS) libmcount/libmcount-nop.so
-_TARGETS += misc/demangler misc/symbols misc/dbginfo
+_TARGETS += misc/demangler misc/symbols misc/dbginfo misc/bench
 TARGETS  := $(patsubst %,$(objdir)/%,$(_TARGETS))
 
 UFTRACE_SRCS := $(srcdir)/uftrace.c $(wildcard $(srcdir)/cmds/*.c $(srcdir)/utils/*.c)
@@ -187,6 +189,9 @@ DBGINFO_SRCS += $(srcdir)/utils/argspec.c $(srcdir)/utils/rbtree.c
 DBGINFO_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/filter.c
 DBGINFO_SRCS += $(wildcard $(srcdir)/utils/symbol*.c)
 DBGINFO_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(DBGINFO_SRCS))
+
+BENCH_SRCS := $(srcdir)/misc/bench.c
+BENCH_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(BENCH_SRCS))
 
 UFTRACE_ARCH_OBJS := $(objdir)/arch/$(ARCH)/uftrace.o
 
@@ -296,6 +301,9 @@ $(objdir)/misc/symbols.o: $(srcdir)/misc/symbols.c $(objdir)/version.h $(COMMON_
 $(objdir)/misc/dbginfo.o: $(srcdir)/misc/dbginfo.c $(objdir)/version.h $(COMMON_DEPS)
 	$(QUIET_CC)$(CC) $(DBGINFO_CFLAGS) -c -o $@ $<
 
+$(objdir)/misc/bench.o: $(srcdir)/misc/bench.c
+	$(QUIET_CC)$(CC) $(BENCH_CFLAGS) -c -o $@ $<
+
 $(UFTRACE_OBJS_VERSION): $(objdir)/version.h
 
 $(filter-out $(objdir)/uftrace.o, $(UFTRACE_OBJS)): $(objdir)/%.o: $(srcdir)/%.c $(COMMON_DEPS)
@@ -318,6 +326,9 @@ $(objdir)/misc/symbols: $(SYMBOLS_OBJS)
 
 $(objdir)/misc/dbginfo: $(DBGINFO_OBJS)
 	$(QUIET_LINK)$(CC) $(DBGINFO_CFLAGS) -o $@ $(DBGINFO_OBJS) $(DBGINFO_LDFLAGS)
+
+$(objdir)/misc/bench: $(BENCH_OBJS)
+	$(QUIET_LINK)$(CC) $(BENCH_CFLAGS) -o $@ $(BENCH_OBJS) $(BENCH_LDFLAGS)
 
 install: all
 	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(bindir)
@@ -368,6 +379,9 @@ unittest: all
 
 runtest: all
 	@$(MAKE) -C $(srcdir)/tests TESTARG="$(TESTARG)" RUNTESTARG="$(RUNTESTARG)" test_run
+
+bench: all
+	@cd $(srcdir)/misc && echo && ./bench.sh $(BENCHARG)
 
 dist:
 	@git archive --prefix=uftrace-$(VERSION)/ $(VERSION_GIT) -o $(objdir)/uftrace-$(VERSION).tar

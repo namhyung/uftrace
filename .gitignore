@@ -45,3 +45,4 @@ compile_commands.json
 misc/demangler
 misc/symbols
 misc/dbginfo
+misc/bench
