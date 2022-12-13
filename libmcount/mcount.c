@@ -1780,6 +1780,11 @@ static void agent_fini(struct sockaddr_un *addr, int sfd)
 	socket_unlink(addr);
 }
 
+static void agent_exit_handler(int sig)
+{
+	pthread_exit(0);
+}
+
 /* Agent routine, applying instructions from the CLI. */
 void *agent_apply_commands(void *arg)
 {
@@ -1787,6 +1792,14 @@ void *agent_apply_commands(void *arg)
 	bool close_connection;
 	enum uftrace_dopt dopt;
 	struct sockaddr_un addr;
+	struct sigaction actions;
+
+	memset(&actions, 0, sizeof(actions));
+	sigemptyset(&actions.sa_mask);
+	actions.sa_flags = 0;
+	actions.sa_handler = agent_exit_handler;
+	if (sigaction(SIGUSR1, &actions, NULL) != 0)
+		pr_err("agent signal not set");
 
 	sfd = agent_init(&addr);
 	if (sfd == -1) {
@@ -1874,7 +1887,7 @@ static void agent_kill()
 	return;
 
 error:
-	pthread_cancel(agent);
+	pthread_kill(agent, SIGUSR1);
 }
 
 static __used void mcount_startup(void)
@@ -2126,6 +2139,21 @@ void __visible_default __cyg_profile_func_exit(void *child, void *parent)
 }
 UFTRACE_ALIAS(__cyg_profile_func_exit);
 
+int mcount_is_main_executable(const char *filename, const char *exename)
+{
+	/* on Linux main executable has empty name
+	   whereas on Android we need to compare with exename */
+	char filename_canonized[PATH_MAX];
+	char exename_canonized[PATH_MAX];
+	if (!*filename)
+		return 1;
+	if (realpath(filename, filename_canonized) &&
+			realpath(exename, exename_canonized)) {
+		return strcmp(filename_canonized, exename_canonized) == 0;
+	}
+	return 0;
+}
+
 #ifndef UNIT_TEST
 /*
  * Initializer and Finalizer
@@ -2162,11 +2190,13 @@ static void cleanup_thread_data(struct mcount_thread_data *mtdp)
 
 	shmem_finish(mtdp);
 
+#ifndef __ANDROID__
 	for (idx = 0; idx < 2; idx++) {
 		snprintf(shm_id, sizeof(shm_id), SHMEM_SESSION_FMT, mcount_session_name(), tid,
 			 idx);
 		shm_unlink(shm_id);
 	}
+#endif
 }
 
 TEST_CASE(mcount_thread_data)

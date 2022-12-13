@@ -824,6 +824,10 @@ enum uftrace_trace_type check_trace_functions(const char *filename)
 
 		/* undefined function is ok here */
 		if (elf_symbol_type(&iter.sym) != STT_FUNC &&
+#ifdef __ANDROID__
+		    // Profiling functions are undefined on Android
+		    elf_symbol_type(&iter.sym) != STT_NOTYPE &&
+#endif
 		    elf_symbol_type(&iter.sym) != STT_GNU_IFUNC)
 			continue;
 

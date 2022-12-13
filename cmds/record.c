@@ -18,6 +18,8 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 #include "libmcount/mcount.h"
 #include "uftrace.h"
@@ -28,6 +30,10 @@
 #include "utils/symbol.h"
 #include "utils/utils.h"
 
+#ifdef __ANRDOID__
+#include <android/sharedmem.h>
+#endif
+
 #ifndef EFD_SEMAPHORE
 #define EFD_SEMAPHORE (1 << 0)
 #endif
@@ -36,6 +42,7 @@
 struct shmem_list {
 	struct list_head list;
 	char id[SHMEM_NAME_SIZE];
+	int fd;
 };
 
 static LIST_HEAD(shmem_list_head);
@@ -816,24 +823,26 @@ static void copy_to_buffer(struct mcount_shmem_buffer *shm, char *sess_id)
 	pthread_mutex_unlock(&write_list_lock);
 }
 
-static void record_mmap_file(const char *dirname, char *sess_id, int bufsize)
+static void record_mmap_file(const char *dirname, char *sess_id, int bufsize, int fd)
 {
-	int fd;
 	struct shmem_list *sl;
 	struct mcount_shmem_buffer *shmem_buf;
 
 	/* write (append) it to disk */
+#ifdef __ANDROID__
+	if (fd < 0)
+		pr_err("invalid shmem list");
+#else
 	fd = shm_open(sess_id, O_RDWR, 0600);
 	if (fd < 0) {
 		pr_dbg("open shmem buffer failed: %s: %m\n", sess_id);
 		return;
 	}
+#endif
 
 	shmem_buf = mmap(NULL, bufsize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 	if (shmem_buf == MAP_FAILED)
 		pr_err("mmap shmem buffer");
-
-	close(fd);
 
 	if (shmem_buf->flag & SHMEM_FL_RECORDING) {
 		if (shmem_buf->flag & SHMEM_FL_NEW) {
@@ -850,6 +859,7 @@ static void record_mmap_file(const char *dirname, char *sess_id, int bufsize)
 			if (!found) {
 				sl = xmalloc(sizeof(*sl));
 				memcpy(sl->id, sess_id, sizeof(sl->id));
+				sl->fd = -1;
 
 				/* link to shmem_list */
 				list_add_tail(&sl->list, &shmem_need_unlink);
@@ -864,6 +874,7 @@ static void record_mmap_file(const char *dirname, char *sess_id, int bufsize)
 	}
 
 	munmap(shmem_buf, bufsize);
+	close(fd);
 }
 
 static void stop_all_writers(void)
@@ -904,7 +915,7 @@ static void flush_shmem_list(const char *dirname, int bufsize)
 		pr_dbg("flushing %s\n", sl->id);
 
 		list_del(&sl->list);
-		record_mmap_file(dirname, sl->id, bufsize);
+		record_mmap_file(dirname, sl->id, bufsize, sl->fd);
 		free(sl);
 	}
 }
@@ -929,6 +940,9 @@ static void unlink_shmem_list(void)
 
 		list_del(&sl->list);
 
+#ifdef __ANDROID__  // No need to unlink anything on Android
+		close(sl->fd);
+#else
 		sscanf(sl->id, "/uftrace-%[^-]-%*d-%*d", shmem_session);
 		pr_dbg2("unlink for session: %s\n", shmem_session);
 
@@ -942,6 +956,8 @@ static void unlink_shmem_list(void)
 		}
 
 		free(shmem_bufs);
+#endif
+
 		free(sl);
 	}
 }
@@ -960,7 +976,7 @@ static void flush_old_shmem(const char *dirname, int tid, int bufsize)
 			pr_dbg3("flushing %s\n", sl->id);
 
 			list_del(&sl->list);
-			record_mmap_file(dirname, sl->id, bufsize);
+			record_mmap_file(dirname, sl->id, bufsize, sl->fd);
 			free(sl);
 			return;
 		}
@@ -1073,6 +1089,57 @@ struct dlopen_list {
 
 static LIST_HEAD(dlopen_libs);
 
+static int receive_shmem_fd(const char *id)
+{
+	struct sockaddr_un addr;
+	socklen_t addrlen;
+	int sockfd;
+	char nothing;
+	struct iovec iov;
+	long buf[128];
+	struct msghdr msghdr;
+	struct cmsghdr *cmsg;
+
+	/* create socket */
+
+	memset(&addr, 0, sizeof(addr));
+	addr.sun_family = AF_UNIX;
+	strcpy(&addr.sun_path[1], id);
+
+	addrlen = sizeof(addr.sun_family) + strlen(&addr.sun_path[1]) + 1;
+
+	sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (sockfd < 0)
+		pr_err("failed to create Unix socket");
+
+	if (connect(sockfd, (struct sockaddr *)&addr, addrlen))
+		pr_err("failed to connect Unix socket");
+
+	/* Receive shmem fds */
+	iov.iov_base = &nothing;
+	iov.iov_len = sizeof(nothing);
+
+	msghdr.msg_name = NULL;
+	msghdr.msg_namelen = 0;
+	msghdr.msg_iov = &iov;
+	msghdr.msg_iovlen = 1;
+	msghdr.msg_flags = 0;
+	msghdr.msg_control = buf;
+	msghdr.msg_controllen = sizeof(struct cmsghdr) + sizeof(int);
+
+	cmsg = CMSG_FIRSTHDR(&msghdr);
+	cmsg->cmsg_len = msghdr.msg_controllen;
+	cmsg->cmsg_level = SOL_SOCKET;
+	cmsg->cmsg_type = SCM_RIGHTS;
+
+	if (recvmsg(sockfd, &msghdr, 0) < 0)
+		pr_err("failed to receive shmem fds");
+
+	close(sockfd);
+
+  return *(int *)CMSG_DATA(cmsg);
+}
+
 static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 {
 	char buf[128];
@@ -1085,6 +1152,7 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 	struct dlopen_list *dlib;
 	char *exename;
 	int lost;
+	int fd;
 
 	if (read_all(pfd, &msg, sizeof(msg)) < 0)
 		pr_err("reading pipe failed:");
@@ -1105,8 +1173,14 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		sl->id[msg.len] = '\0';
 		pr_dbg2("MSG START: %s\n", sl->id);
 
+#ifdef __ANDROID__
+		/* receive shmem fds from tracee */
+		sl->fd = receive_shmem_fd(sl->id);
+#endif
+
 		/* link to shmem_list */
 		list_add_tail(&sl->list, &shmem_list_head);
+
 		break;
 
 	case UFTRACE_MSG_REC_END:
@@ -1120,15 +1194,17 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		pr_dbg2("MSG  END : %s\n", buf);
 
 		/* remove from shmem_list */
+		fd = -1;
 		list_for_each_entry_safe(sl, tmp, &shmem_list_head, list) {
 			if (!memcmp(sl->id, buf, msg.len)) {
 				list_del(&sl->list);
+				fd = sl->fd;
 				free(sl);
 				break;
 			}
 		}
 
-		record_mmap_file(dirname, buf, bufsize);
+		record_mmap_file(dirname, buf, bufsize, fd);
 		break;
 
 	case UFTRACE_MSG_TASK_START:

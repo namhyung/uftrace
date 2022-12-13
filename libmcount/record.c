@@ -7,6 +7,8 @@
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "mcount"
@@ -20,12 +22,16 @@
 #include "utils/symbol.h"
 #include "utils/utils.h"
 
+#ifdef __ANDROID__
+#include <android/sharedmem.h>
+#endif
+
 #define SHMEM_SESSION_FMT "/uftrace-%s-%d-%03d" /* session-id, tid, seq */
 
 #define ARG_STR_MAX 98
 
 static struct mcount_shmem_buffer *allocate_shmem_buffer(char *sess_id, size_t size, int tid,
-							 int idx)
+							 int idx, int *pfd)
 {
 	int fd;
 	int saved_errno = 0;
@@ -33,18 +39,24 @@ static struct mcount_shmem_buffer *allocate_shmem_buffer(char *sess_id, size_t s
 
 	snprintf(sess_id, size, SHMEM_SESSION_FMT, mcount_session_name(), tid, idx);
 
+#ifdef __ANDROID__
+	fd = ASharedMemory_create(sess_id, shmem_bufsize);
+#else
 	fd = shm_open(sess_id, O_RDWR | O_CREAT | O_TRUNC, 0600);
+#endif
 	if (fd < 0) {
 		saved_errno = errno;
 		pr_dbg("failed to open shmem buffer: %s\n", sess_id);
 		goto out;
 	}
 
+#ifndef __ANDROID__
 	if (ftruncate(fd, shmem_bufsize) < 0) {
 		saved_errno = errno;
 		pr_dbg("failed to resizing shmem buffer: %s\n", sess_id);
 		goto out;
 	}
+#endif
 
 	buffer = mmap(NULL, shmem_bufsize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 	if (buffer == MAP_FAILED) {
@@ -54,11 +66,78 @@ static struct mcount_shmem_buffer *allocate_shmem_buffer(char *sess_id, size_t s
 		goto out;
 	}
 
+#ifdef __ANDROID__
+	*pfd = fd;
+#else
+	*pfd = -1;
 	close(fd);
+#endif
 
 out:
 	errno = saved_errno;
 	return buffer;
+}
+
+static void send_shmem_fd(const char *name, int fd)
+{
+	struct sockaddr_un addr;
+	socklen_t addrlen;
+	int sockfd, newfd;
+	char nothing;
+	struct iovec iov;
+	long buf[128];
+	struct msghdr msghdr;
+	struct cmsghdr *cmsg;
+
+	/* create socket */
+
+	sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (sockfd < 0)
+		pr_err("failed to create Unix socket");
+
+	memset(&addr, 0, sizeof(addr));
+	addr.sun_family = AF_UNIX;
+
+	strcpy(&addr.sun_path[1], name);
+	addrlen = sizeof(addr.sun_family) + strlen(&addr.sun_path[1]) + 1;
+
+	if (bind(sockfd, (struct sockaddr *)&addr, addrlen) < 0)
+		pr_err("failed to bind Unix socket");
+
+	if (listen(sockfd, 4) != 0)
+		pr_err("failed to listen Unix socket");
+
+	/* accept connection */
+
+	newfd = accept(sockfd, (struct sockaddr *)&addr, &addrlen);
+	if (newfd < 0)
+		pr_err("failed to accept child connection");
+
+	/* Send shmem fd */
+
+	nothing = 0;
+	iov.iov_base = &nothing;
+	iov.iov_len = sizeof(nothing);
+
+	msghdr.msg_name = NULL;
+	msghdr.msg_namelen = 0;
+	msghdr.msg_iov = &iov;
+	msghdr.msg_iovlen = 1;
+	msghdr.msg_flags = 0;
+	msghdr.msg_control = buf;
+	msghdr.msg_controllen = sizeof(struct cmsghdr) + sizeof(fd);
+
+	cmsg = CMSG_FIRSTHDR(&msghdr);
+	cmsg->cmsg_len = msghdr.msg_controllen;
+	cmsg->cmsg_level = SOL_SOCKET;
+	cmsg->cmsg_type = SCM_RIGHTS;
+	*(int *)CMSG_DATA(cmsg) = fd;
+
+	if (sendmsg(newfd, &msghdr, 0) < 0)
+		pr_err("failed to send shmem fd");
+
+	close(newfd);
+	close(sockfd);
 }
 
 void prepare_shmem_buffer(struct mcount_thread_data *mtdp)
@@ -73,9 +152,10 @@ void prepare_shmem_buffer(struct mcount_thread_data *mtdp)
 	shmem->nr_buf = 2;
 	shmem->max_buf = 2;
 	shmem->buffer = xcalloc(sizeof(*shmem->buffer), 2);
+	shmem->fds = xmalloc(sizeof(*shmem->fds) * 2);
 
 	for (idx = 0; idx < shmem->nr_buf; idx++) {
-		shmem->buffer[idx] = allocate_shmem_buffer(buf, sizeof(buf), tid, idx);
+		shmem->buffer[idx] = allocate_shmem_buffer(buf, sizeof(buf), tid, idx, &shmem->fds[idx]);
 		if (shmem->buffer[idx] == NULL)
 			pr_err("mmap shmem buffer");
 	}
@@ -83,6 +163,11 @@ void prepare_shmem_buffer(struct mcount_thread_data *mtdp)
 	/* set idx 0 as current buffer */
 	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT, mcount_session_name(), tid, 0);
 	uftrace_send_message(UFTRACE_MSG_REC_START, buf, strlen(buf));
+
+#ifdef __ANDROID__
+	/* send fd 0 to tracer */
+	send_shmem_fd(buf, mtdp->shmem.fds[0]);
+#endif
 
 	shmem->done = false;
 	shmem->curr = 0;
@@ -112,7 +197,7 @@ static void get_new_shmem_buffer(struct mcount_thread_data *mtdp)
 		 */
 		shmem->buffer = new_buffer;
 
-		curr_buf = allocate_shmem_buffer(buf, sizeof(buf), mcount_gettid(mtdp), idx);
+		curr_buf = allocate_shmem_buffer(buf, sizeof(buf), mcount_gettid(mtdp), idx, &shmem->fds[idx]);
 	}
 
 	if (new_buffer == NULL || curr_buf == NULL) {
@@ -153,6 +238,7 @@ reuse:
 		if (count >= 3 && b->flag == SHMEM_FL_WRITTEN) {
 			shmem->nr_buf--;
 			munmap(b, shmem_bufsize);
+			close(shmem->fds[i]);
 		}
 	}
 
@@ -161,6 +247,11 @@ reuse:
 
 	pr_dbg2("new buffer: [%d] %s\n", idx, buf);
 	uftrace_send_message(UFTRACE_MSG_REC_START, buf, strlen(buf));
+
+#ifdef __ANDROID__
+	/* send shmem fd to tracer */
+	send_shmem_fd(buf, mtdp->shmem.fds[idx]);
+#endif
 
 	if (shmem->losts) {
 		struct uftrace_record *frstack = (void *)curr_buf->data;
@@ -195,8 +286,10 @@ void clear_shmem_buffer(struct mcount_thread_data *mtdp)
 
 	pr_dbg2("releasing all shmem buffers for task %d\n", mcount_gettid(mtdp));
 
-	for (i = 0; i < shmem->nr_buf; i++)
+	for (i = 0; i < shmem->nr_buf; i++) {
 		munmap(shmem->buffer[i], shmem_bufsize);
+		close(shmem->fds[i]);
+	}
 
 	free(shmem->buffer);
 	shmem->buffer = NULL;

@@ -41,6 +41,7 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 {
 	uintptr_t dentry_addr = (uintptr_t)(void *)&__dentry__;
 	uintptr_t fentry_addr = (uintptr_t)(void *)&__fentry__;
+	unsigned long page_offset;
 	/*
 	 * trampoline assumes {x29,x30} was pushed but x29 was not updated.
 	 * make sure stack is 8-byte aligned.
@@ -71,7 +72,8 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 		     MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	}
 
-	if (mprotect((void *)mdi->text_addr, mdi->text_size, PROT_READ | PROT_WRITE | PROT_EXEC)) {
+	page_offset = mdi->text_addr & (PAGE_SIZE - 1);
+	if (mprotect((void *)(mdi->text_addr - page_offset), mdi->text_size + page_offset, PROT_READ | PROT_WRITE | PROT_EXEC)) {
 		pr_dbg("cannot setup trampoline due to protection: %m\n");
 		return -1;
 	}
@@ -84,10 +86,20 @@ static void read_patchable_loc(struct mcount_dynamic_info *mdi, struct uftrace_e
 			       struct uftrace_elf_iter *iter, unsigned long offset)
 {
 	typeof(iter->shdr) *shdr = &iter->shdr;
+	unsigned i;
+	unsigned long *patchable_loc;
 
 	mdi->nr_patch_target = shdr->sh_size / sizeof(long);
 	mdi->patch_target = xmalloc(shdr->sh_size);
+	patchable_loc = mdi->patch_target;
 
+#if __ANDROID__
+	/* contents of patchable section is initialized at startup so read it from memory */
+	for (i = 0; i < mdi->nr_patch_target; i++) {
+		unsigned long *entry = (unsigned long *)(offset + shdr->sh_addr) + i;
+		patchable_loc[i] = *entry - offset;
+	}
+#else
 	elf_get_secdata(elf, iter);
 	elf_read_secdata(elf, iter, 0, mdi->patch_target, shdr->sh_size);
 
@@ -100,6 +112,7 @@ static void read_patchable_loc(struct mcount_dynamic_info *mdi, struct uftrace_e
 			patchable_loc[i] -= offset;
 		}
 	}
+#endif
 }
 
 void mcount_arch_find_module(struct mcount_dynamic_info *mdi, struct uftrace_symtab *symtab)

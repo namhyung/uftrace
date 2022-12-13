@@ -59,7 +59,12 @@ COMMON_CFLAGS := -D_GNU_SOURCE $(CFLAGS) $(CPPFLAGS)
 COMMON_CFLAGS += -iquote $(srcdir) -iquote $(objdir) -iquote $(srcdir)/arch/$(ARCH)
 COMMON_CFLAGS += -Wdeclaration-after-statement
 #CFLAGS-DEBUG = -g -D_GNU_SOURCE $(CFLAGS_$@)
-COMMON_LDFLAGS := -lrt -ldl -pthread -Wl,-z,noexecstack $(LDFLAGS)
+COMMON_LDFLAGS := -ldl -pthread -Wl,-z,noexecstack $(LDFLAGS)
+ifeq ($(ANDROID),)
+COMMON_LDFLAGS += -lrt
+else
+COMMON_LDFLAGS += -landroid
+endif
 ifneq ($(elfdir),)
   COMMON_CFLAGS  += -I$(elfdir)/include
   COMMON_LDFLAGS += -L$(elfdir)/lib

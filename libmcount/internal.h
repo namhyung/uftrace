@@ -65,6 +65,7 @@ struct mcount_shmem {
 	int nr_buf;
 	int max_buf;
 	bool done;
+	int *fds;
 	struct mcount_shmem_buffer **buffer;
 };
 
@@ -428,5 +429,7 @@ void mcount_hook_functions(void);
 int read_pmu_event(struct mcount_thread_data *mtdp, enum uftrace_event_id id, void *buf);
 void release_pmu_event(struct mcount_thread_data *mtdp, enum uftrace_event_id id);
 void finish_pmu_event(struct mcount_thread_data *mtdp);
+
+int mcount_is_main_executable(const char *filename, const char *exename);
 
 #endif /* UFTRACE_MCOUNT_INTERNAL_H */
