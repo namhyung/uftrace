@@ -1,4 +1,4 @@
-LINKFLAGS := -r -m elf_i386
+LINKFLAGS := -r -m elf_i386 -z noexecstack
 
 sdir := $(srcdir)/arch/i386
 odir := $(objdir)/arch/i386

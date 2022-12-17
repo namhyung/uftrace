@@ -1,4 +1,4 @@
-LINKFLAGS := -r
+LINKFLAGS := -r -z noexecstack
 
 sdir := $(srcdir)/arch/x86_64
 odir := $(objdir)/arch/x86_64

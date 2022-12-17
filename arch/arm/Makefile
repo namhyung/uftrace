@@ -1,7 +1,7 @@
 sdir := $(srcdir)/arch/arm
 odir := $(objdir)/arch/arm
 
-LINKFLAGS := -r
+LINKFLAGS := -r -z noexecstack
 
 include $(srcdir)/Makefile.include
 

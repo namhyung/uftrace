@@ -1,7 +1,7 @@
 sdir := $(srcdir)/arch/aarch64
 odir := $(objdir)/arch/aarch64
 
-LINKFLAGS := -r
+LINKFLAGS := -r -z noexecstack
 
 include $(srcdir)/Makefile.include
 
