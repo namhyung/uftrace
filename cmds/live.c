@@ -23,6 +23,37 @@ static void cleanup_tempdir(void)
 	tmp_dirname = NULL;
 }
 
+/* trigger actions that need to be done in replay */
+static const struct {
+	const char *action;
+	int len;
+} replay_triggers[] = {
+	{ "backtrace", 9 },
+	{ "color=", 6 },
+};
+
+static bool has_replay_triggers(const char *trigger)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(replay_triggers); i++) {
+		if (strstr(trigger, replay_triggers[i].action))
+			return true;
+	}
+	return false;
+}
+
+static bool match_replay_triggers(const char *trigger)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(replay_triggers); i++) {
+		if (!strncmp(trigger, replay_triggers[i].action, replay_triggers[i].len))
+			return true;
+	}
+	return false;
+}
+
 static void reset_live_opts(struct uftrace_opts *opts)
 {
 	/* this is needed to set display_depth at replay */
@@ -48,8 +79,7 @@ static void reset_live_opts(struct uftrace_opts *opts)
 		int i;
 
 		/* fastpath: these are not used frequently */
-		if (strstr(opts->trigger, "color=") == NULL &&
-		    strstr(opts->trigger, "backtrace") == NULL) {
+		if (!has_replay_triggers(opts->trigger)) {
 			free(opts->trigger);
 			opts->trigger = NULL;
 			goto others;
@@ -70,7 +100,7 @@ static void reset_live_opts(struct uftrace_opts *opts)
 			int k;
 
 			/* skip this function if it doesn't have these triggers */
-			if (strstr(s, "color=") == NULL && strstr(s, "backtrace") == NULL)
+			if (!has_replay_triggers(s))
 				continue;
 
 			name = xstrdup(s);
@@ -86,7 +116,7 @@ static void reset_live_opts(struct uftrace_opts *opts)
 			strv_split(&sv, tmp + 1, ",");
 
 			strv_for_each(&sv, o, k) {
-				if (strncmp(o, "color=", 6) && strcmp(o, "backtrace"))
+				if (!match_replay_triggers(o))
 					continue;
 
 				if (!found) {
