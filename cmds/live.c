@@ -28,8 +28,7 @@ static const struct {
 	const char *action;
 	int len;
 } replay_triggers[] = {
-	{ "backtrace", 9 },
-	{ "color=", 6 },
+	{ "backtrace", 9 }, { "color=", 6 }, { "hide", 4 }, { "time=", 5 }, { "trace", 5 },
 };
 
 static bool has_replay_triggers(const char *trigger)
@@ -333,8 +332,8 @@ TEST_CASE(live_reset_options)
 	o.caller = strjoin(o.caller, "bar", ";");
 	/* add different types of triggers */
 	o.trigger = strjoin(o.trigger, "foo@filter,depth=1", ";");
-	o.trigger = strjoin(o.trigger, "bar@time=1us,color=red", ";");
-	o.trigger = strjoin(o.trigger, "baz@backtrace,trace,color=blue", ";");
+	o.trigger = strjoin(o.trigger, "bar@time=1us,filter,color=red", ";");
+	o.trigger = strjoin(o.trigger, "baz@backtrace,trace,read=pmu-cycle", ";");
 
 	pr_dbg("reset live options (filter, triggers, ...)\n");
 	reset_live_opts(&o);
@@ -343,7 +342,7 @@ TEST_CASE(live_reset_options)
 	TEST_EQ(o.filter, NULL);
 	TEST_EQ(o.caller, NULL);
 	/* it should only have the color trigger */
-	TEST_STREQ(o.trigger, "bar@color=red;baz@backtrace,color=blue");
+	TEST_STREQ(o.trigger, "bar@time=1us,color=red;baz@backtrace,trace");
 	TEST_EQ(o.disabled, false);
 	TEST_EQ(o.no_event, false);
 	TEST_EQ(o.no_sched, false);
