@@ -8,7 +8,7 @@ class TestCase(TestBase):
 # DURATION     TID        MODULE NAME   FUNCTION
             [ 26884]   t-nest-libcall | main() {
             [ 26884]   t-nest-libcall |   lib_a@libabc_test_lib.so() {
-   2.320 us [ 26884] libabc_test_lib. |     getpid@libc-2.26.so();
+   2.320 us [ 26884] libabc_test_lib. |     getpid@libc.so.6();
    8.884 us [ 26884]   t-nest-libcall |   } /* lib_a@libabc_test_lib.so */
             [ 26884]   t-nest-libcall |   foo@libfoo.so() {
    0.880 us [ 26884]        libfoo.so |     AAA::bar@libfoo.so();
@@ -44,4 +44,4 @@ class TestCase(TestBase):
         ver = v.split('\n')[0].split(') ')[1]
         ver.strip()
 
-        return re.sub("libc-[\d.]+.so", "libc-%s.so" % ver, result)
+        return re.sub("libc.so.6", "libc-%s.so" % ver, result)

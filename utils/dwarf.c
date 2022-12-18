@@ -1391,6 +1391,15 @@ static void get_source_location(Dwarf_Die *die, struct build_data *bd, struct uf
 	if (dwarf_hasattr(die, DW_AT_decl_file)) {
 		if (dwarf_decl_line(die, &dline) == 0) {
 			filename = dwarf_decl_file(die);
+			/*
+			 * The dwarf_decl_file() can return 0 for DWARF-5 as it allows
+			 * file index of 0 (for default file) which is treated invalid
+			 * in libdw.  This is unfortunate but we can access the file
+			 * table with index 0 directly since we checked the DIE has the
+			 * both decl file and decl line.
+			 */
+			if (filename == NULL)
+				filename = dwarf_filesrc(bd->files.files, 0, NULL, NULL);
 			dfile = get_debug_file(dinfo, filename);
 		}
 	}
@@ -1461,6 +1470,8 @@ static int get_dwarfspecs_cb(Dwarf_Die *die, void *data)
 		name = (char *)dwarf_diename(die);
 	if (unlikely(name == NULL))
 		return DWARF_CB_OK;
+
+	pr_dbg3("func %s (at %lx)\n", name, offset);
 
 	/*
 	 * double-check symbol table has same info.

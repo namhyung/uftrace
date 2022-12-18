@@ -23,6 +23,36 @@ static void cleanup_tempdir(void)
 	tmp_dirname = NULL;
 }
 
+/* trigger actions that need to be done in replay */
+static const struct {
+	const char *action;
+	int len;
+} replay_triggers[] = {
+	{ "backtrace", 9 }, { "color=", 6 }, { "hide", 4 }, { "time=", 5 }, { "trace", 5 },
+};
+
+static bool has_replay_triggers(const char *trigger)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(replay_triggers); i++) {
+		if (strstr(trigger, replay_triggers[i].action))
+			return true;
+	}
+	return false;
+}
+
+static bool match_replay_triggers(const char *trigger)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(replay_triggers); i++) {
+		if (!strncmp(trigger, replay_triggers[i].action, replay_triggers[i].len))
+			return true;
+	}
+	return false;
+}
+
 static void reset_live_opts(struct uftrace_opts *opts)
 {
 	/* this is needed to set display_depth at replay */
@@ -48,8 +78,7 @@ static void reset_live_opts(struct uftrace_opts *opts)
 		int i;
 
 		/* fastpath: these are not used frequently */
-		if (strstr(opts->trigger, "color=") == NULL &&
-		    strstr(opts->trigger, "backtrace") == NULL) {
+		if (!has_replay_triggers(opts->trigger)) {
 			free(opts->trigger);
 			opts->trigger = NULL;
 			goto others;
@@ -70,7 +99,7 @@ static void reset_live_opts(struct uftrace_opts *opts)
 			int k;
 
 			/* skip this function if it doesn't have these triggers */
-			if (strstr(s, "color=") == NULL && strstr(s, "backtrace") == NULL)
+			if (!has_replay_triggers(s))
 				continue;
 
 			name = xstrdup(s);
@@ -86,7 +115,7 @@ static void reset_live_opts(struct uftrace_opts *opts)
 			strv_split(&sv, tmp + 1, ",");
 
 			strv_for_each(&sv, o, k) {
-				if (strncmp(o, "color=", 6) && strcmp(o, "backtrace"))
+				if (!match_replay_triggers(o))
 					continue;
 
 				if (!found) {
@@ -303,8 +332,8 @@ TEST_CASE(live_reset_options)
 	o.caller = strjoin(o.caller, "bar", ";");
 	/* add different types of triggers */
 	o.trigger = strjoin(o.trigger, "foo@filter,depth=1", ";");
-	o.trigger = strjoin(o.trigger, "bar@time=1us,color=red", ";");
-	o.trigger = strjoin(o.trigger, "baz@backtrace,trace,color=blue", ";");
+	o.trigger = strjoin(o.trigger, "bar@time=1us,filter,color=red", ";");
+	o.trigger = strjoin(o.trigger, "baz@backtrace,trace,read=pmu-cycle", ";");
 
 	pr_dbg("reset live options (filter, triggers, ...)\n");
 	reset_live_opts(&o);
@@ -313,7 +342,7 @@ TEST_CASE(live_reset_options)
 	TEST_EQ(o.filter, NULL);
 	TEST_EQ(o.caller, NULL);
 	/* it should only have the color trigger */
-	TEST_STREQ(o.trigger, "bar@color=red;baz@backtrace,color=blue");
+	TEST_STREQ(o.trigger, "bar@time=1us,color=red;baz@backtrace,trace");
 	TEST_EQ(o.disabled, false);
 	TEST_EQ(o.no_event, false);
 	TEST_EQ(o.no_sched, false);
