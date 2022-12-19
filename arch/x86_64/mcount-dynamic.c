@@ -145,21 +145,21 @@ static void read_patchable_loc(struct mcount_dynamic_info *mdi, struct uftrace_e
 			       struct uftrace_elf_iter *iter, unsigned long offset)
 {
 	typeof(iter->shdr) *shdr = &iter->shdr;
+	unsigned i;
+	unsigned long *patchable_loc;
+	unsigned long sh_addr;
 
 	mdi->nr_patch_target = shdr->sh_size / sizeof(long);
 	mdi->patch_target = xmalloc(shdr->sh_size);
+	patchable_loc = mdi->patch_target;
 
-	elf_get_secdata(elf, iter);
-	elf_read_secdata(elf, iter, 0, mdi->patch_target, shdr->sh_size);
+	sh_addr = shdr->sh_addr;
+	if (elf->ehdr.e_type == ET_DYN)
+		sh_addr += offset;
 
-	/* symbol has relative address, fix it to match each other */
-	if (elf->ehdr.e_type == ET_EXEC) {
-		unsigned long *patchable_loc = mdi->patch_target;
-		unsigned i;
-
-		for (i = 0; i < mdi->nr_patch_target; i++) {
-			patchable_loc[i] -= offset;
-		}
+	for (i = 0; i < mdi->nr_patch_target; i++) {
+		unsigned long *entry = (unsigned long *)sh_addr + i;
+		patchable_loc[i] = *entry - offset;
 	}
 }
 
