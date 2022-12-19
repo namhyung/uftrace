@@ -31,10 +31,18 @@ typedef ElfT(Rela) Elf_Rela;
 #define ELF_M1(N, ACT) ELF_MACRO(N, ACT)
 #define ELF_MACRO(N, ACT) ELF##N##_##ACT
 
+#ifndef ELF_ST_BIND
 #define ELF_ST_BIND(v) ELF_M(ST_BIND)(v)
+#endif
+#ifndef ELF_ST_TYPE
 #define ELF_ST_TYPE(v) ELF_M(ST_TYPE)(v)
+#endif
+#ifndef ELF_R_SYM
 #define ELF_R_SYM(i) ELF_M(R_SYM)(i)
+#endif
+#ifndef ELF_R_TYPE
 #define ELF_R_TYPE(i) ELF_M(R_TYPE)(i)
+#endif
 
 struct uftrace_elf_data {
 	int fd;
