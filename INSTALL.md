@@ -168,6 +168,22 @@ This assumes you already installed the cross-built `libelf` on the sysroot
 directory.  Otherwise, you can also build it from source (please see below) or
 use it on a different path using `--with-elfutils=<PATH>`.
 
+To compile for Android 9+, export the CC environment variable and disable the not
+yet implemented python and libstdc++ support. E.g. to configure for Android
+AArch64 do
+
+    $ export CC=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android33-clang
+    $ export LD=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/ld.lld
+    $ ./configure --arch=aarch64 --cross-compile=aarch64-linux-gnu- --without-libpython --without-libstdc++
+
+It's recommended to compile instrumented program with
+`-fpatchable-function-entry` on Android. You could also use
+`-finstrument-functions` or `-pg` but in that case you also need to link program
+with `-Wl,-z,undefs` because Android runtime does not include
+`__cyg_profile_func_enter` or `mcount`.
+
+Note that Android has been tested on AArch64 and x86\_64 so far.
+
 
 BUILD WITH ELFUTILS (libelf)
 ============================
