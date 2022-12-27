@@ -656,7 +656,10 @@ static int get_param_class(Dwarf_Die *die, struct arg_data *ad, struct param_dat
 		case DW_TAG_base_type:
 			tname = dwarf_diename(die);
 
+			/* make 'size' in byte (by dividing by 8 ) */
 			size = type_size(die, sizeof(int)) / 8;
+			if (size == 0)
+				size = 1;
 			/* align start address (TODO: handle packed struct) */
 			if (pd->pos % size) {
 				if ((pd->pos % sizeof(long)) + size >= sizeof(long)) {
