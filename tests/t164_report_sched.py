@@ -34,7 +34,7 @@ class TestCase(TestBase):
 
     def setup(self):
         self.subcmd = 'report'
-        self.option = '-E linux:schedule'
+        self.option = '-E linux:schedule --no-sched-preempt'
 
     def runcmd(self):
         cmd = TestBase.runcmd(self)
