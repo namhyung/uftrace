@@ -1,4 +1,4 @@
-[![Build Status](https://app.travis-ci.com/namhyung/uftrace.svg?branch=master)](https://app.travis-ci.com/namhyung/uftrace)
+[![Nightly test](https://github.com/namhyung/uftrace/actions/workflows/nightly-test.yml/badge.svg)](https://github.com/namhyung/uftrace/actions/workflows/nightly-test.yml)
 [![Coverity scan](https://scan.coverity.com/projects/12421/badge.svg)](https://scan.coverity.com/projects/namhyung-uftrace)
 
 uftrace
