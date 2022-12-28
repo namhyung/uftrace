@@ -769,8 +769,6 @@ def print_test_result(case, result, diffs, color, ftests, nr_compilers):
         output += ' '.join(result_list[begin:end])
     output += '\n'
 
-    sys.stdout.write(output)
-
     # write abnormal test result to failed-tests.txt
     normal = [TestBase.TEST_SUCCESS, TestBase.TEST_SUCCESS_FIXED, TestBase.TEST_SKIP]
     for r in result:
@@ -778,6 +776,14 @@ def print_test_result(case, result, diffs, color, ftests, nr_compilers):
             ftests.write(output)
             ftests.flush()
             break
+
+    if arg.quiet:
+        for r in result:
+            if r not in normal:
+                sys.stdout.write(output)
+                break
+    else:
+        sys.stdout.write(output)
 
 
 def print_test_header(opts, flags, ftests, compilers):
@@ -852,6 +858,8 @@ def parse_argument():
                         help="Select compiler gcc or clang. (use both by default)")
     parser.add_argument("-k", "--keep", dest='keep', action='store_true',
                         help="keep the test directories with compiled binaries")
+    parser.add_argument("-q", "--quiet", dest='quiet', action='store_true',
+                        help="Hide normal results and print only abnormal results.")
 
     return parser.parse_args()
 
