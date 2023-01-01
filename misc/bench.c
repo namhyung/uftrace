@@ -6,7 +6,7 @@ int foo(volatile int *ptr)
 	return *ptr;
 }
 
-int baz(volatile int *ptr)
+void baz(volatile int *ptr)
 {
 	*ptr += 1;
 }
