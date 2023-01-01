@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 UFTRACE="../uftrace --libmcount-path=../libmcount"
 UOPTS=

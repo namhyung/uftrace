@@ -160,7 +160,7 @@ LIBMCOUNT_TARGETS += libmcount/libmcount-single.so libmcount/libmcount-fast-sing
 
 _TARGETS := uftrace libtraceevent/libtraceevent.a
 _TARGETS += $(LIBMCOUNT_TARGETS) libmcount/libmcount-nop.so
-_TARGETS += misc/demangler misc/symbols misc/dbginfo misc/bench
+_TARGETS += misc/demangler misc/symbols misc/dbginfo
 TARGETS  := $(patsubst %,$(objdir)/%,$(_TARGETS))
 
 UFTRACE_SRCS := $(srcdir)/uftrace.c $(wildcard $(srcdir)/cmds/*.c $(srcdir)/utils/*.c)
@@ -380,7 +380,7 @@ unittest: all
 runtest: all
 	@$(MAKE) -C $(srcdir)/tests TESTARG="$(TESTARG)" RUNTESTARG="$(RUNTESTARG)" test_run
 
-bench: all
+bench: all $(objdir)/misc/bench
 	@cd $(srcdir)/misc && echo && ./bench.sh $(BENCHARG)
 
 dist:
