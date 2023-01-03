@@ -1,4 +1,4 @@
-VERSION := 0.12
+VERSION := 0.13
 
 # Makefiles suck: This macro sets a default value of $(2) for the
 # variable named by $(1), unless the variable has been set by
