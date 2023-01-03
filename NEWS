@@ -1,3 +1,31 @@
+uftrace v0.13
+=============
+* new options
+  -L/--loc-filter option to filter by source location  (#1395)
+  --mermaid option for uftrace dump  (#1511)
+  --no-sched-preempt option to disable preempted schedule events  (#1587)
+
+* new features
+  make -Z/--size-filter option work in general  (#1600)
+  optionally spawn a background agent to talk using a socket  (#1543)
+  add "size" field for uftrace report  (#1495)
+
+* bug fixes
+  handle different tracefs mount points  (#1476)
+  fix timestamp parsing for external data  (#1549)
+
+* other changes
+  add clang-format support
+  change to use Github actions
+  test both GCC and LLVM/clang  (#1523)
+
+And many other fixes and improvements.  Thanks all contributors:
+  Andrew Woo, Clément Guidi, Daero Lee, Euiseo Park, Eunseon Lee, Honggyu Kim,
+  JHH20, JaeSang Yoo, JeongWan Gho, Jia Ha, JongHyeon Hwang, Jonghyeon An,
+  Joonho Seo, Kang Minchul, Namhyung Kim, Paran Lee, Sangwon Hong, Seonghee Jin,
+  Seonghyun Park, Yuri Gribov, Yusun Choi, valdaarhun
+
+
 uftrace v0.12
 =============
 * new options
