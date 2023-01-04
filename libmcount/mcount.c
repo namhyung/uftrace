@@ -1855,7 +1855,7 @@ static void agent_kill()
 
 	sfd = socket_create(&addr, getpid());
 	if (sfd == -1)
-		goto error;
+		return; /* Agent must have already exited */
 
 	if (socket_connect(sfd, &addr) == -1) {
 		if (errno != ENOENT) /* The agent may have ended and deleted the socket */
@@ -1874,7 +1874,7 @@ static void agent_kill()
 	return;
 
 error:
-	pthread_cancel(agent);
+	agent_fini(&addr, sfd);
 }
 
 static __used void mcount_startup(void)

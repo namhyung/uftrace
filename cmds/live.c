@@ -235,7 +235,8 @@ socket_error:
 
 int command_live(int argc, char *argv[], struct uftrace_opts *opts)
 {
-	char template[32] = "/tmp/uftrace-live-XXXXXX";
+#define LIVE_NAME "uftrace-live-XXXXXX"
+	char template[32] = "/tmp/" LIVE_NAME;
 	int fd;
 	struct sigaction sa = {
 		.sa_flags = SA_RESETHAND,
@@ -247,14 +248,17 @@ int command_live(int argc, char *argv[], struct uftrace_opts *opts)
 		umask(022);
 		fd = mkstemp(template);
 		if (fd < 0) {
+			/* can't reuse first template because it was trashed by mkstemp */
+			strcpy(template, LIVE_NAME);
+
 			if (errno != EPERM)
 				pr_err("cannot access to /tmp");
 
-			fd = mkstemp(template + sizeof("/tmp/") - 1);
+			fd = mkstemp(template);
 
 			if (fd < 0)
 				pr_err("cannot create temp name");
-			tmp_dirname += sizeof("/tmp/") - 1;
+			tmp_dirname = template;
 		}
 
 		close(fd);

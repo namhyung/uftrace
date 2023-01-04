@@ -41,6 +41,7 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 {
 	uintptr_t dentry_addr = (uintptr_t)(void *)&__dentry__;
 	uintptr_t fentry_addr = (uintptr_t)(void *)&__fentry__;
+	unsigned long page_offset;
 	/*
 	 * trampoline assumes {x29,x30} was pushed but x29 was not updated.
 	 * make sure stack is 8-byte aligned.
@@ -71,7 +72,9 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 		     MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	}
 
-	if (mprotect((void *)mdi->text_addr, mdi->text_size, PROT_READ | PROT_WRITE | PROT_EXEC)) {
+	page_offset = mdi->text_addr & (PAGE_SIZE - 1);
+	if (mprotect((void *)(mdi->text_addr - page_offset), mdi->text_size + page_offset,
+		     PROT_READ | PROT_WRITE | PROT_EXEC)) {
 		pr_dbg("cannot setup trampoline due to protection: %m\n");
 		return -1;
 	}
