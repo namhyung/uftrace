@@ -146,6 +146,11 @@ COMMON OPTIONS
     explicitly have the 'trace' trigger applied, those are always traced
     regardless of execution time.  See *FILTERS*.
 
+-Z *SIZE*, \--size-filter=*SIZE*
+:   Do not show functions smaller than size bytes.  If some functions explicitly
+    have the 'trace' trigger applied, those are always traced regardless of
+    function size.  See *FILTERS*.
+
 -L *LOCATION*, \--loc-filter=*LOCATION*
 :   Set filter to trace selected source locations.
     This option can be used more than once. Implies --srcline. See *FILTERS*.
@@ -400,9 +405,9 @@ The BNF for trigger specification is as follows:
     <trigger>    :=  <symbol> "@" <actions>
     <actions>    :=  <action>  | <action> "," <actions>
     <action>     :=  "depth="<num> | "trace" | "trace_on" | "trace_off" |
-                     "time="<time_spec> | "read="<read_spec> | "finish" |
+                     "time="<time_spec> | "size="<num> | "read="<read_spec> |
+                     "finish" | "filter" | "notrace" | "recover"
                      "filter" | "notrace" | "recover"
-    <time_spec>  :=  <num> [ <time_unit> ]
     <time_unit>  :=  "ns" | "nsec" | "us" | "usec" | "ms" | "msec" | "s" | "sec" | "m" | "min"
     <read_spec>  :=  "proc/statm" | "page-fault" | "pmu-cycle" | "pmu-cache" | "pmu-branch"
 

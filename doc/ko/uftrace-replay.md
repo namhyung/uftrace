@@ -83,6 +83,11 @@ REPLAY 옵션
     명시적으로 'trace' 트리거가 적용된 경우, 그 함수는 실행 시간과 상관없이 항상
     출력된다. 필터에 대한 설명은 *FILTERS* 를 참고한다.
 
+-Z *SIZE*, \--size-filter=*SIZE*
+:   SIZE 바이트보다 작은 함수들을 표시하지 않게 한다. 만약 어떤 함수가 명시적으로
+    'trace' 트리거가 적용된 경우, 그 함수는 함수 크기와 상관없이 항상 출력된다.
+    필터에 대한 설명은 *FILTERS* 을 참고한다.
+
 \--no-libcall
 :   라이브러리 호출은 표시하지 않게 한다.
 
@@ -321,7 +326,8 @@ uftrace 는 (필터가 있든 없든) 선택된 함수 호출에 대한 트리�
     <trigger>    :=  <symbol> "@" <actions>
     <actions>    :=  <action>  | <action> "," <actions>
     <action>     :=  "depth="<num> | "backtrace" | "trace_on" | "trace_off" |
-                     "color="<color> | "time="<time_spec> | "filter" | "notrace" | "hide"
+                     "color="<color> | "time="<time_spec> | "size="<num> |
+                     "filter" | "notrace" | "hide"
     <time_spec>  :=  <num> [ <time_unit> ]
     <time_unit>  :=  "ns" | "nsec" | "us" | "usec" | "ms" | "msec" | "s" | "sec" | "m" | "min"
 
