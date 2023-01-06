@@ -84,6 +84,11 @@ COMMON OPTIONS
     explicitly have the 'trace' trigger applied, those are always traced
     regardless of execution time.  See *FILTERS*.
 
+-Z *SIZE*, \--size-filter=*SIZE*
+:   Do not show functions smaller than size bytes.  If some functions explicitly
+    have the 'trace' trigger applied, those are always regardless of
+    function size.  See *FILTERS*.
+
 -L *LOCATION*, \--loc-filter=*LOCATION*
 :   Set filter to trace selected source locations.
     This option can be used more than once.  See *FILTERS*.
@@ -354,7 +359,8 @@ without filters.  Currently supported triggers are `depth`, `backtrace`,
     <trigger>    :=  <symbol> "@" <actions>
     <actions>    :=  <action>  | <action> "," <actions>
     <action>     :=  "depth="<num> | "backtrace" | "trace_on" | "trace_off" |
-                     "color="<color> | "time="<time_spec> | "filter" | "notrace" | "hide"
+                     "color="<color> | "time="<time_spec> | "size="<num> |
+                     "filter" | "notrace" | "hide"
     <time_spec>  :=  <num> [ <time_unit> ]
     <time_unit>  :=  "ns" | "nsec" | "us" | "usec" | "ms" | "msec" | "s" | "sec" | "m" | "min"
 

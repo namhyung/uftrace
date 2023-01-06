@@ -199,6 +199,7 @@ struct uftrace_data {
 	bool perf_event_processed;
 	bool caller_filter;
 	uint64_t time_filter;
+	unsigned size_filter;
 	struct uftrace_time_range time_range;
 	struct list_head events;
 };

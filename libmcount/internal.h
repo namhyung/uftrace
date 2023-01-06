@@ -53,6 +53,8 @@ struct filter_control {
 	uint16_t saved_depth;
 	uint64_t time;
 	uint64_t saved_time;
+	unsigned size;
+	unsigned saved_size;
 };
 #else
 struct filter_control {};
@@ -174,6 +176,7 @@ bool mcount_guard_recursion(struct mcount_thread_data *mtdp);
 void mcount_unguard_recursion(struct mcount_thread_data *mtdp);
 
 extern uint64_t mcount_threshold; /* nsec */
+extern unsigned mcount_minsize;
 extern pthread_key_t mtd_key;
 extern int shmem_bufsize;
 extern int pfd;
@@ -218,6 +221,17 @@ static inline uint64_t mcount_gettime(void)
 	struct timespec ts;
 	clock_gettime(clock_source, &ts);
 	return (uint64_t)ts.tv_sec * NSEC_PER_SEC + ts.tv_nsec;
+}
+
+static inline unsigned mcount_getsize(struct uftrace_sym_info *sinfo, uint64_t addr)
+{
+	struct uftrace_symbol *sym;
+	sym = find_symtabs(sinfo, addr);
+
+	if (sym != NULL)
+		return sym->size;
+
+	return 0;
 }
 
 static inline int mcount_gettid(struct mcount_thread_data *mtdp)

@@ -66,6 +66,7 @@ static void reset_live_opts(struct uftrace_opts *opts)
 	opts->filter = NULL;
 	free(opts->caller);
 	opts->caller = NULL;
+	opts->size_filter = 0;
 
 	/*
 	 * Likewise, most trigger options are ignored, but color settings and

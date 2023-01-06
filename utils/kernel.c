@@ -1415,6 +1415,7 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 		struct uftrace_trigger tr = {};
 		uint64_t real_addr;
 		uint64_t time_filter = handle->time_filter;
+		uint64_t size_filter = handle->size_filter;
 
 		curr = &kernel->rstacks[cpu];
 
@@ -1432,8 +1433,10 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 		if (prev_tid == -1)
 			prev_tid = tid;
 
-		if (task->filter.time)
-			time_filter = task->filter.time->threshold;
+		if (task->filter.stack) {
+			time_filter = task->filter.stack->threshold;
+			size_filter = task->filter.stack->size;
+		}
 
 		/* filter match needs full (64-bit) address */
 		real_addr = get_kernel_address(&sess->sym_info, curr->addr);
@@ -1444,21 +1447,33 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 		uftrace_match_filter(real_addr, &sess->filters, &tr);
 
 		if (curr->type == UFTRACE_ENTRY) {
-			/* it needs to wait until matching exit found */
-			add_to_rstack_list(rstack_list, curr, NULL);
+			if (size_filter) {
+				struct uftrace_symbol *sym;
+
+				sym = find_symtabs(&sess->sym_info, curr->addr);
+				if (sym && sym->size >= size_filter)
+					add_to_rstack_list(rstack_list, curr, &task->args);
+			}
+			else {
+				/* it needs to wait until matching exit found */
+				add_to_rstack_list(rstack_list, curr, NULL);
+			}
 
 			add_kfunc_addr(&kfunc_tree, real_addr);
 
-			if (tr.flags & TRIGGER_FL_TIME_FILTER) {
-				struct uftrace_time_filter_stack *tfs;
+			if (tr.flags & (TRIGGER_FL_TIME_FILTER | TRIGGER_FL_SIZE_FILTER)) {
+				struct uftrace_task_filter_stack *tfs;
 
 				tfs = xmalloc(sizeof(*tfs));
-				tfs->next = task->filter.time;
+				tfs->next = task->filter.stack;
 				tfs->depth = curr->depth;
 				tfs->context = FSTACK_CTX_KERNEL;
-				tfs->threshold = tr.time;
+				tfs->threshold = (tr.flags & TRIGGER_FL_TIME_FILTER) ? tr.time :
+										       time_filter;
+				tfs->size = (tr.flags & TRIGGER_FL_SIZE_FILTER) ? tr.size :
+										  size_filter;
 
-				task->filter.time = tfs;
+				task->filter.stack = tfs;
 			}
 
 			/* XXX: handle scheduled task properly */
@@ -1474,16 +1489,24 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 			if (!find_kfunc_addr(&kfunc_tree, real_addr))
 				continue;
 
-			if (task->filter.time) {
-				struct uftrace_time_filter_stack *tfs;
+			if (task->filter.stack) {
+				struct uftrace_task_filter_stack *tfs;
 
-				tfs = task->filter.time;
+				tfs = task->filter.stack;
 				if (tfs->depth == curr->depth &&
 				    tfs->context == FSTACK_CTX_KERNEL) {
 					/* discard stale filter */
-					task->filter.time = tfs->next;
+					task->filter.stack = tfs->next;
 					free(tfs);
 				}
+			}
+
+			if (size_filter) {
+				struct uftrace_symbol *sym;
+				sym = find_symtabs(&sess->sym_info, curr->addr);
+
+				if (sym && sym->size < size_filter)
+					continue;
 			}
 
 			if (rstack_list->count == 0 || tr.flags & TRIGGER_FL_TRACE) {

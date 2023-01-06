@@ -662,7 +662,7 @@ int mcount_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 
 	prepare_dynamic_update(sinfo, needs_modules);
 
-	size_filter = getenv("UFTRACE_PATCH_SIZE");
+	size_filter = getenv("UFTRACE_MIN_SIZE");
 	if (size_filter != NULL)
 		min_size = strtoul(size_filter, NULL, 0);
 

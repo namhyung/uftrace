@@ -222,11 +222,11 @@ static void setup_child_environ(struct uftrace_opts *opts, int argc, char *argv[
 			setenv("UFTRACE_PATCH", patch_str, 1);
 			free(patch_str);
 		}
+	}
 
-		if (opts->size_filter) {
-			snprintf(buf, sizeof(buf), "%d", opts->size_filter);
-			setenv("UFTRACE_PATCH_SIZE", buf, 1);
-		}
+	if (opts->size_filter) {
+		snprintf(buf, sizeof(buf), "%d", opts->size_filter);
+		setenv("UFTRACE_MIN_SIZE", buf, 1);
 	}
 
 	if (opts->event) {

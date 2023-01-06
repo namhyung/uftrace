@@ -400,6 +400,7 @@ ok:
 	handle->dirname = opts->dirname;
 	handle->depth = opts->depth;
 	handle->time_filter = opts->threshold;
+	handle->size_filter = opts->size_filter;
 	handle->time_range = opts->range;
 	handle->sessions.root = RB_ROOT;
 	handle->sessions.tasks = RB_ROOT;

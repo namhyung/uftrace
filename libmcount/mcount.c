@@ -35,6 +35,9 @@
 /* time filter in nsec */
 uint64_t mcount_threshold;
 
+/* size filter */
+unsigned mcount_min_size;
+
 /* symbol info for current process */
 struct uftrace_sym_info mcount_sym_info = {
 	.flags = SYMTAB_FL_DEMANGLE | SYMTAB_FL_ADJ_OFFSET,
@@ -447,6 +450,7 @@ static void mcount_filter_setup(struct mcount_thread_data *mtdp)
 {
 	mtdp->filter.depth = mcount_depth;
 	mtdp->filter.time = mcount_threshold;
+	mtdp->filter.size = mcount_min_size;
 	mtdp->enable_cached = mcount_enabled;
 	mtdp->argbuf = xmalloc(mcount_rstack_max * ARGBUF_SIZE);
 	INIT_LIST_HEAD(&mtdp->pmu_fds);
@@ -844,6 +848,7 @@ static void mcount_save_filter(struct mcount_thread_data *mtdp)
 	/* save original depth and time to restore at exit time */
 	mtdp->filter.saved_depth = mtdp->filter.depth;
 	mtdp->filter.saved_time = mtdp->filter.time;
+	mtdp->filter.saved_size = mtdp->filter.size;
 }
 
 /* update filter state from trigger result */
@@ -891,7 +896,8 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 	}
 
 #define FLAGS_TO_CHECK                                                                             \
-	(TRIGGER_FL_DEPTH | TRIGGER_FL_TRACE_ON | TRIGGER_FL_TRACE_OFF | TRIGGER_FL_TIME_FILTER)
+	(TRIGGER_FL_DEPTH | TRIGGER_FL_TRACE_ON | TRIGGER_FL_TRACE_OFF | TRIGGER_FL_TIME_FILTER |  \
+	 TRIGGER_FL_SIZE_FILTER)
 
 	if (tr->flags & FLAGS_TO_CHECK) {
 		if (tr->flags & TRIGGER_FL_DEPTH)
@@ -905,6 +911,9 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 
 		if (tr->flags & TRIGGER_FL_TIME_FILTER)
 			mtdp->filter.time = tr->time;
+
+		if (tr->flags & TRIGGER_FL_SIZE_FILTER)
+			mtdp->filter.size = tr->size;
 	}
 
 #undef FLAGS_TO_CHECK
@@ -992,11 +1001,14 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp, struct mcount_r
 				struct uftrace_trigger *tr, struct mcount_regs *regs)
 {
 	if (mtdp->filter.out_count > 0 ||
-	    (mtdp->filter.in_count == 0 && mcount_filter_mode == FILTER_MODE_IN))
+	    (mtdp->filter.in_count == 0 && mcount_filter_mode == FILTER_MODE_IN) ||
+	    (mtdp->filter.size > 0 &&
+	     mcount_getsize(&mcount_sym_info, rstack->child_ip) < mtdp->filter.size))
 		rstack->flags |= MCOUNT_FL_NORECORD;
 
 	rstack->filter_depth = mtdp->filter.saved_depth;
 	rstack->filter_time = mtdp->filter.saved_time;
+	rstack->filter_size = mtdp->filter.saved_size;
 
 #define FLAGS_TO_CHECK                                                                             \
 	(TRIGGER_FL_FILTER | TRIGGER_FL_RETVAL | TRIGGER_FL_TRACE | TRIGGER_FL_FINISH |            \
@@ -1116,6 +1128,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp, struct mcount_re
 
 	mtdp->filter.depth = rstack->filter_depth;
 	mtdp->filter.time = rstack->filter_time;
+	mtdp->filter.size = rstack->filter_size;
 
 	if (!(rstack->flags & MCOUNT_FL_NORECORD)) {
 		if (mtdp->record_idx > 0)
@@ -1178,6 +1191,9 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 {
 	if (mcount_check_rstack(mtdp))
 		return FILTER_RSTACK;
+
+	if (mcount_min_size > 0 && mcount_getsize(&mcount_sym_info, child) < mcount_min_size)
+		return FILTER_OUT;
 
 	return FILTER_IN;
 }
@@ -1885,6 +1901,7 @@ static __used void mcount_startup(void)
 	char *bufsize_str;
 	char *maxstack_str;
 	char *threshold_str;
+	char *minsize_str;
 	char *color_str;
 	char *demangle_str;
 	char *plthook_str;
@@ -1916,6 +1933,7 @@ static __used void mcount_startup(void)
 	maxstack_str = getenv("UFTRACE_MAX_STACK");
 	color_str = getenv("UFTRACE_COLOR");
 	threshold_str = getenv("UFTRACE_THRESHOLD");
+	minsize_str = getenv("UFTRACE_MIN_SIZE");
 	demangle_str = getenv("UFTRACE_DEMANGLE");
 	plthook_str = getenv("UFTRACE_PLTHOOK");
 	patch_str = getenv("UFTRACE_PATCH");
@@ -2011,6 +2029,9 @@ static __used void mcount_startup(void)
 
 	if (threshold_str)
 		mcount_threshold = strtoull(threshold_str, NULL, 0);
+
+	if (minsize_str)
+		mcount_min_size = strtoul(minsize_str, NULL, 0);
 
 	if (patch_str)
 		mcount_dynamic_update(&mcount_sym_info, patch_str, patt_type);
