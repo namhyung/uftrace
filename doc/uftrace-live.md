@@ -46,6 +46,9 @@ COMMON OPTIONS
     explicitly have the 'trace' trigger applied, those are always traced
     regardless of execution time.  See *FILTERS*.
 
+-Z *SIZE*, \--size-filter=*SIZE*
+:   Do not show functions smaller than SIZE bytes.  See *FILTERS*.
+
 -L *LOCATION*, \--loc-filter=*LOCATION*
 :   Set filter to trace selected source locations. This option can be used more
     than once. Applies to replay command, not record. See *FILTERS*.
@@ -106,9 +109,6 @@ RECORD OPTIONS
 -U *FUNC*, \--unpatch=*FUNC*
 :   Do not apply dynamic patching for FUNC.  This option can be used more than once.
     See *DYNAMIC TRACING*.
-
--Z *SIZE*, \--size-filter=*SIZE*
-:   Patch functions bigger than SIZE bytes dynamically.  See *DYNAMIC TRACING*.
 
 -E *EVENT*, \--event=*EVENT*
 :   Enable event tracing.  The event should be available on the system.
@@ -421,6 +421,39 @@ example, the user might want to see functions running more than
        5.475 us [ 1234] |     b();
        6.448 us [ 1234] |   } /* a */
        8.631 us [ 1234] | } /* main */
+
+In addition, you can set filter to record selected source locations with `-L` option.
+
+    $ uftrace -L s-libmain.c --srcline  t-lib
+    # DURATION     TID     FUNCTION [SOURCE]
+                [  5043] | main() { /* /home/uftrace/tests/s-libmain.c:16 */
+       6.998 us [  5043] |   foo(); /* /home/uftrace/tests/s-libmain.c:11 */
+       9.393 us [  5043] | } /* main */
+
+You can set filter with the `@hide` suffix not to record selected source locations.
+
+    $ uftrace -L s-libmain.c@hide --srcline  t-lib
+    # DURATION     TID     FUNCTION [SOURCE]
+                [ 14688] | lib_a() { /* /home/uftrace/tests/s-lib.c:10 */
+                [ 14688] |   lib_b() { /* /home/uftrace/tests/s-lib.c:15 */
+       1.505 us [ 14688] |     lib_c(); /* /home/uftrace/tests/s-lib.c:20 */
+       2.816 us [ 14688] |   } /* lib_b */
+       3.181 us [ 14688] | } /* lib_a */
+
+The `-Z`/`--size-filter` option is to filter functions that has small sizes.
+It reads ELF symbols size and compare it with the given value.  The PLT
+functions may have no symbol size in the ELF format, in that case the PLT entry
+size will be used as the size of the function.
+
+    $ uftrace -Z 100  t-arg
+    # DURATION     TID     FUNCTION
+                [162500] | main() {
+      12.486 us [162500] |   foo();
+       0.505 us [162500] |   many();
+                [162500] |   pass() {
+       0.283 us [162500] |     check();
+       1.449 us [162500] |   } /* pass */
+      18.478 us [162500] | } /* main */
 
 You can also set triggers on filtered functions.  See *TRIGGERS* section below
 for details.

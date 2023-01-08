@@ -85,9 +85,7 @@ COMMON OPTIONS
     regardless of execution time.  See *FILTERS*.
 
 -Z *SIZE*, \--size-filter=*SIZE*
-:   Do not show functions smaller than size bytes.  If some functions explicitly
-    have the 'trace' trigger applied, those are always regardless of
-    function size.  See *FILTERS*.
+:   Do not show functions smaller than SIZE bytes.  See *FILTERS*.
 
 -L *LOCATION*, \--loc-filter=*LOCATION*
 :   Set filter to trace selected source locations.
@@ -345,6 +343,25 @@ You can set filter with the `@hide` suffix not to trace selected source location
        1.576 us [   866] |     lib_c();
        2.833 us [   866] |   } /* lib_b */
        3.132 us [   866] | } /* lib_a */
+
+The `-Z`/`--size-filter` option is to filter functions that has small sizes.
+It reads symbols size from the .sym files and compare it with the given value.
+Note that .sym files might not have the precise value of the function size as
+it doesn't save the size value.  It calculate the function size from the
+difference of two adjacent function addresses.  So if the compiler aligns the
+function start addresses by padding NOP instructions at the end, it could have
+slightly bigger size than the actual value.
+
+    $ uftrace record  t-arg
+    $ uftrace replay -Z 100
+    # DURATION     TID     FUNCTION
+                [162500] | main() {
+      12.486 us [162500] |   foo();
+       0.505 us [162500] |   many();
+                [162500] |   pass() {
+       0.283 us [162500] |     check();
+       1.449 us [162500] |   } /* pass */
+      18.478 us [162500] | } /* main */
 
 You can also set triggers on filtered functions.  See *TRIGGERS* section below
 for details.

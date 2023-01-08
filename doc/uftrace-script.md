@@ -63,9 +63,12 @@ COMMON OPTIONS
     functions explicitly have the 'trace' trigger applied, those are always
     traced regardless of execution time.
 
+-Z *SIZE*, \--size-filter=*SIZE*
+:   Do not show functions smaller than SIZE bytes.
+
 -L *LOCATION*, \--loc-filter=*LOCATION*
 :   Set filter to trace selected source locations.
-    This option can be used more than once.  See *FILTERS*.
+    This option can be used more than once.
 
 \--no-libcall
 :   Do not run script for library calls.
