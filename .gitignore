@@ -42,6 +42,7 @@ compile_commands.json
 *.orig
 *.gcda
 *.gcno
+*.cstr
 misc/demangler
 misc/symbols
 misc/dbginfo
