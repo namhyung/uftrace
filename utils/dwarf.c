@@ -2233,6 +2233,7 @@ struct uftrace_dbg_loc *find_file_line(struct uftrace_sym_info *sinfo, uint64_t 
 
 #ifdef UNIT_TEST
 
+#ifdef HAVE_LIBDW
 struct comp_dir {
 	char *name;
 	int nr_loc;
@@ -2324,6 +2325,7 @@ TEST_CASE(dwarf_srcline_prefix4)
 
 	return TEST_OK;
 }
+#endif /* HAVE_LIBDW */
 
 static void setup_test_debug_info(struct uftrace_module *mod)
 {
