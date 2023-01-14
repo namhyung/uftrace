@@ -34,6 +34,9 @@
 #define BUILD_ID_SIZE 20
 #define BUILD_ID_STR_SIZE (BUILD_ID_SIZE * 2 + 1)
 
+#define UFTRACE_PYTHON_MODULE_NAME "uftrace_python"
+#define UFTRACE_PYTHON_SYMTAB_NAME "python.fake"
+
 enum uftrace_symtype {
 	ST_UNKNOWN = '?',
 	ST_LOCAL_FUNC = 't',
