@@ -59,12 +59,13 @@ COMMON_CFLAGS := -D_GNU_SOURCE $(CFLAGS) $(CPPFLAGS)
 COMMON_CFLAGS += -iquote $(srcdir) -iquote $(objdir) -iquote $(srcdir)/arch/$(ARCH)
 COMMON_CFLAGS += -Wdeclaration-after-statement
 #CFLAGS-DEBUG = -g -D_GNU_SOURCE $(CFLAGS_$@)
-COMMON_LDFLAGS := -ldl -pthread -Wl,-z,noexecstack $(LDFLAGS)
+COMMON_LDFLAGS := -ldl -pthread -Wl,-z,noexecstack $(LDFLAGS) $(LDFLAGS_$@)
 ifeq ($(ANDROID),)
 COMMON_LDFLAGS += -lrt
 else
 COMMON_LDFLAGS += -landroid
 endif
+
 ifneq ($(elfdir),)
   COMMON_CFLAGS  += -I$(elfdir)/include
   COMMON_LDFLAGS += -L$(elfdir)/lib
@@ -91,6 +92,7 @@ LIB_CFLAGS         = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_lib)
 LIB_CFLAGS        += -fPIC -fvisibility=hidden -fno-omit-frame-pointer
 LIB_CFLAGS        += -fno-builtin -fno-tree-vectorize
 TEST_CFLAGS        = $(COMMON_CFLAGS) -DUNIT_TEST
+PYTHON_CFLAGS      = $(COMMON_CFLAGS) -fPIC
 
 UFTRACE_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_uftrace)
 DEMANGLER_LDFLAGS  = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_demangler)
@@ -166,7 +168,7 @@ include $(srcdir)/Makefile.include
 LIBMCOUNT_TARGETS := libmcount/libmcount.so libmcount/libmcount-fast.so
 LIBMCOUNT_TARGETS += libmcount/libmcount-single.so libmcount/libmcount-fast-single.so
 
-_TARGETS := uftrace libtraceevent/libtraceevent.a
+_TARGETS := uftrace libtraceevent/libtraceevent.a python/uftrace_python.so
 _TARGETS += $(LIBMCOUNT_TARGETS) libmcount/libmcount-nop.so
 _TARGETS += misc/demangler misc/symbols misc/dbginfo
 TARGETS  := $(patsubst %,$(objdir)/%,$(_TARGETS))
@@ -200,6 +202,11 @@ DBGINFO_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(DBGINFO_SRCS))
 
 BENCH_SRCS := $(srcdir)/misc/bench.c
 BENCH_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(BENCH_SRCS))
+
+PYTHON_SRCS := $(srcdir)/python/trace-python.c $(srcdir)/utils/debug.c
+PYTHON_SRCS += $(srcdir)/utils/utils.c
+PYTHON_SRCS += $(wildcard $(srcdir)/utils/symbol-*.c)
+PYTHON_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(PYTHON_SRCS))
 
 UFTRACE_ARCH_OBJS := $(objdir)/arch/$(ARCH)/uftrace.o
 
@@ -340,6 +347,16 @@ $(objdir)/misc/dbginfo: $(DBGINFO_OBJS)
 
 $(objdir)/misc/bench: $(BENCH_OBJS)
 	$(QUIET_LINK)$(CC) $(BENCH_CFLAGS) -o $@ $(BENCH_OBJS) $(BENCH_LDFLAGS)
+
+ifneq ($(findstring HAVE_LIBPYTHON, $(COMMON_CFLAGS)), )
+$(PYTHON_OBJS): $(objdir)/%.op: $(srcdir)/%.c $(COMMON_DEPS)
+	$(QUIET_CC_FPIC)$(CC) $(PYTHON_CFLAGS) -c -o $@ $<
+
+$(objdir)/python/uftrace_python.so: $(PYTHON_OBJS)
+	$(QUIET_LINK)$(CC) -shared $(PYTHON_CFLAGS) -o $@ $(PYTHON_OBJS) $(PYTHON_LDFLAGS)
+else
+$(objdir)/python/uftrace_python.so:
+endif
 
 install: all
 	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(bindir)

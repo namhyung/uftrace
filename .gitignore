@@ -15,6 +15,7 @@ libmcount.so
 libmcount-*.so
 libcygprof.so
 libcygprof-nop.so
+uftrace_python.so
 gmon.out
 tests/t-*
 tests/arch/*/t-*

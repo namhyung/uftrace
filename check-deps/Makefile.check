@@ -23,10 +23,12 @@ ifneq ($(wildcard $(objdir)/check-deps/have_libpython3),)
   COMMON_CFLAGS += -DHAVE_LIBPYTHON3
   COMMON_CFLAGS += $(shell pkg-config python3$(EMBED) --cflags)
   COMMON_CFLAGS += -DLIBPYTHON_VERSION=$(shell pkg-config python3$(EMBED) --modversion)
+  PYTHON_LDFLAGS = $(shell pkg-config python3$(EMBED) --libs)
 else ifneq ($(wildcard $(objdir)/check-deps/have_libpython2.7),)
   COMMON_CFLAGS += -DHAVE_LIBPYTHON2
   COMMON_CFLAGS += -I/usr/include/python2.7
   COMMON_CFLAGS += -DLIBPYTHON_VERSION="2.7"
+  PYTHON_LDFLAGS = -lpython2.7
 endif
 
 ifneq ($(wildcard $(objdir)/check-deps/have_libluajit),)
