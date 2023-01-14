@@ -19,7 +19,7 @@ class TestCase(TestBase):
 
     def setup(self):
         self.option  = '-F main --auto-args'
-        self.exearg += ' hello'
+        self.exearg = 't-' + self.name + ' hello'
 
     def sort(self, output):
         result = []

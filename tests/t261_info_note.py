@@ -41,7 +41,7 @@ You can leave a note for the recorded data.""")
 
     def prerun(self, timeout):
         self.subcmd  = 'record'
-        self.exearg += ' note.txt'
+        self.exearg = 't-' + self.name + ' note.txt'
         record_cmd = self.runcmd()
         self.pr_debug('prerun command: ' + record_cmd)
 

@@ -94,10 +94,6 @@ class TestBase:
     feature = set()
 
     def __init__(self, name, result, lang='C', cflags='', ldflags='', sort='task', serial=False):
-        _tmp = tempfile.mkdtemp(prefix='test_%s_' % name)
-        self.keep = False
-        os.chdir(_tmp)
-        self.test_dir = _tmp
         self.name = name
         self.result = result
         self.cflags = cflags
@@ -129,9 +125,6 @@ class TestBase:
     def pr_debug(self, msg):
         if self.debug:
             print(msg)
-
-    def set_keep(self, keep):
-        self.keep = keep
 
     def gen_port(self):
         self.port = random.randint(40000, 50000)
@@ -651,12 +644,6 @@ class TestBase:
 
         return ret, ''
 
-    def __del__(self):
-        if self.keep:
-            sp.call(['mv', self.test_dir, TestBase.origdir])
-        else:
-            sp.call(['rm', '-rf', self.test_dir])
-
 RED     = '\033[1;31m'
 GREEN   = '\033[1;32m'
 YELLOW  = '\033[1;33m'
@@ -715,13 +702,23 @@ def run_single_case(case, flags, opts, arg, compilers):
     exec("import %s; tc = %s.TestCase()" % (case, case), globals(), _locals)
     tc = _locals['tc']
     tc.set_debug(arg.debug)
-    tc.set_keep(arg.keep)
     timeout = int(arg.timeout)
+
+    origdir = os.getcwd()
+    case_num = case.split('_')[0][1:]
+    case_dir = os.path.abspath('test_%s' % case_num)
+    if not os.path.exists(case_dir):
+        os.mkdir(case_dir)
 
     for compiler in compilers:
         tc.set_compiler(compiler)
         for flag in flags:
             for opt in opts:
+                test_dir = os.path.join(case_dir, '%s_%s_%s' % (compiler, flag, opt))
+                if not os.path.exists(test_dir):
+                    os.mkdir(test_dir)
+                os.chdir(test_dir)
+
                 cflags = ' '.join(["-" + flag, "-" + opt])
                 dif = ''
                 ret = tc.build(tc.name, cflags)
@@ -731,6 +728,10 @@ def run_single_case(case, flags, opts, arg, compilers):
                         ret, dif = tc.run(case, cflags, arg.diff, timeout)
                         ret = tc.postrun(ret)
                 result.append((ret, dif))
+
+    os.chdir(origdir)
+    if not arg.keep:
+        sp.call(['rm', '-rf', case_dir])
 
     return result
 

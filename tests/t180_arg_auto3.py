@@ -20,7 +20,7 @@ class TestCase(TestBase):
     # override calloc() to save 2nd argument only
     def setup(self):
         self.option  = '-F main -A calloc@arg2 --auto-args'
-        self.exearg += ' hello'
+        self.exearg = 't-' + self.name + ' hello'
 
     def sort(self, output):
         result = []

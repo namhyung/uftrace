@@ -37,7 +37,7 @@ class TestCase(TestBase):
 
     def prerun(self, timeout):
         self.subcmd  = 'record'
-        self.exearg += ' "uftrace"'
+        self.exearg = 't-' + self.name + ' "uftrace"'
         record_cmd = self.runcmd()
         self.pr_debug('prerun command: ' + record_cmd)
 

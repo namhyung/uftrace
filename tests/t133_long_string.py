@@ -21,4 +21,4 @@ class TestCase(TestBase):
 
     def setup(self):
         self.option  = '-A printf@arg1/s,arg2/s'
-        self.exearg += ' ' + "0123456789" * 10
+        self.exearg = 't-' + self.name + ' ' + "0123456789" * 10
