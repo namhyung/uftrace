@@ -1729,8 +1729,8 @@ static void release_dwarf_info(struct uftrace_dbg_info *dinfo)
 
 #endif /* !HAVE_LIBDW */
 
-static int setup_debug_info(const char *filename, struct uftrace_dbg_info *dinfo,
-			    unsigned long offset, bool force)
+int setup_debug_info(const char *filename, struct uftrace_dbg_info *dinfo, unsigned long offset,
+		     bool force)
 {
 	dinfo->args = RB_ROOT;
 	dinfo->rets = RB_ROOT;

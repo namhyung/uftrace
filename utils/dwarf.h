@@ -73,5 +73,8 @@ struct uftrace_dbg_loc *find_file_line(struct uftrace_sym_info *sinfo, uint64_t 
 extern void save_debug_info(struct uftrace_sym_info *sinfo, const char *dirname);
 extern void load_debug_info(struct uftrace_sym_info *sinfo, bool needs_srcline);
 extern void save_debug_file(FILE *fp, char code, char *str, unsigned long val);
+/* only for dummy python module */
+extern int setup_debug_info(const char *filename, struct uftrace_dbg_info *dinfo,
+			    unsigned long offset, bool force);
 
 #endif /* UFTRACE_DWARF_H */
