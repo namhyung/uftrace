@@ -1614,6 +1614,9 @@ again:
 		if (script == NULL)
 			pr_err_ns(UFTRACE_ELF_MSG, opts->exename);
 
+		if (strstr(script, "python"))
+			opts->force = true;
+
 		if (!opts->force && !opts->patch)
 			pr_err_ns(SCRIPT_MSG, opts->exename);
 
@@ -2131,6 +2134,7 @@ int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
 	char *shebang;
 	char fullpath[PATH_MAX];
 	struct strv new_args = STRV_INIT;
+	bool is_python = false;
 
 	if (opts->no_randomize_addr) {
 		/* disable ASLR (Address Space Layout Randomization) */
@@ -2152,6 +2156,9 @@ int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
 
 		s = shebang;
 
+		if (strstr(shebang, "python"))
+			is_python = true;
+
 		while (isspace(*s))
 			s++;
 
@@ -2162,6 +2169,13 @@ int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
 		strv_append(&new_args, s);
 		if (p != NULL)
 			strv_append(&new_args, p);
+
+		if (is_python) {
+			strv_append(&new_args, "-m");
+			strv_append(&new_args, "uftrace");
+			/* disable library calls for now */
+			opts->libcall = false;
+		}
 
 		for (i = 0; i < argc; i++)
 			strv_append(&new_args, argv[i]);
@@ -2177,6 +2191,20 @@ int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
 	/* wait for parent ready */
 	if (read(ready, &dummy, sizeof(dummy)) != (ssize_t)sizeof(dummy))
 		pr_err("waiting for parent failed");
+
+	if (is_python) {
+		char *python_path = NULL;
+
+		if (getenv("PYTHONPATH"))
+			python_path = strdup(getenv("PYTHONPATH"));
+
+#ifdef INSTALL_LIB_PATH
+		python_path = strjoin(python_path, INSTALL_LIB_PATH, ":");
+#endif
+		python_path = strjoin(python_path, "misc", ":"); /* FIXME */
+		setenv("PYTHONPATH", python_path, 1);
+		free(python_path);
+	}
 
 	/*
 	 * The traced binary is already resolved into absolute pathname.
