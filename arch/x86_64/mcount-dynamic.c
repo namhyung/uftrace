@@ -17,6 +17,8 @@ static const unsigned char fentry_nop_patt2[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 }
 static const unsigned char patchable_gcc_nop[] = { 0x90, 0x90, 0x90, 0x90, 0x90 };
 static const unsigned char patchable_clang_nop[] = { 0x0f, 0x1f, 0x44, 0x00, 0x08 };
 
+static const unsigned char endbr64[] = { 0xf3, 0x0f, 0x1e, 0xfa };
+
 int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 {
 	unsigned char trampoline[] = { 0x3e, 0xff, 0x25, 0x01, 0x00, 0x00, 0x00, 0xcc };
@@ -254,6 +256,10 @@ static int patch_fentry_code(struct mcount_dynamic_info *mdi, struct uftrace_sym
 {
 	unsigned char *insn = (void *)sym->addr + mdi->map->start;
 	unsigned int target_addr;
+
+	/* skip 'endbr64' instruction, which is inserted by (implicit) -fcf-protection option. */
+	if (!memcmp(insn, endbr64, sizeof(endbr64)))
+		insn += sizeof(endbr64);
 
 	/* support patchable function entry and __fentry__ at the beginning */
 	if (memcmp(insn, patchable_gcc_nop, sizeof(patchable_gcc_nop)) &&
@@ -634,7 +640,6 @@ static void revert_normal_func(struct mcount_dynamic_info *mdi, struct uftrace_s
 			       struct mcount_disasm_engine *disasm)
 {
 	void *addr = (void *)(uintptr_t)sym->addr + mdi->map->start;
-	uint8_t endbr64[] = { 0xf3, 0x0f, 0x1e, 0xfa };
 	struct mcount_orig_insn *moi;
 
 	if (!memcmp(addr, endbr64, sizeof(endbr64)))
