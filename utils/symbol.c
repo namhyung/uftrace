@@ -1208,21 +1208,6 @@ int check_symbol_file(const char *symfile, char *pathname, int pathlen, char *bu
 	return ret;
 }
 
-static bool symbol_is_func(struct uftrace_symbol *sym)
-{
-	switch (sym->type) {
-	case ST_LOCAL_FUNC:
-	case ST_GLOBAL_FUNC:
-	case ST_WEAK_FUNC:
-	case ST_PLT_FUNC:
-	case ST_KERNEL_FUNC:
-		return true;
-
-	default:
-		return false;
-	}
-}
-
 char *make_new_symbol_filename(const char *symfile, const char *pathname, char *build_id)
 {
 	const char *p;
@@ -1249,8 +1234,7 @@ static void save_module_symbol_file(struct uftrace_symtab *stab, const char *pat
 {
 	FILE *fp;
 	unsigned i;
-	bool prev_was_plt = false;
-	struct uftrace_symbol *sym, *prev;
+	struct uftrace_symbol *sym;
 	char *newfile = NULL;
 
 	if (stab->nr_sym == 0)
@@ -1289,35 +1273,13 @@ static void save_module_symbol_file(struct uftrace_symtab *stab, const char *pat
 	if (strlen(build_id) > 0)
 		fprintf(fp, "# build-id: %s\n", build_id);
 
-	prev = &stab->sym[0];
-	prev_was_plt = (prev->type == ST_PLT_FUNC);
-
-	fprintf(fp, "%016" PRIx64 " %c %s\n", prev->addr - offset, (char)prev->type, prev->name);
-
 	/* PLT + normal symbols (in any order)*/
-	for (i = 1; i < stab->nr_sym; i++) {
+	for (i = 0; i < stab->nr_sym; i++) {
 		sym = &stab->sym[i];
 
-		/* mark end of the this kind of symbols */
-		if ((sym->type == ST_PLT_FUNC) != prev_was_plt) {
-			fprintf(fp, "%016" PRIx64 " %c __%ssym_end\n",
-				prev->addr + prev->size - offset, (char)ST_UNKNOWN,
-				prev_was_plt ? "dyn" : "");
-		}
-		else if (symbol_is_func(prev) && !symbol_is_func(sym)) {
-			fprintf(fp, "%016" PRIx64 " %c %s\n", prev->addr + prev->size - offset,
-				(char)ST_UNKNOWN, "__func_end");
-		}
-
-		fprintf(fp, "%016" PRIx64 " %c %s\n", sym->addr - offset, (char)sym->type,
-			sym->name);
-
-		prev = sym;
-		prev_was_plt = (prev->type == ST_PLT_FUNC);
+		fprintf(fp, "%016" PRIx64 " %08x %c %s\n", sym->addr - offset, sym->size,
+			(char)sym->type, sym->name);
 	}
-
-	fprintf(fp, "%016" PRIx64 " %c __%ssym_end\n", prev->addr + prev->size - offset,
-		(char)ST_UNKNOWN, prev_was_plt ? "dyn" : "");
 
 	fclose(fp);
 	free(newfile);
