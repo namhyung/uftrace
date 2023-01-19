@@ -6,6 +6,7 @@
  * Released under the GPL v2.
  */
 
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
@@ -887,6 +888,7 @@ static int load_module_symbol_file(struct uftrace_symtab *symtab, const char *sy
 	while (getline(&line, &len, fp) > 0) {
 		struct uftrace_symbol *sym;
 		uint64_t addr;
+		uint32_t size;
 		char type;
 		char *name;
 		char *pos;
@@ -907,12 +909,24 @@ static int load_module_symbol_file(struct uftrace_symtab *symtab, const char *sy
 			*pos = '\0';
 
 		addr = strtoull(line, &pos, 16);
+		size = 0;
 
 		if (*pos++ != ' ') {
 			pr_dbg4("invalid symbol file format before type\n");
 			continue;
 		}
 		type = *pos++;
+
+		if (isdigit(type)) {
+			/* new symbol file has size info */
+			size = strtoul(pos - 1, &pos, 16);
+
+			if (*pos++ != ' ') {
+				pr_dbg4("invalid symbol file format for size\n");
+				continue;
+			}
+			type = *pos++;
+		}
 
 		if (*pos++ != ' ') {
 			pr_dbg4("invalid symbol file format after type\n");
@@ -959,7 +973,8 @@ static int load_module_symbol_file(struct uftrace_symtab *symtab, const char *sy
 		if (type == ST_UNKNOWN || is_symbol_end(name)) {
 			if (symtab->nr_sym > 0) {
 				sym = &symtab->sym[symtab->nr_sym - 1];
-				sym->size = addr + offset - sym->addr;
+				if (sym->size == 0)
+					sym->size = addr + offset - sym->addr;
 			}
 			continue;
 		}
@@ -976,7 +991,7 @@ static int load_module_symbol_file(struct uftrace_symtab *symtab, const char *sy
 		sym->addr = addr + offset;
 		sym->type = type;
 		sym->name = demangle(name);
-		sym->size = 0;
+		sym->size = size;
 
 		pr_dbg4("[%zd] %c %lx + %-5u %s\n", symtab->nr_sym, sym->type, sym->addr, sym->size,
 			sym->name);
