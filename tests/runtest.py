@@ -154,6 +154,10 @@ class TestBase:
         cmd[src_idx] = abs_src
         return " ".join(cmd)
 
+    def strip_tracing_flags(self, cmd):
+        cmd = cmd.replace('-pg', '').replace('-finstrument-functions', '')
+        return cmd
+
     def build_it(self, build_cmd):
         build_cmd = self.convert_abs_path(build_cmd)
 
@@ -202,7 +206,7 @@ class TestBase:
         build_cmd = '%s -o lib%s.so %s s-%s.c %s' % \
                     (lang['cc'], dstname, lib_cflags, srcname, build_ldflags)
 
-        build_cmd = build_cmd.replace('-pg', '').replace('-finstrument-functions', '')
+        build_cmd = self.strip_tracing_flags(build_cmd)
         self.pr_debug("build command for library: %s" % build_cmd)
         return self.build_it(build_cmd)
 
@@ -256,7 +260,7 @@ class TestBase:
 
         build_cmd = '%s -o %s %s %s %s' % (lang['cc'], prog, build_cflags, srcname, exe_ldflags)
         if not instrument:
-            build_cmd = build_cmd.replace('-pg', '').replace('-finstrument-functions', '')
+            build_cmd = self.strip_tracing_flags(build_cmd)
 
         self.pr_debug("build command for executable: %s" % build_cmd)
         return self.build_it(build_cmd)

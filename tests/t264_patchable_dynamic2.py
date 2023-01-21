@@ -19,8 +19,7 @@ class TestCase(TestBase):
         return TestBase.TEST_SUCCESS
 
     def build(self, name, cflags='', ldflags=''):
-        cflags = cflags.replace('-pg', '')
-        cflags = cflags.replace('-finstrument-functions', '')
+        cflags = self.strip_tracing_flags(cflags)
         return TestBase.build(self, name, cflags, ldflags)
 
     def setup(self):
