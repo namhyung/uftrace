@@ -47,6 +47,8 @@ class TestCase(TestBase):
             # parse first line to get the timestamp
             t = l.split(' | ')[0].strip()
             point = t.find('.')
+            if point < 0:
+                return TestBase.TEST_DIFF_RESULT
             nsec = int(t[point+1:point+10])
 
             # add the external data right after the first line
