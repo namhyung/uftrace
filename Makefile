@@ -304,6 +304,8 @@ $(objdir)/misc/dbginfo.o: $(srcdir)/misc/dbginfo.c $(objdir)/version.h $(COMMON_
 $(objdir)/misc/bench.o: $(srcdir)/misc/bench.c
 	$(QUIET_CC)$(CC) $(BENCH_CFLAGS) -c -o $@ $<
 
+$(objdir)/cmds/dump.o: c-str-conversion
+
 $(UFTRACE_OBJS_VERSION): $(objdir)/version.h
 
 $(filter-out $(objdir)/uftrace.o, $(UFTRACE_OBJS)): $(objdir)/%.o: $(srcdir)/%.c $(COMMON_DEPS)
