@@ -70,6 +70,8 @@ COMMON_CFLAGS += -W -Wall -Wno-unused-parameter -Wno-missing-field-initializers
 C_STR_TARGET = utils/mermaid.js utils/mermaid.html
 C_STR_EXTENSION = cstr
 
+C_STR_OBJS := $(patsubst %,$(objdir)/%.$(C_STR_EXTENSION),$(C_STR_TARGET))
+
 #
 # Note that the plain CFLAGS and LDFLAGS can be changed
 # by config/Makefile later but *_*FLAGS can not.
@@ -289,7 +291,7 @@ $(UFTRACE_ARCH_OBJS): $(wildcard $(srcdir)/arch/$(ARCH)/*.[cS]) $(COMMON_DEPS)
 $(objdir)/libtraceevent/libtraceevent.a: $(wildcard $(srcdir)/libtraceevent/*.[ch]) $(objdir)/.config
 	@$(MAKE) -C $(srcdir)/libtraceevent BUILD_SRC=$(srcdir)/libtraceevent BUILD_OUTPUT=$(objdir)/libtraceevent CONFIG_FLAGS="$(TRACEEVENT_CFLAGS)"
 
-$(objdir)/uftrace.o: $(srcdir)/uftrace.c $(objdir)/version.h c-str-conversion $(COMMON_DEPS)
+$(objdir)/uftrace.o: $(srcdir)/uftrace.c $(objdir)/version.h $(COMMON_DEPS)
 	$(QUIET_CC)$(CC) $(UFTRACE_CFLAGS) -c -o $@ $<
 
 $(objdir)/misc/demangler.o: $(srcdir)/misc/demangler.c $(objdir)/version.h $(COMMON_DEPS)
@@ -304,7 +306,7 @@ $(objdir)/misc/dbginfo.o: $(srcdir)/misc/dbginfo.c $(objdir)/version.h $(COMMON_
 $(objdir)/misc/bench.o: $(srcdir)/misc/bench.c
 	$(QUIET_CC)$(CC) $(BENCH_CFLAGS) -c -o $@ $<
 
-$(objdir)/cmds/dump.o: c-str-conversion
+$(objdir)/cmds/dump.o: $(C_STR_OBJS)
 
 $(UFTRACE_OBJS_VERSION): $(objdir)/version.h
 
@@ -401,8 +403,7 @@ clean:
 	$(Q)$(RM) $(objdir)/gmon.out $(srcdir)/scripts/*.pyc $(TARGETS)
 	$(Q)$(RM) $(objdir)/uftrace-*.tar.gz $(objdir)/version.h
 	$(Q)find -name "*\.gcda" -o -name "*\.gcno" | xargs $(RM)
-	$(Q)$(RM) coverage.info
-	$(Q)$(RM) $(objdir)/utils/*.$(C_STR_EXTENSION)
+	$(Q)$(RM) coverage.info $(C_STR_OBJS)
 	@$(MAKE) -sC $(srcdir)/arch/$(ARCH) clean
 	@$(MAKE) -sC $(srcdir)/tests ARCH=$(ARCH) clean
 	@$(MAKE) -sC $(docdir) clean
@@ -416,9 +417,7 @@ ctags:
 	@find . -name "*\.[chS]" -o -path ./tests -prune -o -path ./check-deps -prune \
 		| xargs ctags --regex-asm='/^(GLOBAL|ENTRY|END)\(([^)]*)\).*/\2/'
 
-c-str-conversion:
-	@for i in ${C_STR_TARGET}; do \
-		sed -e 's#\\#\\\\#g;s#\"#\\"#g;s#$$#\\n\"#;s#^#\"#' $${i} > $${i}.$(C_STR_EXTENSION); \
-	done
+$(C_STR_OBJS): $(objdir)/%.$(C_STR_EXTENSION): $(srcdir)/%
+	$(QUIET_GEN)sed -e 's#\\#\\\\#g;s#\"#\\"#g;s#$$#\\n\"#;s#^#\"#' $< > $@
 
 .PHONY: all config clean test dist doc ctags PHONY

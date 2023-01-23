@@ -1344,7 +1344,7 @@ static void dump_mermaid_footer(struct uftrace_dump_ops *ops, struct uftrace_dat
 	pr_out("</h2>\n");
 
 	interactive_option_html =
-#include "utils/mermaid.html.cstr" /* This file is a converted of mermaid.html to one string literal in build-time */
+#include "utils/mermaid.html.cstr" /* This file is converted from mermaid.html at build-time */
 		;
 
 	pr_out("%s", interactive_option_html);
@@ -1364,7 +1364,7 @@ static void dump_mermaid_footer(struct uftrace_dump_ops *ops, struct uftrace_dat
 	pr_out("mermaid.initialize(config);\n");
 
 	interactive_option_js =
-#include "utils/mermaid.js.cstr" /* This file is a converted of mermaid.html to one string literal in build-time */
+#include "utils/mermaid.js.cstr" /* This file is converted from mermaid.js at build-time */
 		;
 
 	pr_out("%s", interactive_option_js);
