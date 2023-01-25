@@ -21,8 +21,7 @@ class TestCase(TestBase):
         return TestBase.TEST_SUCCESS
 
     def build(self, name, cflags='', ldflags=''):
-        cflags = cflags.replace('-pg', '')
-        cflags = cflags.replace('-finstrument-functions', '')
+        cflags = self.strip_tracing_flags(cflags)
 
         # add patchable function entry option
         machine = TestBase.get_machine(self)

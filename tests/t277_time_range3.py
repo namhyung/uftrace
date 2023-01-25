@@ -44,10 +44,13 @@ task: 16676
 
         p = sp.Popen(replay_cmd, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
         r = p.communicate()[0].decode(errors='ignore')
-        END = r.split('\n')[4].split()[0] # skip header, main, foo and bar (= 4)
+        lines = r.split('\n')
+        if len(lines) < 7:
+            return TestBase.TEST_DIFF_RESULT
+        END = lines[4].split()[0] # skip header, main, foo and bar (= 4)
         p.wait()
 
-        TS1 = r.split('\n')[6].split()[0] # next, next line after usleep
+        TS1 = lines[6].split()[0] # next, next line after usleep
         f = open('uftrace.data/extern.dat', 'w')
         f.write("%s %s\n" % (TS1, 'external message'))
         f.close()

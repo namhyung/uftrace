@@ -108,6 +108,7 @@ class TestBase:
         self.subcmd = 'live'
         self.option = ''
         self.exearg = 't-' + name
+        self.p_flag = ''
         self.test_feature()
         if Elf.get_elf_machine(self.uftrace_cmd) == 'i386':
             self.default_cflags.append('-m32')
@@ -154,9 +155,16 @@ class TestBase:
         cmd[src_idx] = abs_src
         return " ".join(cmd)
 
+    def strip_tracing_flags(self, cmd):
+        cmd = cmd.replace('-pg', '').replace('-finstrument-functions', '')
+        cmd = re.sub(r'-fpatchable-function-entry=[0-9]+', '', cmd)
+        return cmd
+
     def build_it(self, build_cmd):
         build_cmd = self.convert_abs_path(build_cmd)
 
+        if '-fpatchable-function-entry' in build_cmd:
+            self.p_flag = '-P .'
         try:
             p = sp.Popen(build_cmd.split(), stderr=sp.PIPE)
             if p.wait() != 0:
@@ -202,7 +210,7 @@ class TestBase:
         build_cmd = '%s -o lib%s.so %s s-%s.c %s' % \
                     (lang['cc'], dstname, lib_cflags, srcname, build_ldflags)
 
-        build_cmd = build_cmd.replace('-pg', '').replace('-finstrument-functions', '')
+        build_cmd = self.strip_tracing_flags(build_cmd)
         self.pr_debug("build command for library: %s" % build_cmd)
         return self.build_it(build_cmd)
 
@@ -256,7 +264,7 @@ class TestBase:
 
         build_cmd = '%s -o %s %s %s %s' % (lang['cc'], prog, build_cflags, srcname, exe_ldflags)
         if not instrument:
-            build_cmd = build_cmd.replace('-pg', '').replace('-finstrument-functions', '')
+            build_cmd = self.strip_tracing_flags(build_cmd)
 
         self.pr_debug("build command for executable: %s" % build_cmd)
         return self.build_it(build_cmd)
@@ -272,8 +280,8 @@ class TestBase:
     def runcmd(self):
         """ This function returns (shell) command that runs the test.
             A test case can extend this to setup a complex configuration.  """
-        return '%s %s %s %s %s' % (TestBase.uftrace_cmd, self.subcmd, \
-                                   TestBase.default_opt, self.option, self.exearg)
+        return '%s %s %s %s %s %s' % (TestBase.uftrace_cmd, self.subcmd, \
+                                   TestBase.default_opt, self.option, self.p_flag, self.exearg)
 
     def task_sort(self, output, ignore_children=False):
         """ This function post-processes output of the test to be compared .
@@ -709,19 +717,21 @@ def check_serial_case(case):
 
 def run_single_case(case, flags, opts, arg, compilers):
     result = []
+    timeout = int(arg.timeout)
 
     # for python3
     _locals = {}
-    exec("import %s; tc = %s.TestCase()" % (case, case), globals(), _locals)
-    tc = _locals['tc']
-    tc.set_debug(arg.debug)
-    tc.set_keep(arg.keep)
-    timeout = int(arg.timeout)
+    exec("import %s as T" % (case), globals(), _locals)
+    T = _locals['T']
 
     for compiler in compilers:
-        tc.set_compiler(compiler)
         for flag in flags:
             for opt in opts:
+                tc = T.TestCase()
+                tc.set_debug(arg.debug)
+                tc.set_keep(arg.keep)
+                tc.set_compiler(compiler)
+
                 cflags = ' '.join(["-" + flag, "-" + opt])
                 dif = ''
                 ret = tc.build(tc.name, cflags)
@@ -791,7 +801,7 @@ def print_test_header(opts, flags, ftests, compilers):
     header1 = '%-24s ' % 'Compiler'
     header2 = '%-24s ' % 'Test case'
     header3 = '-' * 24 + ':'
-    empty = '                             '
+    empty = ' ' * 100
 
     for i, compiler in enumerate(compilers):
         if i != 0:
@@ -834,7 +844,7 @@ def parse_argument():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--profile-flags", dest='flags',
-                        default="pg finstrument-functions",
+                        default="pg finstrument-functions fpatchable-function-entry",
                         help="comma separated list of compiler profiling flags")
     parser.add_argument("-O", "--optimize-levels", dest='opts', default="0123s",
                         help="compiler optimization levels")
@@ -844,6 +854,8 @@ def parse_argument():
                         help="profiling with -pg option")
     parser.add_argument("-i", "--instrument-functions", dest='if_flag', action='store_true',
                         help="profiling with -finstrument-functions option")
+    parser.add_argument("--patch-functions", dest='pfe_flag', action='store_true',
+                        help="profiling with -fpatchable-function-entry option")
     parser.add_argument("-d", "--diff", dest='diff', action='store_true',
                         help="show diff result if not matched")
     parser.add_argument("-v", "--verbose", dest='debug', action='store_true',
@@ -886,12 +898,30 @@ if __name__ == "__main__":
 
     opts = ' '.join(sorted(['O' + o for o in arg.opts]))
 
+    patch_size = {
+        'x86_64'  : 5,
+        'aarch64' : 2,
+    }
+
+    m = os.uname()[-1]  # machine
+
     if arg.pg_flag:
         flags = ['pg']
     elif arg.if_flag:
         flags = ['finstrument-functions']
+    elif arg.pfe_flag:
+        flags = ['fpatchable-function-entry']
+        if m not in patch_size:
+            print('fpatchable-function-entry not supported on current platform\n')
+            exit(-1)
     else:
         flags = arg.flags.split()
+        if m not in patch_size:
+            flags.remove('fpatchable-function-entry')
+
+    for i in range(len(flags)):
+        if flags[i] == 'fpatchable-function-entry':
+            flags[i] += '=%d' % patch_size[m]
 
     def has_compiler(compiler):
         installed = os.system('command -v %s > /dev/null' % compiler) == 0

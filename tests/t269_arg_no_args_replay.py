@@ -29,8 +29,8 @@ class TestCase(TestBase):
         return TestBase.build(self, name, cflags, ldflags)
 
     def prerun(self, timeout):
-        record_cmd = '%s record -d %s -A ^str_@arg1/s,arg2/s -R ^str_@retval/s %s %s' \
-                        % (TestBase.uftrace_cmd, TDIR, TestBase.default_opt, 't-' + self.name)
+        record_cmd = '%s record -d %s %s -A ^str_@arg1/s,arg2/s -R ^str_@retval/s %s %s' \
+                        % (TestBase.uftrace_cmd, TDIR, TestBase.default_opt, self.p_flag, 't-' + self.name)
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
 

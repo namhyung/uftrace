@@ -17,8 +17,7 @@ class TestCase(TestBase):
         return TestBase.TEST_SUCCESS
 
     def build(self, name, cflags='', ldflags=''):
-        cflags = cflags.replace('-pg', '')
-        cflags = cflags.replace('-finstrument-functions', '')
+        cflags = self.strip_tracing_flags(cflags)
         cflags += ' -fno-pie -fno-plt'  # workaround of build failure
         return TestBase.build(self, name, cflags, ldflags)
 

@@ -34,7 +34,10 @@ class TestCase(TestBase):
 
         p = sp.Popen(replay_cmd, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
         r = p.communicate()[0].decode(errors='ignore')
-        START = r.split('\n')[6].split()[0] # skip header, main, a, b, c and getpid (= 6)
+        lines = r.split('\n')
+        if len(lines) < 7:
+            return TestBase.TEST_DIFF_RESULT
+        START = lines[6].split()[0] # skip header, main, a, b, c and getpid (= 6)
         p.wait()
 
         return TestBase.TEST_SUCCESS

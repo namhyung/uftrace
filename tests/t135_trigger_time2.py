@@ -42,7 +42,10 @@ class TestCase(TestBase):
 
         p = sp.Popen(replay_cmd, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
         r = p.communicate()[0].decode(errors='ignore')
-        TIME, UNIT = r.split('\n')[1].split()[0:2] # skip header
+        lines = r.split('\n')
+        if len(lines) < 2:
+            return TestBase.TEST_DIFF_RESULT
+        TIME, UNIT = lines[1].split()[0:2] # skip header
         TIME = float(TIME) + 0.001 # for time filtering
         p.wait()
 

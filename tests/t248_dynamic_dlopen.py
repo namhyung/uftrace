@@ -30,8 +30,7 @@ class TestCase(TestBase):
         return TestBase.TEST_SUCCESS
 
     def build(self, name, cflags='', ldflags=''):
-        cflags = cflags.replace('-pg', '')
-        cflags = cflags.replace('-finstrument-functions', '')
+        cflags = self.strip_tracing_flags(cflags)
 
         if TestBase.build_libabc(self, cflags, ldflags) != 0:
             return TestBase.TEST_BUILD_FAIL
