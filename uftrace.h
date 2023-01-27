@@ -61,6 +61,7 @@ enum uftrace_feat_bits {
 	AUTO_ARGS_BIT,
 	DEBUG_INFO_BIT,
 	ESTIMATE_RETURN_BIT,
+	SYM_SIZE_BIT,
 
 	FEAT_BIT_MAX,
 
@@ -77,6 +78,7 @@ enum uftrace_feat_bits {
 	AUTO_ARGS = (1U << AUTO_ARGS_BIT),
 	DEBUG_INFO = (1U << DEBUG_INFO_BIT),
 	ESTIMATE_RETURN = (1U << ESTIMATE_RETURN_BIT),
+	SYM_SIZE = (1U << SYM_SIZE_BIT),
 };
 
 enum uftrace_info_bits {

@@ -536,7 +536,8 @@ static void dump_raw_header(struct uftrace_dump_ops *ops, struct uftrace_data *h
 	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
 	const char *feat_str[] = { "PLTHOOK",	 "TASK_SESSION", "KERNEL",     "ARGUMENT",
 				   "RETVAL",	 "SYM_REL_ADDR", "MAX_STACK",  "EVENT",
-				   "PERF_EVENT", "AUTO_ARGS",	 "DEBUG_INFO", "ESTIMATE_RETURN" };
+				   "PERF_EVENT", "AUTO_ARGS",	 "DEBUG_INFO", "ESTIMATE_RETURN",
+				   "SYM_SIZE" };
 	const char *info_str[] = { "EXE_NAME",	   "EXE_BUILD_ID", "EXIT_STATUS", "CMDLINE",
 				   "CPUINFO",	   "MEMINFO",	   "OSINFO",	  "TASKINFO",
 				   "USAGEINFO",	   "LOADINFO",	   "ARG_SPEC",	  "RECORD_DATE",
