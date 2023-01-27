@@ -252,7 +252,7 @@ int command_live(int argc, char *argv[], struct uftrace_opts *opts)
 			/* can't reuse first template because it was trashed by mkstemp */
 			strcpy(template, LIVE_NAME);
 
-			if (errno != EPERM)
+			if (errno != EPERM && errno != ENOENT)
 				pr_err("cannot access to /tmp");
 
 			fd = mkstemp(template);
