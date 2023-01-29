@@ -24,8 +24,8 @@ struct uftrace_py_state {
 /* pointer to python tracing function (for libpython2.7) */
 static PyObject *uftrace_func __attribute__((unused));
 
-/* RB tree of python_symbol to map function name to address */
-static struct rb_root name_tree = RB_ROOT;
+/* RB tree of python_symbol to map code object to address */
+static struct rb_root code_tree = RB_ROOT;
 
 #define UFTRACE_PYTHON_SYMTAB_SIZE (1 * 1024 * 1024)
 #define UFTRACE_PYTHON_SYMTAB_HDRSZ (48)
@@ -171,42 +171,6 @@ static uint32_t get_new_sym_addr(const char *name)
 	/* add the symbol table contents (in the old format) */
 	snprintf(data + old_hdr.offset, entry_size + 1, "%016x t %s\n", new_hdr.count, name);
 	return new_hdr.count;
-}
-
-/* manage function name -> address (or index) */
-static unsigned long resolve_func_addr(struct rb_root *root, PyObject *code, const char *name)
-{
-	struct rb_node *parent = NULL;
-	struct rb_node **p = &root->rb_node;
-	struct uftrace_python_symbol *iter, *new;
-	int cmp;
-
-	while (*p) {
-		parent = *p;
-		iter = rb_entry(parent, struct uftrace_python_symbol, node);
-
-		if (iter->code == code)
-			return iter->addr;
-		else
-			cmp = iter->code > code ? 1 : -1;
-
-		if (cmp < 0)
-			p = &parent->rb_left;
-		else
-			p = &parent->rb_right;
-	}
-
-	new = xmalloc(sizeof(*new));
-	new->code = code;
-	new->addr = get_new_sym_addr(name);
-
-	/* increase the refcount to keep the code object alive */
-	Py_INCREF(code);
-
-	rb_link_node(&new->node, parent, p);
-	rb_insert_color(&new->node, root);
-
-	return new->addr;
 }
 
 static void write_symtab(const char *dirname)
@@ -396,16 +360,10 @@ static char *get_c_string(PyObject *str)
 
 #endif /* HAVE_LIBPYTHON2 */
 
-static unsigned long convert_function_addr(PyObject *frame)
+static char *get_python_funcname(PyObject *frame, PyObject *code)
 {
-	PyObject *code, *name, *global;
+	PyObject *name, *global;
 	char *func_name = NULL;
-	unsigned long addr = 0;
-	bool needs_free = false;
-
-	code = PyObject_GetAttrString(frame, "f_code");
-	if (code == NULL)
-		return 0;
 
 	if (PyObject_HasAttrString(code, "co_qualname"))
 		name = PyObject_GetAttrString(code, "co_qualname");
@@ -414,7 +372,7 @@ static unsigned long convert_function_addr(PyObject *frame)
 
 	/* prepend module name if available */
 	global = PyObject_GetAttrString(frame, "f_globals");
-	if (global) {
+	if (global && name) {
 		PyObject *mod = PyDict_GetItemString(global, "__name__");
 		char *name_str = get_c_string(name);
 
@@ -423,28 +381,66 @@ static unsigned long convert_function_addr(PyObject *frame)
 			char *mod_str = get_c_string(mod);
 
 			/* skip __main__. prefix for functions in the main module */
-			if (strcmp(mod_str, "__main__") || !strcmp(name_str, "<module>")) {
+			if (strcmp(mod_str, "__main__") || !strcmp(name_str, "<module>"))
 				xasprintf(&func_name, "%s.%s", mod_str, name_str);
-				needs_free = true;
-			}
 		}
 		Py_DECREF(global);
 	}
 
 	if (func_name == NULL && name)
-		func_name = get_c_string(name);
-	if (func_name)
-		addr = resolve_func_addr(&name_tree, code, func_name);
+		func_name = strdup(get_c_string(name));
 
-	if (needs_free)
-		free(func_name);
-	Py_XDECREF(code);
 	Py_XDECREF(name);
-	return addr;
+	return func_name;
+}
+
+static unsigned long convert_function_addr(PyObject *frame)
+{
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &code_tree.rb_node;
+	struct uftrace_python_symbol *iter, *new;
+	PyObject *code;
+	char *func_name;
+
+	code = PyObject_GetAttrString(frame, "f_code");
+	if (code == NULL)
+		return 0;
+
+	while (*p) {
+		parent = *p;
+		iter = rb_entry(parent, struct uftrace_python_symbol, node);
+
+		/* just compare pointers of the code object */
+		if (iter->code == code) {
+			Py_DECREF(code);
+			return iter->addr;
+		}
+
+		if (iter->code < code)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
+
+	func_name = get_python_funcname(frame, code);
+	if (func_name == NULL)
+		return 0;
+
+	new = xmalloc(sizeof(*new));
+	new->code = code;
+	new->addr = get_new_sym_addr(func_name);
+	free(func_name);
+
+	/* keep the refcount of the code object to keep it alive */
+
+	rb_link_node(&new->node, parent, p);
+	rb_insert_color(&new->node, &code_tree);
+
+	return new->addr;
 }
 
 /*
- * This is the actual function when called for each function.
+ * This is the actual trace function to be called for each python event.
  */
 static PyObject *uftrace_trace_python(PyObject *self, PyObject *args)
 {
