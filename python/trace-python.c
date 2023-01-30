@@ -145,7 +145,7 @@ static void init_symtab(void)
 	close(shm_fd);
 }
 
-static uint32_t get_new_sym_addr(const char *name)
+static uint32_t get_new_sym_addr(const char *name, bool is_pyfunc)
 {
 	union uftrace_python_symtab old_hdr, new_hdr, tmp_hdr;
 	char *data = (void *)symtab;
@@ -169,7 +169,8 @@ static uint32_t get_new_sym_addr(const char *name)
 		pr_warn("symbol table is too big!");
 
 	/* add the symbol table contents (in the old format) */
-	snprintf(data + old_hdr.offset, entry_size + 1, "%016x t %s\n", new_hdr.count, name);
+	snprintf(data + old_hdr.offset, entry_size + 1, "%016x %c %s\n", new_hdr.count,
+		 is_pyfunc ? 'T' : 't', name);
 	return new_hdr.count;
 }
 
@@ -394,7 +395,35 @@ static char *get_python_funcname(PyObject *frame, PyObject *code)
 	return func_name;
 }
 
-static unsigned long convert_function_addr(PyObject *frame)
+static char *get_c_funcname(PyObject *frame, PyObject *code)
+{
+	PyObject *name, *mod;
+	PyCFunctionObject *cfunc;
+	char *func_name = NULL;
+
+	if (!PyCFunction_Check(code))
+		return NULL;
+
+	cfunc = (void *)code;
+
+	if (PyObject_HasAttrString(code, "__qualname__"))
+		name = PyObject_GetAttrString(code, "__qualname__");
+	else
+		name = PyObject_GetAttrString(code, "__name__");
+
+	/* prepend module name if available */
+	mod = cfunc->m_module;
+
+	if (mod && is_string_type(mod))
+		xasprintf(&func_name, "%s.%s", get_c_string(mod), get_c_string(name));
+	else
+		xasprintf(&func_name, "%s.%s", "builtins", get_c_string(name));
+
+	Py_XDECREF(name);
+	return func_name;
+}
+
+static unsigned long convert_function_addr(PyObject *frame, PyObject *args, bool is_pyfunc)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &code_tree.rb_node;
@@ -405,6 +434,11 @@ static unsigned long convert_function_addr(PyObject *frame)
 	code = PyObject_GetAttrString(frame, "f_code");
 	if (code == NULL)
 		return 0;
+
+	if (!is_pyfunc) {
+		code = args;
+		Py_INCREF(code);
+	}
 
 	while (*p) {
 		parent = *p;
@@ -422,13 +456,17 @@ static unsigned long convert_function_addr(PyObject *frame)
 			p = &parent->rb_right;
 	}
 
-	func_name = get_python_funcname(frame, code);
+	if (is_pyfunc)
+		func_name = get_python_funcname(frame, code);
+	else
+		func_name = get_c_funcname(frame, code);
+
 	if (func_name == NULL)
 		return 0;
 
 	new = xmalloc(sizeof(*new));
 	new->code = code;
-	new->addr = get_new_sym_addr(func_name);
+	new->addr = get_new_sym_addr(func_name, is_pyfunc);
 	free(func_name);
 
 	/* keep the refcount of the code object to keep it alive */
@@ -450,14 +488,20 @@ static PyObject *uftrace_trace_python(PyObject *self, PyObject *args)
 	if (!PyArg_ParseTuple(args, "OsO", &frame, &event, &args_tuple))
 		Py_RETURN_NONE;
 
-	if (!strcmp(event, "call")) {
+	if (!strcmp(event, "call") || !strcmp(event, "c_call")) {
 		unsigned long addr;
+		bool is_pyfunc = !strcmp(event, "call");
 
-		addr = convert_function_addr(frame);
+		addr = convert_function_addr(frame, args_tuple, is_pyfunc);
 		cygprof_enter(addr, 0);
 	}
-	else if (!strcmp(event, "return"))
+	else if (!strcmp(event, "return") || !strcmp(event, "c_return")) {
 		cygprof_exit(0, 0);
+	}
+	else if (!strcmp(event, "c_exception")) {
+		/* C code exception doesn't generate c_return */
+		cygprof_exit(0, 0);
+	}
 
 	return get_trace_function();
 }
