@@ -106,7 +106,7 @@ static pthread_t agent;
 /* state flag for the agent */
 static volatile bool agent_run = false;
 
-#define MCOUNT_AGENT_CAPABILITIES (UFTRACE_AGENT_OPT_TRACE)
+#define MCOUNT_AGENT_CAPABILITIES (UFTRACE_AGENT_OPT_TRACE | UFTRACE_AGENT_OPT_DEPTH)
 
 __weak void dynamic_return(void)
 {
@@ -1891,6 +1891,7 @@ static int agent_read_option(int fd, int *opt, void **value, size_t read_size)
  */
 static int agent_apply_option(int opt, void *value, size_t size, struct rb_root *triggers)
 {
+	struct uftrace_opts opts;
 	int ret = 0;
 	int trace;
 
@@ -1901,6 +1902,16 @@ static int agent_apply_option(int opt, void *value, size_t size, struct rb_root 
 			mcount_enabled = trace;
 			pr_dbg("turn trace %s\n", mcount_enabled ? "on" : "off");
 		}
+		break;
+
+	case UFTRACE_AGENT_OPT_DEPTH:
+		opts.depth = *((int *)value);
+		if (opts.depth != mcount_depth) {
+			mcount_depth = opts.depth;
+			pr_dbg3("dynamic depth: %d\n", mcount_depth);
+		}
+		else
+			pr_dbg3("dynamic depth unchanged\n");
 		break;
 
 	default:
