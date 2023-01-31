@@ -15,6 +15,7 @@
 #include "utils/rbtree.h"
 #include "utils/shmem.h"
 #include "utils/symbol.h"
+#include "utils/utils.h"
 
 /* python module state */
 struct uftrace_py_state {
@@ -27,8 +28,20 @@ static PyObject *uftrace_func __attribute__((unused));
 /* RB tree of python_symbol to map code object to address */
 static struct rb_root code_tree = RB_ROOT;
 
+/* initial size of the symbol table and unit size for increment */
 #define UFTRACE_PYTHON_SYMTAB_SIZE (1 * 1024 * 1024)
+
+/* size of the symbol table header (including the padding) */
 #define UFTRACE_PYTHON_SYMTAB_HDRSZ (48)
+
+/* name of the shared memory region: /uftrace-python-PID */
+static char uftrace_shmem_name[32];
+
+/* file descriptor of the symbol table in a shared memory */
+static int uftrace_shmem_fd;
+
+/* current symbol table size */
+static unsigned int uftrace_symtab_size;
 
 /*
  * Symbol table header in a shared memory.
@@ -46,6 +59,7 @@ union uftrace_python_symtab {
 		uint32_t count; /* number of symbols */
 		uint32_t offset; /* next position to write */
 	};
+	char padding[UFTRACE_PYTHON_SYMTAB_HDRSZ];
 };
 
 static union uftrace_python_symtab *symtab;
@@ -125,24 +139,24 @@ static void find_libmcount_funcs(void)
 
 static void init_symtab(void)
 {
-	int shm_fd;
+	snprintf(uftrace_shmem_name, sizeof(uftrace_shmem_name), "/uftrace-python-%d", getpid());
 
-	shm_fd = uftrace_shmem_open("/python.sym", O_RDWR | O_CREAT | O_TRUNC, 0600);
-	if (shm_fd < 0)
-		pr_err("failed to open shared memory for python symtab");
+	uftrace_shmem_fd = uftrace_shmem_open(uftrace_shmem_name, O_RDWR | O_CREAT | O_TRUNC, 0600);
+	if (uftrace_shmem_fd < 0)
+		pr_err("failed to open shared memory for %s", uftrace_shmem_name);
 
-	if (ftruncate(shm_fd, UFTRACE_PYTHON_SYMTAB_SIZE) < 0)
-		pr_err("failed to resize the shared memory for python symtab");
+	if (ftruncate(uftrace_shmem_fd, UFTRACE_PYTHON_SYMTAB_SIZE) < 0)
+		pr_err("failed to allocate the shared memory for %s", uftrace_shmem_name);
 
-	symtab = mmap(NULL, UFTRACE_PYTHON_SYMTAB_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd,
-		      0);
+	symtab = mmap(NULL, UFTRACE_PYTHON_SYMTAB_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED,
+		      uftrace_shmem_fd, 0);
 	if (symtab == MAP_FAILED)
-		pr_err("failed to mmap shared memory for python symtab");
+		pr_err("failed to mmap shared memory for %s", uftrace_shmem_name);
 
 	symtab->count = 0;
 	symtab->offset = UFTRACE_PYTHON_SYMTAB_HDRSZ; /* reserve some area for the header */
 
-	close(shm_fd);
+	uftrace_symtab_size = UFTRACE_PYTHON_SYMTAB_SIZE;
 }
 
 static uint32_t get_new_sym_addr(const char *name, bool is_pyfunc)
@@ -153,6 +167,7 @@ static uint32_t get_new_sym_addr(const char *name, bool is_pyfunc)
 
 	old_hdr.val = symtab->val;
 
+	/* this loop is needed to handle concurrent updates for multi-processing */
 	while (true) {
 		new_hdr.count = old_hdr.count + 1;
 		new_hdr.offset = old_hdr.offset + entry_size;
@@ -165,8 +180,25 @@ static uint32_t get_new_sym_addr(const char *name, bool is_pyfunc)
 		old_hdr.val = tmp_hdr.val;
 	}
 
-	if (new_hdr.offset >= UFTRACE_PYTHON_SYMTAB_SIZE)
-		pr_warn("symbol table is too big!");
+	if (new_hdr.offset >= uftrace_symtab_size) {
+		unsigned new_symtab_size = uftrace_symtab_size + UFTRACE_PYTHON_SYMTAB_SIZE;
+
+		pr_dbg("try to increase the shared memory for %s (new size=%uMB)\n",
+		       uftrace_shmem_name, new_symtab_size / (1024 * 1024));
+
+		/* increase the file size */
+		if (ftruncate(uftrace_shmem_fd, new_symtab_size) < 0)
+			pr_err("failed to resize the shared memory for %s");
+
+		/* remap the symbol table, this might result in a new address  */
+		symtab = mremap(symtab, uftrace_symtab_size, new_symtab_size, MREMAP_MAYMOVE);
+		if (symtab == MAP_FAILED)
+			pr_err("failed to mmap shared memory for %s", uftrace_shmem_name);
+
+		/* update the address and size of the symbol table */
+		data = (void *)symtab;
+		uftrace_symtab_size = new_symtab_size;
+	}
 
 	/* add the symbol table contents (in the old format) */
 	snprintf(data + old_hdr.offset, entry_size + 1, "%016x %c %s\n", new_hdr.count,
@@ -188,6 +220,8 @@ static void write_symtab(const char *dirname)
 		pr_warn("writing symbol table of python program failed: %m");
 		return;
 	}
+
+	pr_dbg("writing the python symbol table (count=%u)\n", symtab->count);
 
 	/* update the header comment */
 	len = fprintf(fp, "# symbols: %u\n", symtab->count);
@@ -215,8 +249,9 @@ static void write_symtab(const char *dirname)
 	fprintf(fp, "%016x %c %s\n", symtab->count + 1, '?', "__sym_end");
 	fclose(fp);
 
-	munmap(symtab, UFTRACE_PYTHON_SYMTAB_SIZE);
-	uftrace_shmem_unlink("/python.sym");
+	munmap(symtab, uftrace_symtab_size);
+	close(uftrace_shmem_fd);
+	uftrace_shmem_unlink(uftrace_shmem_name);
 }
 
 static void init_uftrace(void)
@@ -224,6 +259,11 @@ static void init_uftrace(void)
 	/* check if it's loaded in a uftrace session */
 	if (getenv("UFTRACE_SHMEM") == NULL)
 		return;
+
+	if (getenv("UFTRACE_DEBUG")) {
+		debug = 1;
+		dbg_domain[DBG_UFTRACE] = 1;
+	}
 
 	init_symtab();
 	find_libmcount_funcs();
