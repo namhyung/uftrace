@@ -1000,7 +1000,20 @@ skip:
 	symbol_putname(sym, symname);
 }
 
-/* save current filter state to rstack */
+/**
+ * filter_save_to_rstack - save current filter state to rstack
+ * @mtdp - thread data
+ *
+ * The current values can be overwritten by triggers, and will be restored from
+ * @rstack at function exit.
+ */
+static void filter_save_to_rstack(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack)
+{
+	rstack->filter_depth = mtdp->filter.saved_depth;
+	rstack->filter_time = mtdp->filter.saved_time;
+	rstack->filter_size = mtdp->filter.saved_size;
+}
+
 void mcount_entry_filter_record(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
 				struct uftrace_trigger *tr, struct mcount_regs *regs)
 {
@@ -1010,9 +1023,7 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp, struct mcount_r
 	     mcount_getsize(&mcount_sym_info, rstack->child_ip) < mtdp->filter.size))
 		rstack->flags |= MCOUNT_FL_NORECORD;
 
-	rstack->filter_depth = mtdp->filter.saved_depth;
-	rstack->filter_time = mtdp->filter.saved_time;
-	rstack->filter_size = mtdp->filter.saved_size;
+	filter_save_to_rstack(mtdp, rstack);
 
 #define FLAGS_TO_CHECK                                                                             \
 	(TRIGGER_FL_FILTER | TRIGGER_FL_RETVAL | TRIGGER_FL_TRACE | TRIGGER_FL_FINISH |            \
@@ -1108,7 +1119,18 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp, struct mcount_r
 #undef FLAGS_TO_CHECK
 }
 
-/* restore filter state from rstack */
+/**
+ * filter_restore_from_rstack - restore filters to their value at function entry
+ * @mtdp - thread data
+ */
+static void filter_restore_from_rstack(struct mcount_thread_data *mtdp,
+				       struct mcount_ret_stack *rstack)
+{
+	mtdp->filter.depth = rstack->filter_depth;
+	mtdp->filter.time = rstack->filter_time;
+	mtdp->filter.size = rstack->filter_size;
+}
+
 void mcount_exit_filter_record(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
 			       long *retval)
 {
@@ -1130,9 +1152,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp, struct mcount_re
 
 #undef FLAGS_TO_CHECK
 
-	mtdp->filter.depth = rstack->filter_depth;
-	mtdp->filter.time = rstack->filter_time;
-	mtdp->filter.size = rstack->filter_size;
+	filter_restore_from_rstack(mtdp, rstack);
 
 	if (!(rstack->flags & MCOUNT_FL_NORECORD)) {
 		if (mtdp->record_idx > 0)
