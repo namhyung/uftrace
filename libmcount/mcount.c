@@ -106,7 +106,8 @@ static pthread_t agent;
 /* state flag for the agent */
 static volatile bool agent_run = false;
 
-#define MCOUNT_AGENT_CAPABILITIES (UFTRACE_AGENT_OPT_TRACE | UFTRACE_AGENT_OPT_DEPTH)
+#define MCOUNT_AGENT_CAPABILITIES                                                                  \
+	(UFTRACE_AGENT_OPT_TRACE | UFTRACE_AGENT_OPT_DEPTH | UFTRACE_AGENT_OPT_THRESHOLD)
 
 __weak void dynamic_return(void)
 {
@@ -1915,6 +1916,16 @@ static int agent_apply_option(int opt, void *value, size_t size, struct rb_root 
 		}
 		else
 			pr_dbg3("dynamic depth unchanged\n");
+		break;
+
+	case UFTRACE_AGENT_OPT_THRESHOLD:
+		opts.threshold = *((uint64_t *)value);
+		if (opts.threshold != mcount_threshold) {
+			mcount_threshold = opts.threshold;
+			pr_dbg3("dynamic time threshold: %lu\n", mcount_threshold);
+		}
+		else
+			pr_dbg3("dynamic time threshold unchanged\n");
 		break;
 
 	default:
