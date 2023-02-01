@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 static int func(int depth);
+static int trigger(int depth);
 static int a(int depth);
 static int b(int depth);
 static int c(int depth);
@@ -84,6 +85,9 @@ int main(int argc, char *argv[])
 		if (!strcmp(argv[i], "--delay"))
 			use_delay = 1;
 	}
+
+	if (depth <= 0)
+		depth = 1;
 
 	do {
 		func(depth);
