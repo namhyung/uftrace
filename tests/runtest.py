@@ -854,7 +854,7 @@ def parse_argument():
                         help="profiling with -pg option")
     parser.add_argument("-i", "--instrument-functions", dest='if_flag', action='store_true',
                         help="profiling with -finstrument-functions option")
-    parser.add_argument("--patch-functions", dest='pfe_flag', action='store_true',
+    parser.add_argument("-e", "--patchable-function-entry", dest='pfe_flag', action='store_true',
                         help="profiling with -fpatchable-function-entry option")
     parser.add_argument("-d", "--diff", dest='diff', action='store_true',
                         help="show diff result if not matched")
