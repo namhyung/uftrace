@@ -56,7 +56,7 @@ static bool match_replay_triggers(const char *trigger)
 static void reset_live_opts(struct uftrace_opts *opts)
 {
 	/* this is needed to set display_depth at replay */
-	live_disabled = opts->disabled;
+	live_disabled = (opts->trace == TRACE_STATE_OFF);
 
 	/*
 	 * These options are handled in record and no need to do it in
@@ -144,7 +144,7 @@ static void reset_live_opts(struct uftrace_opts *opts)
 
 others:
 	opts->depth = MCOUNT_DEFAULT_DEPTH;
-	opts->disabled = false;
+	opts->trace = TRACE_STATE_ON;
 	opts->no_event = false;
 	opts->no_sched = false;
 }
@@ -461,7 +461,7 @@ TEST_CASE(live_reset_options)
 {
 	struct uftrace_opts o = {
 		.depth = 3,
-		.disabled = true,
+		.trace = TRACE_STATE_OFF,
 		.no_event = true,
 		.no_sched = true,
 	};
@@ -482,7 +482,7 @@ TEST_CASE(live_reset_options)
 	TEST_EQ(o.caller, NULL);
 	/* it should only have the color trigger */
 	TEST_STREQ(o.trigger, "bar@time=1us,color=red;baz@backtrace,trace");
-	TEST_EQ(o.disabled, false);
+	TEST_EQ(o.trace, TRACE_STATE_ON);
 	TEST_EQ(o.no_event, false);
 	TEST_EQ(o.no_sched, false);
 

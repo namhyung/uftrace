@@ -445,7 +445,7 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, bool force)
 	if (getenv("UFTRACE_DEPTH"))
 		mcount_depth = strtol(getenv("UFTRACE_DEPTH"), NULL, 0);
 
-	if (getenv("UFTRACE_DISABLED"))
+	if (getenv("UFTRACE_TRACE_OFF"))
 		mcount_enabled = false;
 }
 
