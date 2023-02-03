@@ -458,7 +458,7 @@ struct uftrace_msg_dlopen {
 };
 
 enum uftrace_agent_opt {
-	UFTRACE_AGENT_OPT_XXX,
+	UFTRACE_AGENT_OPT_TRACE = (1U << 0), /* turn tracing on/off */
 };
 
 extern struct uftrace_session *first_session;
