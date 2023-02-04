@@ -109,6 +109,7 @@ class TestBase:
         self.option = ''
         self.exearg = 't-' + name
         self.p_flag = ''
+        self.p_libs = []
         self.test_feature()
         if Elf.get_elf_machine(self.uftrace_cmd) == 'i386':
             self.default_cflags.append('-m32')
@@ -224,6 +225,9 @@ class TestBase:
 
         lib_cflags = build_cflags + ' -shared -fPIC'
 
+        if '-fpatchable-function-entry' in cflags:
+            self.p_libs.append('libabc_test_lib.so')
+
         # build libabc_test_lib.so library
         build_cmd = '%s -o libabc_test_lib.so %s s-lib.c %s' % \
                     (lang['cc'], lib_cflags, build_ldflags)
@@ -240,6 +244,9 @@ class TestBase:
                                   os.getenv('LDFLAGS', '')])
 
         lib_cflags = build_cflags + ' -shared -fPIC'
+
+        if '-fpatchable-function-entry' in cflags:
+            self.p_libs.append('lib%s.so' % name)
 
         # build lib{foo}.so library
         build_cmd = '%s -o lib%s.so %s s-lib%s%s %s' % \
@@ -259,6 +266,10 @@ class TestBase:
                                  [self.cflags, cflags, os.getenv(lang['flags'], '')])
         build_ldflags = ' '.join([self.ldflags, ldflags, os.getenv('LDFLAGS', '')])
         exe_ldflags = build_ldflags + ' -Wl,-rpath,$ORIGIN -L. '
+
+        if '-fpatchable-function-entry' in cflags:
+            self.p_libs.append(prog)
+
         for lib in libs:
             exe_ldflags += ' -l' + lib[3:-3]
 
@@ -280,6 +291,12 @@ class TestBase:
     def runcmd(self):
         """ This function returns (shell) command that runs the test.
             A test case can extend this to setup a complex configuration.  """
+
+        if len(self.p_libs) > 0:
+            self.p_flag = ''
+            for lib in self.p_libs:
+                self.p_flag += '-P .@%s ' % lib
+
         return '%s %s %s %s %s %s' % (TestBase.uftrace_cmd, self.subcmd, \
                                    TestBase.default_opt, self.option, self.p_flag, self.exearg)
 
