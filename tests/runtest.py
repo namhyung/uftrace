@@ -506,7 +506,7 @@ class TestBase:
             v = int(f.readline())
             f.close()
 
-            if v == 3:
+            if v >= 3:
                 return False
         except:
             pass
