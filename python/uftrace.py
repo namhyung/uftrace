@@ -2,7 +2,6 @@ import os
 import sys
 import uftrace_python
 
-sys.setprofile(uftrace_python.trace)
 sys.argv = sys.argv[1:len(sys.argv)]
 
 filename = sys.argv[0]
@@ -19,4 +18,7 @@ else:
         except OSError:
             continue
 
-exec(open(sys.argv[0]).read())
+code = open(sys.argv[0]).read()
+sys.setprofile(uftrace_python.trace)
+exec(code)
+sys.setprofile(None)
