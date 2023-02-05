@@ -413,6 +413,9 @@ static uint64_t calc_feat_mask(struct uftrace_opts *opts)
 	if (opts->estimate_return)
 		features |= ESTIMATE_RETURN;
 
+	/* symbol file saves size */
+	features |= SYM_SIZE;
+
 	xasprintf(&buf, "%s/*.dbg", opts->dirname);
 	if (glob(buf, GLOB_NOSORT, NULL, &g) != GLOB_NOMATCH)
 		features |= DEBUG_INFO;

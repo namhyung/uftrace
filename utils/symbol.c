@@ -6,6 +6,7 @@
  * Released under the GPL v2.
  */
 
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
@@ -887,6 +888,7 @@ static int load_module_symbol_file(struct uftrace_symtab *symtab, const char *sy
 	while (getline(&line, &len, fp) > 0) {
 		struct uftrace_symbol *sym;
 		uint64_t addr;
+		uint32_t size;
 		char type;
 		char *name;
 		char *pos;
@@ -907,12 +909,24 @@ static int load_module_symbol_file(struct uftrace_symtab *symtab, const char *sy
 			*pos = '\0';
 
 		addr = strtoull(line, &pos, 16);
+		size = 0;
 
 		if (*pos++ != ' ') {
 			pr_dbg4("invalid symbol file format before type\n");
 			continue;
 		}
 		type = *pos++;
+
+		if (isdigit(type)) {
+			/* new symbol file has size info */
+			size = strtoul(pos - 1, &pos, 16);
+
+			if (*pos++ != ' ') {
+				pr_dbg4("invalid symbol file format for size\n");
+				continue;
+			}
+			type = *pos++;
+		}
 
 		if (*pos++ != ' ') {
 			pr_dbg4("invalid symbol file format after type\n");
@@ -959,7 +973,8 @@ static int load_module_symbol_file(struct uftrace_symtab *symtab, const char *sy
 		if (type == ST_UNKNOWN || is_symbol_end(name)) {
 			if (symtab->nr_sym > 0) {
 				sym = &symtab->sym[symtab->nr_sym - 1];
-				sym->size = addr + offset - sym->addr;
+				if (sym->size == 0)
+					sym->size = addr + offset - sym->addr;
 			}
 			continue;
 		}
@@ -976,7 +991,7 @@ static int load_module_symbol_file(struct uftrace_symtab *symtab, const char *sy
 		sym->addr = addr + offset;
 		sym->type = type;
 		sym->name = demangle(name);
-		sym->size = 0;
+		sym->size = size;
 
 		pr_dbg4("[%zd] %c %lx + %-5u %s\n", symtab->nr_sym, sym->type, sym->addr, sym->size,
 			sym->name);
@@ -1193,21 +1208,6 @@ int check_symbol_file(const char *symfile, char *pathname, int pathlen, char *bu
 	return ret;
 }
 
-static bool symbol_is_func(struct uftrace_symbol *sym)
-{
-	switch (sym->type) {
-	case ST_LOCAL_FUNC:
-	case ST_GLOBAL_FUNC:
-	case ST_WEAK_FUNC:
-	case ST_PLT_FUNC:
-	case ST_KERNEL_FUNC:
-		return true;
-
-	default:
-		return false;
-	}
-}
-
 char *make_new_symbol_filename(const char *symfile, const char *pathname, char *build_id)
 {
 	const char *p;
@@ -1234,8 +1234,7 @@ static void save_module_symbol_file(struct uftrace_symtab *stab, const char *pat
 {
 	FILE *fp;
 	unsigned i;
-	bool prev_was_plt = false;
-	struct uftrace_symbol *sym, *prev;
+	struct uftrace_symbol *sym;
 	char *newfile = NULL;
 
 	if (stab->nr_sym == 0)
@@ -1274,35 +1273,13 @@ static void save_module_symbol_file(struct uftrace_symtab *stab, const char *pat
 	if (strlen(build_id) > 0)
 		fprintf(fp, "# build-id: %s\n", build_id);
 
-	prev = &stab->sym[0];
-	prev_was_plt = (prev->type == ST_PLT_FUNC);
-
-	fprintf(fp, "%016" PRIx64 " %c %s\n", prev->addr - offset, (char)prev->type, prev->name);
-
 	/* PLT + normal symbols (in any order)*/
-	for (i = 1; i < stab->nr_sym; i++) {
+	for (i = 0; i < stab->nr_sym; i++) {
 		sym = &stab->sym[i];
 
-		/* mark end of the this kind of symbols */
-		if ((sym->type == ST_PLT_FUNC) != prev_was_plt) {
-			fprintf(fp, "%016" PRIx64 " %c __%ssym_end\n",
-				prev->addr + prev->size - offset, (char)ST_UNKNOWN,
-				prev_was_plt ? "dyn" : "");
-		}
-		else if (symbol_is_func(prev) && !symbol_is_func(sym)) {
-			fprintf(fp, "%016" PRIx64 " %c %s\n", prev->addr + prev->size - offset,
-				(char)ST_UNKNOWN, "__func_end");
-		}
-
-		fprintf(fp, "%016" PRIx64 " %c %s\n", sym->addr - offset, (char)sym->type,
-			sym->name);
-
-		prev = sym;
-		prev_was_plt = (prev->type == ST_PLT_FUNC);
+		fprintf(fp, "%016" PRIx64 " %08x %c %s\n", sym->addr - offset, sym->size,
+			(char)sym->type, sym->name);
 	}
-
-	fprintf(fp, "%016" PRIx64 " %c __%ssym_end\n", prev->addr + prev->size - offset,
-		(char)ST_UNKNOWN, prev_was_plt ? "dyn" : "");
 
 	fclose(fp);
 	free(newfile);
