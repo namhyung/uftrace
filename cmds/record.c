@@ -2131,7 +2131,7 @@ int do_main_loop(int ready, struct uftrace_opts *opts, int pid)
 int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
 {
 	uint64_t dummy;
-	char *shebang;
+	char *shebang = NULL;
 	char fullpath[PATH_MAX];
 	struct strv new_args = STRV_INIT;
 	bool is_python = false;
@@ -2149,7 +2149,28 @@ int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
 	if (realpath(opts->dirname, fullpath) != NULL)
 		opts->dirname = fullpath;
 
-	shebang = check_script_file(argv[0]);
+	if (access(argv[0], F_OK) == 0) {
+		/* prefer current directory over PATH */
+		shebang = check_script_file(argv[0]);
+	}
+	else {
+		struct strv path_names = STRV_INIT;
+		char *path, *dir;
+		int i, ret;
+
+		strv_split(&path_names, getenv("PATH"), ":");
+		strv_for_each(&path_names, dir, i) {
+			xasprintf(&path, "%s/%s", dir, argv[0]);
+			ret = access(path, F_OK);
+			if (ret == 0)
+				shebang = check_script_file(path);
+			free(path);
+			if (ret == 0)
+				break;
+		}
+		strv_free(&path_names);
+	}
+
 	if (shebang) {
 		char *s, *p;
 		int i;
