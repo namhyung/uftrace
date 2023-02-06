@@ -1426,9 +1426,18 @@ static int dd_source_name(struct demangle_data *dd)
 	/* check special symbol mappings (e.g. '$LT$') for Rust */
 	while (dollar != NULL && dollar < end) {
 		bool found = false;
+		char *separator = p;
 
 		num = dollar - p;
-		dd_append_len(dd, p, num);
+		while (true) {
+			char *update = strstr(separator, "..");
+			if (!update || update > dollar)
+				break;
+			dd_append_len(dd, separator, update - separator);
+			dd_append_separator(dd, "::");
+			separator = update + 2;
+		}
+		dd_append_len(dd, separator, dollar - separator);
 
 		for (i = 0; i < ARRAY_SIZE(rust_mappings); i++) {
 			if (strncmp(rust_mappings[i].code, dollar + 1,
@@ -1436,9 +1445,17 @@ static int dd_source_name(struct demangle_data *dd)
 				continue;
 
 			dd_add_debug(dd);
-			dd_append(dd, rust_mappings[i].punc);
-			num += strlen(rust_mappings[i].code) + 2;
-			__dd_consume_n(dd, num, NULL);
+			/* skip "as TRAIT" */
+			if (strncmp(dollar, "$u20$as$u20$", 12) == 0) {
+				dd_append(dd, ">");
+				num += (end - dollar);
+				__dd_consume_n(dd, num, NULL);
+			}
+			else {
+				dd_append(dd, rust_mappings[i].punc);
+				num += strlen(rust_mappings[i].code) + 2;
+				__dd_consume_n(dd, num, NULL);
+			}
 
 			p += num;
 			found = true;
@@ -1691,7 +1708,13 @@ static char *demangle_simple(char *str)
 		dd.len -= 15;
 	}
 
-	if (dd.old[0] != '_' || dd.old[1] != 'Z')
+	if (dd.old[0] != '_') {
+		if (dd.old[1] != 'Z' || dd.old[1] != 'R')
+			return xstrdup(str);
+	}
+
+	// TODO: implement demangling Rust v0 mangling
+	if (dd.old[1] == 'R')
 		return xstrdup(str);
 
 	if (dd_encoding(&dd) < 0 || dd.level != 0) {
@@ -1930,8 +1953,11 @@ TEST_CASE(demangle_rust1)
 	DEMANGLE_TEST("_ZN35Bar$LT$$u5b$u32$u3b$$u20$4$u5d$$GT$E", "Bar<[u32; 4]>");
 	DEMANGLE_TEST("_ZN71_$LT$Test$u20$$u2b$$u20$$u27$static"
 		      "$u20$as$u20$foo..Bar$LT$Test$GT$$GT$3barE",
-		      "_<Test + 'static as foo..Bar<Test>>::bar");
+		      "_<Test + 'static>::bar");
 	DEMANGLE_TEST("_ZN3foo3bar17h05af221e174051e9E", "foo::bar");
+	DEMANGLE_TEST(
+		"_ZN61_$LT$$RF$std..io..stdio..Stdout$u20$as$u20$std..io..Write$GT$9write_fmt17h75c561f414a62159E",
+		"_<&std::io::stdio::Stdout>::write_fmt");
 
 	return TEST_OK;
 }
