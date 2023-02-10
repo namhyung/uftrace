@@ -443,4 +443,6 @@ int read_pmu_event(struct mcount_thread_data *mtdp, enum uftrace_event_id id, vo
 void release_pmu_event(struct mcount_thread_data *mtdp, enum uftrace_event_id id);
 void finish_pmu_event(struct mcount_thread_data *mtdp);
 
+bool mcount_is_main_executable(const char *filename, const char *exename);
+
 #endif /* UFTRACE_MCOUNT_INTERNAL_H */

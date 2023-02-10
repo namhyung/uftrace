@@ -151,6 +151,10 @@ fi
 CC=${CC:-${CROSS_COMPILE}gcc}
 LD=${LD:-${CROSS_COMPILE}ld}
 
+if $CC --version | grep -q Android; then
+    ANDROID=1
+fi
+
 # objdir can be changed, reset output
 objdir=$(readlink -f ${objdir})
 output=${output:-${objdir}/.config}
@@ -282,6 +286,7 @@ override CC     := $CC
 override LD     := $LD
 override CFLAGS  = $CFLAGS
 override LDFLAGS = $LDFLAGS
+override ANDROID = $ANDROID
 
 override srcdir := $srcdir
 override objdir := $objdir

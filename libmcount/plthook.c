@@ -481,6 +481,11 @@ static int setup_mod_plthook_data(struct dl_phdr_info *info, size_t sz, void *ar
 		"ld-linux-*.so.*",
 		"libdl.so.2",
 		"libdl-2.*.so",
+#ifdef __ANDROID__
+		"linker64",
+		"libc.so",
+		"libm.so",
+#endif
 	};
 	size_t k;
 	static bool exe_once = true;
@@ -510,6 +515,9 @@ static int setup_exe_plthook_data(struct dl_phdr_info *info, size_t sz, void *ar
 {
 	const char *exename = arg;
 	unsigned long offset = info->dlpi_addr;
+
+	if (!mcount_is_main_executable(info->dlpi_name, exename))
+		return 0;
 
 	pr_dbg2("setup plthook data for %s (offset: %lx)\n", exename, offset);
 

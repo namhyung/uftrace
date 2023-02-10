@@ -25,6 +25,7 @@
 #include "utils/kernel.h"
 #include "utils/list.h"
 #include "utils/perf.h"
+#include "utils/shmem.h"
 #include "utils/symbol.h"
 #include "utils/utils.h"
 
@@ -826,7 +827,7 @@ static void record_mmap_file(const char *dirname, char *sess_id, int bufsize)
 	struct mcount_shmem_buffer *shmem_buf;
 
 	/* write (append) it to disk */
-	fd = shm_open(sess_id, O_RDWR, 0600);
+	fd = uftrace_shmem_open(sess_id, O_RDWR, 0600);
 	if (fd < 0) {
 		pr_dbg("open shmem buffer failed: %s: %m\n", sess_id);
 		return;
@@ -935,12 +936,12 @@ static void unlink_shmem_list(void)
 		sscanf(sl->id, "/uftrace-%[^-]-%*d-%*d", shmem_session);
 		pr_dbg2("unlink for session: %s\n", shmem_session);
 
-		num = scandir("/dev/shm/", &shmem_bufs, filter_shmem, alphasort);
+		num = scandir(uftrace_shmem_root(), &shmem_bufs, filter_shmem, alphasort);
 		for (i = 0; i < num; i++) {
 			sid[0] = '/';
 			memcpy(&sid[1], shmem_bufs[i]->d_name, MSG_ID_SIZE);
 			pr_dbg3("unlink %s\n", sid);
-			shm_unlink(sid);
+			uftrace_shmem_unlink(sid);
 			free(shmem_bufs[i]);
 		}
 

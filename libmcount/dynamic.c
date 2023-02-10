@@ -300,6 +300,7 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 	struct find_module_data *fmd = data;
 	struct uftrace_sym_info *sym_info = fmd->sinfo;
 	struct uftrace_mmap *map;
+	bool is_executable = mcount_is_main_executable(info->dlpi_name, sym_info->filename);
 
 	mdi = create_mdi(info);
 
@@ -315,7 +316,7 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 		free(mdi);
 	}
 
-	return !fmd->needs_modules;
+	return !fmd->needs_modules && is_executable;
 }
 
 static void prepare_dynamic_update(struct uftrace_sym_info *sinfo, bool needs_modules)

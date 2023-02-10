@@ -276,7 +276,7 @@ now.
 
 Limitations
 ===========
-- It can trace a native C/C++ application on Linux.
+- It can trace a native C/C++ application on Linux and Android.
 - It *cannot* trace already running process.
 - It *cannot* be used for system-wide tracing.
 - It supports x86 (32 and 64 bit), ARM (v6 or later) and AArch64 for now.

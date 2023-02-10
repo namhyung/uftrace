@@ -59,7 +59,12 @@ COMMON_CFLAGS := -D_GNU_SOURCE $(CFLAGS) $(CPPFLAGS)
 COMMON_CFLAGS += -iquote $(srcdir) -iquote $(objdir) -iquote $(srcdir)/arch/$(ARCH)
 COMMON_CFLAGS += -Wdeclaration-after-statement
 #CFLAGS-DEBUG = -g -D_GNU_SOURCE $(CFLAGS_$@)
-COMMON_LDFLAGS := -lrt -ldl -pthread -Wl,-z,noexecstack $(LDFLAGS)
+COMMON_LDFLAGS := -ldl -pthread -Wl,-z,noexecstack $(LDFLAGS)
+ifeq ($(ANDROID),)
+COMMON_LDFLAGS += -lrt
+else
+COMMON_LDFLAGS += -landroid
+endif
 ifneq ($(elfdir),)
   COMMON_CFLAGS  += -I$(elfdir)/include
   COMMON_LDFLAGS += -L$(elfdir)/lib
@@ -213,6 +218,7 @@ LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/script.c $(srcdir)/utils/script-python.c
 LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/auto-args.c $(srcdir)/utils/dwarf.c
 LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/hashmap.c $(srcdir)/utils/argspec.c
 LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/tracefs.c $(srcdir)/utils/socket.c
+LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/shmem.c
 LIBMCOUNT_UTILS_SRCS += $(wildcard $(srcdir)/utils/symbol*.c)
 LIBMCOUNT_UTILS_OBJS := $(patsubst $(srcdir)/utils/%.c,$(objdir)/libmcount/%.op,$(LIBMCOUNT_UTILS_SRCS))
 

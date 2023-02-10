@@ -2147,6 +2147,21 @@ void __visible_default __cyg_profile_func_exit(void *child, void *parent)
 }
 UFTRACE_ALIAS(__cyg_profile_func_exit);
 
+bool mcount_is_main_executable(const char *filename, const char *exename)
+{
+	/* on Linux main executable has empty name
+	   whereas on Android we need to compare with exename */
+	char filename_canonized[PATH_MAX];
+	char exename_canonized[PATH_MAX];
+
+	if (!*filename)
+		return true;
+	if (realpath(filename, filename_canonized) && realpath(exename, exename_canonized)) {
+		return strcmp(filename_canonized, exename_canonized) == 0;
+	}
+	return false;
+}
+
 #ifndef UNIT_TEST
 /*
  * Initializer and Finalizer
