@@ -462,6 +462,7 @@ enum uftrace_agent_opt {
 	UFTRACE_AGENT_OPT_TRACE = (1U << 0), /* turn tracing on/off */
 	UFTRACE_AGENT_OPT_DEPTH = (1U << 1), /* mcount depth filter */
 	UFTRACE_AGENT_OPT_THRESHOLD = (1U << 2), /* mcount time filter */
+	UFTRACE_AGENT_OPT_PATTERN = (1U << 3), /* pattern match type */
 };
 
 extern struct uftrace_session *first_session;

@@ -360,6 +360,11 @@ static int forward_options(struct uftrace_opts *opts)
 			goto close;
 	}
 
+	status = forward_option(sfd, capabilities, UFTRACE_AGENT_OPT_PATTERN, &opts->patt_type,
+				sizeof(opts->patt_type));
+	if (status < 0)
+		goto close;
+
 close:
 	status_close = agent_message_send(sfd, UFTRACE_MSG_AGENT_CLOSE, NULL, 0);
 	if (status_close == 0) {
