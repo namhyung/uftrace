@@ -1018,6 +1018,11 @@ static void setup_trigger(char *filter_str, struct uftrace_sym_info *sinfo, stru
 				*count += ret;
 		}
 
+		if (ret > 0 && (tr.flags & TRIGGER_FL_CALLER) && count) {
+			*count += ret;
+			pr_dbg4("caller filter count: %d\n", *count);
+		}
+
 next:
 		free_filter_pattern(&patt);
 		free(module);
@@ -1101,12 +1106,14 @@ void uftrace_setup_retval(char *retval_str, struct uftrace_sym_info *sinfo, stru
  * @filter_str - CSV of filter string
  * @sinfo      - symbol information to find symbol address
  * @root       - root of resulting rbtree
+ * @count      - counter for registered caller filters
  * @setting    - filter settings
  */
 void uftrace_setup_caller_filter(char *filter_str, struct uftrace_sym_info *sinfo,
-				 struct rb_root *root, struct uftrace_filter_setting *setting)
+				 struct rb_root *root, int *count,
+				 struct uftrace_filter_setting *setting)
 {
-	setup_trigger(filter_str, sinfo, root, TRIGGER_FL_CALLER, NULL, setting);
+	setup_trigger(filter_str, sinfo, root, TRIGGER_FL_CALLER, count, setting);
 }
 
 /**
@@ -1654,7 +1661,7 @@ TEST_CASE(trigger_setup_filters)
 	TEST_EQ(tr.fmode, FILTER_MODE_OUT);
 
 	pr_dbg("check caller filter setting\n");
-	uftrace_setup_caller_filter("foo::baz3", &sinfo, &root, &setting);
+	uftrace_setup_caller_filter("foo::baz3", &sinfo, &root, NULL, &setting);
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x5000, &root, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_CALLER);

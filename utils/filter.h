@@ -128,7 +128,8 @@ void uftrace_setup_argument(char *trigger_str, struct uftrace_sym_info *sinfo, s
 void uftrace_setup_retval(char *trigger_str, struct uftrace_sym_info *sinfo, struct rb_root *root,
 			  struct uftrace_filter_setting *setting);
 void uftrace_setup_caller_filter(char *filter_str, struct uftrace_sym_info *sinfo,
-				 struct rb_root *root, struct uftrace_filter_setting *setting);
+				 struct rb_root *root, int *count,
+				 struct uftrace_filter_setting *setting);
 void uftrace_setup_hide_filter(char *filter_str, struct uftrace_sym_info *sinfo,
 			       struct rb_root *root, struct uftrace_filter_setting *setting);
 void uftrace_setup_loc_filter(char *filter_str, struct uftrace_sym_info *sinfo,

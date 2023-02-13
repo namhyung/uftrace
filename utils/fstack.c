@@ -246,7 +246,7 @@ static int setup_callers(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
 
-	uftrace_setup_caller_filter(setting->info_str, &s->sym_info, &s->filters, setting);
+	uftrace_setup_caller_filter(setting->info_str, &s->sym_info, &s->filters, NULL, setting);
 	return 0;
 }
 

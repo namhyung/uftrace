@@ -98,8 +98,8 @@ static struct rb_root __maybe_unused *mcount_triggers;
 /* bitmask of active watch points */
 static unsigned long __maybe_unused mcount_watchpoints;
 
-/* whether caller filter is activated */
-static bool __maybe_unused mcount_has_caller;
+/* count of registered caller filters */
+static int __maybe_unused mcount_caller_count;
 
 /* address of function will be called when a function returns */
 unsigned long mcount_return_fn;
@@ -427,12 +427,8 @@ static void mcount_filter_init(struct uftrace_filter_setting *filter_setting, bo
 
 	if (caller_str) {
 		uftrace_setup_caller_filter(caller_str, &mcount_sym_info, mcount_triggers,
-					    filter_setting);
+					    &mcount_caller_count, filter_setting);
 	}
-
-	/* there might be caller triggers, count it separately */
-	if (uftrace_count_filter(mcount_triggers, TRIGGER_FL_CALLER) != 0)
-		mcount_has_caller = true;
 
 	if (autoargs_str) {
 		char *autoarg = ".";
@@ -1207,7 +1203,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp, struct mcount_re
 			save_watchpoint(mtdp, rstack, mcount_watchpoints);
 
 		if (((rstack->end_time - rstack->start_time > time_filter) &&
-		     (!mcount_has_caller || rstack->flags & MCOUNT_FL_CALLER)) ||
+		     (!mcount_caller_count || rstack->flags & MCOUNT_FL_CALLER)) ||
 		    rstack->flags & (MCOUNT_FL_WRITTEN | MCOUNT_FL_TRACE)) {
 			if (record_trace_data(mtdp, rstack, retval) < 0)
 				pr_err("error during record");
@@ -1846,8 +1842,8 @@ static void agent_setup_filter(char *filter_str, struct rb_root *triggers)
  */
 static void agent_setup_caller_filter(char *caller_str, struct rb_root *triggers)
 {
-	uftrace_setup_caller_filter(caller_str, &mcount_sym_info, triggers, &mcount_filter_setting);
-	mcount_has_caller = true;
+	uftrace_setup_caller_filter(caller_str, &mcount_sym_info, triggers, &mcount_caller_count,
+				    &mcount_filter_setting);
 }
 
 /**
