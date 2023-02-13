@@ -288,6 +288,20 @@ void update_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr, b
 }
 
 /**
+ * prune_void_filter - remove filters without trigger flags from the tree
+ * @node - filter node to check
+ * @root - root of the rbtree
+ */
+static void prune_void_filter(struct rb_node *node, struct rb_root *root)
+{
+	struct uftrace_filter *iter = rb_entry(node, struct uftrace_filter, node);
+	if (!iter->trigger.flags) {
+		rb_erase(node, root);
+		pr_dbg3("prune void filter %s\n", iter->name);
+	}
+}
+
+/**
  * update_filter - add, change or remove registered filter
  * @root - registered filters RB tree
  * @filter - filter tree node to update
@@ -354,6 +368,8 @@ static int update_filter(struct rb_root *root, struct uftrace_filter *filter,
 			if (auto_ret)
 				update_trigger(iter, &auto_ret->trigger, exact_match);
 			tr->flags = orig_flags;
+			if (tr->flags & TRIGGER_FL_CLEAR)
+				prune_void_filter(parent, root);
 			return 1;
 		}
 
