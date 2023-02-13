@@ -113,7 +113,7 @@ static pthread_t agent;
 /* state flag for the agent */
 static volatile bool agent_run = false;
 
-#define MCOUNT_AGENT_CAPABILITIES 0
+#define MCOUNT_AGENT_CAPABILITIES (UFTRACE_AGENT_OPT_PATTERN)
 
 __weak void dynamic_return(void)
 {
@@ -1867,9 +1867,18 @@ static int agent_read_option(int fd, int *opt, void **value, size_t read_size)
  */
 static int agent_apply_option(int opt, void *value, size_t size, struct rb_root *triggers)
 {
+	enum uftrace_pattern_type patt_type;
 	int ret = 0;
 
 	switch (opt) {
+	case UFTRACE_AGENT_OPT_PATTERN:
+		patt_type = *((int *)value);
+		if (patt_type != mcount_filter_setting.ptype) {
+			mcount_filter_setting.ptype = patt_type;
+			pr_dbg4("use pattern type %#x\n", patt_type);
+		}
+		break;
+
 	default:
 		ret = -1;
 	}
