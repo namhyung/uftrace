@@ -906,8 +906,18 @@ static int update_trigger_entry(struct rb_root *root, struct uftrace_pattern *pa
 	return ret;
 }
 
+/**
+ * setup_trigger - Register filter and set trigger data for matching entries
+ * @filter_str - Symbol and action specification
+ * @sinfo - symbol information to find symbol address
+ * @root - RB tree of registered filters
+ * @flags - Trigger flags to apply
+ * @fmode - Filtering mode (inclusive/exclusive)
+ * @count - Registered entities count (depending on @flags)
+ * @setting - filter settings
+ */
 static void setup_trigger(char *filter_str, struct uftrace_sym_info *sinfo, struct rb_root *root,
-			  unsigned long flags, enum filter_mode *fmode,
+			  unsigned long flags, enum filter_mode *fmode, int *count,
 			  struct uftrace_filter_setting *setting)
 {
 	struct strv filters = STRV_INIT;
@@ -998,11 +1008,10 @@ static void setup_trigger(char *filter_str, struct uftrace_sym_info *sinfo, stru
 			}
 		}
 
-		if (ret > 0 && (tr.flags & TRIGGER_FL_FILTER) && fmode) {
+		if (ret > 0 && (tr.flags & TRIGGER_FL_FILTER) && count) {
 			if (tr.fmode == FILTER_MODE_IN)
-				*fmode = FILTER_MODE_IN;
-			else if (*fmode == FILTER_MODE_NONE)
-				*fmode = FILTER_MODE_OUT;
+				*count += ret;
+			pr_dbg4("filter IN count: %d\n", *count);
 		}
 
 		if (ret > 0 && (tr.flags & TRIGGER_FL_LOC) && fmode) {
@@ -1011,6 +1020,7 @@ static void setup_trigger(char *filter_str, struct uftrace_sym_info *sinfo, stru
 			else if (*fmode == FILTER_MODE_NONE)
 				*fmode = FILTER_MODE_OUT;
 		}
+
 next:
 		free_filter_pattern(&patt);
 		free(module);
@@ -1029,28 +1039,28 @@ next:
  * uftrace_setup_filter - construct rbtree of filters
  * @filter_str - CSV of filter string
  * @sinfo      - symbol information to find symbol address
- * @root       - root of resulting rbtree
- * @mode       - filter mode: opt-in (-F) or opt-out (-N)
+ * @root       - root of filters rbtree
+ * @count      - opt-in filter count
  * @setting    - filter settings
  */
 void uftrace_setup_filter(char *filter_str, struct uftrace_sym_info *sinfo, struct rb_root *root,
-			  enum filter_mode *mode, struct uftrace_filter_setting *setting)
+			  int *count, struct uftrace_filter_setting *setting)
 {
-	setup_trigger(filter_str, sinfo, root, TRIGGER_FL_FILTER, mode, setting);
+	setup_trigger(filter_str, sinfo, root, TRIGGER_FL_FILTER, NULL, count, setting);
 }
 
 /**
  * uftrace_setup_trigger - construct rbtree of triggers
  * @trigger_str - CSV of trigger string (FUNC @ act)
- * @sinfo      - symbol information to find symbol address
- * @root       - root of resulting rbtree
- * @mode       - filter mode: opt-in (-F) or opt-out (-N)
- * @setting    - filter settings
+ * @sinfo       - symbol information to find symbol address
+ * @root        - root of resulting rbtree
+ * @count       - registered opt-in filter count
+ * @setting     - filter settings
  */
 void uftrace_setup_trigger(char *trigger_str, struct uftrace_sym_info *sinfo, struct rb_root *root,
-			   enum filter_mode *mode, struct uftrace_filter_setting *setting)
+			   int *count, struct uftrace_filter_setting *setting)
 {
-	setup_trigger(trigger_str, sinfo, root, 0, mode, setting);
+	setup_trigger(trigger_str, sinfo, root, 0, NULL, count, setting);
 }
 
 /**
@@ -1068,7 +1078,7 @@ void uftrace_setup_argument(char *args_str, struct uftrace_sym_info *sinfo, stru
 	if (setting->auto_args)
 		flags |= TRIGGER_FL_AUTO_ARGS;
 
-	setup_trigger(args_str, sinfo, root, flags, NULL, setting);
+	setup_trigger(args_str, sinfo, root, flags, NULL, NULL, setting);
 }
 
 /**
@@ -1086,7 +1096,7 @@ void uftrace_setup_retval(char *retval_str, struct uftrace_sym_info *sinfo, stru
 	if (setting->auto_args)
 		flags |= TRIGGER_FL_AUTO_ARGS;
 
-	setup_trigger(retval_str, sinfo, root, flags, NULL, setting);
+	setup_trigger(retval_str, sinfo, root, flags, NULL, NULL, setting);
 }
 
 /**
@@ -1099,7 +1109,7 @@ void uftrace_setup_retval(char *retval_str, struct uftrace_sym_info *sinfo, stru
 void uftrace_setup_caller_filter(char *filter_str, struct uftrace_sym_info *sinfo,
 				 struct rb_root *root, struct uftrace_filter_setting *setting)
 {
-	setup_trigger(filter_str, sinfo, root, TRIGGER_FL_CALLER, NULL, setting);
+	setup_trigger(filter_str, sinfo, root, TRIGGER_FL_CALLER, NULL, NULL, setting);
 }
 
 /**
@@ -1112,7 +1122,7 @@ void uftrace_setup_caller_filter(char *filter_str, struct uftrace_sym_info *sinf
 void uftrace_setup_hide_filter(char *filter_str, struct uftrace_sym_info *sinfo,
 			       struct rb_root *root, struct uftrace_filter_setting *setting)
 {
-	setup_trigger(filter_str, sinfo, root, TRIGGER_FL_HIDE, NULL, setting);
+	setup_trigger(filter_str, sinfo, root, TRIGGER_FL_HIDE, NULL, NULL, setting);
 }
 
 /**
@@ -1127,7 +1137,7 @@ void uftrace_setup_loc_filter(char *filter_str, struct uftrace_sym_info *sinfo,
 			      struct rb_root *root, enum filter_mode *mode,
 			      struct uftrace_filter_setting *setting)
 {
-	setup_trigger(filter_str, sinfo, root, TRIGGER_FL_LOC, mode, setting);
+	setup_trigger(filter_str, sinfo, root, TRIGGER_FL_LOC, mode, NULL, setting);
 }
 
 /**
@@ -1309,6 +1319,11 @@ static void filter_test_load_symtabs(struct uftrace_sym_info *sinfo)
 	sinfo->loaded = true;
 }
 
+enum filter_mode get_filter_mode(int count)
+{
+	return count > 0 ? FILTER_MODE_IN : FILTER_MODE_OUT;
+}
+
 TEST_CASE(filter_setup_simple)
 {
 	struct uftrace_sym_info sinfo = {
@@ -1462,7 +1477,7 @@ TEST_CASE(filter_setup_notrace)
 	struct rb_root root = RB_ROOT;
 	struct rb_node *node;
 	struct uftrace_filter *filter;
-	enum filter_mode fmode;
+	int fcount = 0;
 	struct uftrace_filter_setting setting = {
 		.ptype = PATT_GLOB,
 	};
@@ -1470,14 +1485,14 @@ TEST_CASE(filter_setup_notrace)
 	filter_test_load_symtabs(&sinfo);
 
 	pr_dbg("setup inclusive filter for foo::*\n");
-	uftrace_setup_filter("foo::*", &sinfo, &root, &fmode, &setting);
+	uftrace_setup_filter("foo::*", &sinfo, &root, &fcount, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
-	TEST_EQ(fmode, FILTER_MODE_IN);
+	TEST_EQ(get_filter_mode(fcount), FILTER_MODE_IN);
 
 	pr_dbg("add/replace exclusive filter for foo::foo\n");
-	uftrace_setup_filter("!foo::foo", &sinfo, &root, &fmode, &setting);
+	uftrace_setup_filter("!foo::foo", &sinfo, &root, &fcount, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
-	TEST_EQ(fmode, FILTER_MODE_IN); /* overall filter mode doesn't change */
+	TEST_EQ(get_filter_mode(fcount), FILTER_MODE_IN); /* overall filter mode doesn't change */
 
 	pr_dbg("foo:foo should have OUT filter mode\n");
 	node = rb_first(&root);
@@ -1505,7 +1520,7 @@ TEST_CASE(filter_match)
 		.loaded = false,
 	};
 	struct rb_root root = RB_ROOT;
-	enum filter_mode fmode;
+	int fcount = 0;
 	struct uftrace_trigger tr;
 	struct uftrace_filter_setting setting = {
 		.ptype = PATT_REGEX,
@@ -1514,9 +1529,9 @@ TEST_CASE(filter_match)
 	filter_test_load_symtabs(&sinfo);
 
 	pr_dbg("check filter address match with foo::foo at 0x1000-0x1fff\n");
-	uftrace_setup_filter("foo::foo", &sinfo, &root, &fmode, &setting);
+	uftrace_setup_filter("foo::foo", &sinfo, &root, &fcount, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
-	TEST_EQ(fmode, FILTER_MODE_IN);
+	TEST_EQ(get_filter_mode(fcount), FILTER_MODE_IN);
 
 	pr_dbg("check addresses inside the symbol\n");
 	memset(&tr, 0, sizeof(tr));
@@ -1605,7 +1620,7 @@ TEST_CASE(trigger_setup_filters)
 	};
 	struct rb_root root = RB_ROOT;
 	struct uftrace_trigger tr;
-	enum filter_mode fmode = FILTER_MODE_NONE;
+	int fcount = 0;
 	struct uftrace_filter_setting setting = {
 		.ptype = PATT_REGEX,
 		.lp64 = host_is_lp64(),
@@ -1614,9 +1629,9 @@ TEST_CASE(trigger_setup_filters)
 	filter_test_load_symtabs(&sinfo);
 
 	pr_dbg("setup notrace filter with trigger action\n");
-	uftrace_setup_trigger("foo::bar@depth=2,notrace", &sinfo, &root, &fmode, &setting);
+	uftrace_setup_trigger("foo::bar@depth=2,notrace", &sinfo, &root, &fcount, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
-	TEST_EQ(fmode, FILTER_MODE_OUT);
+	TEST_EQ(get_filter_mode(fcount), FILTER_MODE_OUT);
 
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x2500, &root, &tr), NULL);
@@ -1625,16 +1640,16 @@ TEST_CASE(trigger_setup_filters)
 	TEST_EQ(tr.fmode, FILTER_MODE_OUT);
 
 	pr_dbg("compare regular filter setting with trigger\n");
-	uftrace_setup_filter("foo::baz1", &sinfo, &root, &fmode, &setting);
-	TEST_EQ(fmode, FILTER_MODE_IN);
+	uftrace_setup_filter("foo::baz1", &sinfo, &root, &fcount, &setting);
+	TEST_EQ(get_filter_mode(fcount), FILTER_MODE_IN);
 
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x3000, &root, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_FILTER);
 	TEST_EQ(tr.fmode, FILTER_MODE_IN);
 
-	uftrace_setup_trigger("foo::baz2@notrace", &sinfo, &root, &fmode, &setting);
-	TEST_EQ(fmode, FILTER_MODE_IN);
+	uftrace_setup_trigger("foo::baz2@notrace", &sinfo, &root, &fcount, &setting);
+	TEST_EQ(get_filter_mode(fcount), FILTER_MODE_IN);
 
 	memset(&tr, 0, sizeof(tr));
 	TEST_NE(uftrace_match_filter(0x4100, &root, &tr), NULL);
@@ -2354,7 +2369,7 @@ TEST_CASE(locfilter_match)
 		.loaded = false,
 	};
 	struct rb_root root = RB_ROOT;
-	enum filter_mode fmode;
+	int fcount = 0;
 	struct uftrace_trigger tr;
 	struct uftrace_filter_setting setting = {
 		.ptype = PATT_REGEX,
@@ -2363,9 +2378,9 @@ TEST_CASE(locfilter_match)
 	locfilter_test_load_symtabs(&sinfo);
 
 	pr_dbg("check filter address match with re.* at 0x2000-0x2fff\n");
-	uftrace_setup_filter("re.*", &sinfo, &root, &fmode, &setting);
+	uftrace_setup_filter("re.*", &sinfo, &root, &fcount, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&root), false);
-	TEST_EQ(fmode, FILTER_MODE_IN);
+	TEST_EQ(get_filter_mode(fcount), FILTER_MODE_IN);
 
 	pr_dbg("check addresses inside the symbol\n");
 	memset(&tr, 0, sizeof(tr));

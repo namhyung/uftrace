@@ -86,8 +86,8 @@ static struct uftrace_filter_setting mcount_filter_setting = {
 /* boolean flag to turn on/off recording */
 static bool __maybe_unused mcount_enabled = true;
 
-/* function filtering mode - inclusive or exclusive */
-static enum filter_mode __maybe_unused mcount_filter_mode = FILTER_MODE_NONE;
+/* count of registered opt-in filters (-F) */
+static int __maybe_unused mcount_filter_count;
 
 /* location filtering mode - inclusive or exclusive */
 static enum filter_mode __maybe_unused mcount_loc_mode = FILTER_MODE_NONE;
@@ -413,9 +413,9 @@ static void mcount_filter_init(struct uftrace_filter_setting *filter_setting, bo
 
 	mcount_triggers = xmalloc(sizeof(*mcount_triggers));
 	*mcount_triggers = RB_ROOT;
-	uftrace_setup_filter(filter_str, &mcount_sym_info, mcount_triggers, &mcount_filter_mode,
+	uftrace_setup_filter(filter_str, &mcount_sym_info, mcount_triggers, &mcount_filter_count,
 			     filter_setting);
-	uftrace_setup_trigger(trigger_str, &mcount_sym_info, mcount_triggers, &mcount_filter_mode,
+	uftrace_setup_trigger(trigger_str, &mcount_sym_info, mcount_triggers, &mcount_filter_count,
 			      filter_setting);
 	uftrace_setup_argument(argument_str, &mcount_sym_info, mcount_triggers, filter_setting);
 	uftrace_setup_retval(retval_str, &mcount_sym_info, mcount_triggers, filter_setting);
@@ -853,6 +853,14 @@ static bool mcount_check_rstack(struct mcount_thread_data *mtdp)
 #ifndef DISABLE_MCOUNT_FILTER
 extern void *get_argbuf(struct mcount_thread_data *, struct mcount_ret_stack *);
 
+/**
+ * mcount_get_filter_mode - compute the filter mode from the filter count
+ */
+static inline enum filter_mode mcount_get_filter_mode()
+{
+	return mcount_filter_count > 0 ? FILTER_MODE_IN : FILTER_MODE_OUT;
+}
+
 static void mcount_save_filter(struct mcount_thread_data *mtdp)
 {
 	/* save original depth and time to restore at exit time */
@@ -897,7 +905,7 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 	}
 	else {
 		/* not matched by filter */
-		if (mcount_filter_mode == FILTER_MODE_IN && mtdp->filter.in_count == 0)
+		if (mcount_get_filter_mode() == FILTER_MODE_IN && mtdp->filter.in_count == 0)
 			return FILTER_OUT;
 	}
 
@@ -1029,7 +1037,7 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp, struct mcount_r
 				struct uftrace_trigger *tr, struct mcount_regs *regs)
 {
 	if (mtdp->filter.out_count > 0 ||
-	    (mtdp->filter.in_count == 0 && mcount_filter_mode == FILTER_MODE_IN) ||
+	    (mtdp->filter.in_count == 0 && mcount_get_filter_mode() == FILTER_MODE_IN) ||
 	    (mtdp->filter.size > 0 &&
 	     mcount_getsize(&mcount_sym_info, rstack->child_ip) < mtdp->filter.size))
 		rstack->flags |= MCOUNT_FL_NORECORD;
@@ -1819,7 +1827,7 @@ static void swap_triggers(struct rb_root **old, struct rb_root *new)
  */
 static void agent_setup_filter(char *filter_str, struct rb_root *triggers)
 {
-	uftrace_setup_filter(filter_str, &mcount_sym_info, triggers, &mcount_filter_mode,
+	uftrace_setup_filter(filter_str, &mcount_sym_info, triggers, &mcount_filter_count,
 			     &mcount_filter_setting);
 }
 

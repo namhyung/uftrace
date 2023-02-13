@@ -21,8 +21,13 @@
 bool fstack_enabled = true;
 bool live_disabled = false;
 
-static enum filter_mode fstack_filter_mode = FILTER_MODE_NONE;
+static int fstack_filter_count;
 static enum filter_mode fstack_loc_mode = FILTER_MODE_NONE;
+
+static inline int fstack_get_filter_mode()
+{
+	return fstack_filter_count > 0 ? FILTER_MODE_IN : FILTER_MODE_OUT;
+}
 
 static int __read_task_ustack(struct uftrace_task_reader *task);
 
@@ -218,7 +223,7 @@ static int setup_filters(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
 
-	uftrace_setup_filter(setting->info_str, &s->sym_info, &s->filters, &fstack_filter_mode,
+	uftrace_setup_filter(setting->info_str, &s->sym_info, &s->filters, &fstack_filter_count,
 			     setting);
 	return 0;
 }
@@ -227,7 +232,7 @@ static int setup_trigger(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
 
-	uftrace_setup_trigger(setting->info_str, &s->sym_info, &s->filters, &fstack_filter_mode,
+	uftrace_setup_trigger(setting->info_str, &s->sym_info, &s->filters, &fstack_filter_count,
 			      setting);
 	return 0;
 }
@@ -642,7 +647,7 @@ int fstack_entry(struct uftrace_task_reader *task, struct uftrace_record *rstack
 		task->filter.depth = task->h->depth;
 	}
 	else {
-		if (fstack_filter_mode == FILTER_MODE_IN && task->filter.in_count == 0) {
+		if (fstack_get_filter_mode() == FILTER_MODE_IN && task->filter.in_count == 0) {
 			fstack->flags |= FSTACK_FL_NORECORD;
 			return -1;
 		}
@@ -838,7 +843,8 @@ static int fstack_check_skip(struct uftrace_task_reader *task, struct uftrace_re
 		if (tr.fmode == FILTER_MODE_OUT)
 			return -1;
 	}
-	else if ((fstack_filter_mode == FILTER_MODE_IN || fstack_loc_mode == FILTER_MODE_IN) &&
+	else if ((fstack_get_filter_mode() == FILTER_MODE_IN ||
+		  fstack_loc_mode == FILTER_MODE_IN) &&
 		 task->filter.in_count == 0) {
 		return -1;
 	}
@@ -975,7 +981,7 @@ bool fstack_check_filter(struct uftrace_task_reader *task)
 	else if (task->rstack->type == UFTRACE_EVENT) {
 		/* don't change filter state, just check it */
 		if (task->filter.out_count > 0 || task->filter.depth <= 0 ||
-		    (fstack_filter_mode == FILTER_MODE_IN && task->filter.in_count == 0))
+		    (fstack_get_filter_mode() == FILTER_MODE_IN && task->filter.in_count == 0))
 			return false;
 
 		if (task->rstack->addr == EVENT_ID_PERF_SCHED_IN ||

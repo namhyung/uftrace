@@ -40,6 +40,15 @@ enum trigger_flag {
 	TRIGGER_FL_SIZE_FILTER = (1U << 19),
 };
 
+/**
+ * filter_mode - opt-in or opt-out mode
+ *
+ * When in opt-in mode, only trace functions that have an explicit filter. When
+ * in opt-out mode, trace all but explicitly excluded functions.
+
+ * @FILTER_MODE_NONE is neutral and is only used for initialization in the
+ * location filter.
+ */
 enum filter_mode {
 	FILTER_MODE_NONE,
 	FILTER_MODE_IN,
@@ -111,9 +120,9 @@ typedef void (*trigger_fn_t)(struct uftrace_trigger *tr, void *arg);
 struct uftrace_sym_info;
 
 void uftrace_setup_filter(char *filter_str, struct uftrace_sym_info *sinfo, struct rb_root *root,
-			  enum filter_mode *mode, struct uftrace_filter_setting *setting);
+			  int *count, struct uftrace_filter_setting *setting);
 void uftrace_setup_trigger(char *trigger_str, struct uftrace_sym_info *sinfo, struct rb_root *root,
-			   enum filter_mode *mode, struct uftrace_filter_setting *setting);
+			   int *count, struct uftrace_filter_setting *setting);
 void uftrace_setup_argument(char *trigger_str, struct uftrace_sym_info *sinfo, struct rb_root *root,
 			    struct uftrace_filter_setting *setting);
 void uftrace_setup_retval(char *trigger_str, struct uftrace_sym_info *sinfo, struct rb_root *root,
