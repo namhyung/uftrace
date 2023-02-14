@@ -32,7 +32,7 @@ class TestCase(TestBase):
         recv_cmd += ['-d', TDIR, '--port', str(self.port)]
         recv_cmd += ['--run-cmd', '%s %s' % (TestBase.uftrace_cmd, 'replay')]
         self.pr_debug('prerun command: ' + ' '.join(recv_cmd))
-        self.recv_p = sp.Popen(recv_cmd, stdout=sp.PIPE)
+        self.recv_p = sp.Popen(recv_cmd, stdout=sp.PIPE, stderr=sp.PIPE)
 
         record_cmd  = [TestBase.uftrace_cmd, 'record']
         record_cmd += TestBase.default_opt.split()
@@ -41,7 +41,7 @@ class TestCase(TestBase):
             record_cmd += self.p_flag.split()
         record_cmd += ['t-' + self.name]
         self.pr_debug('prerun command: ' + ' '.join(record_cmd))
-        sp.call(record_cmd)
+        sp.call(record_cmd, stderr=sp.PIPE)
         self.recv_p.terminate()
 
         out = self.recv_p.communicate()[0].decode(errors='ignore')
