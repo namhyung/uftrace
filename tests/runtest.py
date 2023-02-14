@@ -870,8 +870,8 @@ def parse_argument():
                         help="comma separated list of compiler profiling flags")
     parser.add_argument("-O", "--optimize-levels", dest='opts', default="0123s",
                         help="compiler optimization levels")
-    parser.add_argument("case", nargs='?', default="all",
-                        help="test case: 'all' or test number or (partial) name")
+    parser.add_argument("cases", nargs='?', default="all",
+                        help="test cases: 'all' or test number or (partial) name")
     parser.add_argument("-p", "--profile-pg", dest='pg_flag', action='store_true',
                         help="profiling with -pg option")
     parser.add_argument("-i", "--instrument-functions", dest='if_flag', action='store_true',
@@ -904,15 +904,18 @@ if __name__ == "__main__":
 
     arg = parse_argument()
 
-    if arg.case == 'all':
+    testcases = []
+    if arg.cases == 'all':
         testcases = glob.glob('t???_*.py')
     else:
         try:
-            testcases = glob.glob('t*' + arg.case + '*.py')
+            cases = arg.cases.split('|')
+            for case in cases:
+                testcases.extend(glob.glob('t*' + case + '*.py'))
             arg.worker = min(arg.worker, len(testcases))
         finally:
             if len(testcases) == 0:
-                print("cannot find testcase for : %s" % arg.case)
+                print("cannot find testcase for : %s" % arg.cases)
                 sys.exit(0)
 
     # Use multiprocessing pool if the number of workers is greater than 1.
