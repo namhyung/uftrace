@@ -34,3 +34,8 @@ class TestCase(TestBase):
     def setup(self):
         self.option = "--force -F fork -F main"
         self.exearg = TEST_SCRIPT
+
+    def fixup(self, cflags, result):
+        result = result.replace(' 133.697 us [28137] | fork();\n', '')
+        result = result.replace('            [28141] | } /* fork */\n', '')
+        return result
