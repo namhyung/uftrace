@@ -34,3 +34,6 @@ class TestCase(TestBase):
 
     def setup(self):
         self.option = '-F a'
+
+    def fixup(self, cflags, result):
+        return result.replace('creat', 'creat64')
