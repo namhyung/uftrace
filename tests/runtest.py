@@ -297,8 +297,11 @@ class TestBase:
             for lib in self.p_libs:
                 self.p_flag += '-P .@%s ' % lib
 
+        if '-P' in self.option:
+            self.p_flag = ''
+
         return '%s %s %s %s %s %s' % (TestBase.uftrace_cmd, self.subcmd, \
-                                   TestBase.default_opt, self.option, self.p_flag, self.exearg)
+                                   TestBase.default_opt, self.p_flag, self.option, self.exearg)
 
     def task_sort(self, output, ignore_children=False):
         """ This function post-processes output of the test to be compared .
