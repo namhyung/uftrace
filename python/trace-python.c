@@ -81,7 +81,7 @@ static void (*cygprof_exit)(unsigned long child, unsigned long parent);
 /* main trace function to be called from python interpreter */
 static PyObject *uftrace_trace_python(PyObject *self, PyObject *args);
 
-static PyMethodDef uftrace_py_methods[] = {
+static __attribute__((used)) PyMethodDef uftrace_py_methods[] = {
 	{ "trace", uftrace_trace_python, METH_VARARGS,
 	  PyDoc_STR("trace python function with uftrace.") },
 	{ NULL, NULL, 0, NULL },
@@ -219,6 +219,7 @@ static void write_symtab(const char *dirname)
 	xasprintf(&filename, "%s/%s.sym", dirname, UFTRACE_PYTHON_SYMTAB_NAME);
 
 	fp = fopen(filename, "w");
+	free(filename);
 	if (fp == NULL) {
 		pr_warn("writing symbol table of python program failed: %m");
 		return;
@@ -271,6 +272,9 @@ static void init_uftrace(void)
 	init_symtab();
 	find_libmcount_funcs();
 }
+
+/* due to Python API usage, we need to exclude this part for unit testing. */
+#ifndef UNIT_TEST
 
 #ifdef HAVE_LIBPYTHON3
 
@@ -568,3 +572,37 @@ static void __attribute__((destructor)) uftrace_trace_python_finish(void)
 
 	write_symtab(dirname);
 }
+
+#else /* UNIT_TEST */
+
+static PyObject *uftrace_trace_python(PyObject *self, PyObject *args)
+{
+	/* just to suppress compiler warnings */
+	skip_first_frame = false;
+	code_tree = code_tree;
+
+	return NULL;
+}
+
+TEST_CASE(python_symtab)
+{
+	char buf[32];
+
+	/* should have no effect */
+	init_uftrace();
+
+	pr_dbg("initialize symbol table on a shared memory\n");
+	init_symtab();
+	TEST_EQ(get_new_sym_addr("a", true), 1);
+	TEST_EQ(get_new_sym_addr("b", true), 2);
+	TEST_EQ(get_new_sym_addr("c", false), 3);
+	write_symtab(".");
+
+	snprintf(buf, sizeof(buf), "%s.sym", UFTRACE_PYTHON_SYMTAB_NAME);
+	unlink(buf);
+	pr_dbg("unlink the symbol table: %s\n", buf);
+
+	return TEST_OK;
+}
+
+#endif /* UNIT_TEST */
