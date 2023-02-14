@@ -106,7 +106,8 @@ static volatile bool agent_run = false;
 
 #define MCOUNT_AGENT_CAPABILITIES                                                                  \
 	(UFTRACE_AGENT_OPT_TRACE | UFTRACE_AGENT_OPT_DEPTH | UFTRACE_AGENT_OPT_THRESHOLD |         \
-	 UFTRACE_AGENT_OPT_PATTERN | UFTRACE_AGENT_OPT_FILTER | UFTRACE_AGENT_OPT_CALLER)
+	 UFTRACE_AGENT_OPT_PATTERN | UFTRACE_AGENT_OPT_FILTER | UFTRACE_AGENT_OPT_CALLER |         \
+	 UFTRACE_AGENT_OPT_TRIGGER)
 
 __weak void dynamic_return(void)
 {
@@ -1834,6 +1835,16 @@ static void agent_setup_caller_filter(char *caller_str, struct uftrace_triggers_
 }
 
 /**
+ * agent_setup_trigger - update the registered triggers from the agent
+ * @trigger_str - trigger to add or remove
+ * @triggers    - rbtree of tracing filters
+ */
+static void agent_setup_trigger(char *trigger_str, struct uftrace_triggers_info *triggers)
+{
+	uftrace_setup_trigger(trigger_str, &mcount_sym_info, triggers, &mcount_filter_setting);
+}
+
+/**
  * agent_init - initialize the agent
  * @addr - client socket
  * @return - socket file descriptor (-1 on error)
@@ -1972,6 +1983,11 @@ static int agent_apply_option(int opt, void *value, size_t size,
 		agent_setup_caller_filter(value, triggers);
 		break;
 
+	case UFTRACE_AGENT_OPT_TRIGGER:
+		pr_dbg3("apply trigger '%s' (size=%d)\n", value, size);
+		agent_setup_trigger(value, triggers);
+		break;
+
 	default:
 		ret = -1;
 	}
@@ -1982,7 +1998,8 @@ static int agent_apply_option(int opt, void *value, size_t size,
 static bool triggers_needs_copy(int opt)
 {
 	bool ret;
-#define MATCHING_OPTIONS (UFTRACE_AGENT_OPT_FILTER | UFTRACE_AGENT_OPT_CALLER)
+#define MATCHING_OPTIONS                                                                           \
+	(UFTRACE_AGENT_OPT_FILTER | UFTRACE_AGENT_OPT_CALLER | UFTRACE_AGENT_OPT_TRIGGER)
 	ret = opt & MATCHING_OPTIONS;
 #undef MATCHING_OPTIONS
 	return ret;
