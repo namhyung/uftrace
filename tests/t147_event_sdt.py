@@ -22,3 +22,8 @@ class TestCase(TestBase):
 
     def setup(self):
         self.option = '-E uftrace:* --match glob'
+
+    def runcmd(self):
+        cmd = TestBase.runcmd(self)
+        # change it to glob matching pattern
+        return cmd.replace('-P .', '-P "*"')
