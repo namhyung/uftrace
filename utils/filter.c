@@ -747,7 +747,58 @@ static int parse_hide_action(char *action, struct uftrace_trigger *tr,
 static int parse_clear_action(char *action, struct uftrace_trigger *tr,
 			      struct uftrace_filter_setting *setting)
 {
+	struct strv acts = STRV_INIT;
+	char *pos = NULL;
+	int j;
+
 	tr->flags |= TRIGGER_FL_CLEAR;
+
+	if (strlen(action) == 5) {
+		tr->clear_flags = ~0;
+		return 0;
+	}
+
+	if (action[5] != '=') {
+		pr_use("skipping invalid action: %s\n", action);
+		return -1;
+	}
+
+	/* action = "clear=act1+act2+..." */
+	pos = action + 6;
+	strv_split(&acts, pos, "+");
+	strv_for_each(&acts, pos, j) {
+		if (!strcmp(pos, "arg") || !strcmp(pos, "fparg"))
+			tr->clear_flags |= TRIGGER_FL_ARGUMENT;
+		else if (!strcmp(pos, "retval"))
+			tr->clear_flags |= TRIGGER_FL_RETVAL;
+		else if (!strcmp(pos, "filter") || !strcmp(pos, "notrace"))
+			tr->clear_flags |= TRIGGER_FL_FILTER;
+		else if (!strcmp(pos, "depth"))
+			tr->clear_flags |= TRIGGER_FL_DEPTH;
+		else if (!strcmp(pos, "time"))
+			tr->clear_flags |= TRIGGER_FL_TIME_FILTER;
+		else if (!strcmp(pos, "size"))
+			tr->clear_flags |= TRIGGER_FL_SIZE_FILTER;
+		else if (!strcmp(pos, "hide"))
+			tr->clear_flags |= TRIGGER_FL_HIDE;
+		else if (!strcmp(pos, "trace"))
+			tr->clear_flags |= TRIGGER_FL_TRACE | TRIGGER_FL_TRACE_ON |
+					   TRIGGER_FL_TRACE_OFF;
+		else if (!strcmp(pos, "finish"))
+			tr->clear_flags |= TRIGGER_FL_FINISH;
+		else if (!strcmp(pos, "read"))
+			tr->clear_flags |= TRIGGER_FL_READ;
+		else if (!strcmp(pos, "color"))
+			tr->clear_flags |= TRIGGER_FL_COLOR;
+		else if (!strcmp(pos, "backtrace"))
+			tr->clear_flags |= TRIGGER_FL_BACKTRACE;
+		else if (!strcmp(pos, "recover"))
+			tr->clear_flags |= TRIGGER_FL_RECOVER;
+		else
+			pr_use("skipping invalid clear argument: %s\n", pos);
+	}
+
+	strv_free(&acts);
 	return 0;
 }
 
@@ -889,8 +940,13 @@ int setup_trigger_action(char *str, struct uftrace_trigger *tr, char **module,
 		}
 	}
 	if (tr->flags & TRIGGER_FL_CLEAR) {
-		if (orig_flags && (tr->clear_flags == 0))
+		if (orig_flags)
+			/* '@clear' suffix for options other then -T/--trigger */
 			tr->clear_flags = orig_flags;
+		else {
+			/* preserve flag if set and cleared e.g. -T func@act,clear=act applies act */
+			tr->clear_flags &= ~tr->flags;
+		}
 	}
 
 	ret = 0;
