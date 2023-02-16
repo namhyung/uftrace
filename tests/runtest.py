@@ -667,7 +667,9 @@ class TestBase:
                 f = open('result', 'w')
                 f.write(result_tested + '\n')
                 f.close()
-                dif = "%s: diff result of %s\n" % (name, cflags)
+
+                compiler = self.supported_lang['C']['cc']
+                dif = "%s: diff result of %s %s\n" % (name, compiler, cflags)
                 try:
                     p = sp.Popen(['colordiff', '-U1', 'expect', 'result'], stdout=sp.PIPE)
                 except:
