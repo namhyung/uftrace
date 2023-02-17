@@ -89,6 +89,7 @@ BENCH_CFLAGS       = -D_GNU_SOURCE -g -pg $(CFLAGS_$@) $(CFLAGS_bench)
 TRACEEVENT_CFLAGS  = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_traceevent)
 LIB_CFLAGS         = $(COMMON_CFLAGS) $(CFLAGS_$@) $(CFLAGS_lib)
 LIB_CFLAGS        += -fPIC -fvisibility=hidden -fno-omit-frame-pointer
+LIB_CFLAGS        += -fno-builtin -fno-tree-vectorize
 TEST_CFLAGS        = $(COMMON_CFLAGS) -DUNIT_TEST
 
 UFTRACE_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_uftrace)
