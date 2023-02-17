@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+int gx;
+char *gy;
+
 struct int1 {
 	int a;
 };
@@ -37,46 +40,64 @@ struct mix3 {
 
 int pass_int1(struct int1 a, int x, char *y, double z)
 {
+	gx = x;
+	gy = y;
 	return (a.a == z) ? 0 : 1;
 }
 
 int pass_int3(struct int3 a, int x, char *y, double z)
 {
+	gx = x;
+	gy = y;
 	return (a.a + a.b + a.c) == z ? 0 : 1;
 }
 
 long pass_lng1(struct lng1 a, int x, char *y, double z)
 {
+	gx = x;
+	gy = y;
 	return (a.a == z) ? 0 : 1;
 }
 
 long pass_lng3(struct lng3 a, int x, char *y, double z)
 {
+	gx = x;
+	gy = y;
 	return (a.a + a.b + a.c) == z ? 0 : 1;
 }
 
 double pass_dbl1(struct dbl1 a, int x, char *y, double z)
 {
+	gx = x;
+	gy = y;
 	return (a.a == z) ? 0 : 1;
 }
 
 double pass_dbl3(struct dbl3 a, int x, char *y, double z)
 {
+	gx = x;
+	gy = y;
 	return (a.a + a.b + a.c) == z ? 0 : 1;
 }
 
 float pass_mix1(struct mix1 a, int x, char *y, double z)
 {
+	gx = x;
+	gy = y;
 	return (a.a + a.b == z) ? 0 : 1;
 }
 
 float pass_mix2(struct mix2 a, int x, char *y, double z)
 {
+	gx = x;
+	gy = y;
 	return (a.a + a.b + a.c) == z ? 0 : 1;
 }
 
 int pass_mix3(struct mix3 a, int x, char *y, double z)
 {
+	gx = x;
+	gy = y;
 	return (a.a + a.b + a.c + a.d) == z ? 0 : 1;
 }
 
