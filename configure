@@ -18,7 +18,7 @@ usage() {
   --help                print this message
   --prefix=<DIR>        set install root dir as <DIR>        (default: /usr/local)
   --bindir=<DIR>        set executable install dir as <DIR>  (default: \${prefix}/bin)
-  --libdir=<DIR>        set library install dir as <DIR>     (default: \${prefix}/lib)
+  --libdir=<DIR>        set library install dir as <DIR>     (default: \${prefix}/lib/uftrace)
   --mandir=<DIR>        set manual doc install dir as <DIR>  (default: \${prefix}/share/man)
   --objdir=<DIR>        set build dir as <DIR>               (default: \${PWD})
   --sysconfdir=<DIR>    override the etc dir as <DIR>
@@ -137,7 +137,7 @@ if [ ! -z "$ldflags" ]; then
 fi
 
 bindir=${bindir:-${prefix}/bin}
-libdir=${libdir:-${prefix}/lib}
+libdir=${libdir:-${prefix}/lib/uftrace}
 etcdir=${etcdir:-${prefix}/etc}
 mandir=${mandir:-${prefix}/share/man}
 

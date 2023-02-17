@@ -27,7 +27,7 @@ endif
 
 prefix ?= /usr/local
 bindir = $(prefix)/bin
-libdir = $(prefix)/lib
+libdir = $(prefix)/lib/uftrace
 etcdir = $(prefix)/etc
 mandir = $(prefix)/share/man
 docdir = $(srcdir)/doc
