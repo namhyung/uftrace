@@ -1,5 +1,9 @@
 #include <stdio.h>
 
+char *gs;
+char gc;
+double gd;
+
 enum xx {
 	ONE = 1,
 	TWO,
@@ -16,6 +20,9 @@ int foo(volatile int a, long b)
 
 float bar(char *s, char c, double d, void (*fp)(char *s))
 {
+	gs = s;
+	gc = c;
+	gd = d;
 	fp(NULL);
 	return -1.0;
 }

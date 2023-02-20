@@ -1,12 +1,24 @@
 #include <stdint.h>
 
-char foo(char a, unsigned char b, int8_t c)
+char ga;
+char gb;
+char gc;
+char gd;
+
+char foo(char a, char b, char c)
 {
+	ga = a;
+	gb = b;
+	gc = c;
 	return 'd';
 }
 
 char bar(char a, char b, char c, char d)
 {
+	ga = a;
+	gb = b;
+	gc = c;
+	gd = d;
 	return 0;
 }
 

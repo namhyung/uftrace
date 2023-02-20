@@ -46,7 +46,7 @@ static int server_socket(struct uftrace_opts *opts)
 		pr_warn("socket setting failed\n");
 
 	if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0)
-		pr_err("socket bind failed");
+		pr_err("socket bind failed (port: %d)", opts->port);
 
 	if (listen(sock, 5) < 0)
 		pr_err("socket listen failed");
@@ -99,7 +99,7 @@ int setup_client_socket(struct uftrace_opts *opts)
 	addr.sin_addr = *(struct in_addr *)hostinfo->h_addr;
 
 	if (connect(sock, (const struct sockaddr *)&addr, sizeof(addr)) < 0)
-		pr_err("socket connect failed");
+		pr_err("socket connect failed (host: %s, port: %d)", opts->host, opts->port);
 
 	return sock;
 }

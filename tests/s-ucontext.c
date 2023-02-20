@@ -12,7 +12,7 @@ int bar(int c)
 	return c + getpid();
 }
 
-int baz(int c)
+int baz(volatile int c)
 {
 	return c % 2;
 }

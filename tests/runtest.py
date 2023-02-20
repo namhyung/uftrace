@@ -109,6 +109,7 @@ class TestBase:
         self.option = ''
         self.exearg = 't-' + name
         self.p_flag = ''
+        self.p_libs = []
         self.test_feature()
         if Elf.get_elf_machine(self.uftrace_cmd) == 'i386':
             self.default_cflags.append('-m32')
@@ -224,6 +225,9 @@ class TestBase:
 
         lib_cflags = build_cflags + ' -shared -fPIC'
 
+        if '-fpatchable-function-entry' in cflags:
+            self.p_libs.append('libabc_test_lib.so')
+
         # build libabc_test_lib.so library
         build_cmd = '%s -o libabc_test_lib.so %s s-lib.c %s' % \
                     (lang['cc'], lib_cflags, build_ldflags)
@@ -240,6 +244,9 @@ class TestBase:
                                   os.getenv('LDFLAGS', '')])
 
         lib_cflags = build_cflags + ' -shared -fPIC'
+
+        if '-fpatchable-function-entry' in cflags:
+            self.p_libs.append('lib%s.so' % name)
 
         # build lib{foo}.so library
         build_cmd = '%s -o lib%s.so %s s-lib%s%s %s' % \
@@ -259,6 +266,10 @@ class TestBase:
                                  [self.cflags, cflags, os.getenv(lang['flags'], '')])
         build_ldflags = ' '.join([self.ldflags, ldflags, os.getenv('LDFLAGS', '')])
         exe_ldflags = build_ldflags + ' -Wl,-rpath,$ORIGIN -L. '
+
+        if '-fpatchable-function-entry' in cflags:
+            self.p_libs.append(prog)
+
         for lib in libs:
             exe_ldflags += ' -l' + lib[3:-3]
 
@@ -280,8 +291,17 @@ class TestBase:
     def runcmd(self):
         """ This function returns (shell) command that runs the test.
             A test case can extend this to setup a complex configuration.  """
+
+        if len(self.p_libs) > 0:
+            self.p_flag = ''
+            for lib in self.p_libs:
+                self.p_flag += '-P .@%s ' % lib
+
+        if '-P' in self.option:
+            self.p_flag = ''
+
         return '%s %s %s %s %s %s' % (TestBase.uftrace_cmd, self.subcmd, \
-                                   TestBase.default_opt, self.option, self.p_flag, self.exearg)
+                                   TestBase.default_opt, self.p_flag, self.option, self.exearg)
 
     def task_sort(self, output, ignore_children=False):
         """ This function post-processes output of the test to be compared .
@@ -506,7 +526,7 @@ class TestBase:
             v = int(f.readline())
             f.close()
 
-            if v == 3:
+            if v >= 3:
                 return False
         except:
             pass
@@ -647,7 +667,9 @@ class TestBase:
                 f = open('result', 'w')
                 f.write(result_tested + '\n')
                 f.close()
-                dif = "%s: diff result of %s\n" % (name, cflags)
+
+                compiler = self.supported_lang['C']['cc']
+                dif = "%s: diff result of %s %s\n" % (name, compiler, cflags)
                 try:
                     p = sp.Popen(['colordiff', '-U1', 'expect', 'result'], stdout=sp.PIPE)
                 except:
@@ -848,13 +870,13 @@ def parse_argument():
                         help="comma separated list of compiler profiling flags")
     parser.add_argument("-O", "--optimize-levels", dest='opts', default="0123s",
                         help="compiler optimization levels")
-    parser.add_argument("case", nargs='?', default="all",
-                        help="test case: 'all' or test number or (partial) name")
+    parser.add_argument("cases", nargs='?', default="all",
+                        help="test cases: 'all' or test number or (partial) name")
     parser.add_argument("-p", "--profile-pg", dest='pg_flag', action='store_true',
                         help="profiling with -pg option")
     parser.add_argument("-i", "--instrument-functions", dest='if_flag', action='store_true',
                         help="profiling with -finstrument-functions option")
-    parser.add_argument("--patch-functions", dest='pfe_flag', action='store_true',
+    parser.add_argument("-e", "--patchable-function-entry", dest='pfe_flag', action='store_true',
                         help="profiling with -fpatchable-function-entry option")
     parser.add_argument("-d", "--diff", dest='diff', action='store_true',
                         help="show diff result if not matched")
@@ -882,15 +904,18 @@ if __name__ == "__main__":
 
     arg = parse_argument()
 
-    if arg.case == 'all':
+    testcases = []
+    if arg.cases == 'all':
         testcases = glob.glob('t???_*.py')
     else:
         try:
-            testcases = glob.glob('t*' + arg.case + '*.py')
+            cases = arg.cases.split('|')
+            for case in cases:
+                testcases.extend(glob.glob('t*' + case + '*.py'))
             arg.worker = min(arg.worker, len(testcases))
         finally:
             if len(testcases) == 0:
-                print("cannot find testcase for : %s" % arg.case)
+                print("cannot find testcase for : %s" % arg.cases)
                 sys.exit(0)
 
     # Use multiprocessing pool if the number of workers is greater than 1.

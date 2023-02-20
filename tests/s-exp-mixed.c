@@ -1,5 +1,7 @@
 #include <stdio.h>
 
+char *p;
+
 double mixed_add(int a, float b)
 {
 	return a + b;
@@ -24,6 +26,7 @@ char *mixed_str(char *a, double b)
 {
 	static char buf[32];
 
+	p = a;
 	if (b)
 		snprintf(buf, sizeof(buf), "%.2f", b);
 
