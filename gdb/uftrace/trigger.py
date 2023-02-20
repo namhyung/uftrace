@@ -12,8 +12,7 @@
 #
 
 import gdb
-from uftrace import utils
-from uftrace import lists
+from uftrace import lists, utils
 
 filter_type  = utils.CachedType("struct uftrace_filter")
 trigger_type = utils.CachedType("struct uftrace_trigger")

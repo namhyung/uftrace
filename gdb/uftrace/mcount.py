@@ -12,10 +12,7 @@
 #
 
 import gdb
-from uftrace import utils
-from uftrace import rbtree
-from uftrace import trigger
-
+from uftrace import rbtree, trigger, utils
 
 filter_type = utils.CachedType("struct uftrace_filter")
 

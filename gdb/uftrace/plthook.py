@@ -14,10 +14,10 @@
 # This work is licensed under the terms of the GNU GPL version 2.
 #
 
-import gdb
 import os
-from uftrace import utils, lists
 
+import gdb
+from uftrace import lists, utils
 
 plthook_data_type = utils.CachedType("struct plthook_data")
 
