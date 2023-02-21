@@ -107,7 +107,7 @@ static volatile bool agent_run = false;
 #define MCOUNT_AGENT_CAPABILITIES                                                                  \
 	(UFTRACE_AGENT_OPT_TRACE | UFTRACE_AGENT_OPT_DEPTH | UFTRACE_AGENT_OPT_THRESHOLD |         \
 	 UFTRACE_AGENT_OPT_PATTERN | UFTRACE_AGENT_OPT_FILTER | UFTRACE_AGENT_OPT_CALLER |         \
-	 UFTRACE_AGENT_OPT_TRIGGER | UFTRACE_AGENT_OPT_ARGS)
+	 UFTRACE_AGENT_OPT_TRIGGER | UFTRACE_AGENT_OPT_ARGS | UFTRACE_AGENT_OPT_RETVAL)
 
 __weak void dynamic_return(void)
 {
@@ -1855,6 +1855,16 @@ static void agent_setup_argument(char *args_str, struct uftrace_triggers_info *t
 }
 
 /**
+ * agent_setup_retval - update the registered retspec from the agent
+ * @retval_str - retspec to apply
+ * @triggers   - structure where the triggers are stored
+ */
+static void agent_setup_retval(char *retval_str, struct uftrace_triggers_info *triggers)
+{
+	uftrace_setup_retval(retval_str, &mcount_sym_info, triggers, &mcount_filter_setting);
+}
+
+/**
  * agent_init - initialize the agent
  * @addr - client socket
  * @return - socket file descriptor (-1 on error)
@@ -2003,6 +2013,11 @@ static int agent_apply_option(int opt, void *value, size_t size,
 		agent_setup_argument(value, triggers);
 		break;
 
+	case UFTRACE_AGENT_OPT_RETVAL:
+		pr_dbg3("apply retval '%s' (size=%d)\n", value, size);
+		agent_setup_retval(value, triggers);
+		break;
+
 	default:
 		ret = -1;
 	}
@@ -2015,7 +2030,7 @@ static bool triggers_needs_copy(int opt)
 	bool ret;
 #define MATCHING_OPTIONS                                                                           \
 	(UFTRACE_AGENT_OPT_FILTER | UFTRACE_AGENT_OPT_CALLER | UFTRACE_AGENT_OPT_TRIGGER |         \
-	 UFTRACE_AGENT_OPT_ARGS)
+	 UFTRACE_AGENT_OPT_ARGS | UFTRACE_AGENT_OPT_RETVAL)
 	ret = opt & MATCHING_OPTIONS;
 #undef MATCHING_OPTIONS
 	return ret;
