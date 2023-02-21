@@ -466,6 +466,7 @@ enum uftrace_agent_opt {
 	UFTRACE_AGENT_OPT_FILTER = (1U << 4), /* tracing filters */
 	UFTRACE_AGENT_OPT_CALLER = (1U << 5), /* tracing caller filters */
 	UFTRACE_AGENT_OPT_TRIGGER = (1U << 6), /* tracing trigger actions */
+	UFTRACE_AGENT_OPT_ARGS = (1U << 7), /* argument spec */
 };
 
 extern struct uftrace_session *first_session;
