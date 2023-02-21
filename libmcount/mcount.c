@@ -107,7 +107,8 @@ static volatile bool agent_run = false;
 #define MCOUNT_AGENT_CAPABILITIES                                                                  \
 	(UFTRACE_AGENT_OPT_TRACE | UFTRACE_AGENT_OPT_DEPTH | UFTRACE_AGENT_OPT_THRESHOLD |         \
 	 UFTRACE_AGENT_OPT_PATTERN | UFTRACE_AGENT_OPT_FILTER | UFTRACE_AGENT_OPT_CALLER |         \
-	 UFTRACE_AGENT_OPT_TRIGGER | UFTRACE_AGENT_OPT_ARGS | UFTRACE_AGENT_OPT_RETVAL)
+	 UFTRACE_AGENT_OPT_TRIGGER | UFTRACE_AGENT_OPT_ARGS | UFTRACE_AGENT_OPT_RETVAL |           \
+	 UFTRACE_AGENT_OPT_AUTO_ARGS)
 
 __weak void dynamic_return(void)
 {
@@ -1865,6 +1866,26 @@ static void agent_setup_retval(char *retval_str, struct uftrace_triggers_info *t
 }
 
 /**
+ * agent_setup_auto_args - collect arg and retval for all known functions
+ * @setting - filter settings
+ */
+static void agent_setup_auto_args(struct uftrace_triggers_info *triggers)
+{
+	char *autoarg = ".";
+	char *autoret = ".";
+
+	if (mcount_filter_setting.auto_args)
+		return;
+
+	if (mcount_filter_setting.ptype == PATT_GLOB)
+		autoarg = autoret = "*";
+
+	uftrace_setup_argument(autoarg, &mcount_sym_info, triggers, &mcount_filter_setting);
+	uftrace_setup_retval(autoret, &mcount_sym_info, triggers, &mcount_filter_setting);
+	mcount_filter_setting.auto_args = true;
+}
+
+/**
  * agent_init - initialize the agent
  * @addr - client socket
  * @return - socket file descriptor (-1 on error)
@@ -2018,6 +2039,11 @@ static int agent_apply_option(int opt, void *value, size_t size,
 		agent_setup_retval(value, triggers);
 		break;
 
+	case UFTRACE_AGENT_OPT_AUTO_ARGS:
+		pr_dbg3("apply auto args '%s' (size=%d)\n", value, size);
+		agent_setup_auto_args(triggers);
+		break;
+
 	default:
 		ret = -1;
 	}
@@ -2030,7 +2056,7 @@ static bool triggers_needs_copy(int opt)
 	bool ret;
 #define MATCHING_OPTIONS                                                                           \
 	(UFTRACE_AGENT_OPT_FILTER | UFTRACE_AGENT_OPT_CALLER | UFTRACE_AGENT_OPT_TRIGGER |         \
-	 UFTRACE_AGENT_OPT_ARGS | UFTRACE_AGENT_OPT_RETVAL)
+	 UFTRACE_AGENT_OPT_ARGS | UFTRACE_AGENT_OPT_RETVAL | UFTRACE_AGENT_OPT_AUTO_ARGS)
 	ret = opt & MATCHING_OPTIONS;
 #undef MATCHING_OPTIONS
 	return ret;
