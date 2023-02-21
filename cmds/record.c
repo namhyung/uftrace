@@ -63,6 +63,10 @@ static bool has_perf_event;
 static bool has_sched_event;
 static bool finish_received;
 
+static char *runtime_argspec;
+static char *runtime_retspec;
+static bool runtime_auto_args;
+
 static bool can_use_fast_libmcount(struct uftrace_opts *opts)
 {
 	if (debug)
@@ -1278,6 +1282,27 @@ static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 		/* exename will be freed with the dlib */
 		break;
 
+	case UFTRACE_MSG_ARGSPEC:
+		runtime_argspec = xmalloc(msg.len + 1);
+		if (read_all(pfd, runtime_argspec, msg.len) < 0)
+			pr_err("reading pipe failed");
+		runtime_argspec[msg.len] = '\0';
+		pr_dbg2("MSG ARGSPEC\n");
+		break;
+
+	case UFTRACE_MSG_RETSPEC:
+		runtime_retspec = xmalloc(msg.len + 1);
+		if (read_all(pfd, runtime_retspec, msg.len) < 0)
+			pr_err("reading pipe failed");
+		runtime_retspec[msg.len] = '\0';
+		pr_dbg2("MSG RETSPEC\n");
+		break;
+
+	case UFTRACE_MSG_AUTO_ARGS:
+		pr_dbg2("MSG AUTOARGS\n");
+		runtime_auto_args = true;
+		break;
+
 	case UFTRACE_MSG_FINISH:
 		pr_dbg2("MSG FINISH\n");
 		finish_received = true;
@@ -1951,6 +1976,23 @@ static int stop_tracing(struct writer_data *wd, struct uftrace_opts *opts)
 	return ret;
 }
 
+/**
+ * update_opts - update options with runtime options from the agent
+ */
+static void update_opts(struct uftrace_opts *opts)
+{
+	if (runtime_argspec)
+		opts->args = strjoin(opts->args, runtime_argspec, ";");
+	free(runtime_argspec);
+
+	if (runtime_retspec)
+		opts->retval = strjoin(opts->retval, runtime_retspec, ";");
+	free(runtime_retspec);
+
+	if (runtime_auto_args)
+		opts->auto_args = true;
+}
+
 static void finish_writers(struct writer_data *wd, struct uftrace_opts *opts)
 {
 	int i;
@@ -1965,6 +2007,8 @@ static void finish_writers(struct writer_data *wd, struct uftrace_opts *opts)
 		free(elapsed_time);
 		return;
 	}
+
+	update_opts(opts);
 
 	if (fill_file_header(opts, wd->status, &wd->usage, elapsed_time) < 0)
 		pr_err("cannot generate data file");

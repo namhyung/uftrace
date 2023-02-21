@@ -409,6 +409,9 @@ enum uftrace_msg_type {
 	UFTRACE_MSG_LOST,
 	UFTRACE_MSG_DLOPEN,
 	UFTRACE_MSG_FINISH,
+	UFTRACE_MSG_ARGSPEC, /* argspec set by the agent */
+	UFTRACE_MSG_RETSPEC, /* retspec set by the agent */
+	UFTRACE_MSG_AUTO_ARGS, /* auto-args flag from the agent */
 
 	UFTRACE_MSG_SEND_START = 100,
 	UFTRACE_MSG_SEND_DIR_NAME,

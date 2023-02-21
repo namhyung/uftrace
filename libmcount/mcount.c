@@ -1948,13 +1948,26 @@ error:
  * agent_fini - finalize the agent thread execution
  * @addr - client socket
  * @sfd - client socket file descriptor
+ * @argspec - arg spec applied by the agent
+ * @retspec - arg spec applied by the agent
+ * @auto_args - agent auto-args flag
  */
-static void agent_fini(struct sockaddr_un *addr, int sfd)
+static void agent_fini(struct sockaddr_un *addr, int sfd, char *argspec, char *retspec,
+		       bool auto_args)
 {
 	if (sfd != -1)
 		close(sfd);
 
 	socket_unlink(addr);
+
+	if (argspec)
+		uftrace_send_message(UFTRACE_MSG_ARGSPEC, argspec, strlen(argspec));
+	free(argspec);
+	if (retspec)
+		uftrace_send_message(UFTRACE_MSG_RETSPEC, retspec, strlen(retspec));
+	free(retspec);
+	if (auto_args)
+		uftrace_send_message(UFTRACE_MSG_AUTO_ARGS, NULL, 0);
 
 	pr_dbg("agent terminated\n");
 }
@@ -2086,6 +2099,21 @@ static bool triggers_needs_copy(int opt)
 	return ret;
 }
 
+void aggregate_arg_retval_spec(int opt, void *value, char **argspec, char **retspec)
+{
+	bool needs_aggregate;
+#define MATCHING_OPTIONS (UFTRACE_AGENT_OPT_ARGS | UFTRACE_AGENT_OPT_RETVAL)
+	needs_aggregate = opt & MATCHING_OPTIONS;
+#undef MATCHING_OPTIONS
+	if (!needs_aggregate)
+		return;
+
+	if (opt == UFTRACE_AGENT_OPT_ARGS)
+		*argspec = strjoin(*argspec, (char *)value, ";");
+	if (opt == UFTRACE_AGENT_OPT_RETVAL)
+		*retspec = strjoin(*retspec, (char *)value, ";");
+}
+
 /* Agent routine, applying instructions from the CLI. */
 void *agent_apply_commands(void *arg)
 {
@@ -2096,6 +2124,8 @@ void *agent_apply_commands(void *arg)
 	void *value = NULL;
 	size_t size;
 	struct uftrace_triggers_info *triggers_copy = NULL;
+	char *argspec = NULL;
+	char *retspec = NULL;
 
 	/* initialize agent */
 	sfd = agent_init(&addr);
@@ -2154,6 +2184,7 @@ void *agent_apply_commands(void *arg)
 					*triggers_copy =
 						uftrace_deep_copy_triggers(mcount_triggers);
 				}
+				aggregate_arg_retval_spec(opt, value, &argspec, &retspec);
 				status = agent_apply_option(opt, value, size, triggers_copy);
 				if (status == 0)
 					agent_message_send(cfd, UFTRACE_MSG_AGENT_OK, NULL, 0);
@@ -2190,7 +2221,8 @@ void *agent_apply_commands(void *arg)
 	}
 
 	free(value);
-	agent_fini(&addr, sfd);
+	agent_fini(&addr, sfd, argspec, retspec, mcount_filter_setting.auto_args);
+
 	return 0;
 }
 
