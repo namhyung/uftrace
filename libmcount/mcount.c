@@ -98,6 +98,9 @@ unsigned long mcount_return_fn;
 /* do not hook return address and inject EXIT record between functions */
 bool mcount_estimate_return;
 
+/* only setup auto-args once */
+bool mcount_has_auto_args;
+
 /* agent thread */
 static pthread_t agent;
 
@@ -125,7 +128,6 @@ static void mcount_filter_init(struct uftrace_filter_setting *filter_setting, bo
 
 	/* use debug info if available */
 	prepare_debug_info(&mcount_sym_info, filter_setting->ptype, NULL, NULL, false, force);
-	save_debug_info(&mcount_sym_info, mcount_sym_info.dirname);
 }
 
 static void mcount_filter_finish(void)
@@ -397,11 +399,9 @@ static void mcount_filter_init(struct uftrace_filter_setting *filter_setting, bo
 		needs_debug_info = true;
 
 	/* use debug info if available */
-	if (needs_debug_info) {
+	if (needs_debug_info)
 		prepare_debug_info(&mcount_sym_info, filter_setting->ptype, argument_str,
 				   retval_str, !!autoargs_str, force);
-		save_debug_info(&mcount_sym_info, mcount_sym_info.dirname);
-	}
 
 	mcount_triggers = xmalloc(sizeof(*mcount_triggers));
 	memset(mcount_triggers, 0, sizeof(*mcount_triggers));
@@ -465,6 +465,7 @@ static void mcount_filter_finish(void)
 	free(mcount_triggers);
 	finish_auto_args();
 
+	save_debug_info(&mcount_sym_info, mcount_sym_info.dirname);
 	finish_debug_info(&mcount_sym_info);
 
 	mcount_signal_finish();
@@ -1836,12 +1837,29 @@ static void agent_setup_caller_filter(char *caller_str, struct uftrace_triggers_
 }
 
 /**
+ * agent_enable_auto_args - build known argument and return value specs for all symbols
+ * @setting - filter settings
+ */
+static void agent_enable_auto_args(struct uftrace_filter_setting *setting)
+{
+	if (mcount_has_auto_args)
+		return;
+
+	mcount_has_auto_args = true;
+	setup_auto_args(setting);
+	prepare_debug_info(&mcount_sym_info, setting->ptype, NULL, NULL, true, true);
+}
+
+/**
  * agent_setup_trigger - update the registered triggers from the agent
  * @trigger_str - trigger to add or remove
  * @triggers    - rbtree of tracing filters
  */
 static void agent_setup_trigger(char *trigger_str, struct uftrace_triggers_info *triggers)
 {
+	if (strstr(trigger_str, "arg") || strstr(trigger_str, "retval"))
+		agent_enable_auto_args(&mcount_filter_setting);
+
 	uftrace_setup_trigger(trigger_str, &mcount_sym_info, triggers, &mcount_filter_setting);
 }
 
@@ -1852,6 +1870,8 @@ static void agent_setup_trigger(char *trigger_str, struct uftrace_triggers_info 
  */
 static void agent_setup_argument(char *args_str, struct uftrace_triggers_info *triggers)
 {
+	agent_enable_auto_args(&mcount_filter_setting);
+
 	uftrace_setup_argument(args_str, &mcount_sym_info, triggers, &mcount_filter_setting);
 }
 
@@ -1862,17 +1882,21 @@ static void agent_setup_argument(char *args_str, struct uftrace_triggers_info *t
  */
 static void agent_setup_retval(char *retval_str, struct uftrace_triggers_info *triggers)
 {
+	agent_enable_auto_args(&mcount_filter_setting);
+
 	uftrace_setup_retval(retval_str, &mcount_sym_info, triggers, &mcount_filter_setting);
 }
 
 /**
  * agent_setup_auto_args - collect arg and retval for all known functions
- * @setting - filter settings
+ * @triggers - trigger rbtree
  */
 static void agent_setup_auto_args(struct uftrace_triggers_info *triggers)
 {
 	char *autoarg = ".";
 	char *autoret = ".";
+
+	agent_enable_auto_args(&mcount_filter_setting);
 
 	if (mcount_filter_setting.auto_args)
 		return;
