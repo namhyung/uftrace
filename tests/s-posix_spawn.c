@@ -12,18 +12,14 @@
 int main(int argc, char *argv[])
 {
 	int pid;
-	char *args[] = {
-		NULL,
-		NULL,
-	};
+	char *args1[] = { TEST_PROG1, NULL };
+	char *args2[] = { TEST_PROG2, NULL };
 	char *envp[] = { "PATH=.", "HOME=/home/user", NULL };
 
-	args[0] = TEST_PROG1;
-	posix_spawn(&pid, TEST_PROG1, NULL, NULL, args, envp);
+	posix_spawn(&pid, TEST_PROG1, NULL, NULL, args1, envp);
 	waitpid(pid, NULL, 0);
 
-	args[0] = TEST_PROG2;
-	posix_spawn(&pid, TEST_PROG2, NULL, NULL, args, envp);
+	posix_spawn(&pid, TEST_PROG2, NULL, NULL, args2, envp);
 	waitpid(pid, NULL, 0);
 
 	return 0;
