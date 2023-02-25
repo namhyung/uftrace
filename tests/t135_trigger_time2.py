@@ -53,4 +53,4 @@ class TestCase(TestBase):
 
     def setup(self):
         self.subcmd = 'replay'
-        self.option = '-T main@time=%.3f%s' % (TIME, UNIT)
+        self.option = '-T mem_alloc@time=%.3f%s' % (TIME, UNIT)
