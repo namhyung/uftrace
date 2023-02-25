@@ -56,8 +56,14 @@ GLOBAL(__fentry__)
 	/* save rax (implicit argument for variadic functions) */
 	push %rax
 
+	/* save scratch registers due to -fipa-ra */
+	push %r10
+	push %r11
+
 	call mcount_entry
 
+	pop  %r11
+	pop  %r10
 	pop  %rax
 
 	/* restore original stack pointer */
