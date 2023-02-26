@@ -383,7 +383,7 @@ static int setup_fstack_filters(struct uftrace_data *handle, char *filter_str, c
 static const char *fixup_syms[] = {
 	"execl",      "execlp",	       "execle",  "execv",     "execve",      "execvp",
 	"execvpe",    "setjmp",	       "_setjmp", "sigsetjmp", "__sigsetjmp", "longjmp",
-	"siglongjmp", "__longjmp_chk", "fork",	  "vfork",     "daemon",
+	"siglongjmp", "__longjmp_chk", "fork",	  "vfork",     "daemon",      "posix.fork",
 };
 
 static int setjmp_depth;
@@ -618,7 +618,8 @@ int fstack_entry(struct uftrace_task_reader *task, struct uftrace_record *rstack
 			else if (strstr(fixup->name, "longjmp")) {
 				fstack->flags |= FSTACK_FL_LONGJMP;
 			}
-			else if (strstr(fixup->name, "fork") || !strcmp(fixup->name, "daemon")) {
+			else if (strstr(fixup->name, "fork") || !strcmp(fixup->name, "daemon") ||
+				 !strcmp(fixup->name, "posix.fork")) {
 				task->fork_display_depth = task->display_depth + 1;
 			}
 		}

@@ -468,6 +468,7 @@ static int setup_mod_plthook_data(struct dl_phdr_info *info, size_t sz, void *ar
 		"libmcount-fast.so",
 		"libmcount-single.so",
 		"libmcount-fast-single.so",
+		"uftrace_python.so",
 		/* system base libraries */
 		"libc.so.6",
 		"libc-2.*.so",
