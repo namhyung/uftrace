@@ -71,6 +71,7 @@ static union uftrace_python_symtab *symtab;
 struct uftrace_python_symbol {
 	struct rb_node node;
 	PyObject *code;
+	char *name;
 	uint32_t addr;
 };
 
@@ -472,11 +473,12 @@ static char *get_c_funcname(PyObject *frame, PyObject *code)
 	return func_name;
 }
 
-static unsigned long convert_function_addr(PyObject *frame, PyObject *args, bool is_pyfunc)
+static struct uftrace_python_symbol *convert_function_addr(PyObject *frame, PyObject *args,
+							   bool is_pyfunc)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &code_tree.rb_node;
-	struct uftrace_python_symbol *iter, *new;
+	struct uftrace_python_symbol *iter, *new_sym;
 	PyObject *code;
 	char *func_name;
 
@@ -496,7 +498,7 @@ static unsigned long convert_function_addr(PyObject *frame, PyObject *args, bool
 		/* just compare pointers of the code object */
 		if (iter->code == code) {
 			Py_DECREF(code);
-			return iter->addr;
+			return iter;
 		}
 
 		if (iter->code < code)
@@ -513,17 +515,17 @@ static unsigned long convert_function_addr(PyObject *frame, PyObject *args, bool
 	if (func_name == NULL)
 		return 0;
 
-	new = xmalloc(sizeof(*new));
-	new->code = code;
-	new->addr = get_new_sym_addr(func_name, is_pyfunc);
-	free(func_name);
+	new_sym = xmalloc(sizeof(*new_sym));
+	new_sym->code = code;
+	new_sym->addr = get_new_sym_addr(func_name, is_pyfunc);
+	new_sym->name = func_name;
 
 	/* keep the refcount of the code object to keep it alive */
 
-	rb_link_node(&new->node, parent, p);
-	rb_insert_color(&new->node, &code_tree);
+	rb_link_node(&new_sym->node, parent, p);
+	rb_insert_color(&new_sym->node, &code_tree);
 
-	return new->addr;
+	return new_sym;
 }
 
 /*
@@ -545,11 +547,11 @@ static PyObject *uftrace_trace_python(PyObject *self, PyObject *args)
 		Py_RETURN_NONE;
 
 	if (!strcmp(event, "call") || !strcmp(event, "c_call")) {
-		unsigned long addr;
+		struct uftrace_python_symbol *sym;
 		bool is_pyfunc = !strcmp(event, "call");
 
-		addr = convert_function_addr(frame, args_tuple, is_pyfunc);
-		cygprof_enter(addr, 0);
+		sym = convert_function_addr(frame, args_tuple, is_pyfunc);
+		cygprof_enter(sym->addr, 0);
 	}
 	else if (!strcmp(event, "return") || !strcmp(event, "c_return")) {
 		cygprof_exit(0, 0);
