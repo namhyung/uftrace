@@ -321,6 +321,9 @@ parent functions to the function.
 In the above example, functions not in the calling path were not shown.  Also
 the function 'c' - which is a child of the function 'b' - is also hidden.
 
+Caller filters can be added and removed from the client at runtime, using the
+`@clear` suffix for the `-C` / `--caller-filter` option.
+
 In addition, you can limit the nesting level of functions with the `-D` option.
 
     $ uftrace record -D 3 ./abc

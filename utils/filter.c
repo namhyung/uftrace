@@ -842,7 +842,7 @@ static const struct trigger_action_parser actions[] = {
 	{
 		"clear",
 		parse_clear_action,
-		TRIGGER_FL_FILTER,
+		TRIGGER_FL_FILTER | TRIGGER_FL_CALLER,
 	},
 };
 
@@ -1061,7 +1061,10 @@ static void setup_trigger(char *filter_str, struct uftrace_sym_info *sinfo,
 		}
 
 		if (ret > 0 && (tr.flags & TRIGGER_FL_CALLER)) {
-			triggers->caller_count += ret;
+			if (tr.flags & TRIGGER_FL_CLEAR)
+				triggers->caller_count -= ret;
+			else
+				triggers->caller_count += ret;
 			pr_dbg4("caller filter count: %d\n", triggers->caller_count);
 		}
 
