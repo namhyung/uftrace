@@ -5,7 +5,9 @@ UNIT_TEST_SRC += $(wildcard $(srcdir)/cmds/*.c)
 UNIT_TEST_SRC += $(wildcard $(srcdir)/utils/*.c)
 UNIT_TEST_SRC += $(wildcard $(srcdir)/arch/$(ARCH)/*.c)
 UNIT_TEST_SRC += $(wildcard $(srcdir)/libmcount/*.c)
+ifneq ($(findstring HAVE_LIBPYTHON, $(COMMON_CFLAGS)), )
 UNIT_TEST_SRC += $(wildcard $(srcdir)/python/*.c)
+endif
 UNIT_TEST_OBJ := $(patsubst $(srcdir)/%.c,$(objdir)/%.ot,$(UNIT_TEST_SRC))
 UNIT_TEST_OBJ := $(filter-out %-nop.ot,$(UNIT_TEST_OBJ))
 
