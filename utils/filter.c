@@ -45,7 +45,7 @@ static void print_trigger(struct uftrace_trigger *tr)
 	if (tr->flags & TRIGGER_FL_FILTER) {
 		if (tr->fmode == FILTER_MODE_IN)
 			pr_dbg("\ttrigger: filter IN\n");
-		else
+		else if (tr->fmode == FILTER_MODE_OUT)
 			pr_dbg("\ttrigger: filter OUT\n");
 	}
 	if (tr->flags & TRIGGER_FL_LOC) {
@@ -253,6 +253,7 @@ void update_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr, b
 {
 	if (tr->flags & TRIGGER_FL_CLEAR) {
 		filter->trigger.flags &= ~tr->flags;
+		tr->fmode = filter->trigger.fmode; /* Read from tree before deleting */
 		return;
 	}
 
@@ -841,6 +842,7 @@ static const struct trigger_action_parser actions[] = {
 	{
 		"clear",
 		parse_clear_action,
+		TRIGGER_FL_FILTER,
 	},
 };
 
@@ -1044,8 +1046,12 @@ static void setup_trigger(char *filter_str, struct uftrace_sym_info *sinfo,
 		}
 
 		if (ret > 0 && (tr.flags & TRIGGER_FL_FILTER)) {
-			if (tr.fmode == FILTER_MODE_IN)
-				triggers->filter_count += ret;
+			if (tr.fmode == FILTER_MODE_IN) {
+				if (tr.flags & TRIGGER_FL_CLEAR)
+					triggers->filter_count -= ret;
+				else
+					triggers->filter_count += ret;
+			}
 			pr_dbg4("filter IN count: %d\n", triggers->filter_count);
 		}
 
