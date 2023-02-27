@@ -89,8 +89,8 @@ static bool __maybe_unused mcount_enabled = true;
 /* count of registered opt-in filters (-F) */
 static int __maybe_unused mcount_filter_count;
 
-/* location filtering mode - inclusive or exclusive */
-static enum filter_mode __maybe_unused mcount_loc_mode = FILTER_MODE_NONE;
+/* count of registered opt-in location filters (-L) */
+static int __maybe_unused mcount_loc_count;
 
 /* tree of trigger actions */
 static struct rb_root __maybe_unused *mcount_triggers;
@@ -422,7 +422,7 @@ static void mcount_filter_init(struct uftrace_filter_setting *filter_setting, bo
 
 	if (needs_debug_info) {
 		uftrace_setup_loc_filter(loc_str, &mcount_sym_info, mcount_triggers,
-					 &mcount_loc_mode, filter_setting);
+					 &mcount_loc_count, filter_setting);
 	}
 
 	if (caller_str) {
@@ -861,6 +861,14 @@ static inline enum filter_mode mcount_get_filter_mode()
 	return mcount_filter_count > 0 ? FILTER_MODE_IN : FILTER_MODE_OUT;
 }
 
+/**
+ * mcount_get_loc_mode - compute the location filter mode from the location count
+ */
+static inline enum filter_mode mcount_get_loc_mode()
+{
+	return mcount_loc_count > 0 ? FILTER_MODE_IN : FILTER_MODE_OUT;
+}
+
 static void mcount_save_filter(struct mcount_thread_data *mtdp)
 {
 	/* save original depth and time to restore at exit time */
@@ -914,7 +922,7 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 			return FILTER_OUT;
 	}
 	else {
-		if (mcount_loc_mode == FILTER_MODE_IN)
+		if (mcount_get_loc_mode() == FILTER_MODE_IN)
 			return FILTER_OUT;
 	}
 

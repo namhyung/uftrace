@@ -917,8 +917,7 @@ static int update_trigger_entry(struct rb_root *root, struct uftrace_pattern *pa
  * @setting - filter settings
  */
 static void setup_trigger(char *filter_str, struct uftrace_sym_info *sinfo, struct rb_root *root,
-			  unsigned long flags, enum filter_mode *fmode, int *count,
-			  struct uftrace_filter_setting *setting)
+			  unsigned long flags, int *count, struct uftrace_filter_setting *setting)
 {
 	struct strv filters = STRV_INIT;
 	char *name;
@@ -1014,11 +1013,9 @@ static void setup_trigger(char *filter_str, struct uftrace_sym_info *sinfo, stru
 			pr_dbg4("filter IN count: %d\n", *count);
 		}
 
-		if (ret > 0 && (tr.flags & TRIGGER_FL_LOC) && fmode) {
+		if (ret > 0 && (tr.flags & TRIGGER_FL_LOC) && count) {
 			if (tr.lmode == FILTER_MODE_IN)
-				*fmode = FILTER_MODE_IN;
-			else if (*fmode == FILTER_MODE_NONE)
-				*fmode = FILTER_MODE_OUT;
+				*count += ret;
 		}
 
 next:
@@ -1046,7 +1043,7 @@ next:
 void uftrace_setup_filter(char *filter_str, struct uftrace_sym_info *sinfo, struct rb_root *root,
 			  int *count, struct uftrace_filter_setting *setting)
 {
-	setup_trigger(filter_str, sinfo, root, TRIGGER_FL_FILTER, NULL, count, setting);
+	setup_trigger(filter_str, sinfo, root, TRIGGER_FL_FILTER, count, setting);
 }
 
 /**
@@ -1060,7 +1057,7 @@ void uftrace_setup_filter(char *filter_str, struct uftrace_sym_info *sinfo, stru
 void uftrace_setup_trigger(char *trigger_str, struct uftrace_sym_info *sinfo, struct rb_root *root,
 			   int *count, struct uftrace_filter_setting *setting)
 {
-	setup_trigger(trigger_str, sinfo, root, 0, NULL, count, setting);
+	setup_trigger(trigger_str, sinfo, root, 0, count, setting);
 }
 
 /**
@@ -1078,7 +1075,7 @@ void uftrace_setup_argument(char *args_str, struct uftrace_sym_info *sinfo, stru
 	if (setting->auto_args)
 		flags |= TRIGGER_FL_AUTO_ARGS;
 
-	setup_trigger(args_str, sinfo, root, flags, NULL, NULL, setting);
+	setup_trigger(args_str, sinfo, root, flags, NULL, setting);
 }
 
 /**
@@ -1096,7 +1093,7 @@ void uftrace_setup_retval(char *retval_str, struct uftrace_sym_info *sinfo, stru
 	if (setting->auto_args)
 		flags |= TRIGGER_FL_AUTO_ARGS;
 
-	setup_trigger(retval_str, sinfo, root, flags, NULL, NULL, setting);
+	setup_trigger(retval_str, sinfo, root, flags, NULL, setting);
 }
 
 /**
@@ -1109,7 +1106,7 @@ void uftrace_setup_retval(char *retval_str, struct uftrace_sym_info *sinfo, stru
 void uftrace_setup_caller_filter(char *filter_str, struct uftrace_sym_info *sinfo,
 				 struct rb_root *root, struct uftrace_filter_setting *setting)
 {
-	setup_trigger(filter_str, sinfo, root, TRIGGER_FL_CALLER, NULL, NULL, setting);
+	setup_trigger(filter_str, sinfo, root, TRIGGER_FL_CALLER, NULL, setting);
 }
 
 /**
@@ -1122,7 +1119,7 @@ void uftrace_setup_caller_filter(char *filter_str, struct uftrace_sym_info *sinf
 void uftrace_setup_hide_filter(char *filter_str, struct uftrace_sym_info *sinfo,
 			       struct rb_root *root, struct uftrace_filter_setting *setting)
 {
-	setup_trigger(filter_str, sinfo, root, TRIGGER_FL_HIDE, NULL, NULL, setting);
+	setup_trigger(filter_str, sinfo, root, TRIGGER_FL_HIDE, NULL, setting);
 }
 
 /**
@@ -1130,14 +1127,14 @@ void uftrace_setup_hide_filter(char *filter_str, struct uftrace_sym_info *sinfo,
  * @filter_str - CSV of filter string
  * @sinfo      - symbol information to find symbol address
  * @root       - root of resulting rbtree
- * @mode       - filter mode: opt-in (-L) or opt-out (-L with '@hide' suffix)
+ * @count      - opt-in loc filter count
  * @setting    - filter settings
  */
 void uftrace_setup_loc_filter(char *filter_str, struct uftrace_sym_info *sinfo,
-			      struct rb_root *root, enum filter_mode *mode,
+			      struct rb_root *root, int *count,
 			      struct uftrace_filter_setting *setting)
 {
-	setup_trigger(filter_str, sinfo, root, TRIGGER_FL_LOC, mode, NULL, setting);
+	setup_trigger(filter_str, sinfo, root, TRIGGER_FL_LOC, count, setting);
 }
 
 /**

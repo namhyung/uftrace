@@ -22,11 +22,16 @@ bool fstack_enabled = true;
 bool live_disabled = false;
 
 static int fstack_filter_count;
-static enum filter_mode fstack_loc_mode = FILTER_MODE_NONE;
+static int fstack_loc_count;
 
 static inline int fstack_get_filter_mode()
 {
 	return fstack_filter_count > 0 ? FILTER_MODE_IN : FILTER_MODE_OUT;
+}
+
+static inline int fstack_get_loc_mode()
+{
+	return fstack_loc_count > 0 ? FILTER_MODE_IN : FILTER_MODE_OUT;
 }
 
 static int __read_task_ustack(struct uftrace_task_reader *task);
@@ -257,7 +262,7 @@ static int setup_locs(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
 
-	uftrace_setup_loc_filter(setting->info_str, &s->sym_info, &s->filters, &fstack_loc_mode,
+	uftrace_setup_loc_filter(setting->info_str, &s->sym_info, &s->filters, &fstack_loc_count,
 				 setting);
 	return 0;
 }
@@ -660,7 +665,7 @@ int fstack_entry(struct uftrace_task_reader *task, struct uftrace_record *rstack
 		}
 	}
 	else {
-		if (fstack_loc_mode == FILTER_MODE_IN) {
+		if (fstack_get_loc_mode() == FILTER_MODE_IN) {
 			fstack->flags |= FSTACK_FL_NORECORD;
 			return -1;
 		}
@@ -844,7 +849,7 @@ static int fstack_check_skip(struct uftrace_task_reader *task, struct uftrace_re
 			return -1;
 	}
 	else if ((fstack_get_filter_mode() == FILTER_MODE_IN ||
-		  fstack_loc_mode == FILTER_MODE_IN) &&
+		  fstack_get_loc_mode() == FILTER_MODE_IN) &&
 		 task->filter.in_count == 0) {
 		return -1;
 	}
