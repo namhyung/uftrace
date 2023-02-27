@@ -8,10 +8,14 @@
 #include <Python.h>
 
 #include <fcntl.h>
+#include <fnmatch.h>
+#include <regex.h>
 #include <stdint.h>
 #include <sys/mman.h>
 
 #include "uftrace.h"
+#include "utils/filter.h"
+#include "utils/list.h"
 #include "utils/rbtree.h"
 #include "utils/shmem.h"
 #include "utils/symbol.h"
@@ -74,6 +78,26 @@ struct uftrace_python_symbol {
 	char *name;
 	uint32_t addr;
 };
+
+/* linked list of filter names */
+static LIST_HEAD(filters);
+
+/* filter entry - currently function filters supported only */
+struct uftrace_python_filter {
+	struct list_head list;
+	struct uftrace_pattern p;
+	enum filter_mode mode;
+};
+
+/* track filter state - depth and time filters are handled in libmcount */
+struct uftrace_python_filter_state {
+	enum filter_mode mode;
+	int count_in;
+	int count_out;
+};
+
+/* global filter state - multiprocess will have their own copy */
+static struct uftrace_python_filter_state filter_state;
 
 /* functions in libmcount.so */
 static void (*cygprof_enter)(unsigned long child, unsigned long parent);
@@ -259,6 +283,70 @@ static void write_symtab(const char *dirname)
 	uftrace_shmem_unlink(uftrace_shmem_name);
 }
 
+static void init_filters(void)
+{
+	char *filter_str = getenv("UFTRACE_FILTER");
+	char *pattern_str = getenv("UFTRACE_PATTERN");
+	enum uftrace_pattern_type ptype = PATT_REGEX;
+	struct strv fsv = STRV_INIT;
+	char *str;
+	int i;
+
+	if (filter_str == NULL) {
+		filter_state.mode = FILTER_MODE_NONE;
+		return;
+	}
+
+	if (pattern_str) {
+		if (!strcmp(pattern_str, "glob"))
+			ptype = PATT_GLOB;
+		else if (!strcmp(pattern_str, "simple"))
+			ptype = PATT_SIMPLE;
+	}
+
+	filter_state.mode = FILTER_MODE_OUT;
+	strv_split(&fsv, filter_str, ";");
+	strv_for_each(&fsv, str, i) {
+		struct uftrace_python_filter *filter;
+
+		filter = xmalloc(sizeof(*filter));
+		if (*str == '!') {
+			filter->mode = FILTER_MODE_OUT;
+			str++;
+		}
+		else {
+			filter->mode = FILTER_MODE_IN;
+			filter_state.mode = FILTER_MODE_IN;
+		}
+
+		if (strpbrk(str, REGEX_CHARS))
+			filter->p.type = ptype;
+		else
+			filter->p.type = PATT_SIMPLE;
+
+		filter->p.patt = xstrdup(str);
+		if (filter->p.type == PATT_REGEX)
+			regcomp(&filter->p.re, filter->p.patt, REG_NOSUB | REG_EXTENDED);
+
+		list_add_tail(&filter->list, &filters);
+	}
+	strv_free(&fsv);
+}
+
+static bool match_filter(struct uftrace_python_filter *filter, const char *fname)
+{
+	switch (filter->p.type) {
+	case PATT_SIMPLE:
+		return !strcmp(filter->p.patt, fname);
+	case PATT_REGEX:
+		return !regexec(&filter->p.re, fname, 0, NULL, 0);
+	case PATT_GLOB:
+		return !fnmatch(filter->p.patt, fname, 0);
+	default:
+		return false;
+	}
+}
+
 static void init_uftrace(void)
 {
 	/* check if it's loaded in a uftrace session */
@@ -272,6 +360,7 @@ static void init_uftrace(void)
 
 	init_symtab();
 	find_libmcount_funcs();
+	init_filters();
 }
 
 /* due to Python API usage, we need to exclude this part for unit testing. */
@@ -528,6 +617,45 @@ static struct uftrace_python_symbol *convert_function_addr(PyObject *frame, PyOb
 	return new_sym;
 }
 
+/* returns true if the current event should be skipped */
+static bool apply_filters(const char *event, struct uftrace_python_symbol *sym, bool is_pyfunc)
+{
+	struct uftrace_python_filter *filter;
+	bool is_entry = !strcmp(event, "call") || !strcmp(event, "c_call");
+	int delta = is_entry ? 1 : -1;
+
+	list_for_each_entry(filter, &filters, list) {
+		if (!match_filter(filter, sym->name))
+			continue;
+
+		if (filter->mode == FILTER_MODE_IN)
+			filter_state.count_in += delta;
+		else if (filter->mode == FILTER_MODE_OUT)
+			filter_state.count_out += delta;
+		break;
+	}
+	if (list_no_entry(filter, &filters, list))
+		filter = NULL;
+
+	if (filter_state.count_out > 0)
+		return true;
+
+	if (filter_state.mode == FILTER_MODE_IN) {
+		if (filter_state.count_in > 0)
+			return false;
+
+		if (filter && filter->mode == FILTER_MODE_IN && !is_entry)
+			return false;
+
+		return true;
+	}
+	if (filter_state.mode == FILTER_MODE_OUT) {
+		if (filter && filter->mode == FILTER_MODE_OUT && !is_entry)
+			return true;
+	}
+	return false;
+}
+
 /*
  * This is the actual trace function to be called for each python event.
  */
@@ -536,6 +664,8 @@ static PyObject *uftrace_trace_python(PyObject *self, PyObject *args)
 	PyObject *frame, *args_tuple;
 	static PyObject *first_frame;
 	const char *event;
+	struct uftrace_python_symbol *sym;
+	bool is_pyfunc;
 
 	if (!PyArg_ParseTuple(args, "OsO", &frame, &event, &args_tuple))
 		Py_RETURN_NONE;
@@ -546,11 +676,13 @@ static PyObject *uftrace_trace_python(PyObject *self, PyObject *args)
 	if (skip_first_frame && frame == first_frame)
 		Py_RETURN_NONE;
 
-	if (!strcmp(event, "call") || !strcmp(event, "c_call")) {
-		struct uftrace_python_symbol *sym;
-		bool is_pyfunc = !strcmp(event, "call");
+	is_pyfunc = !strcmp(event, "call") || !strcmp(event, "return");
+	sym = convert_function_addr(frame, args_tuple, is_pyfunc);
 
-		sym = convert_function_addr(frame, args_tuple, is_pyfunc);
+	if (filter_state.mode != FILTER_MODE_NONE && apply_filters(event, sym, is_pyfunc))
+		Py_RETURN_NONE;
+
+	if (!strcmp(event, "call") || !strcmp(event, "c_call")) {
 		cygprof_enter(sym->addr, 0);
 	}
 	else if (!strcmp(event, "return") || !strcmp(event, "c_return")) {
