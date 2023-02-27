@@ -20,8 +20,9 @@ int bar(volatile int *ptr)
 int bench(int count)
 {
 	volatile int result = 0;
+	int i;
 
-	for (int i = 0; i < count; i++) {
+	for (i = 0; i < count; i++) {
 		if (i % 2 == 0)
 			foo(&result);
 		else
@@ -33,6 +34,7 @@ int bench(int count)
 int main(int argc, char *argv[])
 {
 	int n = 1;
+	int i;
 	int loop = 1000000;
 	int result = 0;
 
@@ -41,7 +43,7 @@ int main(int argc, char *argv[])
 	if (argc > 2)
 		loop = atoi(argv[2]);
 
-	for (int i = 0; i < n; i++)
+	for (i = 0; i < n; i++)
 		result += bench(loop);
 
 	return result ? 0 : 1;

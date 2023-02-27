@@ -206,9 +206,10 @@ TEST_CASE(fstack_extern_data2)
 	const char test_data[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ123456";
 	int msg_size = EXTERN_DATA_MAX * 2;
 	char *extern_data;
+	int i;
 
 	extern_data = xmalloc(msg_size + 1);
-	for (int i = 0; i < msg_size; i += sizeof(test_data) - 1)
+	for (i = 0; i < msg_size; i += sizeof(test_data) - 1)
 		strcpy(&extern_data[i], test_data);
 
 	pr_dbg("creating external data file\n");
