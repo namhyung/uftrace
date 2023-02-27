@@ -322,6 +322,7 @@ int read_events_file(struct uftrace_data *handle)
 
 TEST_CASE(event_name)
 {
+	unsigned i;
 	struct uftrace_data handle = {};
 	struct {
 		unsigned evt_id;
@@ -338,7 +339,7 @@ TEST_CASE(event_name)
 	};
 
 	pr_dbg("testing event name strings\n");
-	for (unsigned i = 0; i < ARRAY_SIZE(expected); i++) {
+	for (i = 0; i < ARRAY_SIZE(expected); i++) {
 		char *got = event_get_name(&handle, expected[i].evt_id);
 		TEST_STREQ(expected[i].evt_name, got);
 		free(got);
@@ -354,6 +355,7 @@ TEST_CASE(event_data)
 	struct uftrace_page_fault pgfault = { 1977, 1102 };
 	struct uftrace_pmu_cycle cycle = { 1024, 2048 };
 	int cpu = 123;
+	unsigned i;
 
 	struct {
 		unsigned evt_id;
@@ -368,7 +370,7 @@ TEST_CASE(event_data)
 	};
 
 	pr_dbg("testing event data strings\n");
-	for (unsigned i = 0; i < ARRAY_SIZE(expected); i++) {
+	for (i = 0; i < ARRAY_SIZE(expected); i++) {
 		char *got = event_get_data_str(expected[i].evt_id, expected[i].data, true);
 		TEST_STREQ(expected[i].str, got);
 		free(got);
