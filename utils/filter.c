@@ -241,7 +241,13 @@ static void add_arg_spec(struct list_head *arg_list, struct uftrace_arg_spec *ar
 	}
 }
 
-void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr, bool exact_match)
+/**
+ * update_trigger - update the trigger flags and related filter data
+ * @filter - trigger tree entry holding filter parameters
+ * @tr - trigger flags to apply
+ * @exact_match - if symbol is exact or regex match (exact match has precedence)
+ */
+void update_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr, bool exact_match)
 {
 	filter->trigger.flags |= tr->flags;
 
@@ -274,9 +280,18 @@ void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr, bool
 		filter->trigger.size = tr->size;
 }
 
-static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
-		      struct uftrace_trigger *tr, struct uftrace_mmap *map, bool exact_match,
-		      struct uftrace_dbg_info *dinfo, struct uftrace_filter_setting *setting)
+/**
+ * update_filter - add, change or remove registered filter
+ * @root - registered filters RB tree
+ * @filter - filter tree node to update
+ * @tr - trigger flags and data to apply
+ * @exact_match - if symbol name is exact or regex match (exact precedes)
+ * @dinfo - debug information
+ * @return - status: 1 when update is made, 0 otherwise
+ */
+static int update_filter(struct rb_root *root, struct uftrace_filter *filter,
+			 struct uftrace_trigger *tr, struct uftrace_mmap *map, bool exact_match,
+			 struct uftrace_dbg_info *dinfo, struct uftrace_filter_setting *setting)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
@@ -326,11 +341,11 @@ static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
 				return 0;
 			}
 
-			add_trigger(iter, tr, exact_match);
+			update_trigger(iter, tr, exact_match);
 			if (auto_arg)
-				add_trigger(iter, &auto_arg->trigger, exact_match);
+				update_trigger(iter, &auto_arg->trigger, exact_match);
 			if (auto_ret)
-				add_trigger(iter, &auto_ret->trigger, exact_match);
+				update_trigger(iter, &auto_ret->trigger, exact_match);
 			tr->flags = orig_flags;
 			return 1;
 		}
@@ -348,11 +363,11 @@ static int add_filter(struct rb_root *root, struct uftrace_filter *filter,
 	INIT_LIST_HEAD(&new->args);
 	new->trigger.pargs = &new->args;
 
-	add_trigger(new, tr, exact_match);
+	update_trigger(new, tr, exact_match);
 	if (auto_arg)
-		add_trigger(new, &auto_arg->trigger, exact_match);
+		update_trigger(new, &auto_arg->trigger, exact_match);
 	if (auto_ret)
-		add_trigger(new, &auto_ret->trigger, exact_match);
+		update_trigger(new, &auto_ret->trigger, exact_match);
 	tr->flags = orig_flags;
 
 	rb_link_node(&new->node, parent, p);
@@ -847,9 +862,16 @@ out:
 	return ret;
 }
 
-static int add_trigger_entry(struct rb_root *root, struct uftrace_pattern *patt,
-			     struct uftrace_trigger *tr, struct uftrace_mmap *map,
-			     struct uftrace_filter_setting *setting)
+/**
+ * update_trigger_entry - match symbol names to update their filter
+ * @root - RB tree of registered filters
+ * @patt - matching pattern type
+ * @tr - trigger data and flags to apply
+ * @return - status: count of updated filters
+ */
+static int update_trigger_entry(struct rb_root *root, struct uftrace_pattern *patt,
+				struct uftrace_trigger *tr, struct uftrace_mmap *map,
+				struct uftrace_filter_setting *setting)
 {
 	struct uftrace_filter filter;
 	struct uftrace_symtab *symtab = &map->mod->symtab;
@@ -877,8 +899,8 @@ static int add_trigger_entry(struct rb_root *root, struct uftrace_pattern *patt,
 		filter.start = sym->addr;
 		filter.end = sym->addr + sym->size;
 
-		ret += add_filter(root, &filter, tr, map, patt->type == PATT_SIMPLE, dinfo,
-				  setting);
+		ret += update_filter(root, &filter, tr, map, patt->type == PATT_SIMPLE, dinfo,
+				     setting);
 	}
 
 	return ret;
@@ -948,8 +970,8 @@ static void setup_trigger(char *filter_str, struct uftrace_sym_info *sinfo, stru
 		if (module) {
 			if (!strcasecmp(module, "PLT")) {
 				setting->plt_only = true;
-				ret += add_trigger_entry(root, &patt, &tr, sinfo->exec_map,
-							 setting);
+				ret += update_trigger_entry(root, &patt, &tr, sinfo->exec_map,
+							    setting);
 				setting->plt_only = false;
 			}
 			else if (has_kernel_opt(module)) {
@@ -957,12 +979,12 @@ static void setup_trigger(char *filter_str, struct uftrace_sym_info *sinfo, stru
 					.mod = get_kernel_module(),
 				};
 
-				ret = add_trigger_entry(root, &patt, &tr, &kernel_map, setting);
+				ret = update_trigger_entry(root, &patt, &tr, &kernel_map, setting);
 			}
 			else {
 				map = find_map_by_name(sinfo, module);
 				if (map && map->mod) {
-					ret = add_trigger_entry(root, &patt, &tr, map, setting);
+					ret = update_trigger_entry(root, &patt, &tr, map, setting);
 				}
 			}
 		}
@@ -972,7 +994,7 @@ static void setup_trigger(char *filter_str, struct uftrace_sym_info *sinfo, stru
 				if (map->mod == NULL)
 					continue;
 
-				ret += add_trigger_entry(root, &patt, &tr, map, setting);
+				ret += update_trigger_entry(root, &patt, &tr, map, setting);
 			}
 		}
 
