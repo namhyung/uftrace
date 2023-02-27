@@ -38,6 +38,7 @@ enum trigger_flag {
 	TRIGGER_FL_HIDE = (1U << 17),
 	TRIGGER_FL_LOC = (1U << 18),
 	TRIGGER_FL_SIZE_FILTER = (1U << 19),
+	TRIGGER_FL_CLEAR = (1U << 20), /* Reverse other flags when set */
 };
 
 /**

@@ -38,6 +38,8 @@ static void snprintf_trigger_read(char *buf, size_t len, enum trigger_read_type 
 
 static void print_trigger(struct uftrace_trigger *tr)
 {
+	if (tr->flags & TRIGGER_FL_CLEAR)
+		pr_dbg("\ttrigger: clear\n");
 	if (tr->flags & TRIGGER_FL_DEPTH)
 		pr_dbg("\ttrigger: depth %d\n", tr->depth);
 	if (tr->flags & TRIGGER_FL_FILTER) {
@@ -249,6 +251,11 @@ static void add_arg_spec(struct list_head *arg_list, struct uftrace_arg_spec *ar
  */
 void update_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr, bool exact_match)
 {
+	if (tr->flags & TRIGGER_FL_CLEAR) {
+		filter->trigger.flags &= ~tr->flags;
+		return;
+	}
+
 	filter->trigger.flags |= tr->flags;
 
 	if (tr->flags & TRIGGER_FL_DEPTH)
@@ -720,6 +727,13 @@ static int parse_hide_action(char *action, struct uftrace_trigger *tr,
 	return 0;
 }
 
+static int parse_clear_action(char *action, struct uftrace_trigger *tr,
+			      struct uftrace_filter_setting *setting)
+{
+	tr->flags |= TRIGGER_FL_CLEAR;
+	return 0;
+}
+
 struct trigger_action_parser {
 	const char *name;
 	int (*parse)(char *action, struct uftrace_trigger *tr,
@@ -807,6 +821,10 @@ static const struct trigger_action_parser actions[] = {
 	{
 		"auto-args",
 		parse_auto_args_action,
+	},
+	{
+		"clear",
+		parse_clear_action,
 	},
 };
 
