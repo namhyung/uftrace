@@ -34,7 +34,7 @@ class TestCase(TestBase):
             line = ln.split()
             if line[0].startswith('='):
                 continue
-            if line[5] != 'fib':
+            if len(line) <= 5 or line[5] != 'fib':
                 continue
             # A report line consists of following data
             # [0]         [1]   [2]        [3]   [4]    [5]
