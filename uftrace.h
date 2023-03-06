@@ -420,6 +420,7 @@ enum uftrace_msg_type {
 
 	UFTRACE_MSG_AGENT_CLOSE = 200, /* close the connection */
 	UFTRACE_MSG_AGENT_QUERY, /* perform connection handshake */
+	UFTRACE_MSG_AGENT_SET_OPT, /* set new option value */
 	UFTRACE_MSG_AGENT_OK, /* ack previous message */
 	UFTRACE_MSG_AGENT_ERR, /* signal error on previous message */
 };
@@ -453,6 +454,10 @@ struct uftrace_msg_dlopen {
 	int unused;
 	int namelen;
 	char exename[];
+};
+
+enum uftrace_agent_opt {
+	UFTRACE_AGENT_OPT_XXX,
 };
 
 extern struct uftrace_session *first_session;

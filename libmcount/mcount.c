@@ -1810,6 +1810,52 @@ static void agent_fini(struct sockaddr_un *addr, int sfd)
 	pr_dbg("agent terminated\n");
 }
 
+/**
+ * agent_read_option - fetch option type and value from agent socket
+ * @fd - socket file descriptor
+ * @opt - option type
+ * @value - option value
+ * @read_size - size of data to read
+ * @return - size of data read into @value
+ */
+static int agent_read_option(int fd, int *opt, void **value, size_t read_size)
+{
+	size_t opt_size = sizeof(*opt);
+	size_t value_size = read_size - opt_size;
+
+	if (read_all(fd, opt, opt_size) < 0)
+		return -1;
+
+	*value = realloc(*value, value_size);
+	if (!value)
+		return -1;
+
+	if (read_all(fd, *value, value_size) < 0)
+		return -1;
+
+	pr_dbg4("read agent option (size=%d)\n", read_size);
+	return value_size;
+}
+
+/**
+ * agent_apply_option - change libmcount parameters at runtime
+ * @opt    - option to apply
+ * @value  - value for the given option
+ * @size   - size of @value
+ * @return - 0 on success, -1 on failure
+ */
+static int agent_apply_option(int opt, void *value, size_t size)
+{
+	int ret = 0;
+
+	switch (opt) {
+	default:
+		ret = -1;
+	}
+
+	return ret;
+}
+
 /* Agent routine, applying instructions from the CLI. */
 void *agent_apply_commands(void *arg)
 {
@@ -1817,6 +1863,8 @@ void *agent_apply_commands(void *arg)
 	bool close_connection;
 	struct uftrace_msg msg;
 	struct sockaddr_un addr;
+	void *value = NULL;
+	size_t size;
 
 	/* initialize agent */
 	sfd = agent_init(&addr);
@@ -1840,6 +1888,8 @@ void *agent_apply_commands(void *arg)
 		close_connection = false;
 		while (!close_connection) {
 			int status = 0;
+			int opt;
+
 			/* read message header to get type */
 			if (agent_message_read_head(cfd, &msg) == -1) {
 				status = EINVAL;
@@ -1856,6 +1906,23 @@ void *agent_apply_commands(void *arg)
 				pr_dbg3("send capabilities to client\n");
 				agent_message_send(cfd, UFTRACE_MSG_AGENT_OK, &status,
 						   sizeof(status));
+				break;
+
+			case UFTRACE_MSG_AGENT_SET_OPT:
+				size = agent_read_option(cfd, &opt, &value, msg.len);
+				if (status < 0) {
+					status = EINVAL;
+					agent_message_send(cfd, UFTRACE_MSG_AGENT_ERR, &status,
+							   sizeof(status));
+					break;
+				}
+
+				status = agent_apply_option(opt, value, size);
+				if (status == 0)
+					agent_message_send(cfd, UFTRACE_MSG_AGENT_OK, NULL, 0);
+				else
+					agent_message_send(cfd, UFTRACE_MSG_AGENT_ERR, &status,
+							   sizeof(status));
 				break;
 
 			case UFTRACE_MSG_AGENT_CLOSE:
@@ -1875,6 +1942,7 @@ void *agent_apply_commands(void *arg)
 			pr_dbg3("client disconnected\n");
 	}
 
+	free(value);
 	agent_fini(&addr, sfd);
 	return 0;
 }

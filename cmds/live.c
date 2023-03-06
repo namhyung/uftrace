@@ -238,6 +238,86 @@ static int query_agent_capabilities(int fd)
 	return status;
 }
 
+/**
+ * forward_option - forward a given option and its data to the agent
+ * @fd           - agent socket file descriptor
+ * @capabilities - features supported by the agent
+ * @opt          - option type to send
+ * @value        - option data load
+ * @value_size   - size of @value
+ * @return       - status: -1 on error, 0 on success
+ */
+static int forward_option(int fd, int capabilities, int opt, void *value, size_t value_size)
+{
+	void *data;
+	size_t data_size;
+	struct uftrace_msg ack;
+	int ret = -1;
+
+	if (!(opt & capabilities)) {
+		pr_warn("option not unsupported by the agent: %#x\n", opt);
+		return 0;
+	}
+
+	/* The agent needs to know which option to apply, and its associated value.
+	 * We pack both information into the data load of a single message, with
+	 * type UFTRACE_MSG_AGENT_SET_OPT.
+	 *
+	 * We use the following data structure:
+	 *
+	 * PACKED_DATA = OPTION_TYPE |   VALUE
+	 *               -----------   ----------
+	 *               sizeof(opt)   value_size
+	 *
+	 * Example:
+	 * PACKED_DATA = UFTRACE_AGENT_OPT_FILTER |  'func1,!func2'
+	 *               ------------------------   ---------------
+	 *                     sizeof(opt)          value_size = 12
+	 */
+	pr_dbg2("send option to agent: %#x\n", opt);
+	data_size = value_size + sizeof(opt);
+	data = malloc(data_size);
+	if (!data)
+		goto cleanup;
+	memcpy(data, &opt, sizeof(opt));
+	memcpy(data + sizeof(opt), value, value_size);
+
+	ret = agent_message_send(fd, UFTRACE_MSG_AGENT_SET_OPT, data, data_size);
+	if (ret < 0) {
+		pr_dbg("error sending option to agent\n");
+		goto cleanup;
+	}
+
+	ret = agent_message_read_response(fd, &ack);
+	if (ret < 0) {
+		pr_dbg3("error reading agent response\n");
+		goto cleanup;
+	}
+
+	switch (ack.type) {
+	case UFTRACE_MSG_AGENT_OK:
+		ret = 0;
+		pr_dbg4("option applied by agent: %#x\n", opt);
+		break;
+
+	case UFTRACE_MSG_AGENT_ERR:
+		if (ret == ENOTSUP)
+			pr_warn("option not unsupported by the agent: %#x\n", opt);
+		else
+			pr_warn("agent error: %s\n", strerror(ret));
+		ret = -1;
+		break;
+
+	default:
+		pr_dbg3("bad agent message type (expected ack)\n");
+		ret = -1;
+	}
+
+cleanup:
+	free(data);
+	return ret;
+}
+
 /* Forward all client options to the agent */
 static int forward_options(struct uftrace_opts *opts)
 {
