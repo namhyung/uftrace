@@ -107,7 +107,7 @@ static volatile bool agent_run = false;
 #define MCOUNT_AGENT_CAPABILITIES                                                                  \
 	(UFTRACE_AGENT_OPT_TRACE | UFTRACE_AGENT_OPT_DEPTH | UFTRACE_AGENT_OPT_THRESHOLD |         \
 	 UFTRACE_AGENT_OPT_PATTERN | UFTRACE_AGENT_OPT_FILTER | UFTRACE_AGENT_OPT_CALLER |         \
-	 UFTRACE_AGENT_OPT_TRIGGER)
+	 UFTRACE_AGENT_OPT_TRIGGER | UFTRACE_AGENT_OPT_PATCH)
 
 __weak void dynamic_return(void)
 {
@@ -1986,6 +1986,11 @@ static int agent_apply_option(int opt, void *value, size_t size,
 	case UFTRACE_AGENT_OPT_TRIGGER:
 		pr_dbg3("apply trigger '%s' (size=%d)\n", value, size);
 		agent_setup_trigger(value, triggers);
+		break;
+
+	case UFTRACE_AGENT_OPT_PATCH:
+		pr_dbg3("apply patch '%s' (size=%d)\n", value, size);
+		mcount_dynamic_update(&mcount_sym_info, value, mcount_filter_setting.ptype);
 		break;
 
 	default:

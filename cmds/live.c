@@ -361,7 +361,7 @@ static int forward_options(struct uftrace_opts *opts)
 	}
 
 	/* provide a pattern type for options that need it */
-	if (opts->filter || opts->caller || opts->trigger) {
+	if (opts->filter || opts->caller || opts->trigger || opts->patch) {
 		status = forward_option(sfd, capabilities, UFTRACE_AGENT_OPT_PATTERN,
 					&opts->patt_type, sizeof(opts->patt_type));
 		if (status < 0)
@@ -385,6 +385,13 @@ static int forward_options(struct uftrace_opts *opts)
 	if (opts->trigger) {
 		status = forward_option(sfd, capabilities, UFTRACE_AGENT_OPT_TRIGGER, opts->trigger,
 					strlen(opts->trigger) + 1);
+		if (status < 0)
+			goto close;
+	}
+
+	if (opts->patch) {
+		status = forward_option(sfd, capabilities, UFTRACE_AGENT_OPT_PATCH, opts->patch,
+					strlen(opts->patch) + 1);
 		if (status < 0)
 			goto close;
 	}
