@@ -459,6 +459,7 @@ struct uftrace_msg_dlopen {
 
 enum uftrace_agent_opt {
 	UFTRACE_AGENT_OPT_PATTERN = (1U << 0), /* pattern match type */
+	UFTRACE_AGENT_OPT_PATCH = (1U << 1), /* patch string */
 };
 
 extern struct uftrace_session *first_session;

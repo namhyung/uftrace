@@ -113,7 +113,7 @@ static pthread_t agent;
 /* state flag for the agent */
 static volatile bool agent_run = false;
 
-#define MCOUNT_AGENT_CAPABILITIES (UFTRACE_AGENT_OPT_PATTERN)
+#define MCOUNT_AGENT_CAPABILITIES (UFTRACE_AGENT_OPT_PATTERN | UFTRACE_AGENT_OPT_PATCH)
 
 __weak void dynamic_return(void)
 {
@@ -1877,6 +1877,11 @@ static int agent_apply_option(int opt, void *value, size_t size, struct rb_root 
 			mcount_filter_setting.ptype = patt_type;
 			pr_dbg4("use pattern type %#x\n", patt_type);
 		}
+		break;
+
+	case UFTRACE_AGENT_OPT_PATCH:
+		pr_dbg4("apply patch '%s' (size=%d)\n", value, size);
+		mcount_dynamic_update(&mcount_sym_info, value, mcount_filter_setting.ptype);
 		break;
 
 	default:
