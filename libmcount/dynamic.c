@@ -295,14 +295,14 @@ static struct mcount_dynamic_info *create_mdi(struct dl_phdr_info *info)
 }
 
 /**
- * find_dynamic_module - callback for dl_iterate_phdr(), iterated over all
- * loaded shared objects
- * @info   - info about shared object
- * @sz     - _unused_
- * @data   - mcount module data
- * @return - 0 to continue iteration, non-zero to stop
+ * prepare_dynamic_module - store dynamic module info and install trampoline;
+ * callback for dl_iterate_phdr()
+ * @info   - module info
+ * @sz     - data size (unused)
+ * @data   - callback data: symbol info and module parsing flag
+ * @return - stop iteration on non-zero value
  */
-static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
+static int prepare_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 {
 	struct mcount_dynamic_info *mdi;
 	struct find_module_data *fmd = data;
@@ -325,6 +325,9 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 	if (map && map->mod) {
 		mdi->map = map;
 		mcount_arch_find_module(mdi, &map->mod->symtab);
+
+		if (mcount_setup_trampoline(mdi) < 0)
+			mdi->trampoline = 0;
 
 		mdi->next = mdinfo;
 		mdinfo = mdi;
@@ -365,7 +368,7 @@ static void prepare_dynamic_update(struct uftrace_sym_info *sinfo, bool needs_mo
 		code_hmap = hashmap_create(hash_size, hashmap_ptr_hash, hashmap_ptr_equals);
 	}
 
-	rc = dl_iterate_phdr(find_dynamic_module, &fmd);
+	rc = dl_iterate_phdr(prepare_dynamic_module, &fmd);
 
 	if (needs_modules && rc == 0)
 		modules_loaded = true;
@@ -664,10 +667,18 @@ static void patch_func_matched(struct list_head *patt, struct mcount_dynamic_inf
 		patch_normal_func_matched(patt, mdi, map);
 }
 
+/**
+ * do_dynamic_update - apply (un)patching across loaded modules' maps
+ * @sinfo       - dynamic symbol info
+ * @patch_funcs - spec of symbols to (un)patch
+ * @ptype       - matching pattern type
+ * @return      - 0 (unused)
+ */
 static int do_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 			     enum uftrace_pattern_type ptype)
 {
 	struct uftrace_mmap *map;
+	struct mcount_dynamic_info *mdi;
 	char *def_mod;
 
 	if (patch_funcs == NULL)
@@ -676,15 +687,11 @@ static int do_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 	def_mod = basename(sinfo->exec_map->libname);
 	parse_pattern_list(patch_funcs, def_mod, ptype);
 
-	for_each_map(sinfo, map) {
-		struct mcount_dynamic_info *mdi;
-
-		/* TODO: filter out unsuppported libs */
-		mdi = setup_trampoline(map);
-		if (mdi == NULL)
-			continue;
-
-		patch_func_matched(&dynamic_patterns, mdi, map);
+	/* TODO: filter out unsupported libs */
+	for (mdi = mdinfo; mdi != NULL; mdi = mdi->next) {
+		map = mdi->map;
+		if (mdi->trampoline)
+			patch_func_matched(&dynamic_patterns, mdi, map);
 	}
 
 	if (stats.failed + stats.skipped + stats.nomatch == 0) {
@@ -693,24 +700,6 @@ static int do_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 	}
 
 	return 0;
-}
-
-static void freeze_dynamic_update(void)
-{
-	struct mcount_dynamic_info *mdi, *tmp;
-
-	mdi = mdinfo;
-	while (mdi) {
-		tmp = mdi->next;
-
-		mcount_arch_dynamic_recover(mdi, &disasm);
-		mcount_cleanup_trampoline(mdi);
-		free(mdi);
-
-		mdi = tmp;
-	}
-
-	mcount_freeze_code();
 }
 
 /* do not use floating-point in libmcount */
@@ -757,7 +746,7 @@ int mcount_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 		pr_dbg("no match: %8d\n", stats.nomatch);
 	}
 
-	freeze_dynamic_update();
+	mcount_freeze_code();
 	aggregate_pattern_list();
 	return ret;
 }
@@ -804,9 +793,29 @@ void mcount_dynamic_dlopen(struct uftrace_sym_info *sinfo, struct dl_phdr_info *
 	mcount_freeze_code();
 }
 
+/**
+ * mcount_free_mdinfo - free all dynamic info structures
+ */
+static void mcount_free_mdinfo(void)
+{
+	struct mcount_dynamic_info *mdi, *tmp;
+
+	mdi = mdinfo;
+	while (mdi) {
+		tmp = mdi->next;
+
+		mcount_arch_dynamic_recover(mdi, &disasm);
+		mcount_cleanup_trampoline(mdi);
+		free(mdi);
+
+		mdi = tmp;
+	}
+}
+
 void mcount_dynamic_finish(void)
 {
 	release_pattern_list(&aggregate_patterns);
+	mcount_free_mdinfo();
 	mcount_disasm_finish(&disasm);
 }
 
