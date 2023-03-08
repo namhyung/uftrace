@@ -55,7 +55,7 @@ INSTALL = install
 
 export ARCH CC AR LD RM srcdir objdir LDFLAGS
 
-COMMON_CFLAGS := -D_GNU_SOURCE $(CFLAGS) $(CPPFLAGS)
+COMMON_CFLAGS := -std=gnu11 -D_GNU_SOURCE $(CFLAGS) $(CPPFLAGS)
 COMMON_CFLAGS += -iquote $(srcdir) -iquote $(objdir) -iquote $(srcdir)/arch/$(ARCH)
 COMMON_CFLAGS += -Wdeclaration-after-statement
 #CFLAGS-DEBUG = -g -D_GNU_SOURCE $(CFLAGS_$@)
