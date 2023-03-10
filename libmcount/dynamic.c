@@ -229,8 +229,7 @@ __weak void mcount_patch_normal_func_fini(void)
 {
 }
 
-__weak int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
-			       struct mcount_disasm_engine *disasm)
+__weak int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym)
 {
 	return -1;
 }
@@ -566,7 +565,7 @@ static void patch_normal_func_matched(struct mcount_dynamic_info *mdi, struct uf
 		else if (match == 1)
 			mcount_patch_func_with_stats(mdi, sym);
 		else
-			mcount_unpatch_func(mdi, sym, NULL);
+			mcount_unpatch_func(mdi, sym);
 	}
 
 	if (!found)
