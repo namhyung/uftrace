@@ -35,6 +35,7 @@ usage() {
   --without-capstone    build without libcapstone            (even if found on the system)
   --without-perf        build without perf event             (even if available)
   --without-schedule    build without scheduler event        (even if available)
+  --without-membarrier  build without membarriers            (even if available)
 
   --arch=<ARCH>         set target architecture              (default: system default arch)
                         e.g. x86_64, aarch64, i386, or arm
@@ -198,6 +199,7 @@ for dep in $IGNORE; do
         capstone)    TARGET=have_libcapstone   ;;
         perf*)       TARGET=perf_clockid       ;;
         sched*)      TARGET=perf_context_switch;;
+        membarrier)  TARGET=have_membarrier    ;;
         *)           ;;
     esac
     if [ ! -z "$TARGET" ]; then
@@ -265,6 +267,7 @@ print_feature "perf_event" "perf_clockid" "perf (PMU) event support"
 print_feature "schedule" "perf_context_switch" "scheduler event support"
 print_feature "capstone" "have_libcapstone" "full dynamic tracing support"
 print_feature "libunwind" "have_libunwind" "stacktrace support (optional for debugging)"
+print_feature "membarrier" "have_membarrier" "membarrier support (requires Linux 4.16)"
 
 cat >$output <<EOF
 # this file is generated automatically
