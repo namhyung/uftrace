@@ -1042,6 +1042,110 @@ void mcount_patch_normal_func_fini(void)
 	}
 }
 
+extern int check_endbr64(unsigned long addr);
+
+/**
+ * unpatch_normal_func - remove full-dynamic instrumentation from a function
+ * entry and restore original instructions
+ * @mdi    - mcount dynamic info for the current module
+ * @sym    - symbol to patch
+ * @return - instrumentation status
+ */
+static int unpatch_normal_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym)
+{
+	/*
+	 * Let assume that we have the following instructions.
+	 *
+	 *     0x0: call <trampoline>
+	 *     0x5: <nop instructions>
+	 *     0xb: <other instructions>
+	 *
+	 * The goal is to modify the instructions in order to get the following
+	 * instructions.
+	 *
+	 *     0x0: push %rbp
+	 *     0x1: mov  %rsp,%rbp
+	 *     0x4: lea  0xeb0(%rip),%rdi
+	 *     0xb: <other instructions>
+	 */
+
+	unsigned long origin_code_addr;
+	unsigned call_offset = CALL_INSN_SIZE;
+	struct mcount_orig_insn *orig;
+	uint8_t *origin_code;
+	int orig_size;
+
+	origin_code_addr = mdi->map->start + sym->addr;
+	if (check_endbr64(origin_code_addr))
+		origin_code_addr += ENDBR_INSN_SIZE;
+	orig = mcount_find_insn(origin_code_addr + call_offset);
+	if (!orig) {
+		pr_dbg("cannot find original instructions for '%s' at %#lx\n",
+		       origin_code_addr + call_offset, sym->name);
+		return -1;
+	}
+	origin_code = orig->orig;
+	orig_size = orig->orig_size;
+
+	pr_dbg2("unpatch normal func: %s (patch size: %d)\n", sym->name, orig_size);
+
+	/*
+	 * The first step is to insert a trap.
+	 *
+	 *     0x0: int3
+	 *     0x1: <trampoline>
+	 *     0x5: <nop instructions>
+	 *     0xb: <other instructions>
+	 */
+
+	((uint8_t *)origin_code_addr)[0] = 0xcc;
+
+	/*
+	 * The second step is to restore the bytes after the trap instruction.
+	 *
+	 *     0x0: int3
+	 *     0x1: mov  %rsp,%rbp
+	 *     0x4: lea  0xeb0(%rip),%rdi
+	 *     0xb: <other instructions>
+	 *
+	 * Before restoring the last byte, a serialization instruction must be
+	 * executed in order to synchronize the instruction cache of each processor.
+	 * The easiest method is to execute a membarrier system call with
+	 * MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE. It will send a
+	 * inter-processor interrupt that will execute the required serialization.
+	 */
+
+	synchronize_all_cores();
+
+	if (!memcpy(&((uint8_t *)origin_code_addr)[1], &origin_code[1], orig_size - 1))
+		return -1;
+
+	/*
+	 * The third step is to restore the last byte.
+	 *
+	 *     0x0: push %rbp
+	 *     0x1: mov  %rsp,%rbp
+	 *     0x4: lea  0xeb0(%rip),%rdi
+	 *     0xb: <other instructions>
+	 */
+
+	((uint8_t *)origin_code_addr)[0] = origin_code[0];
+
+	/*
+	 * The fourth and last step is to move all thread that are currently
+	 * executing in the modified instructions to the original instructions at
+	 * the end of the trampoline. This is needed in order to free the memory
+	 * allocated for the trampoline without any race condition.
+	 *
+	 * The method used to move the threads is to send the SIGRTMIN+n signal to
+	 * all other threads. When their thread handler executes, it will check if
+	 * the next instruction pointer is in the patching region. If it is, will
+	 * move the next instruction pointer to the equivalent modified instruction.
+	 */
+
+	return INSTRUMENT_SUCCESS;
+}
+
 static int unpatch_func(uint8_t *insn, char *name)
 {
 	uint8_t nop5[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
@@ -1137,8 +1241,7 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sy
 	return result;
 }
 
-int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
-			struct mcount_disasm_engine *disasm)
+int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym)
 {
 	int result = INSTRUMENT_SKIPPED;
 
@@ -1149,6 +1252,10 @@ int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *
 
 	case DYNAMIC_PG:
 		result = unpatch_mcount_func(mdi, sym);
+		break;
+
+	case DYNAMIC_NONE:
+		result = unpatch_normal_func(mdi, sym);
 		break;
 
 	default:
