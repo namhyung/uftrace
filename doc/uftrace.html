@@ -3823,13 +3823,13 @@ class: code-24px
 ```
 ---
 class: code-24px
-### Trace Control Triggers (--disable)
-.footnote[.red[--disable] starts uftrace with tracing disabled]
+### Trace Control Triggers (--trace=off)
+.footnote[.red[--trace=off] starts uftrace with tracing disabled]
 ```
 
     $ gcc -pg -g tests/s-signal.c
 
-    $ uftrace -a `--disable` a.out
+    $ uftrace -a `--trace=off` a.out
     WARN: cannot open record data: ... : No data available
 ```
 ---
@@ -3840,7 +3840,7 @@ class: code-24px
 
     $ gcc -pg -g tests/s-signal.c
 
-    $ uftrace -a --disable `-T foo@trace_on` a.out
+    $ uftrace -a --trace=off `-T foo@trace_on` a.out
     # DURATION     TID     FUNCTION
        0.316 us [ 17381] |   `foo`() = 0;
        2.760 us [ 17381] |   signal(SIGUSR1, &sighandler) = 0;
@@ -3912,7 +3912,7 @@ class: code-24px
 
     $ gcc -pg -g tests/s-signal.c
 
-    $ uftrace -a --disable `--signal SIGUSR1@trace_on` a.out
+    $ uftrace -a --trace=off `--signal SIGUSR1@trace_on` a.out
     uftrace: install signal handlers to task 175678
     # DURATION     TID     FUNCTION
                 [ 17678] |     } /* sighandler */

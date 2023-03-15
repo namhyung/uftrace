@@ -167,8 +167,12 @@ COMMON OPTIONS
     Default is `regex`.
 
 \--disable
-:   Start uftrace with tracing disabled.  This is only meaningful when used with
-    a `trace_on` trigger.
+:   DEPRECATED. Use `--trace=off` instead.
+
+\--trace=*STATE*
+:   Set uftrace tracing STATE. Possible states are `on` and `off`. Default is
+    `on`. This is only meaningful when used with a `trace_on` trigger or with
+    the agent.
 
 \--with-syms=*DIR*
 :   Read symbol data from the .sym files in *DIR* directory instead of the
