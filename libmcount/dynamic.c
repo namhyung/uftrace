@@ -515,11 +515,8 @@ static bool skip_sym(struct uftrace_symbol *sym, struct mcount_dynamic_info *mdi
 	if (sym->type != ST_LOCAL_FUNC && sym->type != ST_GLOBAL_FUNC && sym->type != ST_WEAK_FUNC)
 		return true;
 
-	if (!match_pattern_list(map, soname, sym->name)) {
-		if (mcount_unpatch_func(mdi, sym, &disasm) == 0)
-			stats.unpatch++;
+	if (!match_pattern_list(map, soname, sym->name))
 		return true;
-	}
 
 	return false;
 }
