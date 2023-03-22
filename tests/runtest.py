@@ -626,8 +626,12 @@ class TestBase:
             timed_out = True
         signal.alarm(0)
 
-        result_expect = self.sort(self.result)
-        result_tested = self.sort(result_origin)  # for python3
+        try:
+            result_tested = self.sort(result_origin)  # for python3, mail fail!
+            result_expect = self.sort(self.result)
+        except IndexError:
+            result_tested = result_origin
+            result_expect = self.result
 
         # strip trailing whitespace for each line.
         result_expect = '\n'.join([line.rstrip() for line in result_expect.split('\n')])
@@ -656,8 +660,11 @@ class TestBase:
             return TestBase.TEST_DIFF_RESULT, dif
 
         if result_expect != result_tested:
-            result_expect = self.sort(self.fixup(cflags, self.result))
-            ret = TestBase.TEST_SUCCESS_FIXED
+            try:
+                result_expect = self.sort(self.fixup(cflags, self.result))
+                ret = TestBase.TEST_SUCCESS_FIXED
+            except IndexError:
+                return TestBase.TEST_DIFF_RESULT, "Internal error: Expected more results"
 
         if result_expect != result_tested:
             if diff:
