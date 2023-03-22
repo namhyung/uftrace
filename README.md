@@ -4,11 +4,50 @@
 uftrace
 =======
 
-The uftrace tool is to trace and analyze execution of a program
-written in C/C++.  It was heavily inspired by the ftrace framework
-of the Linux kernel (especially function graph tracer) and supports
-userspace programs.  It supports various kind of commands and filters
-to help analysis of the program execution and performance.
+uftrace is a function call graph tracer for C, C++, Rust and Python programs.
+
+It hooks into the entry and exit of each function, recording timestamps
+as well as the function's arguments and return values. uftrace is capable
+of tracing both user and kernel functions, as well as library functions and
+system events providing an integrated execution flow in a single timeline.
+
+Initially, uftrace only supported function tracing with compiler support.
+However, it now allows users to trace function calls without recompilation
+by analyzing instructions in each function prologue and dynamically and
+selectively patching those instructions.
+
+Users can also write and run scripts for each function entry and exit using
+python/luajit APIs to create custom tools for their specific purposes.
+
+uftrace offers various filters to reduce the amount of trace data and provides
+visualization using Chrome trace viewer and flame graph or call-graph diagrams
+for graphviz and mermaid, allowing for a big picture view of the execution flow.
+
+It was heavily inspired by the ftrace framework of the Linux kernel and
+the name uftrace stems from the combination of user and ftrace.
+
+It can record data from:
+- User space functions by dynamically patching functions at runtime, or with code
+  compiled with with `-pg`, `-fpatchable-function-entry`, `-mfentry`, `-mnop-mcount`,
+  `-finstrument-functions`, or using clang with `-fxray-instrument`.
+- Library functions (through PLT hooking)
+- Kernel functions (using the ftrace framework in Linux kernel)
+- Kernel trace events affecting the program, e.g. scheduling events (which affect the
+  execution timing of the program) and records nanosecond-exact timestamps
+  (using perf_event and systemtap SDT)
+
+With the recorded data, it:
+- Can show colored and nested function call graphs.
+- Can show arguments and return values symbolically using libc function prototypes
+  and DWARF debug information.
+- Can apply filters to minimize the amount of trace data in both record and replay time.
+- Can extract metadata from traces. (e.g. system information on which the trace was taken)
+- Can generate symbol tables and memory maps of the traced program and library functions.
+- When the execution of multiple programs was recorded,
+  it can generate a task relationship tree (parent and children) from the trace.
+
+It supports many commands and filters such as filtering by function call
+duration for analysis of program execution and performance.
 
 ![uftrace-live-demo](doc/uftrace-live-demo.gif)
 
@@ -16,35 +55,73 @@ to help analysis of the program execution and performance.
  * Tutorial: https://github.com/namhyung/uftrace/wiki/Tutorial
  * Chat: https://gitter.im/uftrace/uftrace
  * Mailing list: [uftrace@googlegroups.com](https://groups.google.com/forum/#!forum/uftrace)
+ * Lightning talk: https://youtu.be/LNav5qvyK7I
 
 
 Features
 ========
 
-It traces each function in the executable and shows time duration.  It
-can also trace external library calls - but usually entry and exit are
-supported.  Optionally it's possible to trace other (nested) external
-library calls and/or internal function calls in the library call.
+uftrace traces each function in the executable and shows time durations.
 
-It can show detailed execution flow at function level, and report which
-function has the highest overhead.  And it also shows various information
-related the execution environment.
+Usually, for this to be possible, the program needs to be compiled with
+`-pg` or `-fpatchable-function-entry=5` (`=2` is enough on aarch64).
+With full dynamic tracing (`-P.`|`--patch=.`), uftrace works on all executables (as
+long they are not stripped, or symbol information is available from a separate file).
+
+uftrace hooks into the PLT in the given executable file to trace library calls and with
+(`-l`|`--nest-libcall`), it also hooks into the procedure linkage tables (PLTs) of shared
+libraries. The depth can be limited using `-D<num>`, where 1 is flat call tracing.
+
+Using (`-a`|`--auto-args`), uftrace automatically records arguments and
+return values of known functions. Without extra debug information, this
+includes the API functions of standard (C language or system) libraries.
+This can be combined with `-P.` or `-l`:
+For example, `-la` traces nested library calls, even in stripped executables.
+
+In addition, `-a` implies `--srcline` so it records the source line location info and
+it can be shown by `uftrace replay --srcline` and in `uftrace tui`. Users can directly
+open the editor at the source location as shown in https://uftrace.github.io/slide/#120.
+
+If debug information for the program (`gcc -g`) is available, `--auto-args`
+works even on functions inside of the compiled the user programs.
+
+In case argument information is not available, argument specifiations like
+(`-A udev_new@arg1/s`) can be passed on the command line or an options file.
+
+Example:
+```py
+$ uftrace record -la -A udev_new@arg1/s lsusb >/dev/null
+$ uftrace replay -f+module
+or simply:
+$ uftrace -la -A udev_new@arg1/s -f+module lsusb  # -f+module adds the module name
+# DURATION     TID        MODULE NAME   FUNCTION
+ 306.339 us [ 23561]            lsusb | setlocale(LC_TYPE, "") = "en_US.UTF-8";
+   1.163 us [ 23561]            lsusb | getopt_long(1, 0x7fff7175f6a8, "D:vtP:p:s:d:Vh") = -1;
+            [ 23561]            lsusb | udev_new("POSIXLY_CORRECT") {
+   0.406 us [ 23561] libudev.so.1.7.2 |   malloc(16) = 0x55e07277a7b0;
+   2.620 us [ 23561]            lsusb | } /* udev_new */
+            [ 23561]            lsusb | udev_hwdb_new() {
+   0.427 us [ 23561] libudev.so.1.7.2 |   calloc(1, 200) = 0x55e07277a7d0;
+   5.829 us [ 23561] libudev.so.1.7.2 |   fopen64("/etc/systemd/hwdb/hwdb.bin", "re") = 0;
+```
+
+Furthermore, it can show detailed execution flow at function level, and report
+which functions had the longest execution time.  It also shows information about
+the execution environment.
 
 You can setup filters to exclude or include specific functions when tracing.
-In addition, it can save and show function arguments and return value.
+In addition, function arguments and return values can be saved and shown later.
 
 It supports multi-process and/or multi-threaded applications.  With root
-privilege, it can also trace kernel functions as well( with `-k` option)
-if the system enables the function graph tracer in the kernel
-(`CONFIG_FUNCTION_GRAPH_TRACER=y`).
-
+privileges and if the kernel was built with `CONFIG_FUNCTION_GRAPH_TRACER=y`,
+kernel functions can be traced as well.
 
 How to build and install uftrace
 ================================
 
-On Linux distros, [misc/install-deps.sh](misc/install-deps.sh) installs required
-software(s) on your system.  Those are for optional advanced features but highly
-recommend to install them together.
+On Linux distros, [misc/install-deps.sh](misc/install-deps.sh) can be used to
+install required software(s) for building uftrace.  Those are for optional
+and advanced features, but are highly recommended.
 
     $ sudo misc/install-deps.sh
 
@@ -55,7 +132,7 @@ installed like following:
     $ make
     $ sudo make install
 
-For more advanced setup, please refer [INSTALL.md](INSTALL.md) file.
+For details about installation and dependencies, please refer to [INSTALL.md](INSTALL.md)
 
 
 How to use uftrace
