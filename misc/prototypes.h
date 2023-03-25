@@ -371,9 +371,10 @@ enum uft_socket_domain {
 enum uft_socket_type {
 	SOCK_STREAM = 1, SOCK_DGRAM, SOCK_RAW, SOCK_RDM, SOCK_SEQPACKET, SOCK_DCCP,
 	SOCK_PACKET = 10,
+	SOCK_NONBLOCK = 04000, SOCK_CLOEXEC = 02000000,
 };
 enum uft_socket_flag {
-	 SOCK_NONBLOCK = 04000, SOCK_CLOEXEC = 02000000,
+	SOCK_NONBLOCK = 04000, SOCK_CLOEXEC = 02000000,
 };
 int socket(enum uft_socket_domain domain, enum uft_socket_type type, int protocol);
 int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
