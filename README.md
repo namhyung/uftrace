@@ -60,20 +60,20 @@ For more advanced setup, please refer [INSTALL.md](INSTALL.md) file.
 
 How to use uftrace
 ==================
-The uftrace command has following subcommands:
+These are the commands supported by uftrace:
 
- * `record` : runs a program and saves the trace data
- * `replay` : shows program execution in the trace data
- * `report` : shows performance statistics in the trace data
- * `live`   : does record and replay in a row (default)
- * `info`   : shows system and program info in the trace data
- * `dump`   : shows low-level trace data
- * `recv`   : saves the trace data from network
- * `graph`  : shows function call graph in the trace data
- * `script` : runs a script for recorded trace data
- * `tui`    : show text user interface for graph and report
+ * [`record`](doc/uftrace-record.md) : runs a program and saves the trace data
+ * [`replay`](doc/uftrace-replay.md) : shows program execution in the trace data
+ * [`report`](doc/uftrace-report.md) : shows performance statistics in the trace data
+ * [`live`  ](doc/uftrace-live.md)   : does record and replay in a row (default)
+ * [`info`  ](doc/uftrace-info.md)   : shows system and program info in the trace data
+ * [`dump`  ](doc/uftrace-dump.md)   : shows low-level trace data
+ * [`recv`  ](doc/uftrace-recv.md)   : saves the trace data from network
+ * [`graph` ](doc/uftrace-graph.md)  : shows function call graph in the trace data
+ * [`script`](doc/uftrace-script.md) : runs a script for recorded trace data
+ * [`tui`   ](doc/uftrace-tui.md)    : show text user interface for graph and report
 
-You can use `-h` or `--help` option to see available commands and options.
+You can use `-h` or `--help` option to see available [commands and options](doc/uftrace.md).
 
     $ uftrace
     uftrace -- function (graph) tracer for userspace
