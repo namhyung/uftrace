@@ -24,7 +24,3 @@ class TestCase(TestBase):
    0.427 us [16325] |   } /* pass */
   42.161 us [16325] | } /* main */
 """)
-
-    def setup(self):
-        # to avoid unexpected memcpy in aarch64
-        self.option = '-N memcpy '

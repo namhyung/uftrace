@@ -14,7 +14,3 @@ class TestCase(TestBase):
    0.157 us [12703] |   return_long_double();
    4.097 us [12703] | } /* main */
 """)
-
-    def setup(self):
-        # to avoid unexpected memcpy in aarch64
-        self.option = '-N memcpy '
