@@ -2137,13 +2137,17 @@ void __visible_default mcount_reset(void)
 
 void __visible_default __cyg_profile_func_enter(void *child, void *parent)
 {
+#ifndef HAVE_LIBCAPSTONE
 	cygprof_entry((unsigned long)parent, (unsigned long)child);
+#endif
 }
 UFTRACE_ALIAS(__cyg_profile_func_enter);
 
 void __visible_default __cyg_profile_func_exit(void *child, void *parent)
 {
+#ifndef HAVE_LIBCAPSTONE
 	cygprof_exit((unsigned long)parent, (unsigned long)child);
+#endif
 }
 UFTRACE_ALIAS(__cyg_profile_func_exit);
 
