@@ -788,7 +788,7 @@ out:
 	return ret;
 }
 
-void load_python_symtab(struct uftrace_sym_info *sinfo)
+static void load_python_symtab(struct uftrace_sym_info *sinfo)
 {
 	char *symfile = NULL;
 	struct uftrace_mmap *map;
@@ -1200,6 +1200,8 @@ void load_module_symtabs(struct uftrace_sym_info *sinfo)
 
 		map->mod = load_module_symtab(sinfo, map->libname, map->build_id);
 	}
+
+	load_python_symtab(sinfo);
 }
 
 /* returns the number of matching entries (1 = path only, 2 = build-id) */
