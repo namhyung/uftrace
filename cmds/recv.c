@@ -81,22 +81,44 @@ int setup_client_socket(struct uftrace_opts *opts)
 		.sin_family = AF_INET,
 		.sin_port = htons(opts->port),
 	};
-	struct hostent *hostinfo;
+	struct addrinfo *results, hints;
+	int err;
 	int sock;
 	int one = 1;
 
-	sock = socket(AF_INET, SOCK_STREAM, 0);
+	/*
+	 * Comment for the migration to use getaddrinfo()
+	 * in order to not use the deprecated gethostbyname():
+	 *
+	 * Next, we may want to loop over trying all addresses returned
+	 * by getaddrinfo(). (like in the example loops linked below)
+	 *
+	 * After this, the code could be made IPv4/IPv6-agnostic: For this,
+	 * we'd change sockaddr_in to sockaddr_storage, check ai_family,
+	 * and use AF_UNSPEC in place of AF_INET which will allow getaddrinfo()
+	 * to return IPv4 and IPv6 addrs. (and the server would be updated too)
+	 *
+	 * A very nice example is shown in the accepted answer and answer 8 here:
+	 * stackoverflow.com/questions/52727565/client-in-c-use-gethostbyname-or-getaddrinfo
+	 */
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = addr.sin_family;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = IPPROTO_TCP;
+
+	err = getaddrinfo(opts->host, NULL, &hints, &results);
+	if (err)
+		pr_err_ns("Failed to resolve host %s: %s\n", opts->host, gai_strerror(err));
+
+	addr.sin_addr = ((struct sockaddr_in *)results->ai_addr)->sin_addr;
+	freeaddrinfo(results);
+
+	sock = socket(hints.ai_family, hints.ai_socktype, 0);
 	if (sock < 0)
 		pr_err("socket create failed");
 
 	if (setsockopt(sock, SOL_TCP, TCP_NODELAY, &one, sizeof(one)) != 0)
 		pr_warn("socket setting failed\n");
-
-	hostinfo = gethostbyname(opts->host);
-	if (hostinfo == NULL)
-		pr_err("cannot find host: %s", opts->host);
-
-	addr.sin_addr = *(struct in_addr *)hostinfo->h_addr;
 
 	if (connect(sock, (const struct sockaddr *)&addr, sizeof(addr)) < 0)
 		pr_err("socket connect failed (host: %s, port: %d)", opts->host, opts->port);
