@@ -239,6 +239,7 @@ extern void setup_signal(void);
 		if (__ret < 0) {                                                                   \
 			pr_err("xasprintf");                                                       \
 		}                                                                                  \
+		__ret;                                                                             \
 	})
 
 #define xvasprintf(s, fmt, ap)                                                                     \
@@ -247,6 +248,7 @@ extern void setup_signal(void);
 		if (__ret < 0) {                                                                   \
 			pr_err("xvasprintf");                                                      \
 		}                                                                                  \
+		__ret;                                                                             \
 	})
 
 #define call_if_nonull(fptr, ...)                                                                  \
