@@ -32,23 +32,38 @@ static PyObject *uftrace_func __attribute__((unused));
 /* RB tree of python_symbol to map code object to address */
 static struct rb_root code_tree = RB_ROOT;
 
+/* name of the python script file it's running */
+static const char *main_file;
+
 /* initial size of the symbol table and unit size for increment */
 #define UFTRACE_PYTHON_SYMTAB_SIZE (1 * 1024 * 1024)
 
 /* size of the symbol table header (including the padding) */
 #define UFTRACE_PYTHON_SYMTAB_HDRSZ (48)
 
-/* name of the shared memory region: /uftrace-python-PID */
+/* name of the shared memory region for symbol table: /uftrace-python-PID */
 static char uftrace_shmem_name[32];
+
+/* name of the shared memory region for debug info : /uftrace-python-dbg-PID */
+static char uftrace_shmem_dbg_name[32];
 
 /* file descriptor of the symbol table in a shared memory */
 static int uftrace_shmem_fd;
 
+/* file descriptor of the debug info table in a shared memory */
+static int uftrace_shmem_dbg_fd;
+
 /* current symbol table size */
 static unsigned int uftrace_symtab_size;
 
+/* current debug info table size */
+static unsigned int uftrace_dbginfo_size;
+
 /* python3 adds a C function frame for builtins.exec() */
 static bool skip_first_frame;
+
+/* whether it should collect srcline info */
+static bool need_dbg_info;
 
 /*
  * Symbol table header in a shared memory.
@@ -69,7 +84,11 @@ union uftrace_python_symtab {
 	char padding[UFTRACE_PYTHON_SYMTAB_HDRSZ];
 };
 
+/* maintain a symbol table for .sym file */
 static union uftrace_python_symtab *symtab;
+
+/* just to maintain the same symbols for .dbg file */
+static union uftrace_python_symtab *dbg_info;
 
 /* symbol table entry to maintain mappings from code to addr */
 struct uftrace_python_symbol {
@@ -216,15 +235,15 @@ static uint32_t get_new_sym_addr(const char *name, bool is_pyfunc)
 
 		/* increase the file size */
 		if (ftruncate(uftrace_shmem_fd, new_symtab_size) < 0)
-			pr_err("failed to resize the shared memory for %s");
+			pr_err("failed to resize the shared memory for %s", uftrace_shmem_name);
 
 		/* remap the symbol table, this might result in a new address  */
-		symtab = mremap(symtab, uftrace_symtab_size, new_symtab_size, MREMAP_MAYMOVE);
-		if (symtab == MAP_FAILED)
+		data = mremap(symtab, uftrace_symtab_size, new_symtab_size, MREMAP_MAYMOVE);
+		if (data == MAP_FAILED)
 			pr_err("failed to mmap shared memory for %s", uftrace_shmem_name);
 
 		/* update the address and size of the symbol table */
-		data = (void *)symtab;
+		symtab = (void *)data;
 		uftrace_symtab_size = new_symtab_size;
 	}
 
@@ -281,6 +300,123 @@ static void write_symtab(const char *dirname)
 	munmap(symtab, uftrace_symtab_size);
 	close(uftrace_shmem_fd);
 	uftrace_shmem_unlink(uftrace_shmem_name);
+}
+
+static void init_dbginfo(void)
+{
+	snprintf(uftrace_shmem_dbg_name, sizeof(uftrace_shmem_dbg_name), "/uftrace-python-dbg-%d",
+		 getpid());
+
+	uftrace_shmem_dbg_fd =
+		uftrace_shmem_open(uftrace_shmem_dbg_name, O_RDWR | O_CREAT | O_TRUNC, 0600);
+	if (uftrace_shmem_dbg_fd < 0)
+		pr_err("failed to open shared memory for %s", uftrace_shmem_dbg_name);
+
+	if (ftruncate(uftrace_shmem_dbg_fd, UFTRACE_PYTHON_SYMTAB_SIZE) < 0)
+		pr_err("failed to allocate the shared memory for %s", uftrace_shmem_dbg_name);
+
+	dbg_info = mmap(NULL, UFTRACE_PYTHON_SYMTAB_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED,
+			uftrace_shmem_dbg_fd, 0);
+	if (dbg_info == MAP_FAILED)
+		pr_err("failed to mmap shared memory for %s", uftrace_shmem_dbg_name);
+
+	dbg_info->count = 0;
+	dbg_info->offset = UFTRACE_PYTHON_SYMTAB_HDRSZ; /* reserve some area for the header */
+
+	uftrace_dbginfo_size = UFTRACE_PYTHON_SYMTAB_SIZE;
+}
+
+static void update_dbg_info(const char *name, uint64_t addr, const char *file, int line)
+{
+	union uftrace_python_symtab old_hdr, new_hdr, tmp_hdr;
+	char *data = (void *)dbg_info;
+	char *buf = NULL;
+	int entry_size = xasprintf(&buf, "F: %" PRIx64 " %s\nL: %d %s\n", addr, name, line, file);
+
+	old_hdr.val = dbg_info->val;
+
+	/* this loop is needed to handle concurrent updates for multi-processing */
+	while (true) {
+		new_hdr.count = old_hdr.count + 1;
+		new_hdr.offset = old_hdr.offset + entry_size;
+
+		/* atomic update of header (count + offset) */
+		tmp_hdr.val = __sync_val_compare_and_swap(&dbg_info->val, old_hdr.val, new_hdr.val);
+		if (tmp_hdr.val == old_hdr.val)
+			break;
+
+		old_hdr.val = tmp_hdr.val;
+	}
+
+	if (new_hdr.offset >= uftrace_symtab_size) {
+		unsigned new_dbginfo_size = uftrace_dbginfo_size + UFTRACE_PYTHON_SYMTAB_SIZE;
+
+		pr_dbg("try to increase the shared memory for %s (new size=%uMB)\n",
+		       uftrace_shmem_dbg_name, new_dbginfo_size / (1024 * 1024));
+
+		/* increase the file size */
+		if (ftruncate(uftrace_shmem_dbg_fd, new_dbginfo_size) < 0)
+			pr_err("failed to resize the shared memory for %s", uftrace_shmem_dbg_name);
+
+		/* remap the debug info, this might result in a new address  */
+		data = mremap(dbg_info, uftrace_dbginfo_size, new_dbginfo_size, MREMAP_MAYMOVE);
+		if (data == MAP_FAILED)
+			pr_err("failed to mmap shared memory for %s", uftrace_shmem_dbg_name);
+
+		/* update the address and size of the debug info table */
+		dbg_info = (void *)data;
+		uftrace_dbginfo_size = new_dbginfo_size;
+	}
+
+	/* add the debug info file contents */
+	snprintf(data + old_hdr.offset, entry_size + 1, "%s", buf);
+}
+
+static void write_dbginfo(const char *dirname)
+{
+	char *filename = NULL;
+	FILE *fp;
+	void *buf = (void *)dbg_info;
+	unsigned len = 0;
+
+	xasprintf(&filename, "%s/%s.dbg", dirname, UFTRACE_PYTHON_SYMTAB_NAME);
+
+	fp = fopen(filename, "w");
+	free(filename);
+	if (fp == NULL) {
+		pr_warn("writing debug info of python program failed: %m");
+		return;
+	}
+
+	pr_dbg("writing the python debug info (count=%u)\n", dbg_info->count);
+
+	/* update the header comment */
+	len += fprintf(fp, "# path name: %s\n", UFTRACE_PYTHON_SYMTAB_NAME);
+	len += fprintf(fp, "#%*s\n", UFTRACE_PYTHON_SYMTAB_HDRSZ - 2 - len, "");
+
+	if (len != UFTRACE_PYTHON_SYMTAB_HDRSZ)
+		pr_warn("debug info header size should be %d: %u", UFTRACE_PYTHON_SYMTAB_HDRSZ,
+			len);
+
+	/* copy rest of the shmem buffer to the file */
+	buf += UFTRACE_PYTHON_SYMTAB_HDRSZ;
+	len = dbg_info->offset - UFTRACE_PYTHON_SYMTAB_HDRSZ;
+
+	while (len) {
+		int size = fwrite(buf, 1, len, fp);
+
+		if (size < 0)
+			pr_err("failed to write python symbol file");
+
+		len -= size;
+		buf += size;
+	}
+
+	fclose(fp);
+
+	munmap(dbg_info, uftrace_dbginfo_size);
+	close(uftrace_shmem_dbg_fd);
+	uftrace_shmem_unlink(uftrace_shmem_dbg_name);
 }
 
 static void init_filters(void)
@@ -347,6 +483,8 @@ static bool match_filter(struct uftrace_python_filter *filter, const char *fname
 	}
 }
 
+static char *get_c_string(PyObject *utf8);
+
 static void init_uftrace(void)
 {
 	/* check if it's loaded in a uftrace session */
@@ -358,7 +496,15 @@ static void init_uftrace(void)
 		dbg_domain[DBG_UFTRACE] = 1;
 	}
 
+	if (getenv("UFTRACE_SRCLINE")) {
+		main_file = getenv("UFTRACE_PYMAIN");
+		need_dbg_info = true;
+	}
+
 	init_symtab();
+	if (need_dbg_info)
+		init_dbginfo();
+
 	find_libmcount_funcs();
 	init_filters();
 }
@@ -609,6 +755,27 @@ static struct uftrace_python_symbol *convert_function_addr(PyObject *frame, PyOb
 	new_sym->addr = get_new_sym_addr(func_name, is_pyfunc);
 	new_sym->name = func_name;
 
+	if (need_dbg_info) {
+		if (PyObject_HasAttrString(code, "co_filename") &&
+		    PyObject_HasAttrString(code, "co_firstlineno")) {
+			PyObject *obj;
+			const char *file;
+			int line;
+
+			obj = PyObject_GetAttrString(code, "co_filename");
+			file = get_c_string(obj);
+			Py_DECREF(obj);
+			if (!strcmp(file, "<string>"))
+				file = main_file;
+
+			obj = PyObject_GetAttrString(code, "co_firstlineno");
+			line = PyLong_AsLong(obj);
+			Py_DECREF(obj);
+
+			update_dbg_info(func_name, new_sym->addr, file, line);
+		}
+	}
+
 	/* keep the refcount of the code object to keep it alive */
 
 	rb_link_node(&new_sym->node, parent, p);
@@ -705,6 +872,9 @@ static void __attribute__((destructor)) uftrace_trace_python_finish(void)
 		dirname = UFTRACE_DIR_NAME;
 
 	write_symtab(dirname);
+
+	if (need_dbg_info)
+		write_dbginfo(dirname);
 }
 
 #else /* UNIT_TEST */
