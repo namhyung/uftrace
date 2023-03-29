@@ -4,33 +4,40 @@
 
 NAME
 ====
-uftrace-info - Print tracing information for trace data
+uftrace-info - Print tracing information from the current trace data file
 
 SYNOPSIS
 ========
-uftrace info [*options*] [*COMMAND*]
+uftrace info [*options*]
 
 DESCRIPTION
 ===========
-This command prints metadata recorded in the header of a given data file.
+This command prints metadata recorded in the header of a given trace data file.
+
+Alternatively, it can:
+
+- be used to generate a symbol table of the traced symbols
+
+- print a task relationship tree for the recorded tasks in the trace
 
 
 OPTIONS
 =======
-\--symbols
-:   Print symbols table instead of the recorded tracing info.  It will print
-    two symbol tables - normal symbols and dynamic symbols.  The normal symbols
-    are from the executable itself, and dynamic symbols are for library calls.
-    When COMMAND is given, it should provide symbol information which might not
-    be available from the recorded path of 'exe image' or the symbol file in the
-    data directory.
+\--symbols [*EXECUTABLE*]
+:   Generate a symbol table for the given traced *EXECUTABLE* from the recorded
+    trace data. See the example below for the output format:
+    It will print two symbol tables - normal symbols and dynamic symbols:
+    The normal symbols are traced functions in the executable itself.
+    The dynamic symbols are the traced library functions recorded in the trace.
+    Because only the trace data is used to generate symbol information, it will
+    contain different functions than the symbol table of the executable file itself.
 
 \--task
-:   Print task relationship in a tree form instead of the tracing info.
+:   Print a task relationship tree instead of the trace metadata.
 
 
-EXAMPLE
-=======
+EXAMPLES
+========
 This command shows information like below:
 
     $ uftrace record abc
