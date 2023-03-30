@@ -208,6 +208,7 @@ static int forward_options(struct uftrace_opts *opts)
 {
 	int sfd;
 	struct sockaddr_un addr;
+	struct uftrace_msg ack;
 	int status = 0;
 	int status_close = 0;
 
@@ -222,6 +223,15 @@ static int forward_options(struct uftrace_opts *opts)
 	/* FIXME Forward user options and set status */
 
 	status_close = agent_message_send(sfd, UFTRACE_MSG_AGENT_CLOSE, NULL, 0);
+	if (status_close == 0) {
+		status_close = agent_message_read_response(sfd, &ack);
+		if (status_close == 0) {
+			if (ack.type == UFTRACE_MSG_AGENT_OK)
+				pr_dbg("disconnected from agent\n");
+			else
+				status_close = -1;
+		}
+	}
 	if (status_close < 0)
 		pr_dbg("agent connection not closed properly\n");
 

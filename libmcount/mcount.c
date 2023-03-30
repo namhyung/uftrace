@@ -1837,8 +1837,13 @@ void *agent_apply_commands(void *arg)
 		/* read client messages */
 		close_connection = false;
 		while (!close_connection) {
+			int status = 0;
 			/* read message header to get type */
 			if (agent_message_read_head(cfd, &msg) == -1) {
+				status = EINVAL;
+				pr_dbg3("error reading client message\n");
+				agent_message_send(cfd, UFTRACE_MSG_AGENT_ERR, &status,
+						   sizeof(status));
 				continue;
 			}
 
@@ -1846,6 +1851,7 @@ void *agent_apply_commands(void *arg)
 			switch (msg.type) {
 			case UFTRACE_MSG_AGENT_CLOSE:
 				close_connection = true;
+				agent_message_send(cfd, UFTRACE_MSG_AGENT_OK, NULL, 0);
 				break;
 
 			default:
@@ -1878,6 +1884,7 @@ static void agent_kill()
 	int sfd;
 	int status;
 	struct sockaddr_un addr;
+	struct uftrace_msg ack;
 
 	if (!agent_run)
 		return;
@@ -1894,6 +1901,9 @@ static void agent_kill()
 
 	status = agent_message_send(sfd, UFTRACE_MSG_AGENT_CLOSE, NULL, 0);
 	if (status < 0)
+		goto error;
+	status = agent_message_read_response(sfd, &ack);
+	if (status < 0 || ack.type != UFTRACE_MSG_AGENT_OK)
 		goto error;
 
 	close(sfd);

@@ -126,3 +126,28 @@ int agent_message_read_head(int fd, struct uftrace_msg *msg)
 
 	return 0;
 }
+
+/**
+ * agent_message_read_response - read agent ack
+ * @fd - socket file descriptor
+ * @response - ack from agent
+ * @return - status: data or error code, negative on error
+ */
+int agent_message_read_response(int fd, struct uftrace_msg *response)
+{
+	int status = 0;
+
+	if (agent_message_read_head(fd, response) < 0)
+		return -1;
+
+	if (response->len > sizeof(status))
+		return -1;
+
+	if (read_all(fd, &status, response->len) < 0) {
+		pr_dbg3("error reading agent socket\n");
+		return -1;
+	}
+	pr_dbg4("read agent response [%d] (size=%d)\n", response->type, response->len);
+
+	return status;
+}
