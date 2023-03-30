@@ -106,6 +106,8 @@ static pthread_t agent;
 /* state flag for the agent */
 static volatile bool agent_run = false;
 
+#define MCOUNT_AGENT_CAPABILITIES 0
+
 __weak void dynamic_return(void)
 {
 }
@@ -1849,6 +1851,13 @@ void *agent_apply_commands(void *arg)
 
 			/* parse message body */
 			switch (msg.type) {
+			case UFTRACE_MSG_AGENT_QUERY:
+				status = MCOUNT_AGENT_CAPABILITIES;
+				pr_dbg3("send capabilities to client\n");
+				agent_message_send(cfd, UFTRACE_MSG_AGENT_OK, &status,
+						   sizeof(status));
+				break;
+
 			case UFTRACE_MSG_AGENT_CLOSE:
 				close_connection = true;
 				agent_message_send(cfd, UFTRACE_MSG_AGENT_OK, NULL, 0);

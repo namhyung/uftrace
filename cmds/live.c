@@ -203,6 +203,41 @@ static void setup_child_environ(struct uftrace_opts *opts)
 	free(libpath);
 }
 
+/**
+ * query_agent_capabilities - query agent for its supported features
+ * @fd - agent socket fd
+ * @return - agent capabilities
+ */
+static int query_agent_capabilities(int fd)
+{
+	struct uftrace_msg msg;
+	int status;
+
+	pr_dbg3("query agent capabilities\n");
+	if (agent_message_send(fd, UFTRACE_MSG_AGENT_QUERY, NULL, 0) < 0)
+		return -1;
+
+	status = agent_message_read_response(fd, &msg);
+	if (status < 0)
+		return -1;
+
+	switch (msg.type) {
+	case UFTRACE_MSG_AGENT_OK:
+		pr_dbg2("agent capabilities: %#x\n", status);
+		break;
+
+	case UFTRACE_MSG_AGENT_ERR:
+		pr_dbg3("agent query error: %s\n", strerror(status));
+		status = -1;
+		break;
+
+	default:
+		pr_dbg3("invalid agent response\n");
+	}
+
+	return status;
+}
+
 /* Forward all client options to the agent */
 static int forward_options(struct uftrace_opts *opts)
 {
@@ -211,6 +246,7 @@ static int forward_options(struct uftrace_opts *opts)
 	struct uftrace_msg ack;
 	int status = 0;
 	int status_close = 0;
+	int capabilities;
 
 	sfd = agent_socket_create(&addr, opts->pid);
 	if (sfd == -1)
@@ -220,8 +256,13 @@ static int forward_options(struct uftrace_opts *opts)
 		goto socket_error;
 	pr_dbg2("connected to agent %d\n", opts->pid);
 
+	capabilities = query_agent_capabilities(sfd);
+	if (capabilities < 0)
+		goto close;
+
 	/* FIXME Forward user options and set status */
 
+close:
 	status_close = agent_message_send(sfd, UFTRACE_MSG_AGENT_CLOSE, NULL, 0);
 	if (status_close == 0) {
 		status_close = agent_message_read_response(sfd, &ack);

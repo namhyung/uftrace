@@ -419,6 +419,7 @@ enum uftrace_msg_type {
 	UFTRACE_MSG_SEND_END,
 
 	UFTRACE_MSG_AGENT_CLOSE = 200, /* close the connection */
+	UFTRACE_MSG_AGENT_QUERY, /* perform connection handshake */
 	UFTRACE_MSG_AGENT_OK, /* ack previous message */
 	UFTRACE_MSG_AGENT_ERR, /* signal error on previous message */
 };
