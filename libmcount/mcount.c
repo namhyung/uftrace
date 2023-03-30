@@ -1925,6 +1925,11 @@ void *agent_apply_commands(void *arg)
 							   sizeof(status));
 				break;
 
+			case UFTRACE_MSG_AGENT_GET_OPT:
+				/* TODO send data */
+				agent_message_send(cfd, UFTRACE_MSG_AGENT_OK, NULL, 0);
+				break;
+
 			case UFTRACE_MSG_AGENT_CLOSE:
 				close_connection = true;
 				agent_message_send(cfd, UFTRACE_MSG_AGENT_OK, NULL, 0);

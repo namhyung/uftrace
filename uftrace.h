@@ -420,6 +420,7 @@ enum uftrace_msg_type {
 
 	UFTRACE_MSG_AGENT_CLOSE = 200, /* close the connection */
 	UFTRACE_MSG_AGENT_QUERY, /* perform connection handshake */
+	UFTRACE_MSG_AGENT_GET_OPT, /* get current option value */
 	UFTRACE_MSG_AGENT_SET_OPT, /* set new option value */
 	UFTRACE_MSG_AGENT_OK, /* ack previous message */
 	UFTRACE_MSG_AGENT_ERR, /* signal error on previous message */
