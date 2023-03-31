@@ -208,30 +208,31 @@ static int forward_options(struct uftrace_opts *opts)
 {
 	int sfd;
 	struct sockaddr_un addr;
-	int ret = 0;
+	int status = 0;
+	int status_close = 0;
 
 	sfd = agent_socket_create(&addr, opts->pid);
 	if (sfd == -1)
-		return -1;
+		return UFTRACE_EXIT_FAILURE;
 
-	if (agent_connect(sfd, &addr) == -1) {
-		ret = -1;
+	if (agent_connect(sfd, &addr) == -1)
 		goto socket_error;
-	}
+	pr_dbg2("connected to agent %d\n", opts->pid);
 
-	if (agent_message_send(sfd, UFTRACE_MSG_AGENT_CLOSE, NULL, 0) == -1) {
-		pr_warn("cannot terminate agent connection\n");
-		ret = -1;
-	}
-	else {
-		int ack;
-		if (read(sfd, &ack, sizeof(ack)) < 0 || ack != UFTRACE_MSG_AGENT_CLOSE)
-			ret = -1;
-	}
+	/* FIXME Forward user options and set status */
+
+	status_close = agent_message_send(sfd, UFTRACE_MSG_AGENT_CLOSE, NULL, 0);
+	if (status_close < 0)
+		pr_dbg("agent connection not closed properly\n");
 
 socket_error:
-	close(sfd);
-	return ret;
+	if (close(sfd) == -1)
+		pr_dbg2("error closing agent socket\n");
+
+	if (status < 0 || status_close < 0)
+		return UFTRACE_EXIT_FAILURE;
+	else
+		return UFTRACE_EXIT_SUCCESS;
 }
 
 int command_live(int argc, char *argv[], struct uftrace_opts *opts)

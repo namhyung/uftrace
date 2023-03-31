@@ -1845,8 +1845,6 @@ void *agent_apply_commands(void *arg)
 			switch (dopt) {
 			case UFTRACE_MSG_AGENT_CLOSE:
 				close_connection = true;
-				if (agent_run)
-					agent_message_send(cfd, UFTRACE_MSG_AGENT_CLOSE, NULL, 0);
 				break;
 
 			default:
@@ -1885,17 +1883,16 @@ static void agent_kill()
 
 	sfd = agent_socket_create(&addr, getpid());
 	if (sfd == -1)
-		return; /* Agent must have already exited */
+		goto error;
 
 	if (agent_connect(sfd, &addr) == -1) {
 		if (errno != ENOENT) /* The agent may have ended and deleted the socket */
 			goto error;
 	}
 
-	if (agent_message_send(sfd, UFTRACE_MSG_AGENT_CLOSE, NULL, 0) == -1) {
-		pr_dbg("cannot stop agent loop\n");
+	status = agent_message_send(sfd, UFTRACE_MSG_AGENT_CLOSE, NULL, 0);
+	if (status < 0)
 		goto error;
-	}
 
 	close(sfd);
 
@@ -1905,7 +1902,9 @@ static void agent_kill()
 	return;
 
 error:
-	agent_fini(&addr, sfd);
+	pr_dbg2("error terminating agent routine\n ");
+	close(sfd);
+	socket_unlink(&addr);
 }
 
 static __used void mcount_startup(void)
