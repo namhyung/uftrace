@@ -104,7 +104,7 @@ bool mcount_estimate_return;
 static pthread_t agent;
 
 /* state flag for the agent */
-static bool agent_run = false;
+static volatile bool agent_run = false;
 
 __weak void dynamic_return(void)
 {
@@ -1813,7 +1813,7 @@ void *agent_apply_commands(void *arg)
 {
 	int sfd, cfd; /* socket fd, connection fd */
 	bool close_connection;
-	int dopt;
+	struct uftrace_msg msg;
 	struct sockaddr_un addr;
 
 	/* initialize agent */
@@ -1837,19 +1837,20 @@ void *agent_apply_commands(void *arg)
 		/* read client messages */
 		close_connection = false;
 		while (!close_connection) {
-			if (read(cfd, &dopt, sizeof(dopt)) == -1) {
-				pr_warn("error reading option\n", errno);
-				break;
+			/* read message header to get type */
+			if (agent_message_read_head(cfd, &msg) == -1) {
+				continue;
 			}
 
-			switch (dopt) {
+			/* parse message body */
+			switch (msg.type) {
 			case UFTRACE_MSG_AGENT_CLOSE:
 				close_connection = true;
 				break;
 
 			default:
 				close_connection = true;
-				pr_warn("option not recognized: %d\n", dopt);
+				pr_dbg3("agent message not recognized\n");
 			}
 		}
 
@@ -1875,6 +1876,7 @@ static void agent_spawn()
 static void agent_kill()
 {
 	int sfd;
+	int status;
 	struct sockaddr_un addr;
 
 	if (!agent_run)

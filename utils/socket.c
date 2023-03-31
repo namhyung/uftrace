@@ -40,25 +40,14 @@ int agent_listen(int fd, struct sockaddr_un *addr)
 {
 	if (bind(fd, (struct sockaddr *)addr, sizeof(struct sockaddr_un)) == -1) {
 		pr_warn("cannot bind to socket '%s': %s\n", addr->sun_path, strerror(errno));
-		close(fd);
 		return -1;
 	}
 
 	if (listen(fd, 1) == -1) {
 		pr_warn("cannot listen to socket '%s': %s\n", addr->sun_path, strerror(errno));
-		close(fd);
 		return -1;
 	}
-	return 0;
-}
 
-/* Send a single option to the agent through its socket */
-int agent_message_send(int fd, int opt, void *value, size_t size)
-{
-	if (!write(fd, &opt, sizeof(opt)))
-		return -1;
-	if (value)
-		return write(fd, value, size);
 	return 0;
 }
 
@@ -77,4 +66,63 @@ int agent_connect(int fd, struct sockaddr_un *addr)
 int agent_accept(int fd)
 {
 	return accept(fd, NULL, NULL);
+}
+
+/**
+ * agent_message_send - send a message through the agent socket
+ * @fd     - socket file descriptor
+ * @type   - type of message to send
+ * @data   - data load
+ * @size   - size of @data
+ * @return - status code, negative for error
+ */
+int agent_message_send(int fd, int type, void *data, size_t size)
+{
+	struct uftrace_msg msg = {
+		.magic = UFTRACE_MSG_MAGIC,
+		.type = type,
+		.len = size,
+	};
+	struct iovec iov[2] = {
+		{
+			.iov_base = &msg,
+			.iov_len = sizeof(msg),
+		},
+		{
+			.iov_base = data,
+			.iov_len = size,
+		},
+	};
+
+	pr_dbg4("send agent message [%d] (size=%d)\n", type, size);
+	if (writev_all(fd, iov, ARRAY_SIZE(iov)) < 0) {
+		pr_dbg3("error writing message to agent socket\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+/**
+ * agent_message_read_head - read message header from the agent socket
+ *
+ * Fetch the message type and size so the data load can be read somewhere else.
+ *
+ * @fd     - socket file descriptor
+ * @msg    - received message head
+ * @return - status code, negative for error
+ */
+int agent_message_read_head(int fd, struct uftrace_msg *msg)
+{
+	if (read_all(fd, msg, sizeof(*msg)) < 0) {
+		pr_dbg4("error reading agent message header\n");
+		return -1;
+	}
+
+	if (msg->magic != UFTRACE_MSG_MAGIC) {
+		pr_dbg4("invalid agent message received\n");
+		return -1;
+	}
+
+	return 0;
 }
