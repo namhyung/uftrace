@@ -1769,7 +1769,7 @@ static int agent_init(struct sockaddr_un *addr)
 		}
 	}
 
-	sfd = socket_create(addr, getpid());
+	sfd = agent_socket_create(addr, getpid());
 	if (sfd == -1)
 		return sfd;
 
@@ -1778,7 +1778,7 @@ static int agent_init(struct sockaddr_un *addr)
 		goto error;
 	}
 
-	if (socket_listen(sfd, addr) == -1)
+	if (agent_listen(sfd, addr) == -1)
 		goto error;
 
 	return sfd;
@@ -1801,7 +1801,7 @@ void *agent_apply_commands(void *arg)
 {
 	int sfd, cfd; /* socket fd, connection fd */
 	bool close_connection;
-	enum uftrace_dopt dopt;
+	int dopt;
 	struct sockaddr_un addr;
 
 	sfd = agent_init(&addr);
@@ -1813,7 +1813,7 @@ void *agent_apply_commands(void *arg)
 	pr_dbg("agent started on socket %s\n", addr.sun_path);
 
 	while (agent_run) {
-		cfd = socket_accept(sfd);
+		cfd = agent_accept(sfd);
 		if (cfd == -1) {
 			pr_warn("error accepting socket connection\n");
 			continue;
@@ -1822,16 +1822,16 @@ void *agent_apply_commands(void *arg)
 
 		close_connection = false;
 		while (!close_connection) {
-			if (read(cfd, &dopt, sizeof(enum uftrace_dopt)) == -1) {
+			if (read(cfd, &dopt, sizeof(dopt)) == -1) {
 				pr_warn("error reading option\n", errno);
 				break;
 			}
 
 			switch (dopt) {
-			case UFTRACE_DOPT_CLOSE:
+			case UFTRACE_MSG_AGENT_CLOSE:
 				close_connection = true;
 				if (agent_run)
-					socket_send_option(cfd, UFTRACE_DOPT_CLOSE, NULL, 0);
+					agent_message_send(cfd, UFTRACE_MSG_AGENT_CLOSE, NULL, 0);
 				break;
 
 			default:
@@ -1869,16 +1869,16 @@ static void agent_kill()
 
 	agent_run = false;
 
-	sfd = socket_create(&addr, getpid());
+	sfd = agent_socket_create(&addr, getpid());
 	if (sfd == -1)
 		return; /* Agent must have already exited */
 
-	if (socket_connect(sfd, &addr) == -1) {
+	if (agent_connect(sfd, &addr) == -1) {
 		if (errno != ENOENT) /* The agent may have ended and deleted the socket */
 			goto error;
 	}
 
-	if (socket_send_option(sfd, UFTRACE_DOPT_CLOSE, NULL, 0) == -1) {
+	if (agent_message_send(sfd, UFTRACE_MSG_AGENT_CLOSE, NULL, 0) == -1) {
 		pr_dbg("cannot stop agent loop\n");
 		goto error;
 	}

@@ -210,22 +210,22 @@ static int forward_options(struct uftrace_opts *opts)
 	struct sockaddr_un addr;
 	int ret = 0;
 
-	sfd = socket_create(&addr, opts->pid);
+	sfd = agent_socket_create(&addr, opts->pid);
 	if (sfd == -1)
 		return -1;
 
-	if (socket_connect(sfd, &addr) == -1) {
+	if (agent_connect(sfd, &addr) == -1) {
 		ret = -1;
 		goto socket_error;
 	}
 
-	if (socket_send_option(sfd, UFTRACE_DOPT_CLOSE, NULL, 0) == -1) {
+	if (agent_message_send(sfd, UFTRACE_MSG_AGENT_CLOSE, NULL, 0) == -1) {
 		pr_warn("cannot terminate agent connection\n");
 		ret = -1;
 	}
 	else {
-		enum uftrace_dopt ack;
-		if (read(sfd, &ack, sizeof(enum uftrace_dopt)) < 0 || ack != UFTRACE_DOPT_CLOSE)
+		int ack;
+		if (read(sfd, &ack, sizeof(ack)) < 0 || ack != UFTRACE_MSG_AGENT_CLOSE)
 			ret = -1;
 	}
 

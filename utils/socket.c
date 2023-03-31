@@ -18,7 +18,7 @@ void socket_unlink(struct sockaddr_un *addr)
 }
 
 /* Create socket for communication between the client and the agent */
-int socket_create(struct sockaddr_un *addr, pid_t pid)
+int agent_socket_create(struct sockaddr_un *addr, pid_t pid)
 {
 	int fd;
 	char *channel = NULL;
@@ -37,7 +37,7 @@ int socket_create(struct sockaddr_un *addr, pid_t pid)
 }
 
 /* Setup socket on agent side so it can accept client connection */
-int socket_listen(int fd, struct sockaddr_un *addr)
+int agent_listen(int fd, struct sockaddr_un *addr)
 {
 	if (bind(fd, (struct sockaddr *)addr, sizeof(struct sockaddr_un)) == -1) {
 		pr_warn("cannot bind to socket %s: %s\n", addr->sun_path, strerror(errno));
@@ -53,16 +53,16 @@ int socket_listen(int fd, struct sockaddr_un *addr)
 }
 
 /* Send a single option to the agent through its socket */
-int socket_send_option(int fd, enum uftrace_dopt opt, void *value, size_t size)
+int agent_message_send(int fd, int opt, void *value, size_t size)
 {
-	if (!write(fd, &opt, sizeof(enum uftrace_dopt)))
+	if (!write(fd, &opt, sizeof(opt)))
 		return -1;
 	if (value)
 		return write(fd, value, size);
 	return 0;
 }
 
-int socket_connect(int fd, struct sockaddr_un *addr)
+int agent_connect(int fd, struct sockaddr_un *addr)
 {
 	if (connect(fd, (struct sockaddr *)addr, sizeof(struct sockaddr_un)) == -1) {
 		pr_warn("cannot connect to socket '%s': %s\n", addr->sun_path, strerror(errno));
@@ -71,7 +71,7 @@ int socket_connect(int fd, struct sockaddr_un *addr)
 	return 0;
 }
 
-int socket_accept(int fd)
+int agent_accept(int fd)
 {
 	return accept(fd, NULL, NULL);
 }

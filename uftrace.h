@@ -417,11 +417,8 @@ enum uftrace_msg_type {
 	UFTRACE_MSG_SEND_INFO,
 	UFTRACE_MSG_SEND_META_DATA,
 	UFTRACE_MSG_SEND_END,
-};
 
-/* Dynamic options sent by the client to the agent */
-enum uftrace_dopt {
-	UFTRACE_DOPT_CLOSE, /* Close the connection with the client */
+	UFTRACE_MSG_AGENT_CLOSE = 200, /* close the connection */
 };
 
 /* msg format for communicating by pipe */
