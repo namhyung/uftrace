@@ -424,7 +424,7 @@ enum uftrace_msg_type {
 /* msg format for communicating by pipe */
 struct uftrace_msg {
 	unsigned short magic; /* UFTRACE_MSG_MAGIC */
-	unsigned short type; /* UFTRACE_MSG_REC_* */
+	unsigned short type; /* UFTRACE_MSG_* */
 	unsigned int len;
 	unsigned char data[];
 };

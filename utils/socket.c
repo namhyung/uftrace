@@ -7,13 +7,12 @@
 #include "utils/socket.h"
 #include "utils/utils.h"
 
-/* unlink socket file if it exists */
+/* Unlink socket file if it exists */
 void socket_unlink(struct sockaddr_un *addr)
 {
 	if (unlink(addr->sun_path) == -1) {
-		if (errno != ENOENT) {
-			pr_dbg("cannot unlink %s\n", addr->sun_path);
-		}
+		if (errno != ENOENT)
+			pr_dbg("cannot unlink socket '%s'\n", addr->sun_path);
 	}
 }
 
@@ -40,12 +39,13 @@ int agent_socket_create(struct sockaddr_un *addr, pid_t pid)
 int agent_listen(int fd, struct sockaddr_un *addr)
 {
 	if (bind(fd, (struct sockaddr *)addr, sizeof(struct sockaddr_un)) == -1) {
-		pr_warn("cannot bind to socket %s: %s\n", addr->sun_path, strerror(errno));
+		pr_warn("cannot bind to socket '%s': %s\n", addr->sun_path, strerror(errno));
 		close(fd);
 		return -1;
 	}
+
 	if (listen(fd, 1) == -1) {
-		pr_warn("cannot listen to socket %s\n", addr->sun_path);
+		pr_warn("cannot listen to socket '%s': %s\n", addr->sun_path, strerror(errno));
 		close(fd);
 		return -1;
 	}
@@ -62,15 +62,18 @@ int agent_message_send(int fd, int opt, void *value, size_t size)
 	return 0;
 }
 
+/* Client side: connect to an agent socket */
 int agent_connect(int fd, struct sockaddr_un *addr)
 {
 	if (connect(fd, (struct sockaddr *)addr, sizeof(struct sockaddr_un)) == -1) {
 		pr_warn("cannot connect to socket '%s': %s\n", addr->sun_path, strerror(errno));
 		return -1;
 	}
+
 	return 0;
 }
 
+/* Agent side: accept incoming client connection */
 int agent_accept(int fd)
 {
 	return accept(fd, NULL, NULL);

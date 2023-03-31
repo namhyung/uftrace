@@ -1758,6 +1758,11 @@ static void mcount_script_init(enum uftrace_pattern_type patt_type)
 	strv_free(&info.cmds);
 }
 
+/**
+ * agent_init - initialize the agent
+ * @addr - client socket
+ * @return - socket file descriptor (-1 on error)
+ */
 static int agent_init(struct sockaddr_un *addr)
 {
 	int sfd;
@@ -1788,12 +1793,19 @@ error:
 	return -1;
 }
 
+/**
+ * agent_fini - finalize the agent thread execution
+ * @addr - client socket
+ * @sfd - client socket file descriptor
+ */
 static void agent_fini(struct sockaddr_un *addr, int sfd)
 {
 	if (sfd != -1)
 		close(sfd);
 
 	socket_unlink(addr);
+
+	pr_dbg("agent terminated\n");
 }
 
 /* Agent routine, applying instructions from the CLI. */
@@ -1804,22 +1816,25 @@ void *agent_apply_commands(void *arg)
 	int dopt;
 	struct sockaddr_un addr;
 
+	/* initialize agent */
 	sfd = agent_init(&addr);
 	if (sfd == -1) {
 		pr_warn("agent cannot start\n");
 		return NULL;
 	}
 	agent_run = true;
-	pr_dbg("agent started on socket %s\n", addr.sun_path);
+	pr_dbg("agent started on socket '%s'\n", addr.sun_path);
 
+	/* handle incoming connections consecutively */
 	while (agent_run) {
 		cfd = agent_accept(sfd);
 		if (cfd == -1) {
-			pr_warn("error accepting socket connection\n");
+			pr_dbg2("error accepting socket connection\n");
 			continue;
 		}
-		pr_dbg2("agent connection open\n");
+		pr_dbg3("client connected\n");
 
+		/* read client messages */
 		close_connection = false;
 		while (!close_connection) {
 			if (read(cfd, &dopt, sizeof(dopt)) == -1) {
@@ -1839,14 +1854,14 @@ void *agent_apply_commands(void *arg)
 				pr_warn("option not recognized: %d\n", dopt);
 			}
 		}
+
 		if (close(cfd) == -1)
-			pr_dbg2("cannot close socket connection\n");
+			pr_dbg3("error closing client socket\n");
 		else
-			pr_dbg2("agent connection closed\n");
+			pr_dbg3("client disconnected\n");
 	}
 
 	agent_fini(&addr, sfd);
-	pr_dbg("agent exited\n");
 	return 0;
 }
 
@@ -1866,7 +1881,6 @@ static void agent_kill()
 
 	if (!agent_run)
 		return;
-
 	agent_run = false;
 
 	sfd = agent_socket_create(&addr, getpid());
@@ -1887,6 +1901,7 @@ static void agent_kill()
 
 	if (pthread_join(agent, NULL) != 0)
 		pr_dbg("agent left in unknown state\n");
+
 	return;
 
 error:
