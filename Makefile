@@ -361,7 +361,7 @@ endif
 install: all
 	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(bindir)
 	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(libdir)
-	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(etcdir)/bash_completion.d
+	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(compldir)
 ifneq ($(wildcard $(elfdir)/lib/libelf.so),)
 ifeq ($(wildcard $(prefix)/lib/libelf.so),)
 	# install libelf only when it's not in the install directory.
@@ -383,7 +383,7 @@ ifneq ($(findstring HAVE_LIBPYTHON, $(COMMON_CFLAGS)), )
 	$(Q)$(INSTALL) $(objdir)/python/uftrace_python.so  $(DESTDIR)$(libdir)/uftrace_python.so
 endif
 	$(call QUIET_INSTALL, bash-completion)
-	$(Q)$(INSTALL) -m 644 $(srcdir)/misc/bash-completion.sh $(DESTDIR)$(etcdir)/bash_completion.d/uftrace
+	$(Q)$(INSTALL) -m 644 $(srcdir)/misc/bash-completion.sh $(DESTDIR)$(compldir)/uftrace
 	@$(MAKE) -sC $(docdir) install DESTDIR=$(DESTDIR)$(mandir)
 	@if [ `id -u` = 0 ]; then ldconfig $(DESTDIR)$(libdir) || echo "ldconfig failed"; fi
 
@@ -406,7 +406,7 @@ ifneq ($(findstring HAVE_LIBPYTHON, $(COMMON_CFLAGS)), )
 	$(Q)$(RM) $(DESTDIR)$(libdir)/uftrace_python.so
 endif
 	$(call QUIET_UNINSTALL, bash-completion)
-	$(Q)$(RM) $(DESTDIR)$(etcdir)/bash_completion.d/uftrace
+	$(Q)$(RM) $(DESTDIR)$(compldir)/uftrace
 	@$(MAKE) -sC $(docdir) uninstall DESTDIR=$(DESTDIR)$(mandir)
 
 test: all
