@@ -12,8 +12,8 @@ class TestCase(TestBase):
   249.854 us  249.854 us  249.854 us  bar
    39.967 us   39.801 us   40.275 us  loop
     1.044 us    0.884 us    1.205 us  foo
-    0.701 us    0.701 us    0.701 us  __monstartup   # ignore this
-    0.270 us    0.270 us    0.270 us  __cxa_atexit   # and this too
+    0.701 us    0.701 us    0.701 us  __monstartup
+    0.270 us    0.270 us    0.270 us  __cxa_atexit
 """)
 
     def prepare(self):
@@ -39,8 +39,8 @@ class TestCase(TestBase):
             # A report line consists of following data
             # [0]       [1]   [2]       [3]   [4]       [5]   [6]
             # avg_self  unit  min_self  unit  max_self  unit  function
-            if line[6].startswith('__'):
+            if line[-1].startswith('__'):
                 continue
-            result.append(line[6])
+            result.append(line[-1])
 
         return '\n'.join(result)

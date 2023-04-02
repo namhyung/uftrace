@@ -39,6 +39,6 @@ class TestCase(TestBase):
             # total_time  unit  self_time  unit  num_funcs  tid  task_name
             if line[4].startswith('__'):
                 continue
-            result.append(line[6])
+            result.append(line[-1])
 
         return '\n'.join(result)

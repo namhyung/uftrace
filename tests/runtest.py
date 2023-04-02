@@ -381,7 +381,7 @@ class TestBase:
             # [0]         [1]   [2]        [3]   [4]     [5]
             # total_time  unit  self_time  unit  called  function
             try:
-                if line[5].startswith('__'):
+                if line[-1].startswith('__'):
                     continue
             except:
                 pass
