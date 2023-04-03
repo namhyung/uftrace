@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
+#include <syscall.h>
 #include <unistd.h>
 
 #ifdef HAVE_LIBUNWIND
@@ -1000,6 +1001,31 @@ int copy_file(const char *path_in, const char *path_out)
 	fclose(ofp);
 	return 0;
 }
+
+#ifndef gettid
+/**
+ * gettid - gettid syscall wrapper (glibc < 2.30)
+  * @return - thread id
+ */
+pid_t gettid()
+{
+	return syscall(__NR_gettid);
+}
+#endif
+
+#ifndef tgkill
+/**
+ * tgkill - tgkill syscall wrapper (glibc < 2.30)
+ * @tgid   - thread group id
+ * @tid    - thread id
+ * @signal - signal to send
+ * @return - 0 on success, -1 on error
+ */
+int tgkill(pid_t tgid, pid_t tid, int signal)
+{
+	return syscall(SYS_tgkill, tgid, tid, signal);
+}
+#endif
 
 #ifdef UNIT_TEST
 TEST_CASE(utils_parse_cmdline)
