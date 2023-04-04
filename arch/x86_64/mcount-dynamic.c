@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <semaphore.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -7,7 +8,6 @@
 #include <linux/membarrier.h>
 #else
 #include <cpuid.h>
-#include <semaphore.h>
 #endif
 
 /* This should be defined before #include "utils.h" */
@@ -38,6 +38,22 @@ static const unsigned char endbr64[] = { 0xf3, 0x0f, 0x1e, 0xfa };
  * (void *int3_location -> void *trampoline)
  */
 static struct Hashmap *int3_hmap;
+
+/* Hashmap of the addresses of instructions that are in patching zones and need
+ * to be executed out of line. The addresses are mapped to their out of line
+ * equivalent.
+ *
+ * (void *critical_insn -> void *out_of_line_insn)
+ */
+static struct Hashmap *patch_region_hmap;
+
+/* Realtime signal number to instruct running threads to move out of patching
+   regions */
+static int sig_clear_patch_region;
+
+/* counter for the threads that are guaranteed to be out of registered patching
+   regions when a signal is issued */
+static sem_t sem_clear_patch_region;
 
 /**
  * register_trap - save trampoline associated to a trap
@@ -233,6 +249,8 @@ static int synchronize_all_cores()
 		if (sem_timedwait(&sem_sync_cores, &ts) == -1) {
 			if (errno == EINTR)
 				i--;
+			else
+				pr_dbg3("error syncing with signal handler: %s\n", strerror(errno));
 		}
 		else
 			sync_count++;
@@ -243,6 +261,143 @@ static int synchronize_all_cores()
 }
 
 #endif /* HAVE_MEMBARRIER */
+
+/**
+ * register_patch_region - mark a memory region as critical by registering the
+ * addresses that it contains in 'patch_region_hmap'
+ * @start  - address of the patch region
+ * @len    - length of the patch region
+ * @return - -1 on error, 0 on success
+ */
+static int register_patch_region(void *start, int len)
+{
+	void *out_of_line_buffer = mcount_find_code((unsigned long)start + CALL_INSN_SIZE);
+	if (!out_of_line_buffer)
+		return -1;
+
+	for (int i = 0; i < len; i++) {
+		if (!hashmap_put(patch_region_hmap, start + i, out_of_line_buffer + i))
+			return -1;
+	}
+
+	return 0;
+}
+
+/**
+ * unregister_patch_region - unmark a memory region as critical
+ * @start  - address of the patch region
+ * @len    - length of the patch region
+ * @return - -1 on error, 0 on success
+ */
+static int unregister_patch_region(void *start, int len)
+{
+	void *out_of_line_buffer = mcount_find_code((unsigned long)start);
+	if (!out_of_line_buffer)
+		return -1;
+
+	for (int i = 0; i < len; i++) {
+		if (!hashmap_remove(patch_region_hmap, start + i))
+			return -1;
+	}
+
+	return 0;
+}
+
+/**
+ * leave_patch_region - signal handler on which a thread executes out of line if
+ * it happens to be in a registered patching region
+ * @sig      - signal number
+ * @info     - signal info (unused)
+ * @ucontext - user context
+ */
+static void leave_patch_region(int sig, siginfo_t *info, void *ucontext)
+{
+	ucontext_t *uctx = ucontext;
+	mcontext_t *mctx = &uctx->uc_mcontext;
+	void *next_insn;
+	void *out_of_line_insn;
+	(void)sig;
+
+	next_insn = (void *)mctx->gregs[REG_RIP];
+	out_of_line_insn = hashmap_get(patch_region_hmap, next_insn);
+	if (out_of_line_insn)
+		mctx->gregs[REG_RIP] = (uint64_t)out_of_line_insn;
+
+	sem_post(&sem_clear_patch_region);
+}
+
+/**
+ * clear_patch_region - move threads that are in a patching region out of line
+ * @return - 0
+ */
+static int clear_patch_region()
+{
+	int signal_count;
+	int move_count = 0;
+	struct timespec ts;
+
+	ASSERT(sig_clear_patch_region >= SIGRTMIN);
+
+	signal_count = thread_broadcast_signal(sig_clear_patch_region);
+
+	if (clock_gettime(CLOCK_REALTIME, &ts) == -1)
+		return -1;
+	ts.tv_sec += 1;
+
+	for (int i = 0; i < signal_count; i++) {
+		if (sem_timedwait(&sem_clear_patch_region, &ts) == -1) {
+			if (errno == EINTR)
+				i--;
+			else
+				pr_dbg3("error syncing with signal handler: %s\n", strerror(errno));
+		}
+		else
+			move_count++;
+	}
+	pr_dbg3("checked ip of %d/%d thread(s)\n", move_count, signal_count);
+
+	return 0;
+}
+
+/**
+ * setup_clear_patch_region - initialize data structures and signals used to
+ * move threads of patching regions
+ *  @return - -1 on error, 0 on success
+ */
+int setup_clear_patch_region()
+{
+	struct sigaction act;
+
+	if (!patch_region_hmap) {
+		patch_region_hmap = hashmap_create(4, hashmap_ptr_hash, hashmap_ptr_equals);
+		if (!patch_region_hmap) {
+			pr_dbg("failed to create patch region hashmap\n");
+			return -1;
+		}
+	}
+
+	if (sig_clear_patch_region > 0)
+		return 0;
+
+	sig_clear_patch_region = find_unused_sigrt();
+	if (sig_clear_patch_region == -1)
+		return -1;
+
+	sem_init(&sem_clear_patch_region, 0, 0);
+
+	act.sa_sigaction = leave_patch_region;
+	act.sa_flags = 0;
+
+	if (sigaction(sig_clear_patch_region, &act, NULL) < 0) {
+		pr_dbg("failed to configure clear signal (SIGRT%d) handler\n",
+		       sig_clear_patch_region);
+		return -1;
+	}
+
+	pr_dbg("configured clear signal (SIGRT%d) handler\n", sig_clear_patch_region);
+	return 0;
+}
+
 /**
  * mcount_arch_dynamic_init - initialize arch-specific data structures to
  * perform runtime dynamic instrumentation
@@ -261,6 +416,8 @@ int mcount_arch_dynamic_init()
 
 	if (setup_synchronization_mechanism() < 0)
 		return -1;
+
+	setup_clear_patch_region();
 
 	return 0;
 }
@@ -687,7 +844,22 @@ static int patch_code(struct mcount_dynamic_info *mdi, struct mcount_disasm_info
 	synchronize_all_cores();
 
 	/*
-	 * We fill the remaining part of the patching region with nops.
+	 * The second step is to move any thread out of the critical zone if still
+	 * present. Threads in the critical zone resume execution out of line, in
+	 * their dedicated OLX region.
+	 *
+	 * The method used to move the threads is to signal all the threads, so they
+	 * check if their instruction pointer is in the patching region. If so, they
+	 * move their instruction pointer to the corresponding one in the OLX
+	 * region.
+	 */
+
+	if (register_patch_region(origin_code_addr, info->orig_size) == -1)
+		pr_dbg3("failed to register patch region\n");
+	clear_patch_region();
+	unregister_patch_region(origin_code_addr, info->orig_size);
+
+	/* We fill the remaining part of the patching region with nops.
 	 *
 	 *     0x0: int3
 	 *     0x1: <trampoline>
