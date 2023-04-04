@@ -62,6 +62,8 @@ static unsigned min_size;
 /* disassembly engine for dynamic code patch (for capstone) */
 static struct mcount_disasm_engine disasm;
 
+static bool mcount_dynamic_is_initialized;
+
 static struct mcount_orig_insn *create_code(struct Hashmap *map, unsigned long addr)
 {
 	struct mcount_orig_insn *entry;
@@ -247,6 +249,11 @@ __weak void mcount_disasm_init(struct mcount_disasm_engine *disasm)
 
 __weak void mcount_disasm_finish(struct mcount_disasm_engine *disasm)
 {
+}
+
+__weak int mcount_arch_dynamic_init(void)
+{
+	return -1;
 }
 
 __weak int mcount_arch_branch_table_size(struct mcount_disasm_info *info)
@@ -683,6 +690,13 @@ static int do_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 
 	/* TODO: filter out unsupported libs */
 	for (mdi = mdinfo; mdi != NULL; mdi = mdi->next) {
+		if (mdi->type == DYNAMIC_NONE && !mcount_dynamic_is_initialized) {
+			if (mcount_arch_dynamic_init() >= 0)
+				mcount_dynamic_is_initialized = true;
+			else
+				continue;
+		}
+
 		map = mdi->map;
 		if (mdi->trampoline)
 			patch_func_matched(mdi, map);
