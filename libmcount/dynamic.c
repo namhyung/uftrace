@@ -248,6 +248,11 @@ __weak void mcount_disasm_finish(struct mcount_disasm_engine *disasm)
 {
 }
 
+__weak bool mcount_arch_dynamic_init(void)
+{
+	return false;
+}
+
 __weak int mcount_arch_branch_table_size(struct mcount_disasm_info *info)
 {
 	return 0;
@@ -525,6 +530,27 @@ static void aggregate_pattern_list(void)
 	}
 }
 
+extern bool mcount_target_running;
+
+/**
+ * mcount_dynamic_init - init mcount for dynamic patching
+ * @return - true when mcount is ready for dynamic patching
+ */
+static bool mcount_dynamic_init(void)
+{
+	static bool is_initialized = false;
+
+	if (!mcount_target_running) /* no live patching */
+		return true;
+
+	if (!is_initialized) {
+		if (mcount_arch_dynamic_init())
+			is_initialized = true;
+	}
+
+	return is_initialized;
+}
+
 static bool skip_sym(struct uftrace_symbol *sym, struct mcount_dynamic_info *mdi,
 		     struct uftrace_mmap *map, char *soname)
 {
@@ -689,6 +715,11 @@ static int do_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 
 	/* TODO: filter out unsupported libs */
 	for (mdi = mdinfo; mdi != NULL; mdi = mdi->next) {
+		if (mdi->type == DYNAMIC_NONE) {
+			if (!mcount_dynamic_init())
+				continue;
+		}
+
 		map = mdi->map;
 		if (mdi->trampoline)
 			patch_func_matched(&dynamic_patterns, mdi, map);
