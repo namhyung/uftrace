@@ -9,6 +9,7 @@
 #include "libmcount/dynamic.h"
 #include "libmcount/internal.h"
 #include "mcount-arch.h"
+#include "utils/hashmap.h"
 #include "utils/symbol.h"
 #include "utils/utils.h"
 
@@ -19,6 +20,125 @@ static const unsigned char patchable_clang_nop[] = { 0x0f, 0x1f, 0x44, 0x00, 0x0
 
 static const unsigned char endbr64[] = { 0xf3, 0x0f, 0x1e, 0xfa };
 
+/*
+ * Hashmap of trampoline locations for every installed int3 trap. The traps are
+ * used when patching and unpatching functions: they prevent threads from
+ * entering the critical zone. When a trap is reached, the trap handler fetches
+ * the trampoline location from the hmap, and emulates a call to the trampoline,
+ * to mimic regular instrumentation.
+ *
+ * (void *int3_location -> void *trampoline)
+ */
+static struct Hashmap *int3_hmap;
+
+/**
+ * register_trap - save trampoline associated to a trap
+ * @trap     - trap address
+ * @call_loc - address of the symbol to emulate a call to
+ * @return   - -1 on error, 0 on success
+ */
+static int register_trap(void *trap, void *call_loc)
+{
+	if (!hashmap_put(int3_hmap, trap, call_loc))
+		return -1;
+
+	return 0;
+}
+
+/**
+ * unregister_trap - remove trap entry from hmap
+ * @trap     - trap address
+ * @return   - -1 on error, 0 on success
+ */
+static int unregister_trap(void *trap)
+{
+	if (hashmap_remove(int3_hmap, trap))
+		return 0;
+
+	return -1;
+}
+
+/**
+ * emulate_trampoline_call - SIGTRAP handler, emulates a call to the trampoline
+ * associated with the trap location
+ *
+ * When the trap handler is executed, it changes the program counter to point to
+ * <trampoline>. When the trap handler exits, the code at <trampoline> will
+ * execute (which is __dentry__ defined in dynamic.S).
+ *
+ * As __dentry__ is expected to be called like a function, it depends on the
+ * address of the caller to know which tracepoint was executed. The address is
+ * expected to be found on the stack. Therefore, the trap handler actually needs
+ * to emulate a call instruction entirely (moving the instruction pointer is not
+ * enough).
+ *
+ * To do so, the trap handler will also push on the stack the next instruction
+ * pointer that would be used if the executed instruction was a call instead of
+ * a trap.
+ *
+ * @sig      - signal caught
+ * @info     - (unused)
+ * @ucontext - user context, containing registers
+ */
+static void emulate_trampoline_call(int sig, siginfo_t *info, void *ucontext)
+{
+	ucontext_t *uctx = ucontext;
+	mcontext_t *mctx = &uctx->uc_mcontext;
+	void *int3_addr;
+	unsigned long trampoline;
+	unsigned long child_addr; /* probe location for mcount_entry */
+
+	ASSERT(sig == SIGTRAP);
+
+	__atomic_signal_fence(__ATOMIC_SEQ_CST);
+	int3_addr = (void *)mctx->gregs[REG_RIP] - 1; /* int3 size = 1 */
+	trampoline = (unsigned long)hashmap_get(int3_hmap, int3_addr);
+
+	child_addr = (unsigned long)int3_addr + CALL_INSN_SIZE;
+
+	mctx->gregs[REG_RSP] -= 8;
+	memcpy((void *)mctx->gregs[REG_RSP], &child_addr, 8);
+	mctx->gregs[REG_RIP] = trampoline;
+}
+
+/**
+ * configure_sigtrap_handler - emulate call to trampoline on SIGTRAP
+ * @return - -1 on failure, 0 on success
+ */
+static int configure_sigtrap_handler(void)
+{
+	struct sigaction act;
+
+	act.sa_sigaction = emulate_trampoline_call;
+	act.sa_flags = SA_SIGINFO;
+
+	if (sigaction(SIGTRAP, &act, NULL) < 0) {
+		pr_err("failed to configure SIGTRAP handler\n");
+		return -1;
+	}
+
+	pr_dbg2("configured SIGTRAP handler\n");
+	return 0;
+}
+
+/**
+ * mcount_arch_dynamic_init - initialize arch-specific data structures to
+ * perform runtime dynamic instrumentation
+ */
+int mcount_arch_dynamic_init(void)
+{
+	if (!int3_hmap) {
+		int3_hmap = hashmap_create(4, hashmap_ptr_hash, hashmap_ptr_equals);
+		if (!int3_hmap) {
+			pr_dbg("failed to create int3 hashmap\n");
+			return -1;
+		}
+	}
+	if (configure_sigtrap_handler() < 0)
+		return -1;
+
+	return 0;
+}
 int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 {
 	unsigned char trampoline[] = { 0x3e, 0xff, 0x25, 0x01, 0x00, 0x00, 0x00, 0xcc };
@@ -419,11 +539,22 @@ static int patch_code(struct mcount_dynamic_info *mdi, struct mcount_disasm_info
 
 	trampoline_rel_addr = (void *)get_trampoline_offset(mdi, (unsigned long)origin_code_addr);
 
-	/*
+	/* The first step is to insert a 1-byte trap-based probe point (atomic).
+	 * This will prevent threads to enter the critical zone while we patch it,
+	 * so no core will see partial modifications.
 	 *
+	 *     0x0: int3                  <= origin_code_addr
+	 *     0x1: mov  %rsp,%rbp
+	 *     0x4: lea  0xeb0(%rip),%rdi
+	 *     0xb: <other instructions>
 	 *
-	 *
+	 * The trap will emulate a call to the trampoline while in place.
 	 */
+
+	if (register_trap(origin_code_addr, (void *)mdi->trampoline) == -1)
+		return INSTRUMENT_FAILED;
+	((uint8_t *)origin_code_addr)[0] = 0xcc;
+
 	/*
 	 * We fill the remaining part of the patching region with nops.
 	 *
@@ -444,6 +575,7 @@ static int patch_code(struct mcount_dynamic_info *mdi, struct mcount_disasm_info
 	 */
 
 	((uint8_t *)origin_code_addr)[0] = 0xe8;
+	unregister_trap(origin_code_addr);
 
 	return INSTRUMENT_SUCCESS;
 }
