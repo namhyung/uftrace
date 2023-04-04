@@ -247,9 +247,15 @@ out:
 	elf_finish(&elf);
 }
 
-static unsigned long get_target_addr(struct mcount_dynamic_info *mdi, unsigned long addr)
+/**
+ * get_trampoline_offest - compute the relative address of the trampoline
+ * @mdi    - mcount dynamic info
+ * @origin - origin address
+ * @return - distance to the trampoline
+ */
+static unsigned long get_trampoline_offset(struct mcount_dynamic_info *mdi, unsigned long origin)
 {
-	return mdi->trampoline - (addr + CALL_INSN_SIZE);
+	return mdi->trampoline - (origin + CALL_INSN_SIZE);
 }
 
 static int patch_fentry_code(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym)
@@ -271,7 +277,7 @@ static int patch_fentry_code(struct mcount_dynamic_info *mdi, struct uftrace_sym
 	}
 
 	/* get the jump offset to the trampoline */
-	target_addr = get_target_addr(mdi, (unsigned long)insn);
+	target_addr = get_trampoline_offset(mdi, (unsigned long)insn);
 	if (target_addr == 0)
 		return INSTRUMENT_SKIPPED;
 
@@ -429,14 +435,14 @@ static void patch_code(struct mcount_dynamic_info *mdi, struct mcount_disasm_inf
 {
 	void *origin_code_addr;
 	unsigned char call_insn[] = { 0xe8, 0x00, 0x00, 0x00, 0x00 };
-	uint32_t target_addr = get_target_addr(mdi, info->addr);
+	uint32_t target_addr = get_trampoline_offset(mdi, info->addr);
 
 	/* patch address */
 	origin_code_addr = (void *)info->addr;
 
 	if (info->has_intel_cet) {
 		origin_code_addr += ENDBR_INSN_SIZE;
-		target_addr = get_target_addr(mdi, info->addr + ENDBR_INSN_SIZE);
+		target_addr = get_trampoline_offset(mdi, info->addr + ENDBR_INSN_SIZE);
 	}
 
 	/* build the instrumentation instruction */
