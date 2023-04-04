@@ -432,4 +432,7 @@ int copy_file(const char *path_in, const char *path_out);
 pid_t gettid();
 int tgkill(pid_t tgid, pid_t tid, int signal);
 
+int find_unused_sigrt();
+int thread_broadcast_signal(int sig);
+
 #endif /* UFTRACE_UTILS_H */
