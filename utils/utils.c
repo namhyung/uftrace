@@ -1058,6 +1058,96 @@ int tgkill(pid_t tgid, pid_t tid, int signal)
 }
 #endif
 
+/**
+ * find_unused_sigrt - find a real-time signal with no associated action
+ * @return - unused RT signal, or -1 if none found
+ */
+int find_unused_sigrt(void)
+{
+	int sig;
+	struct sigaction oldact;
+
+	for (sig = SIGRTMIN; sig <= SIGRTMAX; sig++) {
+		if (sigaction(sig, NULL, &oldact) < 0) {
+			pr_dbg3("failed to check RT signal handler\n");
+			continue;
+		}
+
+		if (!oldact.sa_handler)
+			return sig;
+	}
+
+	pr_dbg2("failed to find unused SIGRT\n");
+	return -1;
+}
+
+/**
+ * thread_broadcast_signal - send a signal to all the other running threads in
+ * the process
+ * @sig - signal to send
+ * @return - number of signals sent, -1 on error
+ */
+int thread_broadcast_signal(int sig)
+{
+	char path[32];
+	DIR *dir;
+	struct dirent *dirent;
+	pid_t pid, tid, task;
+	int signal_count = 0;
+
+	pid = getpid();
+	tid = gettid();
+
+	snprintf(path, 32, "/proc/%u/task", pid);
+	dir = opendir(path);
+	if (!dir) {
+		pr_dbg("failed to open directory '%s'\n", path);
+		goto fail_open_dir;
+	}
+
+	errno = 0;
+	for (dirent = readdir(dir); dirent != NULL; dirent = readdir(dir)) {
+		/* skip "." and ".." directories */
+		if (dirent->d_name[0] == '.')
+			continue;
+
+		task = strtol(dirent->d_name, NULL, 10);
+		if (errno != 0 || task < 0) {
+			pr_dbg("failed to parse TID '%s'\n", dirent->d_name);
+			continue;
+		}
+
+		/* ignore our TID */
+		if (task == tid)
+			continue;
+
+		/*
+		 * By reading /proc/<pid>/task directory, there is the possibility of
+		 * a race condition where a thread exits before we send the signal.
+		 */
+		pr_dbg4("send SIGRT%d to %u\n", sig, task);
+		if (tgkill(pid, task, sig) < 0) {
+			if (errno != ESRCH) {
+				pr_dbg2("cannot signal thread %u: %s\n", task, strerror(errno));
+				errno = 0;
+			}
+		}
+		else
+			signal_count++;
+	}
+
+	if (errno != 0)
+		pr_dbg("failed to read directory entry\n");
+
+	if (closedir(dir) < 0)
+		pr_dbg2("failed to close directory\n");
+
+	return signal_count;
+
+fail_open_dir:
+	return -1;
+}
+
 #ifdef UNIT_TEST
 TEST_CASE(utils_parse_cmdline)
 {
