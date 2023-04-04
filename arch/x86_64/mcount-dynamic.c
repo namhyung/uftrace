@@ -1,6 +1,14 @@
+#include <errno.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
+
+#if HAVE_MEMBARRIER
+#include <linux/membarrier.h>
+#else
+#include <cpuid.h>
+#include <semaphore.h>
+#endif
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "dynamic"
@@ -121,6 +129,120 @@ static int configure_sigtrap_handler(void)
 	return 0;
 }
 
+#if HAVE_MEMBARRIER
+
+/**
+ * setup_synchronization_mechanism - register intent to use the 'private
+ * expedited sync core' membarrier to synchronize instruction pipelines and
+ * caches across cores, for safe cross-modification.
+ * @return - negative on error, 0 on success
+ */
+static int setup_synchronization_mechanism(void)
+{
+	int ret =
+		syscall(__NR_membarrier, MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED_SYNC_CORE, 0, 0);
+	if (ret < 0)
+		pr_dbg2("failed to register membarrier intent: %s\n", strerror(errno));
+	return ret;
+}
+
+/**
+ * synchronize_all_cores - use membarrier to perform cache and pipeline
+ * synchronization across cores executing cross-modified code
+ * @return - negative on error, 0 on success
+ */
+static int synchronize_all_cores(void)
+{
+	int ret = syscall(__NR_membarrier, MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE, 0, 0);
+	if (ret < 0)
+		pr_dbg2("failed to use membarrier: %s\n", strerror(errno));
+	return ret;
+}
+
+#else /* HAVE_MEMBARRIER */
+
+/* signal used to perform cache and pipeline synchronization across cores */
+static int sig_sync_cores;
+
+/* counter for the threads that have performed serialization when a signal is
+   issued */
+static sem_t sem_sync_cores;
+
+/**
+ * serialize_instruction_execution - execute core serialize instruction
+ *
+ * According to Intel manual, CPUID is a serializing instruction.
+ */
+static void serialize_instruction_execution(int signum, siginfo_t *info, void *arg)
+{
+	int _;
+	__cpuid(_, _, _, _, _);
+	sem_post(&sem_sync_cores);
+}
+
+/**
+ * setup_synchronization_mechanism - setup real-time signal and its handler to
+ * perform core synchronization across all threads
+ * @return - 0 on success, -1 on failure
+ */
+static int setup_synchronization_mechanism(void)
+{
+	struct sigaction act;
+
+	if (sig_sync_cores > 0)
+		return 0;
+
+	sig_sync_cores = find_unused_sigrt();
+	if (sig_sync_cores == -1)
+		return -1;
+
+	sem_init(&sem_sync_cores, 0, 0);
+
+	act.sa_sigaction = serialize_instruction_execution;
+	act.sa_flags = 0;
+
+	if (sigaction(sig_sync_cores, &act, NULL) < 0) {
+		pr_dbg("failed to configure core synchronization signal handler\n");
+		return -1;
+	}
+
+	pr_dbg("configured core synchronization signal (SIGRT%d) handler\n", sig_sync_cores);
+	return 0;
+}
+
+/**
+ * serialize_instruction_cache - send RT signals to perform cache and pipeline
+ * synchronization across cores executing cross-modified code.
+ * @return - -1 on error, 0 on success
+ */
+static int synchronize_all_cores(void)
+{
+	int signal_count;
+	int sync_count = 0;
+	struct timespec ts;
+
+	ASSERT(sig_sync_cores >= SIGRTMIN);
+
+	signal_count = thread_broadcast_signal(sig_sync_cores);
+
+	if (clock_gettime(CLOCK_REALTIME, &ts) == -1)
+		return -1;
+	ts.tv_sec += 1;
+
+	for (int i = 0; i < signal_count; i++) {
+		if (sem_timedwait(&sem_sync_cores, &ts) == -1) {
+			if (errno == EINTR)
+				i--;
+		}
+		else
+			sync_count++;
+	}
+	pr_dbg3("synced core in %d/%d thread(s)\n", sync_count, signal_count);
+
+	return 0;
+}
+
+#endif /* HAVE_MEMBARRIER */
 /**
  * mcount_arch_dynamic_init - initialize arch-specific data structures to
  * perform runtime dynamic instrumentation
@@ -137,8 +259,12 @@ int mcount_arch_dynamic_init(void)
 	if (configure_sigtrap_handler() < 0)
 		return -1;
 
+	if (setup_synchronization_mechanism() < 0)
+		return -1;
+
 	return 0;
 }
+
 int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 {
 	unsigned char trampoline[] = { 0x3e, 0xff, 0x25, 0x01, 0x00, 0x00, 0x00, 0xcc };
@@ -549,11 +675,16 @@ static int patch_code(struct mcount_dynamic_info *mdi, struct mcount_disasm_info
 	 *     0xb: <other instructions>
 	 *
 	 * The trap will emulate a call to the trampoline while in place.
+	 *
+	 * We ensure that every core sees the trap before patching the critical
+	 * zone, by synchronizing the them.
 	 */
 
 	if (register_trap(origin_code_addr, (void *)mdi->trampoline) == -1)
 		return INSTRUMENT_FAILED;
 	((uint8_t *)origin_code_addr)[0] = 0xcc;
+
+	synchronize_all_cores();
 
 	/*
 	 * We fill the remaining part of the patching region with nops.
