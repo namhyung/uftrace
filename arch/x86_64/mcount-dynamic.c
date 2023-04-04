@@ -386,93 +386,66 @@ static int patch_xray_func(struct mcount_dynamic_info *mdi, struct uftrace_symbo
 	return ret;
 }
 
-/*
- *  we overwrite instructions over 5bytes from start of function
- *  to call '__dentry__' that seems similar like '__fentry__'.
- *
- *  while overwriting, After adding the generated instruction which
- *  returns to the address of the original instruction end,
- *  save it in the heap.
- *
- *  for example:
- *
- *   4005f0:       31 ed                   xor     %ebp,%ebp
- *   4005f2:       49 89 d1                mov     %rdx,%r9
- *   4005f5:       5e                      pop     %rsi
- *
- *  will changed like this :
- *
- *   4005f0	call qword ptr [rip + 0x200a0a] # 0x601000
- *
- *  and keeping original instruction :
- *
- *  Original Instructions---------------
- *    f1cff0:	xor ebp, ebp
- *    f1cff2:	mov r9, rdx
- *    f1cff5:	pop rsi
- *  Generated Instruction to return-----
- *    f1cff6:	jmp qword ptr [rip]
- *    f1cffc:	QW 0x00000000004005f6
- *
- *  In the original case, address 0x601000 has a dynamic symbol
- *  start address. It is also the first element in the GOT array.
- *  while initializing the mcount library, we will replace it with
- *  the address of the function '__dentry__'. so, the changed
- *  instruction will be calling '__dentry__'.
- *
- *  '__dentry__' has a similar function like '__fentry__'.
- *  the other thing is that it returns to original instructions
- *  we keeping. it makes it possible to execute the original
- *  instructions and return to the address at the end of the original
- *  instructions. Thus, the execution will goes on.
- *
+/**
+ * patch_code - inject a call to an instrumentation trampoline
+ * @mdi    - dynamic info about the concerned module
+ * @info   - disassembly info (instructions address and size)
+ * @return - instrumentation status
  */
-
-/*
- * Patch the instruction to the address as given for arguments.
- */
-static void patch_code(struct mcount_dynamic_info *mdi, struct mcount_disasm_info *info)
+static int patch_code(struct mcount_dynamic_info *mdi, struct mcount_disasm_info *info)
 {
+	/*
+	 * Let's assume we have the following instructions.
+	 *
+	 *     0x0: push %rbp             <= origin_code_addr
+	 *     0x1: mov  %rsp,%rbp
+	 *     0x4: lea  0xeb0(%rip),%rdi
+	 *     0xb: <other instructions>
+	 *
+	 * The goal is to modify the instructions in order to get the following
+	 * ones.
+	 *
+	 *     0x0: call <trampoline>
+	 *     0x5: <nop instructions>
+	 *     0xb: <other instructions>
+	 */
+
 	void *origin_code_addr;
-	unsigned char call_insn[] = { 0xe8, 0x00, 0x00, 0x00, 0x00 };
-	uint32_t target_addr = get_trampoline_offset(mdi, info->addr);
+	void *trampoline_rel_addr;
 
-	/* patch address */
 	origin_code_addr = (void *)info->addr;
-
-	if (info->has_intel_cet) {
+	if (info->has_intel_cet)
 		origin_code_addr += ENDBR_INSN_SIZE;
-		target_addr = get_trampoline_offset(mdi, info->addr + ENDBR_INSN_SIZE);
-	}
 
-	/* build the instrumentation instruction */
-	memcpy(&call_insn[1], &target_addr, CALL_INSN_SIZE - 1);
+	trampoline_rel_addr = (void *)get_trampoline_offset(mdi, (unsigned long)origin_code_addr);
 
 	/*
-	 * we need 5-bytes at least to instrumentation. however,
-	 * if instructions is not fit 5-bytes, we will overwrite the
-	 * 5-bytes and fill the remaining part of the last
-	 * instruction with nop.
 	 *
-	 * [example]
-	 * In this example, we overwrite 9-bytes to use 5-bytes.
 	 *
-	 * dynamic: 0x19e98b0[01]:push rbp
-	 * dynamic: 0x19e98b1[03]:mov rbp, rsp
-	 * dynamic: 0x19e98b4[05]:mov edi, 0x4005f4
 	 *
-	 * dynamic: 0x40054c[05]:call 0x400ff0
-	 * dynamic: 0x400551[01]:nop
-	 * dynamic: 0x400552[01]:nop
-	 * dynamic: 0x400553[01]:nop
-	 * dynamic: 0x400554[01]:nop
 	 */
-	memcpy(origin_code_addr, call_insn, CALL_INSN_SIZE);
+	/*
+	 * We fill the remaining part of the patching region with nops.
+	 *
+	 *     0x0: int3
+	 *     0x1: <trampoline>
+	 *     0x5: <nop instructions>
+	 *     0xb: <other instructions>
+	 */
+
+	memcpy(&((uint8_t *)origin_code_addr)[1], &trampoline_rel_addr, CALL_INSN_SIZE - 1);
 	memset(origin_code_addr + CALL_INSN_SIZE, 0x90, /* NOP */
 	       info->orig_size - CALL_INSN_SIZE);
 
-	/* flush icache so that cpu can execute the new insn */
-	__builtin___clear_cache(origin_code_addr, origin_code_addr + info->orig_size);
+	/*
+	 *     0x0: call <trampoline>
+	 *     0x5: <nop instructions>
+	 *     0xb: <other instructions>
+	 */
+
+	((uint8_t *)origin_code_addr)[0] = 0xe8;
+
+	return INSTRUMENT_SUCCESS;
 }
 
 static int patch_normal_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
@@ -522,9 +495,7 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct uftrace_sym
 	else
 		mcount_save_code(&info, call_offset, jmp_insn, sizeof(jmp_insn));
 
-	patch_code(mdi, &info);
-
-	return INSTRUMENT_SUCCESS;
+	return patch_code(mdi, &info);
 }
 
 static int unpatch_func(uint8_t *insn, char *name)
