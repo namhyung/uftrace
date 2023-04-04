@@ -859,7 +859,10 @@ static int patch_code(struct mcount_dynamic_info *mdi, struct mcount_disasm_info
 	clear_patch_region();
 	unregister_patch_region(origin_code_addr, info->orig_size);
 
-	/* We fill the remaining part of the patching region with nops.
+	/* The third step is to write the target address of the call. From the
+	 * processor view the 4-bytes address can be any garbage instructions.
+	 *
+	 * We fill the remaining part of the patching region with nops.
 	 *
 	 *     0x0: int3
 	 *     0x1: <trampoline>
@@ -870,8 +873,11 @@ static int patch_code(struct mcount_dynamic_info *mdi, struct mcount_disasm_info
 	memcpy(&((uint8_t *)origin_code_addr)[1], &trampoline_rel_addr, CALL_INSN_SIZE - 1);
 	memset(origin_code_addr + CALL_INSN_SIZE, 0x90, /* NOP */
 	       info->orig_size - CALL_INSN_SIZE);
+	/* FIXME Need to sync cores? Store membarrier? */
 
 	/*
+	 * The fourth and last step is to replace the trap with the call opcode.
+	 *
 	 *     0x0: call <trampoline>
 	 *     0x5: <nop instructions>
 	 *     0xb: <other instructions>
