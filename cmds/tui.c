@@ -3001,10 +3001,13 @@ out:
 	tui_session_finish();
 }
 
-static void display_loading_msg(void)
+static void display_loading_msg(struct uftrace_opts *opts)
 {
 	char *tuimsg = "Building graph for TUI...";
 	int row, col;
+
+	if (opts->report)
+		tuimsg = "Building report for TUI...";
 
 	getmaxyx(stdscr, row, col);
 	mvprintw(row / 2, (col - strlen(tuimsg)) / 2, "%s", tuimsg);
@@ -3036,7 +3039,7 @@ int command_tui(int argc, char *argv[], struct uftrace_opts *opts)
 	atexit(tui_cleanup);
 
 	/* Print a message before main screen is launched. */
-	display_loading_msg();
+	display_loading_msg(opts);
 
 	fstack_setup_filters(opts, &handle);
 
