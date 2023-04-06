@@ -17,7 +17,7 @@ downstream_package_name: uftrace
 jobs:
 - job: copr_build
   trigger: pull_request
-  branch: main
+  branch: master
   targets:
     - fedora-36-x86_64
     - fedora-37-x86_64
