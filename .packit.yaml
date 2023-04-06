@@ -1,0 +1,23 @@
+# See the documentation for more information:
+# https://packit.dev/docs/configuration/
+
+upstream_project_url: https://github.com/namhyung/uftrace
+specfile_path: uftrace.spec
+
+# add or remove files that should be synced
+files_to_sync:
+    - uftrace.spec
+    - .packit.yaml
+
+# name in upstream package repository
+upstream_package_name: uftrace
+# downstream (Fedora) RPM package name
+downstream_package_name: uftrace
+
+jobs:
+- job: copr_build
+  trigger: pull_request
+  branch: main
+  targets:
+    - fedora-36-x86_64
+    - fedora-38-x86_64
