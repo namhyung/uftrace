@@ -20,4 +20,10 @@ jobs:
   branch: main
   targets:
     - fedora-36-x86_64
+    - fedora-37-x86_64
     - fedora-38-x86_64
+    - fedora-36-aarch64
+    - fedora-37-aarch64
+    - fedora-38-aarch64
+    - fedora-rawhide-x86_64
+    - fedora-rawhide-aarch64
