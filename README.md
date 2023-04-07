@@ -36,15 +36,14 @@ It can record data from:
   execution timing of the program) and records nanosecond-exact timestamps
   (using perf_event and systemtap SDT)
 
-With the recorded data, it:
-- Can show colored and nested function call graphs.
-- Can show arguments and return values symbolically using libc function prototypes
+With the recorded data, uftrace can:
+- Show colored and nested function call graphs.
+- Show arguments and return values symbolically using libc function prototypes
   and DWARF debug information.
-- Can apply filters to minimize the amount of trace data in both record and replay time.
-- Can extract metadata from traces. (e.g. system information on which the trace was taken)
-- Can generate symbol tables and memory maps of the traced program and library functions.
-- When the execution of multiple programs was recorded,
-  it can generate a task relationship tree (parent and children) from the trace.
+- Apply filters to minimize the amount of trace data in both record and replay time.
+- Extract metadata from traces. (e.g. system information on which the trace was taken)
+- Generate symbol tables and memory maps of the traced program and library functions.
+- Generate task relationship trees (parent and children) of nested programs in traces.
 
 It supports many commands and filters such as filtering by function call
 duration for analysis of program execution and performance.
