@@ -182,6 +182,17 @@ static void release_debug_file(struct rb_root *root)
 #include <libelf.h>
 
 /*
+ * Used by libdwfl in build_debug_info_cb after setup_dwarf_info returns,
+ * so this may not be allocated temporary on setup_debug_info's stack (which is freed)
+ */
+static char *debuginfo_path = NULL;
+Dwfl_Callbacks dwfl_callbacks = {
+	.find_elf = dwfl_linux_proc_find_elf,
+	.find_debuginfo = dwfl_standard_find_debuginfo,
+	.debuginfo_path = &debuginfo_path,
+};
+
+/*
  * symbol table contains normalized (zero-based) relative address.
  * but some other info in non-PIE executable has different base
  * address so it needs to convert back and forth.
@@ -271,11 +282,11 @@ static int setup_dwarf_info(const char *filename, struct uftrace_dbg_info *dinfo
 			    unsigned long offset, bool force)
 {
 	int fd;
+	Dwfl_Module *mod;
+	Dwarf_Addr bias;
 
 	if (force || check_trace_functions(filename) != TRACE_CYGPROF)
 		dinfo->needs_args = true;
-
-	pr_dbg2("setup dwarf debug info for %s\n", filename);
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
@@ -284,13 +295,25 @@ static int setup_dwarf_info(const char *filename, struct uftrace_dbg_info *dinfo
 	}
 
 	dinfo->dw = dwarf_begin(fd, DWARF_C_READ);
-	close(fd);
+	if (dinfo->dw != NULL)
+		goto ok;
 
-	if (dinfo->dw == NULL) {
-		pr_dbg2("failed to setup debug info: %s\n", dwarf_errmsg(dwarf_errno()));
+	dinfo->dwfl = dwfl_begin(&dwfl_callbacks);
+	if (dinfo->dwfl == NULL) {
+		pr_dbg2("failed to begin libdwfl: %s\n", dwfl_errmsg(dwfl_errno()));
 		return -1;
 	}
 
+	mod = dwfl_report_offline(dinfo->dwfl, filename, filename, fd);
+	dinfo->dw = dwfl_module_getdwarf(mod, &bias);
+	if (dinfo->dw == NULL) {
+		pr_dbg2("failed to setup debug info: %s\n", dwfl_errmsg(dwfl_errno()));
+		dwfl_end(dinfo->dwfl);
+		dinfo->dwfl = NULL;
+		return -1;
+	}
+
+ok:
 	pr_dbg2("setup dwarf debug info for %s\n", filename);
 
 	/*
@@ -308,11 +331,17 @@ static int setup_dwarf_info(const char *filename, struct uftrace_dbg_info *dinfo
 
 static void release_dwarf_info(struct uftrace_dbg_info *dinfo)
 {
-	if (dinfo->dw == NULL)
-		return;
+	if (dinfo->dwfl != NULL) {
+		/* this will also free dinfo->dw */
+		dwfl_end(dinfo->dwfl);
+		dinfo->dwfl = NULL;
+		dinfo->dw = NULL;
+	}
 
-	dwarf_end(dinfo->dw);
-	dinfo->dw = NULL;
+	if (dinfo->dw != NULL) {
+		dwarf_end(dinfo->dw);
+		dinfo->dw = NULL;
+	}
 }
 
 #define ARGSPEC_MAX_SIZE 256
@@ -875,6 +904,7 @@ static bool resolve_type_info(Dwarf_Die *die, struct arg_data *ad, struct type_d
 		case DW_FORM_ref_udata:
 		case DW_FORM_ref_addr:
 		case DW_FORM_ref_sig8:
+		case DW_FORM_GNU_ref_alt:
 			dwarf_formref_die(&type, &ref);
 			die = &ref;
 			break;
@@ -1692,7 +1722,8 @@ static void build_dwarf_info(struct uftrace_dbg_info *dinfo, struct uftrace_symt
 		if (dwarf_offdie(dinfo->dw, curr + header_sz, &cudie) == NULL)
 			break;
 
-		if (dwarf_tag(&cudie) != DW_TAG_compile_unit)
+		if (dwarf_tag(&cudie) != DW_TAG_compile_unit &&
+		    dwarf_tag(&cudie) != DW_TAG_partial_unit)
 			break;
 
 		if (uftrace_done)
@@ -1741,6 +1772,7 @@ static int setup_dwarf_info(const char *filename, struct uftrace_dbg_info *dinfo
 			    unsigned long offset, bool force)
 {
 	dinfo->dw = NULL;
+	dinfo->dwfl = NULL;
 	return 0;
 }
 
