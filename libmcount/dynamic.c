@@ -429,10 +429,17 @@ static bool match_pattern_module(char *pathname)
 	return ret;
 }
 
-static bool match_pattern_list(struct uftrace_mmap *map, char *soname, char *sym_name)
+/**
+ * match_pattern_list - match a symbol name against a pattern list
+ * @map - memory map of the symbol
+ * @soname - name of the module
+ * @sym_name - name of the symbol
+ * @return - -1 if match negative, 1 if match positive, 0 if no match
+ */
+static int match_pattern_list(struct uftrace_mmap *map, char *soname, char *sym_name)
 {
 	struct patt_list *pl;
-	bool ret = false;
+	int ret = 0;
 	char *libname = basename(map->libname);
 
 	list_for_each_entry(pl, &patterns, list) {
@@ -443,7 +450,7 @@ static bool match_pattern_list(struct uftrace_mmap *map, char *soname, char *sym
 			continue;
 
 		if (match_filter_pattern(&pl->patt, sym_name))
-			ret = pl->positive;
+			ret = pl->positive ? 1 : -1;
 	}
 
 	return ret;
@@ -515,9 +522,6 @@ static bool skip_sym(struct uftrace_symbol *sym, struct mcount_dynamic_info *mdi
 	if (sym->type != ST_LOCAL_FUNC && sym->type != ST_GLOBAL_FUNC && sym->type != ST_WEAK_FUNC)
 		return true;
 
-	if (!match_pattern_list(map, soname, sym->name))
-		return true;
-
 	return false;
 }
 
@@ -584,6 +588,7 @@ static void patch_normal_func_matched(struct mcount_dynamic_info *mdi, struct uf
 	unsigned i;
 	struct uftrace_symbol *sym;
 	bool found = false;
+	int match;
 	char *soname = get_soname(map->libname);
 
 	symtab = &map->mod->symtab;
@@ -593,9 +598,15 @@ static void patch_normal_func_matched(struct mcount_dynamic_info *mdi, struct uf
 
 		if (skip_sym(sym, mdi, map, soname))
 			continue;
-
 		found = true;
-		mcount_patch_func_with_stats(mdi, sym);
+
+		match = match_pattern_list(map, soname, sym->name);
+		if (!match)
+			continue;
+		else if (match == 1)
+			mcount_patch_func_with_stats(mdi, sym);
+		else
+			mcount_unpatch_func(mdi, sym, NULL);
 	}
 
 	if (!found)
@@ -882,27 +893,27 @@ TEST_CASE(dynamic_pattern_list)
 	pr_dbg("check simple match with default module\n");
 	parse_pattern_list("abc;!def", "main", PATT_SIMPLE);
 
-	TEST_EQ(match_pattern_list(main_map, NULL, "abc"), true);
-	TEST_EQ(match_pattern_list(main_map, NULL, "def"), false);
-	TEST_EQ(match_pattern_list(other_map, NULL, "xyz"), false);
+	TEST_EQ(match_pattern_list(main_map, NULL, "abc"), 1);
+	TEST_EQ(match_pattern_list(main_map, NULL, "def"), -1);
+	TEST_EQ(match_pattern_list(other_map, NULL, "xyz"), 0);
 
 	release_pattern_list();
 
 	pr_dbg("check negative regex match with default module\n");
 	parse_pattern_list("!^a", "main", PATT_REGEX);
 
-	TEST_EQ(match_pattern_list(main_map, NULL, "abc"), false);
-	TEST_EQ(match_pattern_list(main_map, NULL, "def"), true);
-	TEST_EQ(match_pattern_list(other_map, NULL, "xyz"), false);
+	TEST_EQ(match_pattern_list(main_map, NULL, "abc"), -1);
+	TEST_EQ(match_pattern_list(main_map, NULL, "def"), 0);
+	TEST_EQ(match_pattern_list(other_map, NULL, "xyz"), 0);
 
 	release_pattern_list();
 
 	pr_dbg("check wildcard match with other module\n");
 	parse_pattern_list("*@other", "main", PATT_GLOB);
 
-	TEST_EQ(match_pattern_list(main_map, NULL, "abc"), false);
-	TEST_EQ(match_pattern_list(main_map, NULL, "def"), false);
-	TEST_EQ(match_pattern_list(other_map, NULL, "xyz"), true);
+	TEST_EQ(match_pattern_list(main_map, NULL, "abc"), 0);
+	TEST_EQ(match_pattern_list(main_map, NULL, "def"), 0);
+	TEST_EQ(match_pattern_list(other_map, NULL, "xyz"), 1);
 
 	release_pattern_list();
 
