@@ -371,6 +371,21 @@ static void prepare_dynamic_update(struct uftrace_sym_info *sinfo, bool needs_mo
 		modules_loaded = true;
 }
 
+/**
+ * setup_size_filter - initialize size filter if not set
+ */
+void setup_size_filter(void)
+{
+	char *size_filter;
+
+	if (min_size)
+		return;
+
+	size_filter = getenv("UFTRACE_MIN_SIZE");
+	if (size_filter)
+		min_size = strtoul(size_filter, NULL, 0);
+}
+
 struct mcount_dynamic_info *setup_trampoline(struct uftrace_mmap *map)
 {
 	struct mcount_dynamic_info *mdi;
@@ -695,16 +710,13 @@ int mcount_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 			  enum uftrace_pattern_type ptype)
 {
 	int ret = 0;
-	char *size_filter;
 	bool needs_modules = !!strchr(patch_funcs, '@');
 
 	mcount_disasm_init(&disasm);
 
 	prepare_dynamic_update(sinfo, needs_modules);
 
-	size_filter = getenv("UFTRACE_MIN_SIZE");
-	if (size_filter != NULL)
-		min_size = strtoul(size_filter, NULL, 0);
+	setup_size_filter();
 
 	ret = do_dynamic_update(sinfo, patch_funcs, ptype);
 
