@@ -19,6 +19,15 @@
 #include "utils/symbol.h"
 #include "utils/utils.h"
 
+// Used by libdw in build_debug_info_cb after setup_debug_info returns,
+// so this may not be allocated temporary on setup_debug_info's stack (which is freed):
+char *debuginfo_path = NULL;
+Dwfl_Callbacks callbacks = {
+	.find_elf = dwfl_linux_proc_find_elf,
+	.find_debuginfo = dwfl_standard_find_debuginfo,
+	.debuginfo_path = &debuginfo_path,
+};
+
 bool debug_info_has_argspec(struct uftrace_dbg_info *dinfo)
 {
 	if (dinfo == NULL)
@@ -208,8 +217,9 @@ struct cu_files {
 static int elf_file_type(struct uftrace_dbg_info *dinfo)
 {
 	GElf_Ehdr ehdr;
+	GElf_Addr bias;
 
-	if (dinfo->dw && gelf_getehdr(dwarf_getelf(dinfo->dw), &ehdr))
+	if (gelf_getehdr(dwfl_module_getelf(dinfo->dwfl_module, &bias), &ehdr))
 		return ehdr.e_type;
 
 	return ET_NONE;
@@ -262,18 +272,18 @@ static int setup_dwarf_info(const char *filename, struct uftrace_dbg_info *dinfo
 	if (force || check_trace_functions(filename) != TRACE_CYGPROF)
 		dinfo->needs_args = true;
 
-	pr_dbg2("setup dwarf debug info for %s\n", filename);
-
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
 		pr_dbg2("cannot open debug info for %s: %m\n", filename);
 		return -1;
 	}
 
-	dinfo->dw = dwarf_begin(fd, DWARF_C_READ);
+	dinfo->dwfl = dwfl_begin(&callbacks);
+	dinfo->dwfl_module = dwfl_report_elf(dinfo->dwfl, filename, filename, fd, 0, true);
+	dwfl_report_end(dinfo->dwfl, NULL, NULL);
 	close(fd);
 
-	if (dinfo->dw == NULL) {
+	if (dinfo->dwfl == NULL || dinfo->dwfl_module == NULL) {
 		pr_dbg2("failed to setup debug info: %s\n", dwarf_errmsg(dwarf_errno()));
 		return -1;
 	}
@@ -295,11 +305,11 @@ static int setup_dwarf_info(const char *filename, struct uftrace_dbg_info *dinfo
 
 static void release_dwarf_info(struct uftrace_dbg_info *dinfo)
 {
-	if (dinfo->dw == NULL)
+	if (dinfo->dwfl == NULL)
 		return;
 
-	dwarf_end(dinfo->dw);
-	dinfo->dw = NULL;
+	dwfl_end(dinfo->dwfl);
+	dinfo->dwfl = NULL;
 }
 
 #define ARGSPEC_MAX_SIZE 256
@@ -1624,9 +1634,16 @@ static char *get_base_comp_dir(struct rb_root *dirs)
 	return max->name;
 }
 
-static void build_dwarf_info(struct uftrace_dbg_info *dinfo, struct uftrace_symtab *symtab,
-			     enum uftrace_pattern_type ptype, struct strv *args, struct strv *rets)
+static int build_dwarf_info_cb(Dwfl_Module *mod __attribute__((unused)),
+			       void **userdata __attribute__((unused)), const char *name,
+			       Dwarf_Addr base, Dwarf *dw, Dwarf_Addr bias, void *arg)
 {
+	struct dwarf_info_args *cbargs = arg;
+	struct uftrace_dbg_info *dinfo = cbargs->dinfo;
+	struct uftrace_symtab *symtab = cbargs->symtab;
+	enum uftrace_pattern_type ptype = cbargs->ptype;
+	struct strv *args = cbargs->args;
+	struct strv *rets = cbargs->rets;
 	Dwarf_Off curr = 0;
 	Dwarf_Off next = 0;
 	size_t header_sz = 0;
@@ -1636,9 +1653,6 @@ static void build_dwarf_info(struct uftrace_dbg_info *dinfo, struct uftrace_symt
 	char *dir;
 	char *s;
 	int i;
-
-	if (dinfo->dw == NULL)
-		return;
 
 	arg_patt = xcalloc(args->nr, sizeof(*arg_patt));
 	strv_for_each(args, s, i)
@@ -1652,7 +1666,7 @@ static void build_dwarf_info(struct uftrace_dbg_info *dinfo, struct uftrace_symt
 	dinfo->locs = xcalloc(dinfo->nr_locs, sizeof(*dinfo->locs));
 
 	/* traverse every CU to find debug info */
-	while (dwarf_nextcu(dinfo->dw, curr, &next, &header_sz, NULL, NULL, NULL) == 0) {
+	while (dwarf_nextcu(dw, curr, &next, &header_sz, NULL, NULL, NULL) == 0) {
 		Dwarf_Die cudie;
 		struct build_data bd = {
 			.dinfo = dinfo,
@@ -1663,7 +1677,7 @@ static void build_dwarf_info(struct uftrace_dbg_info *dinfo, struct uftrace_symt
 			.nr_rets = rets->nr,
 		};
 
-		if (dwarf_offdie(dinfo->dw, curr + header_sz, &cudie) == NULL)
+		if (dwarf_offdie(dw, curr + header_sz, &cudie) == NULL)
 			break;
 
 		if (dwarf_tag(&cudie) != DW_TAG_compile_unit)
@@ -1707,6 +1721,20 @@ static void build_dwarf_info(struct uftrace_dbg_info *dinfo, struct uftrace_symt
 	for (i = 0; i < rets->nr; i++)
 		free_filter_pattern(&ret_patt[i]);
 	free(ret_patt);
+	return DWARF_CB_OK;
+}
+
+// wrap build_dwarf_info_cb() using dwfl_getdwarf() for slpit debuginfo support:
+static void build_dwarf_info(struct uftrace_dbg_info *dinfo, struct uftrace_symtab *symtab,
+			     enum uftrace_pattern_type ptype, struct strv *args, struct strv *rets)
+{
+	ptrdiff_t p = 0;
+	struct dwarf_info_args callargs = {
+		.dinfo = dinfo, symtab = symtab, ptype = ptype, args = args, rets = rets
+	};
+	do {
+		p = dwfl_getdwarf(dinfo->dwfl, &build_dwarf_info_cb, &callargs, p);
+	} while (p > 0);
 }
 
 #else /* !HAVE_LIBDW */
@@ -1714,7 +1742,7 @@ static void build_dwarf_info(struct uftrace_dbg_info *dinfo, struct uftrace_symt
 static int setup_dwarf_info(const char *filename, struct uftrace_dbg_info *dinfo,
 			    unsigned long offset, bool force)
 {
-	dinfo->dw = NULL;
+	dinfo->dwfl = NULL;
 	return 0;
 }
 
@@ -1797,6 +1825,10 @@ void prepare_debug_info(struct uftrace_sym_info *sinfo, enum uftrace_pattern_typ
 	struct uftrace_mmap *map;
 	struct strv dwarf_args = STRV_INIT;
 	struct strv dwarf_rets = STRV_INIT;
+	const char *debuginfod_urls = getenv("DEBUGINFOD_URLS");
+
+	if (debuginfod_urls)
+		unsetenv("DEBUGINFOD_URLS");
 
 	if (sinfo->flags & SYMTAB_FL_SYMS_DIR) {
 		load_debug_info(sinfo, true);
@@ -1829,6 +1861,9 @@ void prepare_debug_info(struct uftrace_sym_info *sinfo, enum uftrace_pattern_typ
 		setup_debug_info(map->libname, dinfo, map->start, force);
 		build_dwarf_info(dinfo, stab, ptype, &dwarf_args, &dwarf_rets);
 	}
+
+	if (debuginfod_urls)
+		setenv("DEBUGINFOD_URLS", debuginfod_urls, 1);
 
 	strv_free(&dwarf_args);
 	strv_free(&dwarf_rets);

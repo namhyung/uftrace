@@ -11,7 +11,7 @@
 struct uftrace_sym_info;
 
 #ifdef HAVE_LIBDW
-#include <elfutils/libdw.h>
+#include <elfutils/libdwfl.h>
 #else
 #define Dwarf void
 #endif
@@ -34,8 +34,9 @@ struct uftrace_dbg_loc {
 };
 
 struct uftrace_dbg_info {
-	/* opaque DWARF info pointer */
-	Dwarf *dw;
+	/* opaque DWARF frontend library pointers */
+	Dwfl *dwfl;
+	Dwfl_Module *dwfl_module;
 	/* start address in memory for this module */
 	uint64_t offset;
 	/* rb tree of arguments */
@@ -60,6 +61,15 @@ struct uftrace_dbg_info {
 	bool loaded;
 	/* name of common directory path for source files (can be %NULL) */
 	char *base_dir;
+};
+
+// arg struct for passing infos to and from build_dwarf_info_cb():
+struct dwarf_info_args {
+	struct uftrace_dbg_info *dinfo;
+	struct uftrace_symtab *symtab;
+	enum uftrace_pattern_type ptype;
+	struct strv *args;
+	struct strv *rets;
 };
 
 extern void prepare_debug_info(struct uftrace_sym_info *sinfo, enum uftrace_pattern_type ptype,
