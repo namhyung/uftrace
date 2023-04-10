@@ -258,6 +258,7 @@ __weak void mcount_arch_patch_branch(struct mcount_disasm_info *info, struct mco
 
 struct find_module_data {
 	struct uftrace_sym_info *sinfo;
+	bool skip_first; /* fist module is the main binary */
 	bool needs_modules;
 };
 
@@ -302,6 +303,11 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 	struct uftrace_mmap *map;
 	bool is_executable = mcount_is_main_executable(info->dlpi_name, sym_info->filename);
 
+	if (fmd->skip_first) { /* skip main binary */
+		fmd->skip_first = false;
+		return !fmd->needs_modules;
+	}
+
 	mdi = create_mdi(info);
 
 	map = find_map(sym_info, mdi->base_addr);
@@ -311,6 +317,7 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 
 		mdi->next = mdinfo;
 		mdinfo = mdi;
+		pr_dbg3("load dynamic info for '%s'\n", mdi->map->libname);
 	}
 	else {
 		free(mdi);
@@ -319,6 +326,12 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 	return !fmd->needs_modules && is_executable;
 }
 
+/**
+ * prepare_dynamic_update - create dynamic data structures and load dynamic
+ * modules info
+ * @sinfo         - dynamic symbol info
+ * @needs_modules - whether to prepare dynamic modules or only the main binary
+ */
 static void prepare_dynamic_update(struct uftrace_sym_info *sinfo, bool needs_modules)
 {
 	struct find_module_data fmd = {
@@ -327,10 +340,17 @@ static void prepare_dynamic_update(struct uftrace_sym_info *sinfo, bool needs_mo
 	};
 	int hash_size = sinfo->exec_map->mod->symtab.nr_sym * 3 / 4;
 
-	if (needs_modules)
-		hash_size *= 2;
-
-	code_hmap = hashmap_create(hash_size, hashmap_ptr_hash, hashmap_ptr_equals);
+	if (code_hmap && !needs_modules) /* already prepared */
+		return;
+	if (!code_hmap) { /* nothing loaded */
+		if (needs_modules)
+			hash_size *= 2;
+		code_hmap = hashmap_create(hash_size, hashmap_ptr_hash, hashmap_ptr_equals);
+	}
+	else if (mdinfo && !mdinfo->next) /* main binary loaded, no module loaded */
+		fmd.skip_first = true;
+	else
+		return;
 
 	dl_iterate_phdr(find_dynamic_module, &fmd);
 }
