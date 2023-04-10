@@ -28,6 +28,8 @@ static const unsigned char patchable_clang_nop[] = { 0x0f, 0x1f, 0x44, 0x00, 0x0
 
 static const unsigned char endbr64[] = { 0xf3, 0x0f, 0x1e, 0xfa };
 
+extern bool mcount_target_running;
+
 /*
  * Hashmap of trampoline locations for every installed int3 trap. The traps are
  * used when patching and unpatching functions: they prevent threads from
@@ -997,8 +999,14 @@ static int patch_normal_func_init(struct mcount_dynamic_info *mdi, struct uftrac
 	else
 		mcount_save_code(info, call_offset, jmp_insn, sizeof(jmp_insn));
 
-	state = patch_region_lock(mdi, info);
-	commit_normal_func(&normal_funcs_patch, mdi, info);
+	if (mcount_target_running) {
+		state = patch_region_lock(mdi, info);
+		commit_normal_func(&normal_funcs_patch, mdi, info);
+	}
+	else {
+		patch_code(mdi, info);
+		patch_region_unlock(info);
+	}
 
 	return state;
 }
@@ -1010,6 +1018,9 @@ static int patch_normal_func_init(struct mcount_dynamic_info *mdi, struct uftrac
 void mcount_patch_normal_func_fini(void)
 {
 	struct patch_dynamic_info *pdi, *tmp;
+
+	if (!mcount_target_running)
+		return;
 
 	if (list_empty(&normal_funcs_patch))
 		return;
@@ -1122,26 +1133,32 @@ static int unpatch_normal_func_init(struct mcount_dynamic_info *mdi, struct uftr
 
 	pr_dbg2("unpatch normal func: %s (patch size: %d)\n", sym->name, orig_size);
 
-	/*
-	 * The first step is to insert a trap.
-	 *
-	 *     0x0: int3
-	 *     0x1: <trampoline>
-	 *     0x5: <nop instructions>
-	 *     0xb: <other instructions>
-	 */
+	if (mcount_target_running) {
+		info = xmalloc(sizeof(*info));
+		memset(info, 0, sizeof(*info));
+		info->sym = sym;
+		info->addr = mdi->map->start + sym->addr;
+		ASSERT(orig_size < 64); /* fit into info->insns */
+		memcpy(info->insns, origin_code, orig_size);
+		info->orig_size = orig_size;
 
-	register_trap((void *)origin_code_addr, (void *)mdi->trampoline);
-	((uint8_t *)origin_code_addr)[0] = 0xcc;
+		/* The first step is to insert a trap.
+		 *
+		 *     0x0: int3
+		 *     0x1: <trampoline>
+		 *     0x5: <nop instructions>
+		 *     0xb: <other instructions>
+		 */
 
-	info = xmalloc(sizeof(*info));
-	memset(info, 0, sizeof(*info));
-	info->sym = sym;
-	info->addr = mdi->map->start + sym->addr;
-	ASSERT(orig_size < 64); /* fit into info->insns */
-	memcpy(info->insns, origin_code, orig_size);
-	info->orig_size = orig_size;
-	commit_normal_func(&normal_funcs_unpatch, mdi, info);
+		register_trap((void *)origin_code_addr, (void *)mdi->trampoline);
+		((uint8_t *)origin_code_addr)[0] = 0xcc;
+
+		commit_normal_func(&normal_funcs_unpatch, mdi, info);
+	}
+	else {
+		if (!memcpy((uint8_t *)origin_code_addr, origin_code, orig_size))
+			return INSTRUMENT_FAILED;
+	}
 
 	return 0;
 }
@@ -1177,6 +1194,9 @@ int unpatch_region_unlock(struct mcount_disasm_info *info)
 void mcount_unpatch_normal_func_fini(void)
 {
 	struct patch_dynamic_info *pdi, *tmp;
+
+	if (!mcount_target_running)
+		return;
 
 	if (list_empty(&normal_funcs_unpatch))
 		return;
