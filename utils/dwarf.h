@@ -11,9 +11,8 @@
 struct uftrace_sym_info;
 
 #ifdef HAVE_LIBDW
-#include <elfutils/libdw.h>
-#else
-#define Dwarf void
+#include <elfutils/libdwfl.h>
+extern Dwfl_Callbacks dwfl_callbacks;
 #endif
 
 struct uftrace_dbg_file {
@@ -35,7 +34,9 @@ struct uftrace_dbg_loc {
 
 struct uftrace_dbg_info {
 	/* opaque DWARF info pointer */
-	Dwarf *dw;
+	void *dw;
+	/* opaque pointer for DWARF frontend library */
+	void *dwfl;
 	/* start address in memory for this module */
 	uint64_t offset;
 	/* rb tree of arguments */
