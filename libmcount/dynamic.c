@@ -717,6 +717,14 @@ static int calc_percent(int n, int total, int *rem)
 	return quot;
 }
 
+/**
+ * mcount_dynamic_update - prepare and perform dynamic patching or unpatching,
+ * then display statistics
+ * @sinfo       - dynamic symbol info
+ * @patch_funcs - spec of symbols to patch or unpatch
+ * @ptype       - matching pattern type
+ * @return      - 0 (unused)
+ */
 int mcount_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 			  enum uftrace_pattern_type ptype)
 {
@@ -724,9 +732,7 @@ int mcount_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 	bool needs_modules = !!strchr(patch_funcs, '@');
 
 	mcount_disasm_init(&disasm);
-
 	prepare_dynamic_update(sinfo, needs_modules);
-
 	setup_size_filter();
 
 	ret = do_dynamic_update(sinfo, patch_funcs, ptype);
