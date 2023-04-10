@@ -229,6 +229,10 @@ __weak void mcount_patch_normal_func_fini(void)
 {
 }
 
+__weak void mcount_unpatch_normal_func_fini(void)
+{
+}
+
 __weak int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym)
 {
 	return -1;
@@ -572,6 +576,7 @@ static void patch_normal_func_matched(struct mcount_dynamic_info *mdi, struct uf
 		stats.nomatch++;
 
 	mcount_patch_normal_func_fini();
+	mcount_unpatch_normal_func_fini();
 
 	free(soname);
 }
