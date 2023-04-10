@@ -652,6 +652,8 @@ static int do_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 		patch_func_matched(mdi, map);
 	}
 
+	release_pattern_list();
+
 	if (stats.failed + stats.skipped + stats.nomatch == 0) {
 		pr_dbg("patched all (%d) functions in '%s'\n", stats.total,
 		       basename(sinfo->filename));
