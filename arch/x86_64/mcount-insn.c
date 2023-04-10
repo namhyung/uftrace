@@ -19,8 +19,17 @@ struct disasm_check_data {
 	uint32_t size;
 };
 
+/**
+ * mcount_disasm_init - initialize the capstone engine once
+ * @disasm - mcount disassembly engine
+ */
 void mcount_disasm_init(struct mcount_disasm_engine *disasm)
 {
+	if (disasm->engine)
+		return;
+
+	pr_dbg2("initialize disassembly engine\n");
+
 	if (cs_open(CS_ARCH_X86, CS_MODE_64, &disasm->engine) != CS_ERR_OK) {
 		pr_dbg("failed to init capstone disasm engine\n");
 		return;
@@ -674,7 +683,7 @@ TEST_CASE(dynamic_x86_handle_lea)
 		.addr = 0x3000,
 		.size = 32,
 	};
-	struct mcount_disasm_engine disasm;
+	struct mcount_disasm_engine disasm = { 0 };
 	struct mcount_disasm_info info = {
 		.sym = &sym,
 		.addr = ORIGINAL_BASE + sym.addr,
@@ -745,7 +754,7 @@ TEST_CASE(dynamic_x86_handle_call)
 		.addr = 0x4000,
 		.size = 32,
 	};
-	struct mcount_disasm_engine disasm;
+	struct mcount_disasm_engine disasm = { 0 };
 	struct mcount_disasm_info info = {
 		.sym = &sym1,
 		.addr = ORIGINAL_BASE + sym1.addr,
@@ -823,7 +832,7 @@ TEST_CASE(dynamic_x86_handle_jmp)
 		.addr = 0x3000,
 		.size = 32,
 	};
-	struct mcount_disasm_engine disasm;
+	struct mcount_disasm_engine disasm = { 0 };
 	struct mcount_disasm_info info = {
 		.sym = &sym,
 		.addr = ORIGINAL_BASE + sym.addr,
@@ -927,7 +936,7 @@ TEST_CASE(dynamic_x86_handle_jcc)
 		.addr = 0x3000,
 		.size = 32,
 	};
-	struct mcount_disasm_engine disasm;
+	struct mcount_disasm_engine disasm = { 0 };
 	struct mcount_disasm_info info = {
 		.sym = &sym,
 		.addr = ORIGINAL_BASE + sym.addr,
@@ -1036,7 +1045,7 @@ TEST_CASE(dynamic_x86_handle_mov_load)
 		.addr = 0x3000,
 		.size = 32,
 	};
-	struct mcount_disasm_engine disasm;
+	struct mcount_disasm_engine disasm = { 0 };
 	struct mcount_disasm_info info = {
 		.sym = &sym,
 		.addr = ORIGINAL_BASE + sym.addr,
