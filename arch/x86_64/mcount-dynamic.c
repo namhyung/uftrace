@@ -398,12 +398,13 @@ int setup_clear_patch_region(void)
 	return 0;
 }
 
-/* This list is used to store functions that need to be optimized or cleaned up
- * later in the code. In both case, a SIGRTMIN+n must be send. By optimizing or
- * cleaning all of them up at the same time, we only need to send one signal per
- * thread.
+/* These two lists are used to store functions that need to be optimized or
+ * cleaned up later in the code. In both case, a SIGRTMIN+n must be send. By
+ * optimizing or cleaning all of them up at the same time, we only need to send
+ * one signal per thread.
  */
 LIST_HEAD(normal_funcs_patch);
+LIST_HEAD(normal_funcs_unpatch);
 
 struct patch_dynamic_info {
 	struct list_head list;
@@ -935,7 +936,6 @@ static void patch_region_unlock(struct mcount_disasm_info *info)
 	 *     0x5: <nop instructions>
 	 *     0xb: <other instructions>
 	 */
-
 	((uint8_t *)origin_code_addr)[0] = 0xe8;
 }
 
@@ -1045,13 +1045,45 @@ void mcount_patch_normal_func_fini(void)
 extern int check_endbr64(unsigned long addr);
 
 /**
- * unpatch_normal_func - remove full-dynamic instrumentation from a function
- * entry and restore original instructions
+ * unpatch_code - restore original instructions except the trap at the beginning
+ * @info   - mcount disassembly info
+ * @return - -1 on error, 0 on success
+ */
+int unpatch_code(struct mcount_disasm_info *info)
+{
+	uint8_t *origin_code = info->insns;
+	uint8_t *origin_code_addr = (uint8_t *)info->addr;
+	int orig_size = info->orig_size;
+
+	/*
+	 * The second step is to restore the bytes after the trap instruction.
+	 *
+	 *     0x0: int3
+	 *     0x1: mov  %rsp,%rbp
+	 *     0x4: lea  0xeb0(%rip),%rdi
+	 *     0xb: <other instructions>
+	 *
+	 * Before restoring the last byte, a serialization instruction must be
+	 * executed in order to synchronize the instruction cache of each processor.
+	 * The easiest method is to execute a membarrier system call with
+	 * MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE. It will send a
+	 * inter-processor interrupt that will execute the required serialization.
+	 */
+
+	memcpy(&origin_code_addr[1], &origin_code[1], orig_size - 1);
+
+	return 0;
+}
+
+/**
+ * unpatch_normal_func_init - perform the initial steps of the unpatching
+ * process, awaiting for core synchronization. This step is batched with
+ * subsequent ones.
  * @mdi    - mcount dynamic info for the current module
  * @sym    - symbol to patch
  * @return - instrumentation status
  */
-static int unpatch_normal_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym)
+static int unpatch_normal_func_init(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym)
 {
 	/*
 	 * Let assume that we have the following instructions.
@@ -1074,6 +1106,7 @@ static int unpatch_normal_func(struct mcount_dynamic_info *mdi, struct uftrace_s
 	struct mcount_orig_insn *orig;
 	uint8_t *origin_code;
 	int orig_size;
+	struct mcount_disasm_info *info;
 
 	origin_code_addr = mdi->map->start + sym->addr;
 	if (check_endbr64(origin_code_addr))
@@ -1098,27 +1131,30 @@ static int unpatch_normal_func(struct mcount_dynamic_info *mdi, struct uftrace_s
 	 *     0xb: <other instructions>
 	 */
 
+	register_trap((void *)origin_code_addr, (void *)mdi->trampoline);
 	((uint8_t *)origin_code_addr)[0] = 0xcc;
 
-	/*
-	 * The second step is to restore the bytes after the trap instruction.
-	 *
-	 *     0x0: int3
-	 *     0x1: mov  %rsp,%rbp
-	 *     0x4: lea  0xeb0(%rip),%rdi
-	 *     0xb: <other instructions>
-	 *
-	 * Before restoring the last byte, a serialization instruction must be
-	 * executed in order to synchronize the instruction cache of each processor.
-	 * The easiest method is to execute a membarrier system call with
-	 * MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE. It will send a
-	 * inter-processor interrupt that will execute the required serialization.
-	 */
+	info = xmalloc(sizeof(*info));
+	memset(info, 0, sizeof(*info));
+	info->sym = sym;
+	info->addr = mdi->map->start + sym->addr;
+	ASSERT(orig_size < 64); /* fit into info->insns */
+	memcpy(info->insns, origin_code, orig_size);
+	info->orig_size = orig_size;
+	commit_normal_func(&normal_funcs_unpatch, mdi, info);
 
-	synchronize_all_cores();
+	return 0;
+}
 
-	if (!memcpy(&((uint8_t *)origin_code_addr)[1], &origin_code[1], orig_size - 1))
-		return -1;
+/**
+ * unpatch_region_unlock - remove the trap at the start of the unpatched region
+ * @info   - mcount disassembly info
+ * @return - 0
+ */
+int unpatch_region_unlock(struct mcount_disasm_info *info)
+{
+	uint8_t *origin_code = info->insns;
+	uint8_t *origin_code_addr = (uint8_t *)info->addr;
 
 	/*
 	 * The third step is to restore the last byte.
@@ -1129,21 +1165,32 @@ static int unpatch_normal_func(struct mcount_dynamic_info *mdi, struct uftrace_s
 	 *     0xb: <other instructions>
 	 */
 
-	((uint8_t *)origin_code_addr)[0] = origin_code[0];
+	origin_code_addr[0] = origin_code[0];
 
-	/*
-	 * The fourth and last step is to move all thread that are currently
-	 * executing in the modified instructions to the original instructions at
-	 * the end of the trampoline. This is needed in order to free the memory
-	 * allocated for the trampoline without any race condition.
-	 *
-	 * The method used to move the threads is to send the SIGRTMIN+n signal to
-	 * all other threads. When their thread handler executes, it will check if
-	 * the next instruction pointer is in the patching region. If it is, will
-	 * move the next instruction pointer to the equivalent modified instruction.
-	 */
+	return 0;
+}
 
-	return INSTRUMENT_SUCCESS;
+/**
+ * mcount_unpatch_normal_func_fini - perform the final steps of the unpatching
+ * process and cleanup
+ */
+void mcount_unpatch_normal_func_fini(void)
+{
+	struct patch_dynamic_info *pdi, *tmp;
+
+	if (list_empty(&normal_funcs_unpatch))
+		return;
+
+	synchronize_all_cores();
+
+	list_for_each_entry_safe(pdi, tmp, &normal_funcs_unpatch, list) {
+		unpatch_code(pdi->info);
+		write_memory_barrier();
+		unpatch_region_unlock(pdi->info);
+		list_del(&pdi->list);
+		free(pdi->info);
+		free(pdi);
+	}
 }
 
 static int unpatch_func(uint8_t *insn, char *name)
@@ -1255,7 +1302,7 @@ int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *
 		break;
 
 	case DYNAMIC_NONE:
-		result = unpatch_normal_func(mdi, sym);
+		result = unpatch_normal_func_init(mdi, sym);
 		break;
 
 	default:
