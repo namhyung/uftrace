@@ -31,6 +31,8 @@
 #include "utils/symbol.h"
 #include "utils/utils.h"
 
+static bool main_loaded;
+static bool modules_loaded;
 static struct mcount_dynamic_info *mdinfo;
 static struct mcount_dynamic_stats {
 	int total;
@@ -292,7 +294,14 @@ static struct mcount_dynamic_info *create_mdi(struct dl_phdr_info *info)
 	return mdi;
 }
 
-/* callback for dl_iterate_phdr() */
+/**
+ * find_dynamic_module - callback for dl_iterate_phdr(), iterated over all
+ * loaded shared objects
+ * @info   - info about shared object
+ * @sz     - _unused_
+ * @data   - mcount module data
+ * @return - 0 to continue iteration, non-zero to stop
+ */
 static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 {
 	struct mcount_dynamic_info *mdi;
@@ -300,6 +309,15 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 	struct uftrace_sym_info *sym_info = fmd->sinfo;
 	struct uftrace_mmap *map;
 	bool is_executable = mcount_is_main_executable(info->dlpi_name, sym_info->filename);
+
+	if (is_executable) {
+		if (main_loaded)
+			return !fmd->needs_modules;
+	}
+	else if (!fmd->needs_modules)
+		return main_loaded;
+	else if (modules_loaded)
+		return 0;
 
 	mdi = create_mdi(info);
 
@@ -310,6 +328,9 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 
 		mdi->next = mdinfo;
 		mdinfo = mdi;
+		if (is_executable)
+			main_loaded = true;
+		pr_dbg3("load dynamic info for '%s'\n", mdi->map->libname);
 	}
 	else {
 		free(mdi);
@@ -318,6 +339,12 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 	return !fmd->needs_modules && is_executable;
 }
 
+/**
+ * prepare_dynamic_update - create dynamic data structures and load dynamic
+ * modules info
+ * @sinfo         - dynamic symbol info
+ * @needs_modules - whether to prepare dynamic modules or only the main binary
+ */
 static void prepare_dynamic_update(struct uftrace_sym_info *sinfo, bool needs_modules)
 {
 	struct find_module_data fmd = {
@@ -325,13 +352,23 @@ static void prepare_dynamic_update(struct uftrace_sym_info *sinfo, bool needs_mo
 		.needs_modules = needs_modules,
 	};
 	int hash_size = sinfo->exec_map->mod->symtab.nr_sym * 3 / 4;
+	int rc;
 
-	if (needs_modules)
-		hash_size *= 2;
+	if (code_hmap) {
+		/* main executable already loaded */
+		if (!needs_modules || modules_loaded)
+			return;
+	}
+	else { /* nothing loaded */
+		if (needs_modules)
+			hash_size *= 2;
+		code_hmap = hashmap_create(hash_size, hashmap_ptr_hash, hashmap_ptr_equals);
+	}
 
-	code_hmap = hashmap_create(hash_size, hashmap_ptr_hash, hashmap_ptr_equals);
+	rc = dl_iterate_phdr(find_dynamic_module, &fmd);
 
-	dl_iterate_phdr(find_dynamic_module, &fmd);
+	if (needs_modules && rc == 0)
+		modules_loaded = true;
 }
 
 struct mcount_dynamic_info *setup_trampoline(struct uftrace_mmap *map)
