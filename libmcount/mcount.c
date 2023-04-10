@@ -52,6 +52,9 @@ bool mcount_auto_recover = ARCH_SUPPORT_AUTO_RECOVER;
 /* global flag to control mcount behavior */
 unsigned long mcount_global_flags = MCOUNT_GFL_SETUP;
 
+/* global to indicate if the target is executing */
+bool mcount_target_running = false;
+
 /* TSD key to save mtd below */
 pthread_key_t mtd_key = (pthread_key_t)-1;
 
@@ -2342,6 +2345,7 @@ static __used void mcount_startup(void)
 
 	mcount_global_flags &= ~MCOUNT_GFL_SETUP;
 	mtd.recursion_marker = false;
+	mcount_target_running = true;
 }
 
 static void mcount_cleanup(void)
