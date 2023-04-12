@@ -305,7 +305,8 @@ class TestBase:
         # For now, it affects all tests tracing s-arg.c:pass() and return.c:return_large().
         # Any test can be affected by it and it may change from compiler to compiler.
         # To prevent inconsistencies, filter all calls to memcpy() for all tests:
-        self.option += ' -N memcpy'
+        if TestBase.get_machine(self) == "aarch64":
+            self.option += ' -N memcpy'
 
         return '%s %s %s %s %s %s' % (TestBase.uftrace_cmd, self.subcmd, \
                                    TestBase.default_opt, self.p_flag, self.option, self.exearg)
