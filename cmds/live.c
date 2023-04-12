@@ -203,35 +203,167 @@ static void setup_child_environ(struct uftrace_opts *opts)
 	free(libpath);
 }
 
+/**
+ * query_agent_capabilities - query agent for its supported features
+ * @fd - agent socket fd
+ * @return - agent capabilities
+ */
+static int query_agent_capabilities(int fd)
+{
+	struct uftrace_msg msg;
+	int status;
+
+	pr_dbg3("query agent capabilities\n");
+	if (agent_message_send(fd, UFTRACE_MSG_AGENT_QUERY, NULL, 0) < 0)
+		return -1;
+
+	status = agent_message_read_response(fd, &msg);
+	if (status < 0)
+		return -1;
+
+	switch (msg.type) {
+	case UFTRACE_MSG_AGENT_OK:
+		pr_dbg2("agent capabilities: %#x\n", status);
+		break;
+
+	case UFTRACE_MSG_AGENT_ERR:
+		pr_dbg3("agent query error: %s\n", strerror(status));
+		status = -1;
+		break;
+
+	default:
+		pr_dbg3("invalid agent response\n");
+	}
+
+	return status;
+}
+
+/**
+ * forward_option - forward a given option and its data to the agent
+ * @fd           - agent socket file descriptor
+ * @capabilities - features supported by the agent
+ * @opt          - option type to send
+ * @value        - option data load
+ * @value_size   - size of @value
+ * @return       - status: -1 on error, 0 on success
+ */
+static int forward_option(int fd, int capabilities, int opt, void *value, size_t value_size)
+{
+	void *data;
+	size_t data_size;
+	struct uftrace_msg ack;
+	int ret = -1;
+
+	if (!(opt & capabilities)) {
+		pr_warn("option not unsupported by the agent: %#x\n", opt);
+		return 0;
+	}
+
+	/* The agent needs to know which option to apply, and its associated value.
+	 * We pack both information into the data load of a single message, with
+	 * type UFTRACE_MSG_AGENT_SET_OPT.
+	 *
+	 * We use the following data structure:
+	 *
+	 * PACKED_DATA = OPTION_TYPE |   VALUE
+	 *               -----------   ----------
+	 *               sizeof(opt)   value_size
+	 *
+	 * Example:
+	 * PACKED_DATA = UFTRACE_AGENT_OPT_FILTER |  'func1,!func2'
+	 *               ------------------------   ---------------
+	 *                     sizeof(opt)          value_size = 12
+	 */
+	pr_dbg2("send option to agent: %#x\n", opt);
+	data_size = value_size + sizeof(opt);
+	data = malloc(data_size);
+	if (!data)
+		goto cleanup;
+	memcpy(data, &opt, sizeof(opt));
+	memcpy(data + sizeof(opt), value, value_size);
+
+	ret = agent_message_send(fd, UFTRACE_MSG_AGENT_SET_OPT, data, data_size);
+	if (ret < 0) {
+		pr_dbg("error sending option to agent\n");
+		goto cleanup;
+	}
+
+	ret = agent_message_read_response(fd, &ack);
+	if (ret < 0) {
+		pr_dbg3("error reading agent response\n");
+		goto cleanup;
+	}
+
+	switch (ack.type) {
+	case UFTRACE_MSG_AGENT_OK:
+		ret = 0;
+		pr_dbg4("option applied by agent: %#x\n", opt);
+		break;
+
+	case UFTRACE_MSG_AGENT_ERR:
+		if (ret == ENOTSUP)
+			pr_warn("option not unsupported by the agent: %#x\n", opt);
+		else
+			pr_warn("agent error: %s\n", strerror(ret));
+		ret = -1;
+		break;
+
+	default:
+		pr_dbg3("bad agent message type (expected ack)\n");
+		ret = -1;
+	}
+
+cleanup:
+	free(data);
+	return ret;
+}
+
 /* Forward all client options to the agent */
 static int forward_options(struct uftrace_opts *opts)
 {
 	int sfd;
 	struct sockaddr_un addr;
-	int ret = 0;
+	struct uftrace_msg ack;
+	int status = 0;
+	int status_close = 0;
+	int capabilities;
 
-	sfd = socket_create(&addr, opts->pid);
+	sfd = agent_socket_create(&addr, opts->pid);
 	if (sfd == -1)
-		return -1;
+		return UFTRACE_EXIT_FAILURE;
 
-	if (socket_connect(sfd, &addr) == -1) {
-		ret = -1;
+	if (agent_connect(sfd, &addr) == -1)
 		goto socket_error;
-	}
+	pr_dbg2("connected to agent %d\n", opts->pid);
 
-	if (socket_send_option(sfd, UFTRACE_DOPT_CLOSE, NULL, 0) == -1) {
-		pr_warn("cannot terminate agent connection\n");
-		ret = -1;
+	capabilities = query_agent_capabilities(sfd);
+	if (capabilities < 0)
+		goto close;
+
+	/* FIXME Forward user options and set status */
+
+close:
+	status_close = agent_message_send(sfd, UFTRACE_MSG_AGENT_CLOSE, NULL, 0);
+	if (status_close == 0) {
+		status_close = agent_message_read_response(sfd, &ack);
+		if (status_close == 0) {
+			if (ack.type == UFTRACE_MSG_AGENT_OK)
+				pr_dbg("disconnected from agent\n");
+			else
+				status_close = -1;
+		}
 	}
-	else {
-		enum uftrace_dopt ack;
-		if (read(sfd, &ack, sizeof(enum uftrace_dopt)) < 0 || ack != UFTRACE_DOPT_CLOSE)
-			ret = -1;
-	}
+	if (status_close < 0)
+		pr_dbg("agent connection not closed properly\n");
 
 socket_error:
-	close(sfd);
-	return ret;
+	if (close(sfd) == -1)
+		pr_dbg2("error closing agent socket\n");
+
+	if (status < 0 || status_close < 0)
+		return UFTRACE_EXIT_FAILURE;
+	else
+		return UFTRACE_EXIT_SUCCESS;
 }
 
 int command_live(int argc, char *argv[], struct uftrace_opts *opts)

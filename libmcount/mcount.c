@@ -104,7 +104,9 @@ bool mcount_estimate_return;
 static pthread_t agent;
 
 /* state flag for the agent */
-static bool agent_run = false;
+static volatile bool agent_run = false;
+
+#define MCOUNT_AGENT_CAPABILITIES 0
 
 __weak void dynamic_return(void)
 {
@@ -1758,6 +1760,11 @@ static void mcount_script_init(enum uftrace_pattern_type patt_type)
 	strv_free(&info.cmds);
 }
 
+/**
+ * agent_init - initialize the agent
+ * @addr - client socket
+ * @return - socket file descriptor (-1 on error)
+ */
 static int agent_init(struct sockaddr_un *addr)
 {
 	int sfd;
@@ -1769,7 +1776,7 @@ static int agent_init(struct sockaddr_un *addr)
 		}
 	}
 
-	sfd = socket_create(addr, getpid());
+	sfd = agent_socket_create(addr, getpid());
 	if (sfd == -1)
 		return sfd;
 
@@ -1778,7 +1785,7 @@ static int agent_init(struct sockaddr_un *addr)
 		goto error;
 	}
 
-	if (socket_listen(sfd, addr) == -1)
+	if (agent_listen(sfd, addr) == -1)
 		goto error;
 
 	return sfd;
@@ -1788,12 +1795,65 @@ error:
 	return -1;
 }
 
+/**
+ * agent_fini - finalize the agent thread execution
+ * @addr - client socket
+ * @sfd - client socket file descriptor
+ */
 static void agent_fini(struct sockaddr_un *addr, int sfd)
 {
 	if (sfd != -1)
 		close(sfd);
 
 	socket_unlink(addr);
+
+	pr_dbg("agent terminated\n");
+}
+
+/**
+ * agent_read_option - fetch option type and value from agent socket
+ * @fd - socket file descriptor
+ * @opt - option type
+ * @value - option value
+ * @read_size - size of data to read
+ * @return - size of data read into @value
+ */
+static int agent_read_option(int fd, int *opt, void **value, size_t read_size)
+{
+	size_t opt_size = sizeof(*opt);
+	size_t value_size = read_size - opt_size;
+
+	if (read_all(fd, opt, opt_size) < 0)
+		return -1;
+
+	*value = realloc(*value, value_size);
+	if (!value)
+		return -1;
+
+	if (read_all(fd, *value, value_size) < 0)
+		return -1;
+
+	pr_dbg4("read agent option (size=%d)\n", read_size);
+	return value_size;
+}
+
+/**
+ * agent_apply_option - change libmcount parameters at runtime
+ * @opt    - option to apply
+ * @value  - value for the given option
+ * @size   - size of @value
+ * @return - 0 on success, -1 on failure
+ */
+static int agent_apply_option(int opt, void *value, size_t size)
+{
+	int ret = 0;
+
+	switch (opt) {
+	default:
+		ret = -1;
+	}
+
+	return ret;
 }
 
 /* Agent routine, applying instructions from the CLI. */
@@ -1801,52 +1861,94 @@ void *agent_apply_commands(void *arg)
 {
 	int sfd, cfd; /* socket fd, connection fd */
 	bool close_connection;
-	enum uftrace_dopt dopt;
+	struct uftrace_msg msg;
 	struct sockaddr_un addr;
+	void *value = NULL;
+	size_t size;
 
+	/* initialize agent */
 	sfd = agent_init(&addr);
 	if (sfd == -1) {
 		pr_warn("agent cannot start\n");
 		return NULL;
 	}
 	agent_run = true;
-	pr_dbg("agent started on socket %s\n", addr.sun_path);
+	pr_dbg("agent started on socket '%s'\n", addr.sun_path);
 
+	/* handle incoming connections consecutively */
 	while (agent_run) {
-		cfd = socket_accept(sfd);
+		cfd = agent_accept(sfd);
 		if (cfd == -1) {
-			pr_warn("error accepting socket connection\n");
+			pr_dbg2("error accepting socket connection\n");
 			continue;
 		}
-		pr_dbg2("agent connection open\n");
+		pr_dbg3("client connected\n");
 
+		/* read client messages */
 		close_connection = false;
 		while (!close_connection) {
-			if (read(cfd, &dopt, sizeof(enum uftrace_dopt)) == -1) {
-				pr_warn("error reading option\n", errno);
-				break;
+			int status = 0;
+			int opt;
+
+			/* read message header to get type */
+			if (agent_message_read_head(cfd, &msg) == -1) {
+				status = EINVAL;
+				pr_dbg3("error reading client message\n");
+				agent_message_send(cfd, UFTRACE_MSG_AGENT_ERR, &status,
+						   sizeof(status));
+				continue;
 			}
 
-			switch (dopt) {
-			case UFTRACE_DOPT_CLOSE:
+			/* parse message body */
+			switch (msg.type) {
+			case UFTRACE_MSG_AGENT_QUERY:
+				status = MCOUNT_AGENT_CAPABILITIES;
+				pr_dbg3("send capabilities to client\n");
+				agent_message_send(cfd, UFTRACE_MSG_AGENT_OK, &status,
+						   sizeof(status));
+				break;
+
+			case UFTRACE_MSG_AGENT_SET_OPT:
+				size = agent_read_option(cfd, &opt, &value, msg.len);
+				if (status < 0) {
+					status = EINVAL;
+					agent_message_send(cfd, UFTRACE_MSG_AGENT_ERR, &status,
+							   sizeof(status));
+					break;
+				}
+
+				status = agent_apply_option(opt, value, size);
+				if (status == 0)
+					agent_message_send(cfd, UFTRACE_MSG_AGENT_OK, NULL, 0);
+				else
+					agent_message_send(cfd, UFTRACE_MSG_AGENT_ERR, &status,
+							   sizeof(status));
+				break;
+
+			case UFTRACE_MSG_AGENT_GET_OPT:
+				/* TODO send data */
+				agent_message_send(cfd, UFTRACE_MSG_AGENT_OK, NULL, 0);
+				break;
+
+			case UFTRACE_MSG_AGENT_CLOSE:
 				close_connection = true;
-				if (agent_run)
-					socket_send_option(cfd, UFTRACE_DOPT_CLOSE, NULL, 0);
+				agent_message_send(cfd, UFTRACE_MSG_AGENT_OK, NULL, 0);
 				break;
 
 			default:
 				close_connection = true;
-				pr_warn("option not recognized: %d\n", dopt);
+				pr_dbg3("agent message not recognized\n");
 			}
 		}
+
 		if (close(cfd) == -1)
-			pr_dbg2("cannot close socket connection\n");
+			pr_dbg3("error closing client socket\n");
 		else
-			pr_dbg2("agent connection closed\n");
+			pr_dbg3("client disconnected\n");
 	}
 
+	free(value);
 	agent_fini(&addr, sfd);
-	pr_dbg("agent exited\n");
 	return 0;
 }
 
@@ -1862,35 +1964,41 @@ static void agent_spawn()
 static void agent_kill()
 {
 	int sfd;
+	int status;
 	struct sockaddr_un addr;
+	struct uftrace_msg ack;
 
 	if (!agent_run)
 		return;
-
 	agent_run = false;
 
-	sfd = socket_create(&addr, getpid());
+	sfd = agent_socket_create(&addr, getpid());
 	if (sfd == -1)
-		return; /* Agent must have already exited */
+		goto error;
 
-	if (socket_connect(sfd, &addr) == -1) {
+	if (agent_connect(sfd, &addr) == -1) {
 		if (errno != ENOENT) /* The agent may have ended and deleted the socket */
 			goto error;
 	}
 
-	if (socket_send_option(sfd, UFTRACE_DOPT_CLOSE, NULL, 0) == -1) {
-		pr_dbg("cannot stop agent loop\n");
+	status = agent_message_send(sfd, UFTRACE_MSG_AGENT_CLOSE, NULL, 0);
+	if (status < 0)
 		goto error;
-	}
+	status = agent_message_read_response(sfd, &ack);
+	if (status < 0 || ack.type != UFTRACE_MSG_AGENT_OK)
+		goto error;
 
 	close(sfd);
 
 	if (pthread_join(agent, NULL) != 0)
 		pr_dbg("agent left in unknown state\n");
+
 	return;
 
 error:
-	agent_fini(&addr, sfd);
+	pr_dbg2("error terminating agent routine\n ");
+	close(sfd);
+	socket_unlink(&addr);
 }
 
 static __used void mcount_startup(void)
