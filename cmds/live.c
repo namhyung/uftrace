@@ -341,6 +341,8 @@ static int forward_options(struct uftrace_opts *opts)
 		goto close;
 
 	/* FIXME Forward user options and set status */
+	if (0)
+		status = forward_option(sfd, capabilities, 0, NULL, 0);
 
 close:
 	status_close = agent_message_send(sfd, UFTRACE_MSG_AGENT_CLOSE, NULL, 0);

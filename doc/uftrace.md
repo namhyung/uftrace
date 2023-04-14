@@ -344,7 +344,7 @@ record and `replay` internally. Thus, it describes most regular option in detail
 :   Enable recording source line info
 
 \--symbols
-:   [info]: Print symbol table instead of the recorded tracing info
+:   Print symbol table instead of the recorded tracing info
 
 -s, \--sort=*KEY*[,*KEY*,...]
 :   Sort reported functions by KEYs (default: 2)
