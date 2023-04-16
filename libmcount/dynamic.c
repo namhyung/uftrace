@@ -669,7 +669,7 @@ int mcount_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 
 	ret = do_dynamic_update(sinfo, patch_funcs, ptype);
 
-	if (stats.total && stats.failed) {
+	if (stats.total && (stats.failed || stats.skipped)) {
 		int success = stats.total - stats.failed - stats.skipped;
 		int r, q;
 
