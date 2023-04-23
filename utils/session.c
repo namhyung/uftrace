@@ -244,7 +244,6 @@ void create_session(struct uftrace_session_link *sessions, struct uftrace_msg_se
 
 		load_module_symtabs(&s->sym_info);
 		load_debug_info(&s->sym_info, needs_srcline);
-		load_python_symtab(&s->sym_info);
 	}
 
 	if (sessions->first == NULL)
