@@ -701,6 +701,8 @@ static char *get_c_funcname(PyObject *frame, PyObject *code)
 
 	if (mod && is_string_type(mod))
 		xasprintf(&func_name, "%s.%s", get_c_string(mod), get_c_string(name));
+	else if (strchr(get_c_string(name), '.'))
+		func_name = xstrdup(get_c_string(name));
 	else
 		xasprintf(&func_name, "%s.%s", "builtins", get_c_string(name));
 
