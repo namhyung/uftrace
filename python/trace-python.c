@@ -27,7 +27,7 @@ struct uftrace_py_state {
 };
 
 /* pointer to python tracing function (for libpython2.7) */
-static PyObject *uftrace_func __attribute__((unused));
+static PyObject *uftrace_func __maybe_unused;
 
 /* RB tree of python_symbol to map code object to address */
 static struct rb_root code_tree = RB_ROOT;
@@ -121,6 +121,22 @@ struct uftrace_python_filter_state {
 
 /* global filter state - multiprocess will have their own copy */
 static struct uftrace_python_filter_state filter_state;
+
+/* control tracing of library calls (like python standard library) */
+enum uftrace_python_libcall_mode {
+	UFT_PY_LIBCALL_NONE,
+	UFT_PY_LIBCALL_SINGLE,
+	UFT_PY_LIBCALL_NESTED,
+};
+
+/* global libcall state */
+static enum uftrace_python_libcall_mode libcall_mode = UFT_PY_LIBCALL_SINGLE;
+
+/*
+ * maintain the depth of library calls - multiprocess will have their own copy,
+ * but it won't work with multi-threaded cases.
+ */
+static int libcall_count;
 
 /* functions in libmcount.so */
 static void (*cygprof_enter)(unsigned long child, unsigned long parent);
@@ -541,6 +557,31 @@ static void remove_filters(void)
 	}
 }
 
+static bool __maybe_unused can_trace(bool is_entry, struct uftrace_python_symbol *sym)
+{
+	/* always trace functions in the main module */
+	if ((sym->flag & UFT_PYSYM_F_LIBCALL) == 0)
+		return true;
+
+	if (libcall_mode == UFT_PY_LIBCALL_NONE)
+		return false;
+	if (libcall_mode == UFT_PY_LIBCALL_NESTED)
+		return true;
+
+	/* allow single-depth libcalls only */
+	if (is_entry) {
+		if (libcall_count++ > 0)
+			return false;
+	}
+	else {
+		if (--libcall_count > 0)
+			return false;
+		if (unlikely(libcall_count < 0))
+			libcall_count = 0;
+	}
+	return true;
+}
+
 static void init_uftrace(void)
 {
 	/* check if it's loaded in a uftrace session */
@@ -875,14 +916,23 @@ static PyObject *uftrace_trace_python(PyObject *self, PyObject *args)
 		Py_RETURN_NONE;
 
 	if (!strcmp(event, "call") || !strcmp(event, "c_call")) {
-		cygprof_enter(sym->addr, 0);
+		if (can_trace(true, sym))
+			cygprof_enter(sym->addr, 0);
+		else
+			Py_RETURN_NONE;
 	}
 	else if (!strcmp(event, "return") || !strcmp(event, "c_return")) {
-		cygprof_exit(0, 0);
+		if (can_trace(false, sym))
+			cygprof_exit(0, 0);
+		else
+			Py_RETURN_NONE;
 	}
 	else if (!strcmp(event, "c_exception")) {
 		/* C code exception doesn't generate c_return */
-		cygprof_exit(0, 0);
+		if (can_trace(false, sym))
+			cygprof_exit(0, 0);
+		else
+			Py_RETURN_NONE;
 	}
 
 	return get_trace_function();
