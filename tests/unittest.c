@@ -72,6 +72,7 @@ static void set_debug_domain(struct uftrace_unit_test *test)
 		{ "task", DBG_SESSION },
 		{ "argspec", DBG_FILTER },
 		{ "trigger", DBG_FILTER },
+		{ "python", DBG_UFTRACE },
 	};
 	unsigned int i;
 	int count = 0;

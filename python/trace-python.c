@@ -370,6 +370,7 @@ static void update_dbg_info(const char *name, uint64_t addr, const char *file, i
 
 	/* add the debug info file contents */
 	snprintf(data + old_hdr.offset, entry_size + 1, "%s", buf);
+	free(buf);
 }
 
 static void write_dbginfo(const char *dirname)
@@ -483,7 +484,58 @@ static bool match_filter(struct uftrace_python_filter *filter, const char *fname
 	}
 }
 
-static char *get_c_string(PyObject *utf8);
+/* returns true if the current event should be skipped */
+static bool apply_filters(const char *event, struct uftrace_python_symbol *sym, bool is_pyfunc)
+{
+	struct uftrace_python_filter *filter;
+	bool is_entry = !strcmp(event, "call") || !strcmp(event, "c_call");
+	int delta = is_entry ? 1 : -1;
+
+	list_for_each_entry(filter, &filters, list) {
+		if (!match_filter(filter, sym->name))
+			continue;
+
+		if (filter->mode == FILTER_MODE_IN)
+			filter_state.count_in += delta;
+		else if (filter->mode == FILTER_MODE_OUT)
+			filter_state.count_out += delta;
+		break;
+	}
+	if (list_no_entry(filter, &filters, list))
+		filter = NULL;
+
+	if (filter_state.count_out > 0)
+		return true;
+
+	if (filter_state.mode == FILTER_MODE_IN) {
+		if (filter_state.count_in > 0)
+			return false;
+
+		if (filter && filter->mode == FILTER_MODE_IN && !is_entry)
+			return false;
+
+		return true;
+	}
+	if (filter_state.mode == FILTER_MODE_OUT) {
+		if (filter && filter->mode == FILTER_MODE_OUT && !is_entry)
+			return true;
+	}
+	return false;
+}
+
+static void remove_filters(void)
+{
+	struct uftrace_python_filter *filter, *tmp;
+
+	list_for_each_entry_safe(filter, tmp, &filters, list) {
+		list_del(&filter->list);
+
+		if (filter->p.type == PATT_REGEX)
+			regfree(&filter->p.re);
+		free(filter->p.patt);
+		free(filter);
+	}
+}
 
 static void init_uftrace(void)
 {
@@ -701,6 +753,8 @@ static char *get_c_funcname(PyObject *frame, PyObject *code)
 
 	if (mod && is_string_type(mod))
 		xasprintf(&func_name, "%s.%s", get_c_string(mod), get_c_string(name));
+	else if (strchr(get_c_string(name), '.'))
+		func_name = xstrdup(get_c_string(name));
 	else
 		xasprintf(&func_name, "%s.%s", "builtins", get_c_string(name));
 
@@ -784,45 +838,6 @@ static struct uftrace_python_symbol *convert_function_addr(PyObject *frame, PyOb
 	return new_sym;
 }
 
-/* returns true if the current event should be skipped */
-static bool apply_filters(const char *event, struct uftrace_python_symbol *sym, bool is_pyfunc)
-{
-	struct uftrace_python_filter *filter;
-	bool is_entry = !strcmp(event, "call") || !strcmp(event, "c_call");
-	int delta = is_entry ? 1 : -1;
-
-	list_for_each_entry(filter, &filters, list) {
-		if (!match_filter(filter, sym->name))
-			continue;
-
-		if (filter->mode == FILTER_MODE_IN)
-			filter_state.count_in += delta;
-		else if (filter->mode == FILTER_MODE_OUT)
-			filter_state.count_out += delta;
-		break;
-	}
-	if (list_no_entry(filter, &filters, list))
-		filter = NULL;
-
-	if (filter_state.count_out > 0)
-		return true;
-
-	if (filter_state.mode == FILTER_MODE_IN) {
-		if (filter_state.count_in > 0)
-			return false;
-
-		if (filter && filter->mode == FILTER_MODE_IN && !is_entry)
-			return false;
-
-		return true;
-	}
-	if (filter_state.mode == FILTER_MODE_OUT) {
-		if (filter && filter->mode == FILTER_MODE_OUT && !is_entry)
-			return true;
-	}
-	return false;
-}
-
 /*
  * This is the actual trace function to be called for each python event.
  */
@@ -875,6 +890,8 @@ static void __attribute__((destructor)) uftrace_trace_python_finish(void)
 
 	if (need_dbg_info)
 		write_dbginfo(dirname);
+
+	remove_filters();
 }
 
 #else /* UNIT_TEST */
@@ -897,6 +914,8 @@ TEST_CASE(python_symtab)
 
 	pr_dbg("initialize symbol table on a shared memory\n");
 	init_symtab();
+	TEST_NE(symtab, MAP_FAILED);
+
 	TEST_EQ(get_new_sym_addr("a", true), 1);
 	TEST_EQ(get_new_sym_addr("b", true), 2);
 	TEST_EQ(get_new_sym_addr("c", false), 3);
@@ -905,6 +924,59 @@ TEST_CASE(python_symtab)
 	snprintf(buf, sizeof(buf), "%s.sym", UFTRACE_PYTHON_SYMTAB_NAME);
 	unlink(buf);
 	pr_dbg("unlink the symbol table: %s\n", buf);
+
+	return TEST_OK;
+}
+
+TEST_CASE(python_dbginfo)
+{
+	char buf[32];
+
+	/* should have no effect */
+	init_uftrace();
+
+	need_dbg_info = true;
+
+	pr_dbg("initialize debug info on a shared memory\n");
+	init_dbginfo();
+	TEST_NE(dbg_info, MAP_FAILED);
+
+	update_dbg_info("a", 1, __FILE__, __LINE__);
+	TEST_EQ(dbg_info->count, 1);
+	update_dbg_info("b", 2, __FILE__, __LINE__);
+	TEST_EQ(dbg_info->count, 2);
+	update_dbg_info("c", 3, __FILE__, __LINE__);
+	TEST_EQ(dbg_info->count, 3);
+	write_dbginfo(".");
+
+	snprintf(buf, sizeof(buf), "%s.dbg", UFTRACE_PYTHON_SYMTAB_NAME);
+	unlink(buf);
+	pr_dbg("unlink the debug info: %s\n", buf);
+
+	return TEST_OK;
+}
+
+TEST_CASE(python_filter)
+{
+	struct uftrace_python_symbol sym = {
+		.name = "test.sym",
+	};
+	struct uftrace_python_filter *filter;
+
+	setenv("UFTRACE_FILTER", "^test", 1);
+
+	init_filters();
+	TEST_EQ(list_empty(&filters), false);
+	filter = list_first_entry(&filters, struct uftrace_python_filter, list);
+
+	pr_dbg("match filter patterns\n");
+	TEST_EQ(match_filter(filter, "test.abc"), true);
+	TEST_EQ(match_filter(filter, "xyz.test"), false);
+
+	pr_dbg("apply filters\n");
+	TEST_EQ(apply_filters("call", &sym, true), false);
+
+	remove_filters();
 
 	return TEST_OK;
 }

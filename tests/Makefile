@@ -5,7 +5,7 @@ UNIT_TEST_SRC += $(wildcard $(srcdir)/cmds/*.c)
 UNIT_TEST_SRC += $(wildcard $(srcdir)/utils/*.c)
 UNIT_TEST_SRC += $(wildcard $(srcdir)/arch/$(ARCH)/*.c)
 UNIT_TEST_SRC += $(wildcard $(srcdir)/libmcount/*.c)
-ifneq ($(findstring HAVE_LIBPYTHON, $(COMMON_CFLAGS)), )
+ifneq ($(findstring HAVE_LIBPYTHON, $(TEST_CFLAGS)), )
 UNIT_TEST_SRC += $(wildcard $(srcdir)/python/*.c)
 endif
 UNIT_TEST_OBJ := $(patsubst $(srcdir)/%.c,$(objdir)/%.ot,$(UNIT_TEST_SRC))
@@ -21,8 +21,6 @@ UNIT_TEST_OBJ_VERSION := $(objdir)/cmds/script.ot $(objdir)/cmds/tui.ot
 UNIT_TEST_OBJ_VERSION += $(objdir)/cmds/dump.ot   $(objdir)/cmds/info.ot
 UNIT_TEST_OBJ_VERSION += $(objdir)/libmcount/mcount.ot
 
-
-CFLAGS_$(objdir)/python/trace-python.ot := -DOBJDIR='"$(objdir)"'
 
 FULL_WORKER := -j $(shell getconf _NPROCESSORS_ONLN || echo 1)
 
