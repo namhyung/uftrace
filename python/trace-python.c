@@ -370,6 +370,7 @@ static void update_dbg_info(const char *name, uint64_t addr, const char *file, i
 
 	/* add the debug info file contents */
 	snprintf(data + old_hdr.offset, entry_size + 1, "%s", buf);
+	free(buf);
 }
 
 static void write_dbginfo(const char *dirname)
