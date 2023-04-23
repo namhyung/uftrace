@@ -484,7 +484,58 @@ static bool match_filter(struct uftrace_python_filter *filter, const char *fname
 	}
 }
 
-static char *get_c_string(PyObject *utf8);
+/* returns true if the current event should be skipped */
+static bool apply_filters(const char *event, struct uftrace_python_symbol *sym, bool is_pyfunc)
+{
+	struct uftrace_python_filter *filter;
+	bool is_entry = !strcmp(event, "call") || !strcmp(event, "c_call");
+	int delta = is_entry ? 1 : -1;
+
+	list_for_each_entry(filter, &filters, list) {
+		if (!match_filter(filter, sym->name))
+			continue;
+
+		if (filter->mode == FILTER_MODE_IN)
+			filter_state.count_in += delta;
+		else if (filter->mode == FILTER_MODE_OUT)
+			filter_state.count_out += delta;
+		break;
+	}
+	if (list_no_entry(filter, &filters, list))
+		filter = NULL;
+
+	if (filter_state.count_out > 0)
+		return true;
+
+	if (filter_state.mode == FILTER_MODE_IN) {
+		if (filter_state.count_in > 0)
+			return false;
+
+		if (filter && filter->mode == FILTER_MODE_IN && !is_entry)
+			return false;
+
+		return true;
+	}
+	if (filter_state.mode == FILTER_MODE_OUT) {
+		if (filter && filter->mode == FILTER_MODE_OUT && !is_entry)
+			return true;
+	}
+	return false;
+}
+
+static void remove_filters(void)
+{
+	struct uftrace_python_filter *filter, *tmp;
+
+	list_for_each_entry_safe(filter, tmp, &filters, list) {
+		list_del(&filter->list);
+
+		if (filter->p.type == PATT_REGEX)
+			regfree(&filter->p.re);
+		free(filter->p.patt);
+		free(filter);
+	}
+}
 
 static void init_uftrace(void)
 {
@@ -787,45 +838,6 @@ static struct uftrace_python_symbol *convert_function_addr(PyObject *frame, PyOb
 	return new_sym;
 }
 
-/* returns true if the current event should be skipped */
-static bool apply_filters(const char *event, struct uftrace_python_symbol *sym, bool is_pyfunc)
-{
-	struct uftrace_python_filter *filter;
-	bool is_entry = !strcmp(event, "call") || !strcmp(event, "c_call");
-	int delta = is_entry ? 1 : -1;
-
-	list_for_each_entry(filter, &filters, list) {
-		if (!match_filter(filter, sym->name))
-			continue;
-
-		if (filter->mode == FILTER_MODE_IN)
-			filter_state.count_in += delta;
-		else if (filter->mode == FILTER_MODE_OUT)
-			filter_state.count_out += delta;
-		break;
-	}
-	if (list_no_entry(filter, &filters, list))
-		filter = NULL;
-
-	if (filter_state.count_out > 0)
-		return true;
-
-	if (filter_state.mode == FILTER_MODE_IN) {
-		if (filter_state.count_in > 0)
-			return false;
-
-		if (filter && filter->mode == FILTER_MODE_IN && !is_entry)
-			return false;
-
-		return true;
-	}
-	if (filter_state.mode == FILTER_MODE_OUT) {
-		if (filter && filter->mode == FILTER_MODE_OUT && !is_entry)
-			return true;
-	}
-	return false;
-}
-
 /*
  * This is the actual trace function to be called for each python event.
  */
@@ -878,6 +890,8 @@ static void __attribute__((destructor)) uftrace_trace_python_finish(void)
 
 	if (need_dbg_info)
 		write_dbginfo(dirname);
+
+	remove_filters();
 }
 
 #else /* UNIT_TEST */
