@@ -914,6 +914,8 @@ TEST_CASE(python_symtab)
 
 	pr_dbg("initialize symbol table on a shared memory\n");
 	init_symtab();
+	TEST_NE(symtab, MAP_FAILED);
+
 	TEST_EQ(get_new_sym_addr("a", true), 1);
 	TEST_EQ(get_new_sym_addr("b", true), 2);
 	TEST_EQ(get_new_sym_addr("c", false), 3);
@@ -922,6 +924,59 @@ TEST_CASE(python_symtab)
 	snprintf(buf, sizeof(buf), "%s.sym", UFTRACE_PYTHON_SYMTAB_NAME);
 	unlink(buf);
 	pr_dbg("unlink the symbol table: %s\n", buf);
+
+	return TEST_OK;
+}
+
+TEST_CASE(python_dbginfo)
+{
+	char buf[32];
+
+	/* should have no effect */
+	init_uftrace();
+
+	need_dbg_info = true;
+
+	pr_dbg("initialize debug info on a shared memory\n");
+	init_dbginfo();
+	TEST_NE(dbg_info, MAP_FAILED);
+
+	update_dbg_info("a", 1, __FILE__, __LINE__);
+	TEST_EQ(dbg_info->count, 1);
+	update_dbg_info("b", 2, __FILE__, __LINE__);
+	TEST_EQ(dbg_info->count, 2);
+	update_dbg_info("c", 3, __FILE__, __LINE__);
+	TEST_EQ(dbg_info->count, 3);
+	write_dbginfo(".");
+
+	snprintf(buf, sizeof(buf), "%s.dbg", UFTRACE_PYTHON_SYMTAB_NAME);
+	unlink(buf);
+	pr_dbg("unlink the debug info: %s\n", buf);
+
+	return TEST_OK;
+}
+
+TEST_CASE(python_filter)
+{
+	struct uftrace_python_symbol sym = {
+		.name = "test.sym",
+	};
+	struct uftrace_python_filter *filter;
+
+	setenv("UFTRACE_FILTER", "^test", 1);
+
+	init_filters();
+	TEST_EQ(list_empty(&filters), false);
+	filter = list_first_entry(&filters, struct uftrace_python_filter, list);
+
+	pr_dbg("match filter patterns\n");
+	TEST_EQ(match_filter(filter, "test.abc"), true);
+	TEST_EQ(match_filter(filter, "xyz.test"), false);
+
+	pr_dbg("apply filters\n");
+	TEST_EQ(apply_filters("call", &sym, true), false);
+
+	remove_filters();
 
 	return TEST_OK;
 }
