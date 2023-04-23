@@ -63,7 +63,7 @@ static unsigned int uftrace_dbginfo_size;
 static bool skip_first_frame;
 
 /* whether it should collect srcline info */
-static bool need_dbg_info;
+static bool need_dbg_info = true;
 
 /*
  * Symbol table header in a shared memory.
@@ -496,7 +496,7 @@ static void init_uftrace(void)
 		dbg_domain[DBG_UFTRACE] = 1;
 	}
 
-	if (getenv("UFTRACE_SRCLINE")) {
+	if (getenv("UFTRACE_SRCLINE") || need_dbg_info) {
 		main_file = getenv("UFTRACE_PYMAIN");
 		need_dbg_info = true;
 	}
