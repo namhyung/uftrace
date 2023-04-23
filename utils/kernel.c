@@ -459,6 +459,7 @@ static void skip_kernel_functions(struct uftrace_kernel_writer *kernel)
 		/* Disable syscall tracing in the kernel */
 		"syscall_trace_enter_phase1",
 		"syscall_slow_exit_work",
+		"exit_to_user_mode_prepare",
 #ifdef __aarch64__
 		/*
 		 * TTBR is for page table setting and it is needed for security
