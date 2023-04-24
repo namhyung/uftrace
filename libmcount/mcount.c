@@ -1841,12 +1841,13 @@ static int agent_read_option(int fd, int *opt, void **value, size_t read_size)
 
 /**
  * agent_apply_option - change libmcount parameters at runtime
- * @opt    - option to apply
- * @value  - value for the given option
- * @size   - size of @value
- * @return - 0 on success, -1 on failure
+ * @opt      - option to apply
+ * @value    - value for the given option
+ * @size     - size of @value
+ * @triggers - triggers rbtree
+ * @return   - 0 on success, -1 on failure
  */
-static int agent_apply_option(int opt, void *value, size_t size)
+static int agent_apply_option(int opt, void *value, size_t size, struct rb_root *triggers)
 {
 	int ret = 0;
 
@@ -1858,6 +1859,15 @@ static int agent_apply_option(int opt, void *value, size_t size)
 	return ret;
 }
 
+static bool triggers_needs_copy(int opt)
+{
+	bool ret;
+#define MATCHING_OPTIONS 0
+	ret = opt & MATCHING_OPTIONS;
+#undef MATCHING_OPTIONS
+	return ret;
+}
+
 /* Agent routine, applying instructions from the CLI. */
 void *agent_apply_commands(void *arg)
 {
@@ -1866,6 +1876,7 @@ void *agent_apply_commands(void *arg)
 	struct uftrace_msg msg;
 	struct sockaddr_un addr;
 	void *value = NULL;
+	struct rb_root *triggers_copy = NULL;
 	size_t size;
 
 	/* initialize agent */
@@ -1919,7 +1930,13 @@ void *agent_apply_commands(void *arg)
 					break;
 				}
 
-				status = agent_apply_option(opt, value, size);
+				/* deep copy mcount_triggers for each connection (if needed) */
+				if (triggers_needs_copy(opt) && !triggers_copy) {
+					triggers_copy = xmalloc(sizeof(*triggers_copy));
+					*triggers_copy =
+						uftrace_deep_copy_triggers(mcount_triggers);
+				}
+				status = agent_apply_option(opt, value, size, triggers_copy);
 				if (status == 0)
 					agent_message_send(cfd, UFTRACE_MSG_AGENT_OK, NULL, 0);
 				else
@@ -1942,6 +1959,9 @@ void *agent_apply_commands(void *arg)
 				pr_dbg3("agent message not recognized\n");
 			}
 		}
+
+		free(triggers_copy);
+		triggers_copy = NULL;
 
 		if (close(cfd) == -1)
 			pr_dbg3("error closing client socket\n");

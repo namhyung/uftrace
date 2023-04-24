@@ -1109,6 +1109,81 @@ void uftrace_setup_loc_filter(char *filter_str, struct uftrace_sym_info *sinfo,
 }
 
 /**
+ * deep_copy_filter - perform a deep of a filter structure
+ * @old    - structure to copy
+ * @return - allocated deep copy of @old
+ */
+static struct uftrace_filter *deep_copy_filter(struct uftrace_filter *old)
+{
+	struct uftrace_filter *new;
+	struct uftrace_arg_spec *arg, *arg_copy;
+
+	new = xmalloc(sizeof(*new));
+
+	/* copy the whole structure */
+	memcpy(new, old, sizeof(*old));
+
+	/* deep copy nested argspec list */
+	INIT_LIST_HEAD(&new->args);
+	list_for_each_entry(arg, &old->args, list) {
+		pr_out("copy arg\n");
+		arg_copy = xmalloc(sizeof(*arg_copy));
+		memcpy(arg_copy, arg, sizeof(*arg));
+		if (arg->type_name)
+			arg_copy->type_name = xstrdup(arg->type_name);
+		list_add_tail(&arg_copy->list, &new->args);
+	}
+
+	/* deep copy nested trigger.pargs */
+	new->trigger.pargs = &new->args;
+
+	return new;
+}
+
+/**
+ * deep_copy_triggers - recursively perform a deep copy of a rbtree with
+ * 'struct uftrace_filter' nodes
+ * @dest - pointer to the address of the copy (modified in place)
+ * @src  - original rbtree
+ */
+static void deep_copy_triggers(struct rb_node **dest, struct rb_node *src)
+{
+	struct uftrace_filter *old, *new;
+
+	if (!src) {
+		*dest = NULL;
+		return;
+	}
+
+	old = rb_entry(src, struct uftrace_filter, node);
+	new = deep_copy_filter(old);
+	*dest = &new->node;
+
+	if (src->rb_left) {
+		deep_copy_triggers(&(*dest)->rb_left, src->rb_left);
+		(*dest)->rb_left->rb_parent_color = (unsigned long)new & ~1;
+		(*dest)->rb_left->rb_parent_color |= rb_color(src->rb_left);
+	}
+	if (src->rb_right) {
+		deep_copy_triggers(&(*dest)->rb_right, src->rb_right);
+		(*dest)->rb_right->rb_parent_color = (unsigned long)new & ~1;
+		(*dest)->rb_right->rb_parent_color |= rb_color(src->rb_right);
+	}
+}
+
+/**
+ * deep_copy_triggers - deep copy an rbtree containing filters
+ * @src    - root of the rbtree to copy
+ * @return - root of the deep copy
+ */
+struct rb_root uftrace_deep_copy_triggers(struct rb_root *src)
+{
+	struct rb_root new = RB_ROOT;
+	deep_copy_triggers(&new.rb_node, src->rb_node);
+	return new;
+}
+
+/**
  * uftrace_cleanup_filter - delete filters in rbtree
  * @root - root of the filter rbtree
  */
