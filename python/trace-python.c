@@ -557,7 +557,7 @@ static void remove_filters(void)
 	}
 }
 
-static bool __maybe_unused can_trace(bool is_entry, struct uftrace_python_symbol *sym)
+static bool can_trace(bool is_entry, struct uftrace_python_symbol *sym)
 {
 	/* always trace functions in the main module */
 	if ((sym->flag & UFT_PYSYM_F_LIBCALL) == 0)
@@ -1037,6 +1037,46 @@ TEST_CASE(python_filter)
 	TEST_EQ(apply_filters("call", &sym, true), false);
 
 	remove_filters();
+
+	return TEST_OK;
+}
+
+TEST_CASE(python_libcall)
+{
+	struct uftrace_python_symbol syms[] = {
+		{
+			.name = "foo",
+		},
+		{
+			.name = "bar",
+			.flag = UFT_PYSYM_F_LIBCALL,
+		},
+		{
+			.name = "baz",
+			.flag = UFT_PYSYM_F_LIBCALL,
+		},
+	};
+	int results_none[] = { 1, 0, 0 };
+	int results_single[] = { 1, 1, 0 };
+	int results_nested[] = { 1, 1, 1 };
+
+	pr_dbg("checking no libcall\n");
+	libcall_mode = UFT_PY_LIBCALL_NONE;
+	libcall_count = 0;
+	for (unsigned i = 0; i < ARRAY_SIZE(syms); i++)
+		TEST_EQ(can_trace(true, &syms[i]), results_none[i]);
+
+	pr_dbg("checking single libcall\n");
+	libcall_mode = UFT_PY_LIBCALL_SINGLE;
+	libcall_count = 0;
+	for (unsigned i = 0; i < ARRAY_SIZE(syms); i++)
+		TEST_EQ(can_trace(true, &syms[i]), results_single[i]);
+
+	pr_dbg("checking nested libcall\n");
+	libcall_mode = UFT_PY_LIBCALL_NESTED;
+	libcall_count = 0;
+	for (unsigned i = 0; i < ARRAY_SIZE(syms); i++)
+		TEST_EQ(can_trace(true, &syms[i]), results_nested[i]);
 
 	return TEST_OK;
 }
