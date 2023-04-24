@@ -1614,8 +1614,11 @@ again:
 		if (script == NULL)
 			pr_err_ns(UFTRACE_ELF_MSG, opts->exename);
 
-		if (strstr(script, "python"))
+		if (strstr(script, "python")) {
 			opts->force = true;
+			/* TODO: disable sched event until it can merge subsequent events */
+			opts->no_sched = true;
+		}
 
 		if (!opts->force && !opts->patch)
 			pr_err_ns(SCRIPT_MSG, opts->exename);
