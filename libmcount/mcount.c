@@ -86,7 +86,7 @@ static enum filter_mode __maybe_unused mcount_filter_mode = FILTER_MODE_NONE;
 static enum filter_mode __maybe_unused mcount_loc_mode = FILTER_MODE_NONE;
 
 /* tree of trigger actions */
-static struct rb_root __maybe_unused mcount_triggers = RB_ROOT;
+static struct rb_root __maybe_unused *mcount_triggers;
 
 /* bitmask of active watch points */
 static unsigned long __maybe_unused mcount_watchpoints;
@@ -406,25 +406,27 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, bool force)
 		save_debug_info(&mcount_sym_info, mcount_sym_info.dirname);
 	}
 
-	uftrace_setup_filter(filter_str, &mcount_sym_info, &mcount_triggers, &mcount_filter_mode,
+	mcount_triggers = xmalloc(sizeof(*mcount_triggers));
+	*mcount_triggers = RB_ROOT;
+	uftrace_setup_filter(filter_str, &mcount_sym_info, mcount_triggers, &mcount_filter_mode,
 			     &filter_setting);
-	uftrace_setup_trigger(trigger_str, &mcount_sym_info, &mcount_triggers, &mcount_filter_mode,
+	uftrace_setup_trigger(trigger_str, &mcount_sym_info, mcount_triggers, &mcount_filter_mode,
 			      &filter_setting);
-	uftrace_setup_argument(argument_str, &mcount_sym_info, &mcount_triggers, &filter_setting);
-	uftrace_setup_retval(retval_str, &mcount_sym_info, &mcount_triggers, &filter_setting);
+	uftrace_setup_argument(argument_str, &mcount_sym_info, mcount_triggers, &filter_setting);
+	uftrace_setup_retval(retval_str, &mcount_sym_info, mcount_triggers, &filter_setting);
 
 	if (needs_debug_info) {
-		uftrace_setup_loc_filter(loc_str, &mcount_sym_info, &mcount_triggers,
+		uftrace_setup_loc_filter(loc_str, &mcount_sym_info, mcount_triggers,
 					 &mcount_loc_mode, &filter_setting);
 	}
 
 	if (caller_str) {
-		uftrace_setup_caller_filter(caller_str, &mcount_sym_info, &mcount_triggers,
+		uftrace_setup_caller_filter(caller_str, &mcount_sym_info, mcount_triggers,
 					    &filter_setting);
 	}
 
 	/* there might be caller triggers, count it separately */
-	if (uftrace_count_filter(&mcount_triggers, TRIGGER_FL_CALLER) != 0)
+	if (uftrace_count_filter(mcount_triggers, TRIGGER_FL_CALLER) != 0)
 		mcount_has_caller = true;
 
 	if (autoargs_str) {
@@ -436,9 +438,8 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, bool force)
 
 		filter_setting.auto_args = true;
 
-		uftrace_setup_argument(autoarg, &mcount_sym_info, &mcount_triggers,
-				       &filter_setting);
-		uftrace_setup_retval(autoret, &mcount_sym_info, &mcount_triggers, &filter_setting);
+		uftrace_setup_argument(autoarg, &mcount_sym_info, mcount_triggers, &filter_setting);
+		uftrace_setup_retval(autoret, &mcount_sym_info, mcount_triggers, &filter_setting);
 	}
 
 	if (getenv("UFTRACE_DEPTH"))
@@ -467,7 +468,8 @@ static void mcount_filter_release(struct mcount_thread_data *mtdp)
 
 static void mcount_filter_finish(void)
 {
-	uftrace_cleanup_filter(&mcount_triggers);
+	uftrace_cleanup_filter(mcount_triggers);
+	free(mcount_triggers);
 	finish_auto_args();
 
 	finish_debug_info(&mcount_sym_info);
@@ -868,7 +870,7 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 	if (mtdp->filter.out_count > 0)
 		return FILTER_OUT;
 
-	uftrace_match_filter(child, &mcount_triggers, tr);
+	uftrace_match_filter(child, mcount_triggers, tr);
 
 	pr_dbg3(" tr->flags: %x, filter mode: %d, count: %d/%d, depth: %d\n", tr->flags, tr->fmode,
 		mtdp->filter.in_count, mtdp->filter.out_count, mtdp->filter.depth);
@@ -1146,7 +1148,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp, struct mcount_re
 			struct uftrace_trigger tr;
 
 			/* there's a possibility of overwriting by return value */
-			uftrace_match_filter(rstack->child_ip, &mcount_triggers, &tr);
+			uftrace_match_filter(rstack->child_ip, mcount_triggers, &tr);
 			save_trigger_read(mtdp, rstack, tr.read, true);
 		}
 
@@ -2294,6 +2296,9 @@ static void setup_mcount_test(void)
 	mcount_exename = read_exename();
 	pthread_key_create(&mtd_key, mtd_dtor);
 	mcount_global_flags = 0;
+
+	mcount_triggers = xmalloc(sizeof(*mcount_triggers));
+	*mcount_triggers = RB_ROOT;
 }
 
 #define SHMEM_SESSION_FMT "/uftrace-%s-%d-%03d"
