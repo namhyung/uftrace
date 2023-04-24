@@ -1763,6 +1763,21 @@ static void mcount_script_init(enum uftrace_pattern_type patt_type)
 }
 
 /**
+ * swap_triggers - atomically swap the pointer to a filter rbtree and free the
+ * old one
+ * @old - pointer to the tree to deprecate
+ * @new - new version of the tree to use
+ */
+static void swap_triggers(struct rb_root **old, struct rb_root *new)
+{
+	struct rb_root *tmp;
+	tmp = __sync_val_compare_and_swap(old, *old, new);
+	sleep(1); /* RCU-like grace period */
+	uftrace_cleanup_filter(tmp);
+	free(tmp);
+}
+
+/**
  * agent_init - initialize the agent
  * @addr - client socket
  * @return - socket file descriptor (-1 on error)
@@ -1960,8 +1975,10 @@ void *agent_apply_commands(void *arg)
 			}
 		}
 
-		free(triggers_copy);
-		triggers_copy = NULL;
+		if (triggers_copy) {
+			swap_triggers(&mcount_triggers, triggers_copy);
+			triggers_copy = NULL;
+		}
 
 		if (close(cfd) == -1)
 			pr_dbg3("error closing client socket\n");
