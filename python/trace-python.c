@@ -584,6 +584,8 @@ static bool can_trace(bool is_entry, struct uftrace_python_symbol *sym)
 
 static void init_uftrace(void)
 {
+	const char *libcall = getenv("UFTRACE_PY_LIBCALL");
+
 	/* check if it's loaded in a uftrace session */
 	if (getenv("UFTRACE_SHMEM") == NULL)
 		return;
@@ -596,6 +598,13 @@ static void init_uftrace(void)
 	if (getenv("UFTRACE_SRCLINE") || need_dbg_info) {
 		main_file = getenv("UFTRACE_PYMAIN");
 		need_dbg_info = true;
+	}
+
+	if (libcall != NULL) {
+		if (!strcmp(libcall, "NONE"))
+			libcall_mode = UFT_PY_LIBCALL_NONE;
+		if (!strcmp(libcall, "NESTED"))
+			libcall_mode = UFT_PY_LIBCALL_NESTED;
 	}
 
 	init_symtab();

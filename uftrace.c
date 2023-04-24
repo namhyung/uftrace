@@ -1493,6 +1493,9 @@ int main(int argc, char *argv[])
 	argc -= opts.idx;
 	argv += opts.idx;
 
+	if (!opts.libcall && opts.nest_libcall)
+		pr_err_ns("cannot use --no-libcall and --nest-libcall options together\n");
+
 	switch (opts.mode) {
 	case UFTRACE_MODE_RECORD:
 		ret = command_record(argc, argv, &opts);

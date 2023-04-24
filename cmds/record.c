@@ -2194,7 +2194,11 @@ int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
 		if (is_python) {
 			strv_append(&new_args, "-m");
 			strv_append(&new_args, "uftrace");
-			/* disable library calls for now */
+			if (!opts->libcall)
+				setenv("UFTRACE_PY_LIBCALL", "NONE", 1);
+			if (opts->nest_libcall)
+				setenv("UFTRACE_PY_LIBCALL", "NESTED", 1);
+			/* disable library calls for 'python' interpreter */
 			opts->libcall = false;
 		}
 
