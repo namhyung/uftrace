@@ -27,7 +27,7 @@ struct uftrace_py_state {
 };
 
 /* pointer to python tracing function (for libpython2.7) */
-static PyObject *uftrace_func __attribute__((unused));
+static PyObject *uftrace_func __maybe_unused;
 
 /* RB tree of python_symbol to map code object to address */
 static struct rb_root code_tree = RB_ROOT;
@@ -96,7 +96,11 @@ struct uftrace_python_symbol {
 	PyObject *code;
 	char *name;
 	uint32_t addr;
+	uint32_t flag;
 };
+
+/* struct uftrace_python_symbol flags */
+#define UFT_PYSYM_F_LIBCALL (1U << 0)
 
 /* linked list of filter names */
 static LIST_HEAD(filters);
@@ -117,6 +121,22 @@ struct uftrace_python_filter_state {
 
 /* global filter state - multiprocess will have their own copy */
 static struct uftrace_python_filter_state filter_state;
+
+/* control tracing of library calls (like python standard library) */
+enum uftrace_python_libcall_mode {
+	UFT_PY_LIBCALL_NONE,
+	UFT_PY_LIBCALL_SINGLE,
+	UFT_PY_LIBCALL_NESTED,
+};
+
+/* global libcall state */
+static enum uftrace_python_libcall_mode libcall_mode = UFT_PY_LIBCALL_SINGLE;
+
+/*
+ * maintain the depth of library calls - multiprocess will have their own copy,
+ * but it won't work with multi-threaded cases.
+ */
+static int libcall_count;
 
 /* functions in libmcount.so */
 static void (*cygprof_enter)(unsigned long child, unsigned long parent);
@@ -206,7 +226,7 @@ static void init_symtab(void)
 	uftrace_symtab_size = UFTRACE_PYTHON_SYMTAB_SIZE;
 }
 
-static uint32_t get_new_sym_addr(const char *name, bool is_pyfunc)
+static uint32_t get_new_sym_addr(const char *name, bool is_libcall)
 {
 	union uftrace_python_symtab old_hdr, new_hdr, tmp_hdr;
 	char *data = (void *)symtab;
@@ -249,7 +269,7 @@ static uint32_t get_new_sym_addr(const char *name, bool is_pyfunc)
 
 	/* add the symbol table contents (in the old format) */
 	snprintf(data + old_hdr.offset, entry_size + 1, "%016x %c %s\n", new_hdr.count,
-		 is_pyfunc ? 'T' : 't', name);
+		 is_libcall ? 'P' : 'T', name);
 	return new_hdr.count;
 }
 
@@ -537,8 +557,35 @@ static void remove_filters(void)
 	}
 }
 
+static bool can_trace(bool is_entry, struct uftrace_python_symbol *sym)
+{
+	/* always trace functions in the main module */
+	if ((sym->flag & UFT_PYSYM_F_LIBCALL) == 0)
+		return true;
+
+	if (libcall_mode == UFT_PY_LIBCALL_NONE)
+		return false;
+	if (libcall_mode == UFT_PY_LIBCALL_NESTED)
+		return true;
+
+	/* allow single-depth libcalls only */
+	if (is_entry) {
+		if (libcall_count++ > 0)
+			return false;
+	}
+	else {
+		if (--libcall_count > 0)
+			return false;
+		if (unlikely(libcall_count < 0))
+			libcall_count = 0;
+	}
+	return true;
+}
+
 static void init_uftrace(void)
 {
+	const char *libcall = getenv("UFTRACE_PY_LIBCALL");
+
 	/* check if it's loaded in a uftrace session */
 	if (getenv("UFTRACE_SHMEM") == NULL)
 		return;
@@ -551,6 +598,13 @@ static void init_uftrace(void)
 	if (getenv("UFTRACE_SRCLINE") || need_dbg_info) {
 		main_file = getenv("UFTRACE_PYMAIN");
 		need_dbg_info = true;
+	}
+
+	if (libcall != NULL) {
+		if (!strcmp(libcall, "NONE"))
+			libcall_mode = UFT_PY_LIBCALL_NONE;
+		if (!strcmp(libcall, "NESTED"))
+			libcall_mode = UFT_PY_LIBCALL_NESTED;
 	}
 
 	init_symtab();
@@ -698,10 +752,11 @@ static char *get_c_string(PyObject *str)
 
 #endif /* HAVE_LIBPYTHON2 */
 
-static char *get_python_funcname(PyObject *frame, PyObject *code)
+static char *get_python_funcname(PyObject *frame, PyObject *code, bool *is_main)
 {
 	PyObject *name, *global;
 	char *func_name = NULL;
+	bool main = false;
 
 	if (PyObject_HasAttrString(code, "co_qualname"))
 		name = PyObject_GetAttrString(code, "co_qualname");
@@ -719,11 +774,14 @@ static char *get_python_funcname(PyObject *frame, PyObject *code)
 			char *mod_str = get_c_string(mod);
 
 			/* skip __main__. prefix for functions in the main module */
-			if (strcmp(mod_str, "__main__") || !strcmp(name_str, "<module>"))
+			if (!strcmp(mod_str, "__main__"))
+				main = true;
+			if (!main || !strcmp(name_str, "<module>"))
 				xasprintf(&func_name, "%s.%s", mod_str, name_str);
 		}
 		Py_DECREF(global);
 	}
+	*is_main = main;
 
 	if (func_name == NULL && name)
 		func_name = strdup(get_c_string(name));
@@ -770,6 +828,7 @@ static struct uftrace_python_symbol *convert_function_addr(PyObject *frame, PyOb
 	struct uftrace_python_symbol *iter, *new_sym;
 	PyObject *code;
 	char *func_name;
+	bool is_main = false;
 
 	code = PyObject_GetAttrString(frame, "f_code");
 	if (code == NULL)
@@ -797,7 +856,7 @@ static struct uftrace_python_symbol *convert_function_addr(PyObject *frame, PyOb
 	}
 
 	if (is_pyfunc)
-		func_name = get_python_funcname(frame, code);
+		func_name = get_python_funcname(frame, code, &is_main);
 	else
 		func_name = get_c_funcname(frame, code);
 
@@ -806,8 +865,9 @@ static struct uftrace_python_symbol *convert_function_addr(PyObject *frame, PyOb
 
 	new_sym = xmalloc(sizeof(*new_sym));
 	new_sym->code = code;
-	new_sym->addr = get_new_sym_addr(func_name, is_pyfunc);
+	new_sym->addr = get_new_sym_addr(func_name, !is_main);
 	new_sym->name = func_name;
+	new_sym->flag = is_main ? 0 : UFT_PYSYM_F_LIBCALL;
 
 	if (need_dbg_info) {
 		if (PyObject_HasAttrString(code, "co_filename") &&
@@ -865,14 +925,23 @@ static PyObject *uftrace_trace_python(PyObject *self, PyObject *args)
 		Py_RETURN_NONE;
 
 	if (!strcmp(event, "call") || !strcmp(event, "c_call")) {
-		cygprof_enter(sym->addr, 0);
+		if (can_trace(true, sym))
+			cygprof_enter(sym->addr, 0);
+		else
+			Py_RETURN_NONE;
 	}
 	else if (!strcmp(event, "return") || !strcmp(event, "c_return")) {
-		cygprof_exit(0, 0);
+		if (can_trace(false, sym))
+			cygprof_exit(0, 0);
+		else
+			Py_RETURN_NONE;
 	}
 	else if (!strcmp(event, "c_exception")) {
 		/* C code exception doesn't generate c_return */
-		cygprof_exit(0, 0);
+		if (can_trace(false, sym))
+			cygprof_exit(0, 0);
+		else
+			Py_RETURN_NONE;
 	}
 
 	return get_trace_function();
@@ -977,6 +1046,46 @@ TEST_CASE(python_filter)
 	TEST_EQ(apply_filters("call", &sym, true), false);
 
 	remove_filters();
+
+	return TEST_OK;
+}
+
+TEST_CASE(python_libcall)
+{
+	struct uftrace_python_symbol syms[] = {
+		{
+			.name = "foo",
+		},
+		{
+			.name = "bar",
+			.flag = UFT_PYSYM_F_LIBCALL,
+		},
+		{
+			.name = "baz",
+			.flag = UFT_PYSYM_F_LIBCALL,
+		},
+	};
+	int results_none[] = { 1, 0, 0 };
+	int results_single[] = { 1, 1, 0 };
+	int results_nested[] = { 1, 1, 1 };
+
+	pr_dbg("checking no libcall\n");
+	libcall_mode = UFT_PY_LIBCALL_NONE;
+	libcall_count = 0;
+	for (unsigned i = 0; i < ARRAY_SIZE(syms); i++)
+		TEST_EQ(can_trace(true, &syms[i]), results_none[i]);
+
+	pr_dbg("checking single libcall\n");
+	libcall_mode = UFT_PY_LIBCALL_SINGLE;
+	libcall_count = 0;
+	for (unsigned i = 0; i < ARRAY_SIZE(syms); i++)
+		TEST_EQ(can_trace(true, &syms[i]), results_single[i]);
+
+	pr_dbg("checking nested libcall\n");
+	libcall_mode = UFT_PY_LIBCALL_NESTED;
+	libcall_count = 0;
+	for (unsigned i = 0; i < ARRAY_SIZE(syms); i++)
+		TEST_EQ(can_trace(true, &syms[i]), results_nested[i]);
 
 	return TEST_OK;
 }
