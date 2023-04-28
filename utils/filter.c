@@ -1631,6 +1631,59 @@ TEST_CASE(trigger_setup_filters)
 	return TEST_OK;
 }
 
+/* same node tests as filter_setup_glob */
+TEST_CASE(filter_rbtree_deep_copy)
+{
+	struct uftrace_sym_info sinfo = {
+		.loaded = false,
+	};
+	struct rb_root orig = RB_ROOT;
+	struct rb_root copy;
+	struct rb_node *node;
+	struct uftrace_filter *filter;
+	struct uftrace_filter_setting setting = {
+		.ptype = PATT_GLOB,
+	};
+
+	filter_test_load_symtabs(&sinfo);
+
+	uftrace_setup_filter("foo::b*", &sinfo, &orig, NULL, &setting);
+	pr_dbg("checking filter deep copy\n");
+	copy = uftrace_deep_copy_triggers(&orig);
+	uftrace_cleanup_filter(&orig);
+
+	TEST_EQ(RB_EMPTY_ROOT(&copy), false);
+
+	node = rb_first(&copy);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "foo::bar");
+	TEST_EQ(filter->start, 0x2000UL);
+	TEST_EQ(filter->end, 0x2000UL + 0x1000UL);
+
+	node = rb_next(node);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "foo::baz1");
+	TEST_EQ(filter->start, 0x3000UL);
+	TEST_EQ(filter->end, 0x3000UL + 0x1000UL);
+
+	node = rb_next(node);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "foo::baz2");
+	TEST_EQ(filter->start, 0x4000UL);
+	TEST_EQ(filter->end, 0x4000UL + 0x1000UL);
+
+	node = rb_next(node);
+	filter = rb_entry(node, struct uftrace_filter, node);
+	TEST_STREQ(filter->name, "foo::baz3");
+	TEST_EQ(filter->start, 0x5000UL);
+	TEST_EQ(filter->end, 0x5000UL + 0x1000UL);
+
+	uftrace_cleanup_filter(&copy);
+	TEST_EQ(RB_EMPTY_ROOT(&copy), true);
+
+	return TEST_OK;
+}
+
 TEST_CASE(trigger_setup_args)
 {
 	struct uftrace_sym_info sinfo = {
