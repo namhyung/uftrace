@@ -86,7 +86,7 @@ static enum filter_mode __maybe_unused mcount_filter_mode = FILTER_MODE_NONE;
 static enum filter_mode __maybe_unused mcount_loc_mode = FILTER_MODE_NONE;
 
 /* tree of trigger actions */
-static struct rb_root __maybe_unused mcount_triggers = RB_ROOT;
+static struct rb_root __maybe_unused *mcount_triggers;
 
 /* bitmask of active watch points */
 static unsigned long __maybe_unused mcount_watchpoints;
@@ -406,25 +406,27 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, bool force)
 		save_debug_info(&mcount_sym_info, mcount_sym_info.dirname);
 	}
 
-	uftrace_setup_filter(filter_str, &mcount_sym_info, &mcount_triggers, &mcount_filter_mode,
+	mcount_triggers = xmalloc(sizeof(*mcount_triggers));
+	*mcount_triggers = RB_ROOT;
+	uftrace_setup_filter(filter_str, &mcount_sym_info, mcount_triggers, &mcount_filter_mode,
 			     &filter_setting);
-	uftrace_setup_trigger(trigger_str, &mcount_sym_info, &mcount_triggers, &mcount_filter_mode,
+	uftrace_setup_trigger(trigger_str, &mcount_sym_info, mcount_triggers, &mcount_filter_mode,
 			      &filter_setting);
-	uftrace_setup_argument(argument_str, &mcount_sym_info, &mcount_triggers, &filter_setting);
-	uftrace_setup_retval(retval_str, &mcount_sym_info, &mcount_triggers, &filter_setting);
+	uftrace_setup_argument(argument_str, &mcount_sym_info, mcount_triggers, &filter_setting);
+	uftrace_setup_retval(retval_str, &mcount_sym_info, mcount_triggers, &filter_setting);
 
 	if (needs_debug_info) {
-		uftrace_setup_loc_filter(loc_str, &mcount_sym_info, &mcount_triggers,
+		uftrace_setup_loc_filter(loc_str, &mcount_sym_info, mcount_triggers,
 					 &mcount_loc_mode, &filter_setting);
 	}
 
 	if (caller_str) {
-		uftrace_setup_caller_filter(caller_str, &mcount_sym_info, &mcount_triggers,
+		uftrace_setup_caller_filter(caller_str, &mcount_sym_info, mcount_triggers,
 					    &filter_setting);
 	}
 
 	/* there might be caller triggers, count it separately */
-	if (uftrace_count_filter(&mcount_triggers, TRIGGER_FL_CALLER) != 0)
+	if (uftrace_count_filter(mcount_triggers, TRIGGER_FL_CALLER) != 0)
 		mcount_has_caller = true;
 
 	if (autoargs_str) {
@@ -436,9 +438,8 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, bool force)
 
 		filter_setting.auto_args = true;
 
-		uftrace_setup_argument(autoarg, &mcount_sym_info, &mcount_triggers,
-				       &filter_setting);
-		uftrace_setup_retval(autoret, &mcount_sym_info, &mcount_triggers, &filter_setting);
+		uftrace_setup_argument(autoarg, &mcount_sym_info, mcount_triggers, &filter_setting);
+		uftrace_setup_retval(autoret, &mcount_sym_info, mcount_triggers, &filter_setting);
 	}
 
 	if (getenv("UFTRACE_DEPTH"))
@@ -467,7 +468,8 @@ static void mcount_filter_release(struct mcount_thread_data *mtdp)
 
 static void mcount_filter_finish(void)
 {
-	uftrace_cleanup_filter(&mcount_triggers);
+	uftrace_cleanup_filter(mcount_triggers);
+	free(mcount_triggers);
 	finish_auto_args();
 
 	finish_debug_info(&mcount_sym_info);
@@ -868,7 +870,7 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 	if (mtdp->filter.out_count > 0)
 		return FILTER_OUT;
 
-	uftrace_match_filter(child, &mcount_triggers, tr);
+	uftrace_match_filter(child, mcount_triggers, tr);
 
 	pr_dbg3(" tr->flags: %x, filter mode: %d, count: %d/%d, depth: %d\n", tr->flags, tr->fmode,
 		mtdp->filter.in_count, mtdp->filter.out_count, mtdp->filter.depth);
@@ -1146,7 +1148,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp, struct mcount_re
 			struct uftrace_trigger tr;
 
 			/* there's a possibility of overwriting by return value */
-			uftrace_match_filter(rstack->child_ip, &mcount_triggers, &tr);
+			uftrace_match_filter(rstack->child_ip, mcount_triggers, &tr);
 			save_trigger_read(mtdp, rstack, tr.read, true);
 		}
 
@@ -1761,6 +1763,21 @@ static void mcount_script_init(enum uftrace_pattern_type patt_type)
 }
 
 /**
+ * swap_triggers - atomically swap the pointer to a filter rbtree and free the
+ * old one
+ * @old - pointer to the tree to deprecate
+ * @new - new version of the tree to use
+ */
+static void swap_triggers(struct rb_root **old, struct rb_root *new)
+{
+	struct rb_root *tmp;
+	tmp = __sync_val_compare_and_swap(old, *old, new);
+	sleep(1); /* RCU-like grace period */
+	uftrace_cleanup_filter(tmp);
+	free(tmp);
+}
+
+/**
  * agent_init - initialize the agent
  * @addr - client socket
  * @return - socket file descriptor (-1 on error)
@@ -1839,12 +1856,13 @@ static int agent_read_option(int fd, int *opt, void **value, size_t read_size)
 
 /**
  * agent_apply_option - change libmcount parameters at runtime
- * @opt    - option to apply
- * @value  - value for the given option
- * @size   - size of @value
- * @return - 0 on success, -1 on failure
+ * @opt      - option to apply
+ * @value    - value for the given option
+ * @size     - size of @value
+ * @triggers - triggers rbtree
+ * @return   - 0 on success, -1 on failure
  */
-static int agent_apply_option(int opt, void *value, size_t size)
+static int agent_apply_option(int opt, void *value, size_t size, struct rb_root *triggers)
 {
 	int ret = 0;
 
@@ -1856,6 +1874,15 @@ static int agent_apply_option(int opt, void *value, size_t size)
 	return ret;
 }
 
+static bool triggers_needs_copy(int opt)
+{
+	bool ret;
+#define MATCHING_OPTIONS 0
+	ret = opt & MATCHING_OPTIONS;
+#undef MATCHING_OPTIONS
+	return ret;
+}
+
 /* Agent routine, applying instructions from the CLI. */
 void *agent_apply_commands(void *arg)
 {
@@ -1864,6 +1891,7 @@ void *agent_apply_commands(void *arg)
 	struct uftrace_msg msg;
 	struct sockaddr_un addr;
 	void *value = NULL;
+	struct rb_root *triggers_copy = NULL;
 	size_t size;
 
 	/* initialize agent */
@@ -1917,7 +1945,13 @@ void *agent_apply_commands(void *arg)
 					break;
 				}
 
-				status = agent_apply_option(opt, value, size);
+				/* deep copy mcount_triggers for each connection (if needed) */
+				if (triggers_needs_copy(opt) && !triggers_copy) {
+					triggers_copy = xmalloc(sizeof(*triggers_copy));
+					*triggers_copy =
+						uftrace_deep_copy_triggers(mcount_triggers);
+				}
+				status = agent_apply_option(opt, value, size, triggers_copy);
 				if (status == 0)
 					agent_message_send(cfd, UFTRACE_MSG_AGENT_OK, NULL, 0);
 				else
@@ -1939,6 +1973,11 @@ void *agent_apply_commands(void *arg)
 				close_connection = true;
 				pr_dbg3("agent message not recognized\n");
 			}
+		}
+
+		if (triggers_copy) {
+			swap_triggers(&mcount_triggers, triggers_copy);
+			triggers_copy = NULL;
 		}
 
 		if (close(cfd) == -1)
@@ -2294,6 +2333,9 @@ static void setup_mcount_test(void)
 	mcount_exename = read_exename();
 	pthread_key_create(&mtd_key, mtd_dtor);
 	mcount_global_flags = 0;
+
+	mcount_triggers = xmalloc(sizeof(*mcount_triggers));
+	*mcount_triggers = RB_ROOT;
 }
 
 #define SHMEM_SESSION_FMT "/uftrace-%s-%d-%03d"

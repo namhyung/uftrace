@@ -120,6 +120,7 @@ void uftrace_setup_loc_filter(char *filter_str, struct uftrace_sym_info *sinfo,
 			      struct rb_root *root, enum filter_mode *mode,
 			      struct uftrace_filter_setting *setting);
 
+struct rb_root uftrace_deep_copy_triggers(struct rb_root *src);
 struct uftrace_filter *uftrace_match_filter(uint64_t ip, struct rb_root *root,
 					    struct uftrace_trigger *tr);
 void uftrace_cleanup_filter(struct rb_root *root);
