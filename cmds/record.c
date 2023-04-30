@@ -2303,5 +2303,9 @@ int command_record(int argc, char *argv[], struct uftrace_opts *opts)
 		unlink(channel);
 		free(channel);
 	}
+
+	if (ret == UFTRACE_EXIT_SUCCESS && opts->report)
+		ret = command_report(argc, argv, opts);
+
 	return ret;
 }

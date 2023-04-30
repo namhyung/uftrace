@@ -426,6 +426,7 @@ int command_live(int argc, char *argv[], struct uftrace_opts *opts)
 		return forward_options(opts);
 
 	ret = command_record(argc, argv, opts);
+	pr_dbg("live-record finished.. \n");
 	if (!can_skip_replay(opts, ret)) {
 		int ret2;
 
@@ -433,16 +434,6 @@ int command_live(int argc, char *argv[], struct uftrace_opts *opts)
 
 		if (opts->use_pager)
 			start_pager(setup_pager());
-
-		pr_dbg("live-record finished.. \n");
-		if (opts->report) {
-			pr_out("#\n# uftrace report\n#\n");
-			ret2 = command_report(argc, argv, opts);
-			if (ret == UFTRACE_EXIT_SUCCESS)
-				ret = ret2;
-
-			pr_out("\n#\n# uftrace replay\n#\n");
-		}
 
 		pr_dbg("start live-replaying...\n");
 		ret2 = command_replay(argc, argv, opts);

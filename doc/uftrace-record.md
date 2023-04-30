@@ -222,6 +222,9 @@ RECORD CONFIG OPTIONS
 \--srcline
 :   Enable recording source line in the debug info.
 
+\--report
+:   Show report when the record is done.
+
 
 FILTERS
 =======

@@ -222,6 +222,9 @@ RECORD 설정 옵션
 \--srcline
 :   디버그 정보에 레코드한 소스 줄번호를 표시한다.
 
+\--report
+:   record 작업이 끝난 후에 report 결과를 출력한다.
+
 
 FILTERS
 =======
