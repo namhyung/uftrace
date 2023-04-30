@@ -2232,6 +2232,12 @@ int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
 		python_path = strjoin(python_path, "misc", ":"); /* FIXME */
 		setenv("PYTHONPATH", python_path, 1);
 		free(python_path);
+
+		/*
+		 * prevent from creating .pyc files inside __pycache__.
+		 * it makes some script execution failed.
+		 */
+		setenv("PYTHONDONTWRITEBYTECODE", "1", 1);
 	}
 
 	/*
