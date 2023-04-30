@@ -25,6 +25,7 @@ else:
 
 new_globals = globals()
 new_globals["__file__"] = pathname
+sys.path.insert(0, os.path.dirname(pathname))
 
 code = open(sys.argv[0]).read()
 sys.setprofile(uftrace_python.trace)
