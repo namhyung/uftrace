@@ -1,6 +1,5 @@
 import os
 import sys
-import uftrace_python
 
 sys.argv = sys.argv[1:len(sys.argv)]
 
@@ -22,6 +21,9 @@ else:
             break
         except OSError:
             continue
+
+# UFTRACE_PYMAIN must be set before importing uftrace_python
+import uftrace_python
 
 new_globals = globals()
 new_globals["__file__"] = pathname
