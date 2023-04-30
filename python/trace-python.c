@@ -596,6 +596,7 @@ static void init_uftrace(void)
 	}
 
 	if (getenv("UFTRACE_SRCLINE") || need_dbg_info) {
+		/* read UFTRACE_PYMAIN, which was set in uftrace.py. */
 		main_file = getenv("UFTRACE_PYMAIN");
 		need_dbg_info = true;
 	}
