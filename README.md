@@ -51,7 +51,7 @@ duration for analysis of program execution and performance.
 
  * Homepage: https://github.com/namhyung/uftrace
  * Tutorial: https://github.com/namhyung/uftrace/wiki/Tutorial
- * Chat: https://gitter.im/uftrace/uftrace
+ * Chat: https://discord.gg/MENMKaCWqD (Discord)
  * Mailing list: [uftrace@googlegroups.com](https://groups.google.com/forum/#!forum/uftrace)
  * Lightning talk: https://youtu.be/LNav5qvyK7I
 
