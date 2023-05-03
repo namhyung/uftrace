@@ -86,6 +86,7 @@ class TestBase:
     origdir = os.getcwd()
     basedir = os.path.dirname(origdir)
     objdir = 'objdir' in os.environ and os.environ['objdir'] or basedir
+    srcdir = 'srcdir' in os.environ and os.environ['srcdir'] or basedir
     uftrace_cmd = objdir + '/uftrace'
     default_opt = '--no-pager --no-event --libmcount-path=' + objdir
 
@@ -571,6 +572,8 @@ class TestBase:
         self.subcmd = 'live'
         self.option = ''
         self.exearg = 't-' + self.name
+        if self.lang == 'Python':
+            self.exearg = TestBase.srcdir + '/tests/' + 's-' + self.name + '.py'
 
         cmd = self.prepare()
         if cmd == '':
@@ -634,7 +637,7 @@ class TestBase:
         signal.alarm(0)
 
         try:
-            result_tested = self.sort(result_origin)  # for python3, mail fail!
+            result_tested = self.sort(result_origin)  # for python3, may fail!
             result_expect = self.sort(self.result)
         except IndexError:
             result_tested = result_origin
@@ -701,6 +704,10 @@ class TestBase:
         else:
             sp.call(['rm', '-rf', self.test_dir])
 
+class PyTestBase(TestBase):
+    def __init__(self, name, result, lang='Python', cflags='', ldflags='', sort='simple', serial=False):
+        TestBase.__init__(self, name, result, lang, cflags, ldflags, sort, serial)
+
 RED     = '\033[1;31m'
 GREEN   = '\033[1;32m'
 YELLOW  = '\033[1;33m'
@@ -751,6 +758,22 @@ def check_serial_case(case):
     return tc.serial
 
 
+def run_python_case(T, case, timeout):
+    tc = T.TestCase()
+    tc.set_debug(arg.debug)
+    tc.set_keep(arg.keep)
+
+    # to load uftrace.py and uftrace_python.so module
+    sys.path.append(TestBase.objdir + '/python')
+    sys.path.append(TestBase.srcdir + '/python')
+
+    ret = tc.prerun(timeout)
+    dif = ''
+    if ret == TestBase.TEST_SUCCESS:
+        ret, dif = tc.run(case, "", arg.diff, timeout)
+        ret = tc.postrun(ret)
+    return (ret, dif)
+
 def run_single_case(case, flags, opts, arg, compilers):
     result = []
     timeout = int(arg.timeout)
@@ -761,6 +784,11 @@ def run_single_case(case, flags, opts, arg, compilers):
     T = _locals['T']
 
     for compiler in compilers:
+        if compiler == 'python':
+            ret, dif = run_python_case(T, case, timeout)
+            result.append((ret, dif))
+            continue
+
         for flag in flags:
             for opt in opts:
                 tc = T.TestCase()
@@ -850,12 +878,25 @@ def print_test_header(opts, flags, ftests, compilers):
             header3 += ' ' + opts
         header1 += ' ' + compiler[:optslen*len(flags)+len(flags)-1] + empty[len(compiler):len(header3)-len(header1)-1]
 
+    print("")
     print(header1)
     print(header2)
     print(header3)
     ftests.write(header1 + '\n')
     ftests.write(header2 + '\n')
     ftests.write(header3 + '\n')
+    ftests.flush()
+
+
+def print_python_test_header(ftests):
+    header1 = '%-24s  %s' % ('Test case', 'Result')
+    header2 = '-' * 32
+
+    print("")
+    print(header1)
+    print(header2)
+    ftests.write(header1 + '\n')
+    ftests.write(header2 + '\n')
     ftests.flush()
 
 
@@ -908,6 +949,8 @@ def parse_argument():
                         help="keep the test directories with compiled binaries")
     parser.add_argument("-q", "--quiet", dest='quiet', action='store_true',
                         help="Hide normal results and print only abnormal results.")
+    parser.add_argument("-P", "--python", dest='python', action='store_true',
+                        help="Run python test cases instead")
 
     return parser.parse_args()
 
@@ -920,12 +963,18 @@ if __name__ == "__main__":
 
     testcases = []
     if arg.cases == 'all':
-        testcases = glob.glob('t???_*.py')
+        if arg.python:
+            testcases = glob.glob('p???_*.py')
+        else:
+            testcases = glob.glob('t???_*.py')
     else:
         try:
             cases = arg.cases.split('|')
             for case in cases:
-                testcases.extend(glob.glob('t*' + case + '*.py'))
+                if arg.python:
+                    testcases.extend(glob.glob('p*' + case + '*.py'))
+                else:
+                    testcases.extend(glob.glob('t*' + case + '*.py'))
             arg.worker = min(arg.worker, len(testcases))
         finally:
             if len(testcases) == 0:
@@ -967,7 +1016,9 @@ if __name__ == "__main__":
         return installed
 
     compilers = []
-    if arg.compiler == 'all':
+    if arg.python:
+        compilers.append('python')
+    elif arg.compiler == 'all':
         for compiler in ['gcc', 'clang']:
             if has_compiler(compiler):
                 compilers.append(compiler)
@@ -1018,7 +1069,11 @@ if __name__ == "__main__":
         print("Start %s tests with %d worker" % (shared.tests_count, arg.worker))
     else:
         print("Start %s tests without worker pool" % shared.tests_count)
-    print_test_header(opts, flags, ftests, compilers)
+
+    if arg.python:
+        print_python_test_header(ftests)
+    else:
+        print_test_header(opts, flags, ftests, compilers)
 
     color = True
     if arg.color == 'auto':
