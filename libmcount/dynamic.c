@@ -32,13 +32,8 @@
 #include "utils/utils.h"
 
 static struct mcount_dynamic_info *mdinfo;
-static struct mcount_dynamic_stats {
-	int total;
-	int failed;
-	int skipped;
-	int nomatch;
-	int unpatch;
-} stats;
+static struct mcount_dynamic_stats patch_stats, unpatch_stats;
+static int stats_nomatch;
 
 #define PAGE_SIZE 4096
 #define CODE_CHUNK (PAGE_SIZE * 8)
@@ -545,16 +540,31 @@ static void mcount_patch_func_with_stats(struct mcount_dynamic_info *mdi,
 {
 	switch (mcount_patch_func(mdi, sym, &disasm, min_size)) {
 	case INSTRUMENT_FAILED:
-		stats.failed++;
+		patch_stats.failed++;
 		break;
 	case INSTRUMENT_SKIPPED:
-		stats.skipped++;
+		patch_stats.skipped++;
 		break;
 	case INSTRUMENT_SUCCESS:
-	default:
+		patch_stats.success++;
 		break;
 	}
-	stats.total++;
+}
+
+static void mcount_unpatch_func_with_stats(struct mcount_dynamic_info *mdi,
+					   struct uftrace_symbol *sym)
+{
+	switch (mcount_unpatch_func(mdi, sym)) {
+	case INSTRUMENT_FAILED:
+		unpatch_stats.failed++;
+		break;
+	case INSTRUMENT_SKIPPED:
+		unpatch_stats.skipped++;
+		break;
+	case INSTRUMENT_SUCCESS:
+		unpatch_stats.success++;
+		break;
+	}
 }
 
 static void patch_patchable_func_matched(struct mcount_dynamic_info *mdi, struct uftrace_mmap *map)
@@ -621,11 +631,11 @@ static void patch_normal_func_matched(struct mcount_dynamic_info *mdi, struct uf
 		else if (match == 1)
 			mcount_patch_func_with_stats(mdi, sym);
 		else
-			mcount_unpatch_func(mdi, sym);
+			mcount_unpatch_func_with_stats(mdi, sym);
 	}
 
 	if (!found)
-		stats.nomatch++;
+		stats_nomatch++;
 
 	mcount_patch_normal_func_fini();
 	mcount_unpatch_normal_func_fini();
@@ -668,6 +678,9 @@ static int do_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 	def_mod = basename(sinfo->exec_map->libname);
 	parse_pattern_list(patch_funcs, def_mod, ptype);
 
+	memset(&patch_stats, 0, sizeof(patch_stats));
+	memset(&unpatch_stats, 0, sizeof(unpatch_stats));
+
 	/* TODO: filter out unsupported libs */
 	for (mdi = mdinfo; mdi != NULL; mdi = mdi->next) {
 		if (mdi->type == DYNAMIC_NONE && !mcount_dynamic_is_initialized) {
@@ -684,8 +697,15 @@ static int do_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 
 	release_pattern_list();
 
-	if (stats.failed + stats.skipped + stats.nomatch == 0) {
-		pr_dbg("patched all (%d) functions in '%s'\n", stats.total,
+	if (patch_stats.success && patch_stats.failed + patch_stats.skipped == 0) {
+		int patch_total = patch_stats.success + patch_stats.failed + patch_stats.skipped;
+		pr_dbg("patched all (%d) functions in '%s'\n", patch_total,
+		       basename(sinfo->filename));
+	}
+	if (unpatch_stats.success && unpatch_stats.failed + unpatch_stats.skipped == 0) {
+		int unpatch_total =
+			unpatch_stats.success + unpatch_stats.failed + unpatch_stats.skipped;
+		pr_dbg("unpatched all (%d) functions in '%s'\n", unpatch_total,
 		       basename(sinfo->filename));
 	}
 
@@ -721,20 +741,36 @@ int mcount_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 
 	ret = do_dynamic_update(sinfo, patch_funcs, ptype);
 
-	if (stats.total && (stats.failed || stats.skipped)) {
-		int success = stats.total - stats.failed - stats.skipped;
+	if (patch_stats.failed || patch_stats.skipped) {
+		int total = patch_stats.success + patch_stats.failed + patch_stats.skipped;
 		int r, q;
 
 		pr_dbg("dynamic patch stats for '%s'\n", basename(sinfo->filename));
-		pr_dbg("   total: %8d\n", stats.total);
-		q = calc_percent(success, stats.total, &r);
-		pr_dbg(" patched: %8d (%2d.%02d%%)\n", success, q, r);
-		q = calc_percent(stats.failed, stats.total, &r);
-		pr_dbg("  failed: %8d (%2d.%02d%%)\n", stats.failed, q, r);
-		q = calc_percent(stats.skipped, stats.total, &r);
-		pr_dbg(" skipped: %8d (%2d.%02d%%)\n", stats.skipped, q, r);
-		pr_dbg("no match: %8d\n", stats.nomatch);
+		pr_dbg("   total: %8d\n", total);
+		q = calc_percent(patch_stats.success, total, &r);
+		pr_dbg(" patched: %8d (%2d.%02d%%)\n", patch_stats.success, q, r);
+		q = calc_percent(patch_stats.failed, total, &r);
+		pr_dbg("  failed: %8d (%2d.%02d%%)\n", patch_stats.failed, q, r);
+		q = calc_percent(patch_stats.skipped, total, &r);
+		pr_dbg(" skipped: %8d (%2d.%02d%%)\n", patch_stats.skipped, q, r);
 	}
+
+	if (unpatch_stats.failed || unpatch_stats.skipped) {
+		int total = unpatch_stats.success + unpatch_stats.failed + unpatch_stats.skipped;
+		int r, q;
+
+		pr_dbg("dynamic unpatch stats for '%s'\n", basename(sinfo->filename));
+		pr_dbg("   total: %8d\n", total);
+		q = calc_percent(unpatch_stats.success, total, &r);
+		pr_dbg(" unpatched: %8d (%2d.%02d%%)\n", unpatch_stats.success, q, r);
+		q = calc_percent(unpatch_stats.failed, total, &r);
+		pr_dbg("  failed: %8d (%2d.%02d%%)\n", unpatch_stats.failed, q, r);
+		q = calc_percent(unpatch_stats.skipped, total, &r);
+		pr_dbg(" skipped: %8d (%2d.%02d%%)\n", unpatch_stats.skipped, q, r);
+	}
+
+	if (stats_nomatch)
+		pr_dbg("no match: %8d\n", stats_nomatch);
 
 	mcount_freeze_code();
 	return ret;
