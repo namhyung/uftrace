@@ -35,9 +35,13 @@ test: test_all
 test_all: unittest
 	$(QUIET_TEST)./unittest $(TESTARG) $(UNITTESTARG)
 	$(QUIET_TEST)./runtest.py $(WORKER) $(TESTARG) $(RUNTESTARG)
+	$(QUIET_TEST)./runtest.py -P $(WORKER) $(TESTARG) $(PYTESTARG)
 
 test_run:
 	$(QUIET_TEST)./runtest.py $(WORKER) $(TESTARG) $(RUNTESTARG)
+
+test_python:
+	$(QUIET_TEST)./runtest.py -P $(WORKER) $(TESTARG) $(PYTESTARG)
 
 test_unit: unittest
 	$(QUIET_TEST)./unittest $(TESTARG) $(UNITTESTARG)
@@ -54,4 +58,4 @@ clean:
 	$(call QUIET_CLEAN, test)
 	@rm -f *.o *.so *.pyc t-* unittest $(UNIT_TEST_OBJ)
 
-.PHONY: clean test test_run test_unit
+.PHONY: clean test test_run test_unit test_python

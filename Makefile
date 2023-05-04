@@ -419,6 +419,9 @@ unittest: all
 runtest: all
 	@$(MAKE) -C $(srcdir)/tests TESTARG="$(TESTARG)" RUNTESTARG="$(RUNTESTARG)" test_run
 
+pytest: all
+	@$(MAKE) -C $(srcdir)/tests TESTARG="$(TESTARG)" PYTESTARG="$(PYTESTARG)" test_python
+
 bench: all $(objdir)/misc/bench
 	@cd $(srcdir)/misc && echo && ./bench.sh $(BENCHARG)
 
