@@ -625,11 +625,20 @@ static void init_uftrace(void)
 static int uftrace_py_traverse(PyObject *m, visitproc visit, void *arg)
 {
 	struct uftrace_py_state *state;
+	struct rb_node *node;
+	struct uftrace_python_symbol *sym;
 
 	state = PyModule_GetState(m);
 
 	Py_VISIT(state->trace_func);
 
+	node = rb_first(&code_tree);
+	while (node) {
+		sym = rb_entry(node, struct uftrace_python_symbol, node);
+		Py_VISIT(sym->code);
+
+		node = rb_next(node);
+	}
 	return 0;
 }
 
@@ -637,11 +646,20 @@ static int uftrace_py_traverse(PyObject *m, visitproc visit, void *arg)
 static int uftrace_py_clear(PyObject *m)
 {
 	struct uftrace_py_state *state;
+	struct rb_node *node;
+	struct uftrace_python_symbol *sym;
 
 	state = PyModule_GetState(m);
 
 	Py_CLEAR(state->trace_func);
 
+	node = rb_first(&code_tree);
+	while (node) {
+		sym = rb_entry(node, struct uftrace_python_symbol, node);
+		Py_CLEAR(sym->code);
+
+		node = rb_next(node);
+	}
 	return 0;
 }
 
