@@ -833,7 +833,7 @@ static struct uftrace_python_symbol *convert_function_addr(PyObject *frame, PyOb
 
 	code = PyObject_GetAttrString(frame, "f_code");
 	if (code == NULL)
-		return 0;
+		return NULL;
 
 	if (!is_pyfunc) {
 		code = args;
@@ -862,7 +862,7 @@ static struct uftrace_python_symbol *convert_function_addr(PyObject *frame, PyOb
 		func_name = get_c_funcname(frame, code);
 
 	if (func_name == NULL)
-		return 0;
+		return NULL;
 
 	new_sym = xmalloc(sizeof(*new_sym));
 	new_sym->code = code;
@@ -921,6 +921,8 @@ static PyObject *uftrace_trace_python(PyObject *self, PyObject *args)
 
 	is_pyfunc = !strcmp(event, "call") || !strcmp(event, "return");
 	sym = convert_function_addr(frame, args_tuple, is_pyfunc);
+	if (sym == NULL)
+		Py_RETURN_NONE;
 
 	if (filter_state.mode != FILTER_MODE_NONE && apply_filters(event, sym, is_pyfunc))
 		Py_RETURN_NONE;
