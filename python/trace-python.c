@@ -757,7 +757,8 @@ static char *get_python_funcname(PyObject *frame, PyObject *code, bool *is_main)
 {
 	PyObject *name, *global;
 	char *func_name = NULL;
-	bool main = false;
+
+	*is_main = false;
 
 	if (PyObject_HasAttrString(code, "co_qualname"))
 		name = PyObject_GetAttrString(code, "co_qualname");
@@ -776,13 +777,12 @@ static char *get_python_funcname(PyObject *frame, PyObject *code, bool *is_main)
 
 			/* skip __main__. prefix for functions in the main module */
 			if (!strcmp(mod_str, "__main__"))
-				main = true;
-			if (!main || !strcmp(name_str, "<module>"))
+				*is_main = true;
+			if (!*is_main || !strcmp(name_str, "<module>"))
 				xasprintf(&func_name, "%s.%s", mod_str, name_str);
 		}
 		Py_DECREF(global);
 	}
-	*is_main = main;
 
 	if (func_name == NULL && name)
 		func_name = strdup(get_c_string(name));
