@@ -831,11 +831,12 @@ static struct uftrace_python_symbol *convert_function_addr(PyObject *frame, PyOb
 	char *func_name;
 	bool is_main = false;
 
-	code = PyObject_GetAttrString(frame, "f_code");
-	if (code == NULL)
-		return NULL;
-
-	if (!is_pyfunc) {
+	if (is_pyfunc) {
+		code = PyObject_GetAttrString(frame, "f_code");
+		if (code == NULL)
+			return NULL;
+	}
+	else {
 		code = args;
 		Py_INCREF(code);
 	}
