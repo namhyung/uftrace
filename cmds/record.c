@@ -2229,7 +2229,7 @@ int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
 #ifdef INSTALL_LIB_PATH
 		python_path = strjoin(python_path, INSTALL_LIB_PATH, ":");
 #endif
-		python_path = strjoin(python_path, "misc", ":"); /* FIXME */
+		python_path = strjoin(python_path, "python", ":"); /* FIXME */
 		setenv("PYTHONPATH", python_path, 1);
 		free(python_path);
 
