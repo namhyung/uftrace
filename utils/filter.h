@@ -146,6 +146,7 @@ struct mcount_triggers_info uftrace_deep_copy_triggers(struct mcount_triggers_in
 struct uftrace_filter *uftrace_match_filter(uint64_t ip, struct rb_root *root,
 					    struct uftrace_trigger *tr);
 void uftrace_cleanup_filter(struct rb_root *root);
+void uftrace_cleanup_triggers(struct mcount_triggers_info *triggers);
 void uftrace_print_filter(struct rb_root *root);
 int uftrace_count_filter(struct rb_root *root, unsigned long flag);
 

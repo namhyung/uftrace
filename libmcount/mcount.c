@@ -460,7 +460,7 @@ static void mcount_filter_release(struct mcount_thread_data *mtdp)
 
 static void mcount_filter_finish(void)
 {
-	uftrace_cleanup_filter(&mcount_triggers->root);
+	uftrace_cleanup_triggers(mcount_triggers);
 	free(mcount_triggers);
 	finish_auto_args();
 
@@ -1810,7 +1810,7 @@ static void swap_triggers(struct mcount_triggers_info **old, struct mcount_trigg
 	struct mcount_triggers_info *tmp;
 	tmp = __sync_val_compare_and_swap(old, *old, new);
 	sleep(1); /* RCU-like grace period */
-	uftrace_cleanup_filter(&tmp->root);
+	uftrace_cleanup_triggers(tmp);
 	free(tmp);
 }
 

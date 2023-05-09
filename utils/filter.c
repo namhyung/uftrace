@@ -1252,6 +1252,18 @@ void uftrace_cleanup_filter(struct rb_root *root)
 }
 
 /**
+ * uftrace_cleanup_triggers - delete filters and reset counters
+ * @triggers - triggers info
+ */
+void uftrace_cleanup_triggers(struct mcount_triggers_info *triggers)
+{
+	uftrace_cleanup_filter(&triggers->root);
+	triggers->filter_count = 0;
+	triggers->caller_count = 0;
+	triggers->loc_count = 0;
+}
+
+/**
  * uftrace_print_filter - print all filters in rbtree
  * @root - root of the filter rbtree
  */
@@ -1375,7 +1387,7 @@ TEST_CASE(filter_setup_simple)
 	TEST_EQ(filter->start, 0x6000UL);
 	TEST_EQ(filter->end, 0x6000UL + 0x1000UL);
 
-	uftrace_cleanup_filter(&triggers.root);
+	uftrace_cleanup_triggers(&triggers);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), true);
 
 	pr_dbg("checking unknown symbol\n");
@@ -1430,7 +1442,7 @@ TEST_CASE(filter_setup_regex)
 	TEST_EQ(filter->end, 0x5000UL + 0x1000UL);
 
 	pr_dbg("found 4 symbols. done\n");
-	uftrace_cleanup_filter(&triggers.root);
+	uftrace_cleanup_triggers(&triggers);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), true);
 
 	return TEST_OK;
@@ -1481,7 +1493,7 @@ TEST_CASE(filter_setup_glob)
 	TEST_EQ(filter->end, 0x5000UL + 0x1000UL);
 
 	pr_dbg("found 4 symbols. done\n");
-	uftrace_cleanup_filter(&triggers.root);
+	uftrace_cleanup_triggers(&triggers);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), true);
 
 	return TEST_OK;
@@ -1529,7 +1541,7 @@ TEST_CASE(filter_setup_notrace)
 	TEST_EQ(filter->trigger.flags, TRIGGER_FL_FILTER);
 	TEST_EQ(filter->trigger.fmode, FILTER_MODE_IN);
 
-	uftrace_cleanup_filter(&triggers.root);
+	uftrace_cleanup_triggers(&triggers);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), true);
 
 	return TEST_OK;
@@ -1576,7 +1588,7 @@ TEST_CASE(filter_match)
 	TEST_EQ(uftrace_match_filter(0x2000, &triggers.root, &tr), NULL);
 	TEST_NE(tr.flags, TRIGGER_FL_FILTER);
 
-	uftrace_cleanup_filter(&triggers.root);
+	uftrace_cleanup_triggers(&triggers);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), true);
 
 	return TEST_OK;
@@ -1632,7 +1644,7 @@ TEST_CASE(trigger_setup_actions)
 	TEST_NE(uftrace_match_filter(0x4200, &triggers.root, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_CALLER);
 
-	uftrace_cleanup_filter(&triggers.root);
+	uftrace_cleanup_triggers(&triggers);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), true);
 
 	return TEST_OK;
@@ -1689,7 +1701,7 @@ TEST_CASE(trigger_setup_filters)
 	TEST_NE(uftrace_match_filter(0x5000, &triggers.root, &tr), NULL);
 	TEST_EQ(tr.flags, TRIGGER_FL_CALLER);
 
-	uftrace_cleanup_filter(&triggers.root);
+	uftrace_cleanup_triggers(&triggers);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), true);
 
 	return TEST_OK;
@@ -1897,7 +1909,7 @@ TEST_CASE(trigger_setup_args)
 	}
 	TEST_EQ(count, 4);
 
-	uftrace_cleanup_filter(&triggers.root);
+	uftrace_cleanup_triggers(&triggers);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), true);
 
 	return TEST_OK;
@@ -2026,7 +2038,7 @@ TEST_CASE(locfilter_setup_simple)
 	TEST_EQ(filter->start, 0x2000UL);
 	TEST_EQ(filter->end, 0x2000UL + 0x1000UL);
 
-	uftrace_cleanup_filter(&triggers.root);
+	uftrace_cleanup_triggers(&triggers);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), true);
 
 	pr_dbg("checking base name match\n");
@@ -2038,7 +2050,7 @@ TEST_CASE(locfilter_setup_simple)
 	TEST_STREQ(filter->name, "command_dump");
 	TEST_EQ(filter->start, 0x1000UL);
 	TEST_EQ(filter->end, 0x1000UL + 0x1000UL);
-	uftrace_cleanup_filter(&triggers.root);
+	uftrace_cleanup_triggers(&triggers);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), true);
 
 	pr_dbg("checking unknown symbol\n");
@@ -2089,7 +2101,7 @@ TEST_CASE(locfilter_setup_regex)
 	TEST_EQ(rb_next(node), NULL);
 
 	pr_dbg("found 3 symbols. done\n");
-	uftrace_cleanup_filter(&triggers.root);
+	uftrace_cleanup_triggers(&triggers);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), true);
 
 	return TEST_OK;
@@ -2136,7 +2148,7 @@ TEST_CASE(locfilter_setup_glob)
 	TEST_EQ(rb_next(node), NULL);
 
 	pr_dbg("found 3 symbols. done\n");
-	uftrace_cleanup_filter(&triggers.root);
+	uftrace_cleanup_triggers(&triggers);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), true);
 
 	return TEST_OK;
@@ -2184,7 +2196,7 @@ TEST_CASE(locfilter_setup_dir_simple)
 	TEST_EQ(rb_next(node), NULL);
 
 	pr_dbg("found 3 symbols. done\n");
-	uftrace_cleanup_filter(&triggers.root);
+	uftrace_cleanup_triggers(&triggers);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), true);
 
 	pr_dbg("try to match directory with pattern: /cmds\n");
@@ -2202,7 +2214,7 @@ TEST_CASE(locfilter_setup_dir_simple)
 	TEST_EQ(node = rb_next(node), NULL);
 
 	pr_dbg("found 3 symbols. done\n");
-	uftrace_cleanup_filter(&triggers.root);
+	uftrace_cleanup_triggers(&triggers);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), true);
 
 	pr_dbg("try to match directory with pattern: cmds/\n");
@@ -2220,7 +2232,7 @@ TEST_CASE(locfilter_setup_dir_simple)
 	TEST_EQ(node = rb_next(node), NULL);
 
 	pr_dbg("found 3 symbols. done\n");
-	uftrace_cleanup_filter(&triggers.root);
+	uftrace_cleanup_triggers(&triggers);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), true);
 
 	pr_dbg("try to match directory with pattern: /uftrace/cmds/\n");
@@ -2238,7 +2250,7 @@ TEST_CASE(locfilter_setup_dir_simple)
 	TEST_EQ(node = rb_next(node), NULL);
 
 	pr_dbg("found 3 symbols. done\n");
-	uftrace_cleanup_filter(&triggers.root);
+	uftrace_cleanup_triggers(&triggers);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), true);
 
 	pr_dbg("try to match directory with pattern: uftrace/cmds/\n");
@@ -2256,7 +2268,7 @@ TEST_CASE(locfilter_setup_dir_simple)
 	TEST_EQ(node = rb_next(node), NULL);
 
 	pr_dbg("found 3 symbols. done\n");
-	uftrace_cleanup_filter(&triggers.root);
+	uftrace_cleanup_triggers(&triggers);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), true);
 
 	pr_dbg("try to match directory with pattern: /uftrace\n");
@@ -2300,7 +2312,7 @@ TEST_CASE(locfilter_setup_dir_simple)
 	TEST_EQ(filter->end, 0xb000UL + 0x1000UL);
 
 	pr_dbg("found 6 symbols. done\n");
-	uftrace_cleanup_filter(&triggers.root);
+	uftrace_cleanup_triggers(&triggers);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), true);
 
 	pr_dbg("checking invalid directory match\n");
@@ -2351,7 +2363,7 @@ TEST_CASE(locfilter_setup_dir_regex)
 	TEST_EQ(rb_next(node), NULL);
 
 	pr_dbg("found 3 symbols. done\n");
-	uftrace_cleanup_filter(&triggers.root);
+	uftrace_cleanup_triggers(&triggers);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), true);
 
 	pr_dbg("checking invalid directory match\n");
@@ -2402,7 +2414,7 @@ TEST_CASE(locfilter_setup_dir_glob)
 	TEST_EQ(rb_next(node), NULL);
 
 	pr_dbg("found 3 symbols. done\n");
-	uftrace_cleanup_filter(&triggers.root);
+	uftrace_cleanup_triggers(&triggers);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), true);
 
 	return TEST_OK;
@@ -2449,7 +2461,7 @@ TEST_CASE(locfilter_match)
 	TEST_EQ(uftrace_match_filter(0xa000, &triggers.root, &tr), NULL);
 	TEST_NE(tr.flags, TRIGGER_FL_FILTER);
 
-	uftrace_cleanup_filter(&triggers.root);
+	uftrace_cleanup_triggers(&triggers);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), true);
 
 	return TEST_OK;
