@@ -625,11 +625,20 @@ static void init_uftrace(void)
 static int uftrace_py_traverse(PyObject *m, visitproc visit, void *arg)
 {
 	struct uftrace_py_state *state;
+	struct rb_node *node;
+	struct uftrace_python_symbol *sym;
 
 	state = PyModule_GetState(m);
 
 	Py_VISIT(state->trace_func);
 
+	node = rb_first(&code_tree);
+	while (node) {
+		sym = rb_entry(node, struct uftrace_python_symbol, node);
+		Py_VISIT(sym->code);
+
+		node = rb_next(node);
+	}
 	return 0;
 }
 
@@ -637,11 +646,20 @@ static int uftrace_py_traverse(PyObject *m, visitproc visit, void *arg)
 static int uftrace_py_clear(PyObject *m)
 {
 	struct uftrace_py_state *state;
+	struct rb_node *node;
+	struct uftrace_python_symbol *sym;
 
 	state = PyModule_GetState(m);
 
 	Py_CLEAR(state->trace_func);
 
+	node = rb_first(&code_tree);
+	while (node) {
+		sym = rb_entry(node, struct uftrace_python_symbol, node);
+		Py_CLEAR(sym->code);
+
+		node = rb_next(node);
+	}
 	return 0;
 }
 
@@ -757,7 +775,8 @@ static char *get_python_funcname(PyObject *frame, PyObject *code, bool *is_main)
 {
 	PyObject *name, *global;
 	char *func_name = NULL;
-	bool main = false;
+
+	*is_main = false;
 
 	if (PyObject_HasAttrString(code, "co_qualname"))
 		name = PyObject_GetAttrString(code, "co_qualname");
@@ -776,13 +795,12 @@ static char *get_python_funcname(PyObject *frame, PyObject *code, bool *is_main)
 
 			/* skip __main__. prefix for functions in the main module */
 			if (!strcmp(mod_str, "__main__"))
-				main = true;
-			if (!main || !strcmp(name_str, "<module>"))
+				*is_main = true;
+			if (!*is_main || !strcmp(name_str, "<module>"))
 				xasprintf(&func_name, "%s.%s", mod_str, name_str);
 		}
 		Py_DECREF(global);
 	}
-	*is_main = main;
 
 	if (func_name == NULL && name)
 		func_name = strdup(get_c_string(name));
@@ -831,11 +849,12 @@ static struct uftrace_python_symbol *convert_function_addr(PyObject *frame, PyOb
 	char *func_name;
 	bool is_main = false;
 
-	code = PyObject_GetAttrString(frame, "f_code");
-	if (code == NULL)
-		return 0;
-
-	if (!is_pyfunc) {
+	if (is_pyfunc) {
+		code = PyObject_GetAttrString(frame, "f_code");
+		if (code == NULL)
+			return NULL;
+	}
+	else {
 		code = args;
 		Py_INCREF(code);
 	}
@@ -862,7 +881,7 @@ static struct uftrace_python_symbol *convert_function_addr(PyObject *frame, PyOb
 		func_name = get_c_funcname(frame, code);
 
 	if (func_name == NULL)
-		return 0;
+		return NULL;
 
 	new_sym = xmalloc(sizeof(*new_sym));
 	new_sym->code = code;
@@ -921,6 +940,8 @@ static PyObject *uftrace_trace_python(PyObject *self, PyObject *args)
 
 	is_pyfunc = !strcmp(event, "call") || !strcmp(event, "return");
 	sym = convert_function_addr(frame, args_tuple, is_pyfunc);
+	if (sym == NULL)
+		Py_RETURN_NONE;
 
 	if (filter_state.mode != FILTER_MODE_NONE && apply_filters(event, sym, is_pyfunc))
 		Py_RETURN_NONE;
