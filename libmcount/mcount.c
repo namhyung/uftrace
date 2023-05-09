@@ -451,7 +451,8 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, bool force)
 
 static void mcount_filter_setup(struct mcount_thread_data *mtdp)
 {
-	mtdp->filter.depth = mcount_depth;
+	mtdp->filter.max_depth = FILTER_NO_MAX_DEPTH;
+	mtdp->filter.depth = 0;
 	mtdp->filter.time = mcount_threshold;
 	mtdp->filter.size = mcount_min_size;
 	mtdp->enable_cached = mcount_enabled;
@@ -851,6 +852,7 @@ static void mcount_save_filter(struct mcount_thread_data *mtdp)
 {
 	/* save original depth and time to restore at exit time */
 	mtdp->filter.saved_depth = mtdp->filter.depth;
+	mtdp->filter.saved_max_depth = mtdp->filter.max_depth;
 	mtdp->filter.saved_time = mtdp->filter.time;
 	mtdp->filter.saved_size = mtdp->filter.size;
 }
@@ -859,8 +861,12 @@ static void mcount_save_filter(struct mcount_thread_data *mtdp)
 enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, unsigned long child,
 					     struct uftrace_trigger *tr)
 {
-	pr_dbg3("<%d> enter %lx\n", mtdp->idx, child);
+	int max_depth = mtdp->filter.max_depth;
 
+	if (max_depth == FILTER_NO_MAX_DEPTH)
+		max_depth = mcount_depth;
+
+	pr_dbg3("<%d> enter %lx\n", mtdp->idx, child);
 	if (mcount_check_rstack(mtdp))
 		return FILTER_RSTACK;
 
@@ -882,7 +888,7 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 			mtdp->filter.out_count++;
 
 		/* apply default filter depth when match */
-		mtdp->filter.depth = mcount_depth;
+		mtdp->filter.depth = 0;
 	}
 	else {
 		/* not matched by filter */
@@ -902,14 +908,13 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 #define FLAGS_TO_CHECK                                                                             \
 	(TRIGGER_FL_DEPTH | TRIGGER_FL_TRACE_ON | TRIGGER_FL_TRACE_OFF | TRIGGER_FL_TIME_FILTER |  \
 	 TRIGGER_FL_SIZE_FILTER)
-
 	if (tr->flags & FLAGS_TO_CHECK) {
-		if (tr->flags & TRIGGER_FL_DEPTH)
-			mtdp->filter.depth = tr->depth;
-
+		if (tr->flags & TRIGGER_FL_DEPTH) {
+			mtdp->filter.depth = 0;
+			mtdp->filter.max_depth = max_depth = tr->depth;
+		}
 		if (tr->flags & TRIGGER_FL_TRACE_ON)
 			mcount_enabled = true;
-
 		if (tr->flags & TRIGGER_FL_TRACE_OFF)
 			mcount_enabled = false;
 
@@ -922,10 +927,10 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 
 #undef FLAGS_TO_CHECK
 
-	if (mtdp->filter.depth == 0)
+	if (mtdp->filter.depth >= max_depth)
 		return FILTER_OUT;
 
-	mtdp->filter.depth--;
+	mtdp->filter.depth++;
 	return FILTER_IN;
 }
 
@@ -1010,6 +1015,7 @@ skip:
 static void filter_save_to_rstack(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack)
 {
 	rstack->filter_depth = mtdp->filter.saved_depth;
+	rstack->filter_max_depth = mtdp->filter.saved_max_depth;
 	rstack->filter_time = mtdp->filter.saved_time;
 	rstack->filter_size = mtdp->filter.saved_size;
 }
@@ -1127,6 +1133,7 @@ static void filter_restore_from_rstack(struct mcount_thread_data *mtdp,
 				       struct mcount_ret_stack *rstack)
 {
 	mtdp->filter.depth = rstack->filter_depth;
+	mtdp->filter.max_depth = rstack->filter_max_depth;
 	mtdp->filter.time = rstack->filter_time;
 	mtdp->filter.size = rstack->filter_size;
 }

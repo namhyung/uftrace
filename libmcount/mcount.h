@@ -55,6 +55,7 @@ struct mcount_ret_stack {
 	unsigned filter_size;
 	unsigned short depth;
 	unsigned short filter_depth;
+	unsigned short filter_max_depth;
 	unsigned short nr_events;
 	unsigned short event_idx;
 	struct plthook_data *pd;
