@@ -1608,7 +1608,8 @@ again:
 		pr_err("Cannot read '%s'", opts->exename);
 
 	if (memcmp(elf_ident, ELFMAG, SELFMAG)) {
-		char *script = check_script_file(opts->exename);
+		// for issue 1690 unable to identify shebang when it has initial spaces
+		char *script = str_trim(check_script_file(opts->exename));
 		char *p;
 
 		if (script == NULL)

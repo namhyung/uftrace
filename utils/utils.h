@@ -327,6 +327,31 @@ static inline char *has_kernel_filter(char *buf)
 	return NULL;
 }
 
+// this code is copy from event-utils.h
+static inline char *str_trim(char *string)
+{
+	char *ret;
+
+	if (!string)
+		return NULL;
+	while (*string) {
+		if (!isspace(*string))
+			break;
+		string++;
+	}
+	ret = string;
+
+	string = ret + strlen(ret) - 1;
+	while (string > ret) {
+		if (!isspace(*string))
+			break;
+		string--;
+	}
+	string[1] = 0;
+
+	return ret;
+}
+
 struct uftrace_time_range {
 	uint64_t first;
 	uint64_t start;
