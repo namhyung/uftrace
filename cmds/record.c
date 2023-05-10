@@ -1608,7 +1608,7 @@ again:
 		pr_err("Cannot read '%s'", opts->exename);
 
 	if (memcmp(elf_ident, ELFMAG, SELFMAG)) {
-		char *script = check_script_file(opts->exename);
+		char *script = str_ltrim(check_script_file(opts->exename));
 		char *p;
 
 		if (script == NULL)
