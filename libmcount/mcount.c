@@ -52,6 +52,9 @@ bool mcount_auto_recover = ARCH_SUPPORT_AUTO_RECOVER;
 /* global flag to control mcount behavior */
 unsigned long mcount_global_flags = MCOUNT_GFL_SETUP;
 
+/* global to indicate if the target is executing */
+bool mcount_target_running = false;
+
 /* TSD key to save mtd below */
 pthread_key_t mtd_key = (pthread_key_t)-1;
 
@@ -75,6 +78,13 @@ int page_size_in_kb;
 
 /* call depth to filter */
 static int __maybe_unused mcount_depth = MCOUNT_DEFAULT_DEPTH;
+
+/* setting for all filter actions */
+static struct uftrace_filter_setting mcount_filter_setting = {
+	.ptype = PATT_REGEX,
+	.auto_args = false,
+	.allow_kernel = false,
+};
 
 /* boolean flag to turn on/off recording */
 static bool __maybe_unused mcount_enabled = true;
@@ -106,7 +116,7 @@ static pthread_t agent;
 /* state flag for the agent */
 static volatile bool agent_run = false;
 
-#define MCOUNT_AGENT_CAPABILITIES 0
+#define MCOUNT_AGENT_CAPABILITIES (UFTRACE_AGENT_OPT_PATTERN | UFTRACE_AGENT_OPT_PATCH)
 
 __weak void dynamic_return(void)
 {
@@ -114,7 +124,7 @@ __weak void dynamic_return(void)
 
 #ifdef DISABLE_MCOUNT_FILTER
 
-static void mcount_filter_init(enum uftrace_pattern_type ptype, bool force)
+static void mcount_filter_init(struct uftrace_filter_setting *filter_setting, bool force)
 {
 	if (getenv("UFTRACE_SRCLINE") == NULL)
 		return;
@@ -122,7 +132,7 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, bool force)
 	load_module_symtabs(&mcount_sym_info);
 
 	/* use debug info if available */
-	prepare_debug_info(&mcount_sym_info, ptype, NULL, NULL, false, force);
+	prepare_debug_info(&mcount_sym_info, filter_setting->ptype, NULL, NULL, false, force);
 	save_debug_info(&mcount_sym_info, mcount_sym_info.dirname);
 }
 
@@ -366,7 +376,7 @@ static void mcount_signal_finish(void)
 	}
 }
 
-static void mcount_filter_init(enum uftrace_pattern_type ptype, bool force)
+static void mcount_filter_init(struct uftrace_filter_setting *filter_setting, bool force)
 {
 	char *filter_str = getenv("UFTRACE_FILTER");
 	char *trigger_str = getenv("UFTRACE_TRIGGER");
@@ -376,23 +386,19 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, bool force)
 	char *caller_str = getenv("UFTRACE_CALLER");
 	char *loc_str = getenv("UFTRACE_LOCATION");
 
-	struct uftrace_filter_setting filter_setting = {
-		.ptype = ptype,
-		.auto_args = false,
-		.allow_kernel = false,
-		.lp64 = host_is_lp64(),
-		.arch = host_cpu_arch(),
-	};
+	filter_setting->lp64 = host_is_lp64();
+	filter_setting->arch = host_cpu_arch();
+
 	bool needs_debug_info = false;
 
 	load_module_symtabs(&mcount_sym_info);
 
-	mcount_signal_init(getenv("UFTRACE_SIGNAL"), &filter_setting);
+	mcount_signal_init(getenv("UFTRACE_SIGNAL"), filter_setting);
 
 	/* setup auto-args only if argument/return value is used */
 	if (argument_str || retval_str || autoargs_str ||
 	    (trigger_str && (strstr(trigger_str, "arg") || strstr(trigger_str, "retval")))) {
-		setup_auto_args(&filter_setting);
+		setup_auto_args(filter_setting);
 		needs_debug_info = true;
 	}
 
@@ -401,28 +407,28 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, bool force)
 
 	/* use debug info if available */
 	if (needs_debug_info) {
-		prepare_debug_info(&mcount_sym_info, ptype, argument_str, retval_str,
-				   !!autoargs_str, force);
+		prepare_debug_info(&mcount_sym_info, filter_setting->ptype, argument_str,
+				   retval_str, !!autoargs_str, force);
 		save_debug_info(&mcount_sym_info, mcount_sym_info.dirname);
 	}
 
 	mcount_triggers = xmalloc(sizeof(*mcount_triggers));
 	*mcount_triggers = RB_ROOT;
 	uftrace_setup_filter(filter_str, &mcount_sym_info, mcount_triggers, &mcount_filter_mode,
-			     &filter_setting);
+			     filter_setting);
 	uftrace_setup_trigger(trigger_str, &mcount_sym_info, mcount_triggers, &mcount_filter_mode,
-			      &filter_setting);
-	uftrace_setup_argument(argument_str, &mcount_sym_info, mcount_triggers, &filter_setting);
-	uftrace_setup_retval(retval_str, &mcount_sym_info, mcount_triggers, &filter_setting);
+			      filter_setting);
+	uftrace_setup_argument(argument_str, &mcount_sym_info, mcount_triggers, filter_setting);
+	uftrace_setup_retval(retval_str, &mcount_sym_info, mcount_triggers, filter_setting);
 
 	if (needs_debug_info) {
 		uftrace_setup_loc_filter(loc_str, &mcount_sym_info, mcount_triggers,
-					 &mcount_loc_mode, &filter_setting);
+					 &mcount_loc_mode, filter_setting);
 	}
 
 	if (caller_str) {
 		uftrace_setup_caller_filter(caller_str, &mcount_sym_info, mcount_triggers,
-					    &filter_setting);
+					    filter_setting);
 	}
 
 	/* there might be caller triggers, count it separately */
@@ -433,13 +439,13 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, bool force)
 		char *autoarg = ".";
 		char *autoret = ".";
 
-		if (ptype == PATT_GLOB)
+		if (filter_setting->ptype == PATT_GLOB)
 			autoarg = autoret = "*";
 
-		filter_setting.auto_args = true;
+		filter_setting->auto_args = true;
 
-		uftrace_setup_argument(autoarg, &mcount_sym_info, mcount_triggers, &filter_setting);
-		uftrace_setup_retval(autoret, &mcount_sym_info, mcount_triggers, &filter_setting);
+		uftrace_setup_argument(autoarg, &mcount_sym_info, mcount_triggers, filter_setting);
+		uftrace_setup_retval(autoret, &mcount_sym_info, mcount_triggers, filter_setting);
 	}
 
 	if (getenv("UFTRACE_DEPTH"))
@@ -1864,9 +1870,23 @@ static int agent_read_option(int fd, int *opt, void **value, size_t read_size)
  */
 static int agent_apply_option(int opt, void *value, size_t size, struct rb_root *triggers)
 {
+	enum uftrace_pattern_type patt_type;
 	int ret = 0;
 
 	switch (opt) {
+	case UFTRACE_AGENT_OPT_PATTERN:
+		patt_type = *((int *)value);
+		if (patt_type != mcount_filter_setting.ptype) {
+			mcount_filter_setting.ptype = patt_type;
+			pr_dbg4("use pattern type %#x\n", patt_type);
+		}
+		break;
+
+	case UFTRACE_AGENT_OPT_PATCH:
+		pr_dbg4("apply patch '%s' (size=%d)\n", value, size);
+		mcount_dynamic_update(&mcount_sym_info, value, mcount_filter_setting.ptype);
+		break;
+
 	default:
 		ret = -1;
 	}
@@ -2060,7 +2080,6 @@ static __used void mcount_startup(void)
 	char *symdir_str;
 	struct stat statbuf;
 	bool nest_libcall;
-	enum uftrace_pattern_type patt_type = PATT_REGEX;
 
 	if (!(mcount_global_flags & MCOUNT_GFL_SETUP))
 		return;
@@ -2161,14 +2180,14 @@ static __used void mcount_startup(void)
 	record_proc_maps(dirname, mcount_session_name(), &mcount_sym_info);
 
 	if (pattern_str)
-		patt_type = parse_filter_pattern(pattern_str);
+		mcount_filter_setting.ptype = parse_filter_pattern(pattern_str);
 
 	if (patch_str)
 		mcount_return_fn = (unsigned long)dynamic_return;
 	else
 		mcount_return_fn = (unsigned long)mcount_return;
 
-	mcount_filter_init(patt_type, !!patch_str);
+	mcount_filter_init(&mcount_filter_setting, !!patch_str);
 	mcount_watch_init();
 
 	if (maxstack_str)
@@ -2181,10 +2200,10 @@ static __used void mcount_startup(void)
 		mcount_min_size = strtoul(minsize_str, NULL, 0);
 
 	if (patch_str)
-		mcount_dynamic_update(&mcount_sym_info, patch_str, patt_type);
+		mcount_dynamic_update(&mcount_sym_info, patch_str, mcount_filter_setting.ptype);
 
 	if (event_str)
-		mcount_setup_events(dirname, event_str, patt_type);
+		mcount_setup_events(dirname, event_str, mcount_filter_setting.ptype);
 
 	if (getenv("UFTRACE_KERNEL_PID_UPDATE"))
 		kernel_pid_update = true;
@@ -2209,13 +2228,14 @@ static __used void mcount_startup(void)
 
 	/* initialize script binding */
 	if (SCRIPT_ENABLED && script_str)
-		mcount_script_init(patt_type);
+		mcount_script_init(mcount_filter_setting.ptype);
 
 	compiler_barrier();
 	pr_dbg("mcount setup done\n");
 
 	mcount_global_flags &= ~MCOUNT_GFL_SETUP;
 	mtd.recursion_marker = false;
+	mcount_target_running = true;
 }
 
 static void mcount_cleanup(void)

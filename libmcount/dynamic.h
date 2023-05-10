@@ -68,6 +68,12 @@ struct mcount_disasm_engine {
 #define INSTRUMENT_FAILED -1
 #define INSTRUMENT_SKIPPED -2
 
+struct mcount_dynamic_stats {
+	int success;
+	int failed;
+	int skipped;
+};
+
 /*
  * Supposing the size of smallest conditional branch is 2 byte.
  * We can replace, at most, 3 of them by the instrumentation

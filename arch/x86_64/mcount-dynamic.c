@@ -1,6 +1,14 @@
+#include <errno.h>
+#include <semaphore.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
+
+#if HAVE_MEMBARRIER
+#include <linux/membarrier.h>
+#else
+#include <cpuid.h>
+#endif
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "dynamic"
@@ -9,6 +17,7 @@
 #include "libmcount/dynamic.h"
 #include "libmcount/internal.h"
 #include "mcount-arch.h"
+#include "utils/hashmap.h"
 #include "utils/symbol.h"
 #include "utils/utils.h"
 
@@ -18,6 +27,429 @@ static const unsigned char patchable_gcc_nop[] = { 0x90, 0x90, 0x90, 0x90, 0x90 
 static const unsigned char patchable_clang_nop[] = { 0x0f, 0x1f, 0x44, 0x00, 0x08 };
 
 static const unsigned char endbr64[] = { 0xf3, 0x0f, 0x1e, 0xfa };
+
+extern bool mcount_target_running;
+
+/*
+ * Hashmap of trampoline locations for every installed int3 trap. The traps are
+ * used when patching and unpatching functions: they prevent threads from
+ * entering the critical zone. When a trap is reached, the trap handler fetches
+ * the trampoline location from the hmap, and emulates a call to the trampoline,
+ * to mimic regular instrumentation.
+ *
+ * (void *int3_location -> void *trampoline)
+ */
+static struct Hashmap *int3_hmap;
+
+/* Hashmap of the addresses of instructions that are in patching zones and need
+ * to be executed out of line. The addresses are mapped to their out of line
+ * equivalent.
+ *
+ * (void *critical_insn -> void *out_of_line_insn)
+ */
+static struct Hashmap *patch_region_hmap;
+
+/* Realtime signal number to instruct running threads to move out of patching
+   regions */
+static int sig_clear_patch_region;
+
+/* counter for the threads that are guaranteed to be out of registered patching
+   regions when a signal is issued */
+static sem_t sem_clear_patch_region;
+
+/**
+ * register_trap - save trampoline associated to a trap
+ * @trap     - trap address
+ * @call_loc - address of the symbol to emulate a call to
+ * @return   - -1 on error, 0 on success
+ */
+static int register_trap(void *trap, void *call_loc)
+{
+	if (!hashmap_put(int3_hmap, trap, call_loc))
+		return -1;
+
+	return 0;
+}
+
+/**
+ * unregister_trap - remove trap entry from hmap
+ * @trap     - trap address
+ * @return   - -1 on error, 0 on success
+ */
+static int unregister_trap(void *trap)
+{
+	if (hashmap_remove(int3_hmap, trap))
+		return 0;
+
+	return -1;
+}
+
+/**
+ * emulate_trampoline_call - SIGTRAP handler, emulates a call to the trampoline
+ * associated with the trap location
+ *
+ * When the trap handler is executed, it changes the program counter to point to
+ * <trampoline>. When the trap handler exits, the code at <trampoline> will
+ * execute (which is __dentry__ defined in dynamic.S).
+ *
+ * As __dentry__ is expected to be called like a function, it depends on the
+ * address of the caller to know which tracepoint was executed. The address is
+ * expected to be found on the stack. Therefore, the trap handler actually needs
+ * to emulate a call instruction entirely (moving the instruction pointer is not
+ * enough).
+ *
+ * To do so, the trap handler will also push on the stack the next instruction
+ * pointer that would be used if the executed instruction was a call instead of
+ * a trap.
+ *
+ * @sig      - signal caught
+ * @info     - (unused)
+ * @ucontext - user context, containing registers
+ */
+static void emulate_trampoline_call(int sig, siginfo_t *info, void *ucontext)
+{
+	ucontext_t *uctx = ucontext;
+	mcontext_t *mctx = &uctx->uc_mcontext;
+	void *int3_addr;
+	unsigned long trampoline;
+	unsigned long child_addr; /* probe location for mcount_entry */
+
+	ASSERT(sig == SIGTRAP);
+
+	__atomic_signal_fence(__ATOMIC_SEQ_CST);
+	int3_addr = (void *)mctx->gregs[REG_RIP] - 1; /* int3 size = 1 */
+	trampoline = (unsigned long)hashmap_get(int3_hmap, int3_addr);
+
+	child_addr = (unsigned long)int3_addr + CALL_INSN_SIZE;
+
+	mctx->gregs[REG_RSP] -= 8;
+	memcpy((void *)mctx->gregs[REG_RSP], &child_addr, 8);
+	mctx->gregs[REG_RIP] = trampoline;
+}
+
+/**
+ * configure_sigtrap_handler - emulate call to trampoline on SIGTRAP
+ * @return - -1 on failure, 0 on success
+ */
+static int configure_sigtrap_handler()
+{
+	struct sigaction act;
+
+	act.sa_sigaction = emulate_trampoline_call;
+	act.sa_flags = SA_SIGINFO;
+
+	if (sigaction(SIGTRAP, &act, NULL) < 0) {
+		pr_err("failed to configure SIGTRAP handler\n");
+		return -1;
+	}
+
+	pr_dbg2("configured SIGTRAP handler\n");
+	return 0;
+}
+
+#if HAVE_MEMBARRIER
+
+/**
+ * setup_synchronization_mechanism - register intent to use the 'private
+ * expedited sync core' membarrier to synchronize instruction pipelines and
+ * caches across cores, for safe cross-modification.
+ * @return - negative on error, 0 on success
+ */
+static int setup_synchronization_mechanism()
+{
+	int ret =
+		syscall(__NR_membarrier, MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED_SYNC_CORE, 0, 0);
+	if (ret < 0)
+		pr_dbg2("failed to register membarrier intent: %s\n", strerror(errno));
+	return ret;
+}
+
+/**
+ * synchronize_all_cores - use membarrier to perform cache and pipeline
+ * synchronization across cores executing cross-modified code
+ * @return - negative on error, 0 on success
+ */
+static int synchronize_all_cores()
+{
+	int ret = syscall(__NR_membarrier, MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE, 0, 0);
+	if (ret < 0)
+		pr_dbg2("failed to use membarrier: %s\n", strerror(errno));
+	return ret;
+}
+
+#else /* HAVE_MEMBARRIER */
+
+/* signal used to perform cache and pipeline synchronization across cores */
+static int sig_sync_cores;
+
+/* counter for the threads that have performed serialization when a signal is
+   issued */
+static sem_t sem_sync_cores;
+
+/**
+ * serialize_instruction_execution - execute core serialize instruction
+ *
+ * According to Intel manual, CPUID is a serializing instruction.
+ */
+static void serialize_instruction_execution()
+{
+	int _;
+	__cpuid(_, _, _, _, _);
+	sem_post(&sem_sync_cores);
+}
+
+/**
+ * setup_synchronization_mechanism - setup real-time signal and its handler to
+ * perform core synchronization across all threads
+ * @return - 0 on success, -1 on failure
+ */
+static int setup_synchronization_mechanism()
+{
+	struct sigaction act;
+
+	if (sig_sync_cores > 0)
+		return 0;
+
+	sig_sync_cores = find_unused_sigrt();
+	if (sig_sync_cores == -1)
+		return -1;
+
+	sem_init(&sem_sync_cores, 0, 0);
+
+	act.sa_sigaction = serialize_instruction_execution;
+	act.sa_flags = 0;
+
+	if (sigaction(sig_sync_cores, &act, NULL) < 0) {
+		pr_dbg("failed to configure core synchronization signal handler\n");
+		return -1;
+	}
+
+	pr_dbg("configured core synchronization signal (SIGRT%d) handler\n", sig_sync_cores);
+	return 0;
+}
+
+/**
+ * serialize_instruction_cache - send RT signals to perform cache and pipeline
+ * synchronization across cores executing cross-modified code.
+ * @return - -1 on error, 0 on success
+ */
+static int synchronize_all_cores()
+{
+	int signal_count;
+	int sync_count = 0;
+	struct timespec ts;
+
+	ASSERT(sig_sync_cores >= SIGRTMIN);
+
+	signal_count = thread_broadcast_signal(sig_sync_cores);
+
+	if (clock_gettime(CLOCK_REALTIME, &ts) == -1)
+		return -1;
+	ts.tv_sec += 1;
+
+	for (int i = 0; i < signal_count; i++) {
+		if (sem_timedwait(&sem_sync_cores, &ts) == -1) {
+			if (errno == EINTR)
+				i--;
+			else
+				pr_dbg3("error syncing with signal handler: %s\n", strerror(errno));
+		}
+		else
+			sync_count++;
+	}
+	pr_dbg3("synced core in %d/%d thread(s)\n", sync_count, signal_count);
+
+	return 0;
+}
+
+#endif /* HAVE_MEMBARRIER */
+
+/**
+ * register_patch_region - mark a memory region as critical by registering the
+ * addresses that it contains in 'patch_region_hmap'
+ * @start  - address of the patch region
+ * @len    - length of the patch region
+ * @return - -1 on error, 0 on success
+ */
+static int register_patch_region(void *start, int len)
+{
+	void *out_of_line_buffer = mcount_find_code((unsigned long)start + CALL_INSN_SIZE);
+	if (!out_of_line_buffer)
+		return -1;
+
+	for (int i = 0; i < len; i++) {
+		if (!hashmap_put(patch_region_hmap, start + i, out_of_line_buffer + i))
+			return -1;
+	}
+
+	return 0;
+}
+
+/**
+ * unregister_patch_region - unmark a memory region as critical
+ * @start  - address of the patch region
+ * @len    - length of the patch region
+ * @return - -1 on error, 0 on success
+ */
+static int unregister_patch_region(void *start, int len)
+{
+	void *out_of_line_buffer = mcount_find_code((unsigned long)start);
+	if (!out_of_line_buffer)
+		return -1;
+
+	for (int i = 0; i < len; i++) {
+		if (!hashmap_remove(patch_region_hmap, start + i))
+			return -1;
+	}
+
+	return 0;
+}
+
+/**
+ * leave_patch_region - signal handler on which a thread executes out of line if
+ * it happens to be in a registered patching region
+ * @sig      - signal number
+ * @info     - signal info (unused)
+ * @ucontext - user context
+ */
+static void leave_patch_region(int sig, siginfo_t *info, void *ucontext)
+{
+	ucontext_t *uctx = ucontext;
+	mcontext_t *mctx = &uctx->uc_mcontext;
+	void *next_insn;
+	void *out_of_line_insn;
+	(void)sig;
+
+	next_insn = (void *)mctx->gregs[REG_RIP];
+	out_of_line_insn = hashmap_get(patch_region_hmap, next_insn);
+	if (out_of_line_insn)
+		mctx->gregs[REG_RIP] = (uint64_t)out_of_line_insn;
+
+	sem_post(&sem_clear_patch_region);
+}
+
+/**
+ * clear_patch_regions - move threads that are in a patching region out of line
+ * @return - 0
+ */
+static int clear_patch_regions()
+{
+	int signal_count;
+	int move_count = 0;
+	struct timespec ts;
+
+	ASSERT(sig_clear_patch_region >= SIGRTMIN);
+
+	signal_count = thread_broadcast_signal(sig_clear_patch_region);
+
+	if (clock_gettime(CLOCK_REALTIME, &ts) == -1)
+		return -1;
+	ts.tv_sec += 1;
+
+	for (int i = 0; i < signal_count; i++) {
+		if (sem_timedwait(&sem_clear_patch_region, &ts) == -1) {
+			if (errno == EINTR)
+				i--;
+			else
+				pr_dbg3("error syncing with signal handler: %s\n", strerror(errno));
+		}
+		else
+			move_count++;
+	}
+	pr_dbg3("checked ip of %d/%d thread(s)\n", move_count, signal_count);
+
+	return 0;
+}
+
+/**
+ * setup_clear_patch_region - initialize data structures and signals used to
+ * move threads of patching regions
+ *  @return - -1 on error, 0 on success
+ */
+int setup_clear_patch_region()
+{
+	struct sigaction act;
+
+	if (!patch_region_hmap) {
+		patch_region_hmap = hashmap_create(4, hashmap_ptr_hash, hashmap_ptr_equals);
+		if (!patch_region_hmap) {
+			pr_dbg("failed to create patch region hashmap\n");
+			return -1;
+		}
+	}
+
+	if (sig_clear_patch_region > 0)
+		return 0;
+
+	sig_clear_patch_region = find_unused_sigrt();
+	if (sig_clear_patch_region == -1)
+		return -1;
+
+	sem_init(&sem_clear_patch_region, 0, 0);
+
+	act.sa_sigaction = leave_patch_region;
+	act.sa_flags = 0;
+
+	if (sigaction(sig_clear_patch_region, &act, NULL) < 0) {
+		pr_dbg("failed to configure clear signal (SIGRT%d) handler\n",
+		       sig_clear_patch_region);
+		return -1;
+	}
+
+	pr_dbg("configured clear signal (SIGRT%d) handler\n", sig_clear_patch_region);
+	return 0;
+}
+
+/* These two lists are used to store functions that need to be optimized or
+ * cleaned up later in the code. In both case, a SIGRTMIN+n must be send. By
+ * optimizing or cleaning all of them up at the same time, we only need to send
+ * one signal per thread.
+ */
+LIST_HEAD(normal_funcs_patch);
+LIST_HEAD(normal_funcs_unpatch);
+
+struct patch_dynamic_info {
+	struct list_head list;
+	struct mcount_dynamic_info *mdi;
+	struct mcount_disasm_info *info;
+};
+
+static void commit_normal_func(struct list_head *list, struct mcount_dynamic_info *mdi,
+			       struct mcount_disasm_info *info)
+{
+	struct patch_dynamic_info *pdi;
+	pdi = xmalloc(sizeof(*pdi));
+
+	pdi->mdi = mdi;
+	pdi->info = info;
+	INIT_LIST_HEAD(&pdi->list);
+
+	list_add(&pdi->list, list);
+}
+
+/**
+ * mcount_arch_dynamic_init - initialize arch-specific data structures to
+ * perform runtime dynamic instrumentation
+ */
+int mcount_arch_dynamic_init()
+{
+	if (!int3_hmap) {
+		int3_hmap = hashmap_create(4, hashmap_ptr_hash, hashmap_ptr_equals);
+		if (!int3_hmap) {
+			pr_dbg("failed to create int3 hashmap\n");
+			return -1;
+		}
+	}
+	if (configure_sigtrap_handler() < 0)
+		return -1;
+
+	if (setup_synchronization_mechanism() < 0)
+		return -1;
+
+	setup_clear_patch_region();
+
+	return 0;
+}
 
 int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 {
@@ -247,9 +679,15 @@ out:
 	elf_finish(&elf);
 }
 
-static unsigned long get_target_addr(struct mcount_dynamic_info *mdi, unsigned long addr)
+/**
+ * get_trampoline_offest - compute the relative address of the trampoline
+ * @mdi    - mcount dynamic info
+ * @origin - origin address
+ * @return - distance to the trampoline
+ */
+static unsigned long get_trampoline_offset(struct mcount_dynamic_info *mdi, unsigned long origin)
 {
-	return mdi->trampoline - (addr + CALL_INSN_SIZE);
+	return mdi->trampoline - (origin + CALL_INSN_SIZE);
 }
 
 static int patch_fentry_code(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym)
@@ -271,7 +709,7 @@ static int patch_fentry_code(struct mcount_dynamic_info *mdi, struct uftrace_sym
 	}
 
 	/* get the jump offset to the trampoline */
-	target_addr = get_target_addr(mdi, (unsigned long)insn);
+	target_addr = get_trampoline_offset(mdi, (unsigned long)insn);
 	if (target_addr == 0)
 		return INSTRUMENT_SKIPPED;
 
@@ -380,97 +818,140 @@ static int patch_xray_func(struct mcount_dynamic_info *mdi, struct uftrace_symbo
 	return ret;
 }
 
-/*
- *  we overwrite instructions over 5bytes from start of function
- *  to call '__dentry__' that seems similar like '__fentry__'.
- *
- *  while overwriting, After adding the generated instruction which
- *  returns to the address of the original instruction end,
- *  save it in the heap.
- *
- *  for example:
- *
- *   4005f0:       31 ed                   xor     %ebp,%ebp
- *   4005f2:       49 89 d1                mov     %rdx,%r9
- *   4005f5:       5e                      pop     %rsi
- *
- *  will changed like this :
- *
- *   4005f0	call qword ptr [rip + 0x200a0a] # 0x601000
- *
- *  and keeping original instruction :
- *
- *  Original Instructions---------------
- *    f1cff0:	xor ebp, ebp
- *    f1cff2:	mov r9, rdx
- *    f1cff5:	pop rsi
- *  Generated Instruction to return-----
- *    f1cff6:	jmp qword ptr [rip]
- *    f1cffc:	QW 0x00000000004005f6
- *
- *  In the original case, address 0x601000 has a dynamic symbol
- *  start address. It is also the first element in the GOT array.
- *  while initializing the mcount library, we will replace it with
- *  the address of the function '__dentry__'. so, the changed
- *  instruction will be calling '__dentry__'.
- *
- *  '__dentry__' has a similar function like '__fentry__'.
- *  the other thing is that it returns to original instructions
- *  we keeping. it makes it possible to execute the original
- *  instructions and return to the address at the end of the original
- *  instructions. Thus, the execution will goes on.
- *
+/**
+ * patch_region_lock - insert a trap at the beginning of a patching region so no
+ * new incoming thread will execute it, and register the region as critical for
+ * next step
+ * @mdi    - mcount dynamic info
+ * @info   - disassembly info for the patched symbol
+ * @return - INSTRUMENT_SUCCESS
  */
+static int patch_region_lock(struct mcount_dynamic_info *mdi, struct mcount_disasm_info *info)
+{
+	/*
+	 * Let's assume we have the following instructions.
+	 *
+	 *     0x0: push %rbp             <= origin_code_addr
+	 *     0x1: mov  %rsp,%rbp
+	 *     0x4: lea  0xeb0(%rip),%rdi
+	 *     0xb: <other instructions>
+	 *
+	 * The goal is to modify the instructions in order to get the following
+	 * ones.
+	 *
+	 *     0x0: call <trampoline>
+	 *     0x5: <nop instructions>
+	 *     0xb: <other instructions>
+	 */
 
-/*
- * Patch the instruction to the address as given for arguments.
+	void *origin_code_addr;
+
+	origin_code_addr = (void *)info->addr;
+	if (info->has_intel_cet)
+		origin_code_addr += ENDBR_INSN_SIZE;
+
+	/* The first step is to insert a 1-byte trap-based probe point (atomic).
+	 * This will prevent threads to enter the critical zone while we patch it,
+	 * so no core will see partial modifications.
+	 *
+	 *     0x0: int3                  <= origin_code_addr
+	 *     0x1: mov  %rsp,%rbp
+	 *     0x4: lea  0xeb0(%rip),%rdi
+	 *     0xb: <other instructions>
+	 *
+	 * The trap will emulate a call to the trampoline while in place.
+	 */
+
+	if (register_trap(origin_code_addr, (void *)mdi->trampoline) == -1)
+		return INSTRUMENT_FAILED;
+	((uint8_t *)origin_code_addr)[0] = 0xcc;
+
+	/* The second step is to move any thread out of the critical zone if still
+	 * present. Threads in the critical zone resume execution out of line, in
+	 * their dedicated OLX region.
+	 *
+	 * The method used to move the threads is to signal all the threads, so they
+	 * check if their instruction pointer is in the patching region. If so, they
+	 * move their instruction pointer to the corresponding one in the OLX
+	 * region.
+	 */
+
+	if (register_patch_region(origin_code_addr, info->orig_size) == -1)
+		pr_dbg3("failed to register patch region\n");
+
+	return INSTRUMENT_SUCCESS;
+}
+
+/**
+ * patch_code - patch a region of the code with the operand of the call
+ * instruction used to probe a function. The call opcode needs to be inserted
+ * later.
+ * @mdi  - mcount dynamic info for the current module
+ * @info - disassembly info for the patched symbol
  */
 static void patch_code(struct mcount_dynamic_info *mdi, struct mcount_disasm_info *info)
 {
+	void *trampoline_rel_addr;
 	void *origin_code_addr;
-	unsigned char call_insn[] = { 0xe8, 0x00, 0x00, 0x00, 0x00 };
-	uint32_t target_addr = get_target_addr(mdi, info->addr);
 
-	/* patch address */
 	origin_code_addr = (void *)info->addr;
-
-	if (info->has_intel_cet) {
+	if (info->has_intel_cet)
 		origin_code_addr += ENDBR_INSN_SIZE;
-		target_addr = get_target_addr(mdi, info->addr + ENDBR_INSN_SIZE);
-	}
+	trampoline_rel_addr = (void *)get_trampoline_offset(mdi, (unsigned long)origin_code_addr);
 
-	/* build the instrumentation instruction */
-	memcpy(&call_insn[1], &target_addr, CALL_INSN_SIZE - 1);
-
-	/*
-	 * we need 5-bytes at least to instrumentation. however,
-	 * if instructions is not fit 5-bytes, we will overwrite the
-	 * 5-bytes and fill the remaining part of the last
-	 * instruction with nop.
+	/* The third step is to write the target address of the call. From the
+	 * processor view the 4-bytes address can be any garbage instructions.
 	 *
-	 * [example]
-	 * In this example, we overwrite 9-bytes to use 5-bytes.
+	 * We fill the remaining part of the patching region with nops.
 	 *
-	 * dynamic: 0x19e98b0[01]:push rbp
-	 * dynamic: 0x19e98b1[03]:mov rbp, rsp
-	 * dynamic: 0x19e98b4[05]:mov edi, 0x4005f4
-	 *
-	 * dynamic: 0x40054c[05]:call 0x400ff0
-	 * dynamic: 0x400551[01]:nop
-	 * dynamic: 0x400552[01]:nop
-	 * dynamic: 0x400553[01]:nop
-	 * dynamic: 0x400554[01]:nop
+	 *     0x0: int3
+	 *     0x1: <trampoline>
+	 *     0x5: <nop instructions>
+	 *     0xb: <other instructions>
 	 */
-	memcpy(origin_code_addr, call_insn, CALL_INSN_SIZE);
+
+	memcpy(&((uint8_t *)origin_code_addr)[1], &trampoline_rel_addr, CALL_INSN_SIZE - 1);
 	memset(origin_code_addr + CALL_INSN_SIZE, 0x90, /* NOP */
 	       info->orig_size - CALL_INSN_SIZE);
-
-	/* flush icache so that cpu can execute the new insn */
-	__builtin___clear_cache(origin_code_addr, origin_code_addr + info->orig_size);
 }
 
-static int patch_normal_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
-			     struct mcount_disasm_engine *disasm)
+/**
+ * patch_region_unlock - unmark a region as critical and remove the trap that
+ * prevents execution.
+ * @info   - disassembly info for the patched symbol
+ */
+static void patch_region_unlock(struct mcount_disasm_info *info)
+{
+	void *origin_code_addr;
+
+	origin_code_addr = (void *)info->addr;
+	if (info->has_intel_cet)
+		origin_code_addr += ENDBR_INSN_SIZE;
+
+	if (unregister_patch_region(origin_code_addr, info->orig_size) == -1)
+		pr_dbg3("failed to unregister patch region\n");
+
+	/*
+	 * The fourth and last step is to replace the trap with the call opcode.
+	 *
+	 *     0x0: call <trampoline>
+	 *     0x5: <nop instructions>
+	 *     0xb: <other instructions>
+	 */
+	((uint8_t *)origin_code_addr)[0] = 0xe8;
+}
+
+/**
+ * patch_normal_func_init - perform the initial steps of the patching process,
+ * awaiting for sanitization of the critical region. This step is batched with
+ * subsequent ones.
+ * @mdi    - mcount dynamic info for the current module
+ * @sym    - symbol to patch
+ * @disasm - disassembly engine
+ * @return - instrumentation status
+ */
+static int patch_normal_func_init(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
+				  struct mcount_disasm_engine *disasm)
 {
 	uint8_t jmp_insn[15] = {
 		0x3e,
@@ -478,20 +959,22 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct uftrace_sym
 		0x25,
 	};
 	uint64_t jmp_target;
-	struct mcount_disasm_info info = {
-		.sym = sym,
-		.addr = mdi->map->start + sym->addr,
-	};
+	struct mcount_disasm_info *info;
 	unsigned call_offset = CALL_INSN_SIZE;
 	int state;
 
-	state = disasm_check_insns(disasm, mdi, &info);
+	info = xmalloc(sizeof(*info));
+	memset(info, 0, sizeof(*info));
+	info->sym = sym;
+	info->addr = mdi->map->start + sym->addr;
+
+	state = disasm_check_insns(disasm, mdi, info);
 	if (state != INSTRUMENT_SUCCESS) {
 		pr_dbg3("  >> %s: %s\n", state == INSTRUMENT_FAILED ? "FAIL" : "SKIP", sym->name);
 		return state;
 	}
 
-	pr_dbg2("force patch normal func: %s (patch size: %d)\n", sym->name, info.orig_size);
+	pr_dbg2("force patch normal func: %s (patch size: %d)\n", sym->name, info->orig_size);
 
 	/*
 	 *  stored origin instruction block:
@@ -503,22 +986,231 @@ static int patch_normal_func(struct mcount_dynamic_info *mdi, struct uftrace_sym
 	 *  | [Return   address] |
 	 *  ----------------------
 	 */
-	jmp_target = info.addr + info.orig_size;
-	if (info.has_intel_cet) {
+	jmp_target = info->addr + info->orig_size;
+	if (info->has_intel_cet) {
 		jmp_target += ENDBR_INSN_SIZE;
 		call_offset += ENDBR_INSN_SIZE;
 	}
 
 	memcpy(jmp_insn + CET_JMP_INSN_SIZE, &jmp_target, sizeof(jmp_target));
 
-	if (info.has_jump)
-		mcount_save_code(&info, call_offset, jmp_insn, 0);
+	if (info->has_jump)
+		mcount_save_code(info, call_offset, jmp_insn, 0);
 	else
-		mcount_save_code(&info, call_offset, jmp_insn, sizeof(jmp_insn));
+		mcount_save_code(info, call_offset, jmp_insn, sizeof(jmp_insn));
 
-	patch_code(mdi, &info);
+	if (mcount_target_running) {
+		state = patch_region_lock(mdi, info);
+		commit_normal_func(&normal_funcs_patch, mdi, info);
+	}
+	else {
+		patch_code(mdi, info);
+		patch_region_unlock(info);
+	}
 
-	return INSTRUMENT_SUCCESS;
+	return state;
+}
+
+/**
+ * mcount_patch_normal_func_fini - perform the final step of the patching process and cleanup
+ * @return - 0
+ */
+void mcount_patch_normal_func_fini()
+{
+	struct patch_dynamic_info *pdi, *tmp;
+
+	if (!mcount_target_running)
+		return;
+
+	if (list_empty(&normal_funcs_patch))
+		return;
+
+	/* We ensure that every core sees the trap before patching the critical
+	 * zone, by synchronizing the them.
+	 */
+	synchronize_all_cores();
+	clear_patch_regions();
+
+	list_for_each_entry_safe(pdi, tmp, &normal_funcs_patch, list) {
+		patch_code(pdi->mdi, pdi->info);
+		write_memory_barrier();
+		patch_region_unlock(pdi->info);
+	}
+
+	synchronize_all_cores();
+
+	list_for_each_entry_safe(pdi, tmp, &normal_funcs_patch, list) {
+		void *origin_code_addr;
+
+		origin_code_addr = (void *)pdi->info->addr;
+		if (pdi->info->has_intel_cet)
+			origin_code_addr += ENDBR_INSN_SIZE;
+
+		unregister_trap(origin_code_addr);
+		list_del(&pdi->list);
+		free(pdi->info);
+		free(pdi);
+	}
+}
+
+extern int check_endbr64(unsigned long addr);
+
+/**
+ * unpatch_code - restore original instructions except the trap at the beginning
+ * @info   - mcount disassembly info
+ * @return - -1 on error, 0 on success
+ */
+int unpatch_code(struct mcount_disasm_info *info)
+{
+	uint8_t *origin_code = info->insns;
+	uint8_t *origin_code_addr = (uint8_t *)info->addr;
+	int orig_size = info->orig_size;
+
+	/*
+	 * The second step is to restore the bytes after the trap instruction.
+	 *
+	 *     0x0: int3
+	 *     0x1: mov  %rsp,%rbp
+	 *     0x4: lea  0xeb0(%rip),%rdi
+	 *     0xb: <other instructions>
+	 *
+	 * Before restoring the last byte, a serialization instruction must be
+	 * executed in order to synchronize the instruction cache of each processor.
+	 * The easiest method is to execute a membarrier system call with
+	 * MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE. It will send a
+	 * inter-processor interrupt that will execute the required serialization.
+	 */
+
+	memcpy(&origin_code_addr[1], &origin_code[1], orig_size - 1);
+
+	return 0;
+}
+
+/**
+ * unpatch_normal_func_init - perform the initial steps of the unpatching
+ * process, awaiting for core synchronization. This step is batched with
+ * subsequent ones.
+ * @mdi    - mcount dynamic info for the current module
+ * @sym    - symbol to patch
+ * @return - instrumentation status
+ */
+static int unpatch_normal_func_init(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym)
+{
+	/*
+	 * Let assume that we have the following instructions.
+	 *
+	 *     0x0: call <trampoline>
+	 *     0x5: <nop instructions>
+	 *     0xb: <other instructions>
+	 *
+	 * The goal is to modify the instructions in order to get the following
+	 * instructions.
+	 *
+	 *     0x0: push %rbp
+	 *     0x1: mov  %rsp,%rbp
+	 *     0x4: lea  0xeb0(%rip),%rdi
+	 *     0xb: <other instructions>
+	 */
+
+	unsigned long origin_code_addr;
+	unsigned call_offset = CALL_INSN_SIZE;
+	struct mcount_orig_insn *orig;
+	uint8_t *origin_code;
+	int orig_size;
+	struct mcount_disasm_info *info;
+
+	origin_code_addr = mdi->map->start + sym->addr;
+	if (check_endbr64(origin_code_addr))
+		origin_code_addr += ENDBR_INSN_SIZE;
+	orig = mcount_find_insn(origin_code_addr + call_offset);
+	if (!orig) {
+		pr_dbg("cannot find original instructions for '%s' at %#lx\n",
+		       origin_code_addr + call_offset, sym->name);
+		return -1;
+	}
+	origin_code = orig->orig;
+	orig_size = orig->orig_size;
+
+	pr_dbg2("unpatch normal func: %s (patch size: %d)\n", sym->name, orig_size);
+
+	if (mcount_target_running) {
+		info = xmalloc(sizeof(*info));
+		memset(info, 0, sizeof(*info));
+		info->sym = sym;
+		info->addr = mdi->map->start + sym->addr;
+		ASSERT(orig_size < 64); /* fit into info->insns */
+		memcpy(info->insns, origin_code, orig_size);
+		info->orig_size = orig_size;
+
+		/* The first step is to insert a trap.
+		 *
+		 *     0x0: int3
+		 *     0x1: <trampoline>
+		 *     0x5: <nop instructions>
+		 *     0xb: <other instructions>
+		 */
+
+		register_trap((void *)origin_code_addr, (void *)mdi->trampoline);
+		((uint8_t *)origin_code_addr)[0] = 0xcc;
+
+		commit_normal_func(&normal_funcs_unpatch, mdi, info);
+	}
+	else {
+		if (!memcpy((uint8_t *)origin_code_addr, origin_code, orig_size))
+			return INSTRUMENT_FAILED;
+	}
+
+	return 0;
+}
+
+/**
+ * unpatch_region_unlock - remove the trap at the start of the unpatched region
+ * @info   - mcount disassembly info
+ * @return - 0
+ */
+int unpatch_region_unlock(struct mcount_disasm_info *info)
+{
+	uint8_t *origin_code = info->insns;
+	uint8_t *origin_code_addr = (uint8_t *)info->addr;
+
+	/*
+	 * The third step is to restore the last byte.
+	 *
+	 *     0x0: push %rbp
+	 *     0x1: mov  %rsp,%rbp
+	 *     0x4: lea  0xeb0(%rip),%rdi
+	 *     0xb: <other instructions>
+	 */
+
+	origin_code_addr[0] = origin_code[0];
+
+	return 0;
+}
+
+/**
+ * mcount_unpatch_normal_func_fini - perform the final steps of the unpatching
+ * process and cleanup
+ */
+void mcount_unpatch_normal_func_fini()
+{
+	struct patch_dynamic_info *pdi, *tmp;
+
+	if (!mcount_target_running)
+		return;
+
+	if (list_empty(&normal_funcs_unpatch))
+		return;
+
+	synchronize_all_cores();
+
+	list_for_each_entry_safe(pdi, tmp, &normal_funcs_unpatch, list) {
+		unpatch_code(pdi->info);
+		write_memory_barrier();
+		unpatch_region_unlock(pdi->info);
+		list_del(&pdi->list);
+		free(pdi->info);
+		free(pdi);
+	}
 }
 
 static int unpatch_func(uint8_t *insn, char *name)
@@ -607,7 +1299,7 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sy
 		break;
 
 	case DYNAMIC_NONE:
-		result = patch_normal_func(mdi, sym, disasm);
+		result = patch_normal_func_init(mdi, sym, disasm);
 		break;
 
 	default:
@@ -616,8 +1308,7 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sy
 	return result;
 }
 
-int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
-			struct mcount_disasm_engine *disasm)
+int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym)
 {
 	int result = INSTRUMENT_SKIPPED;
 
@@ -628,6 +1319,10 @@ int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *
 
 	case DYNAMIC_PG:
 		result = unpatch_mcount_func(mdi, sym);
+		break;
+
+	case DYNAMIC_NONE:
+		result = unpatch_normal_func_init(mdi, sym);
 		break;
 
 	default:

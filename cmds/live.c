@@ -340,9 +340,19 @@ static int forward_options(struct uftrace_opts *opts)
 	if (capabilities < 0)
 		goto close;
 
-	/* FIXME Forward user options and set status */
-	if (0)
-		status = forward_option(sfd, capabilities, 0, NULL, 0);
+	if (opts->patch) { /* provide a pattern type for options that need it */
+		status = forward_option(sfd, capabilities, UFTRACE_AGENT_OPT_PATTERN,
+					&opts->patt_type, sizeof(opts->patt_type));
+		if (status < 0)
+			goto close;
+	}
+
+	if (opts->patch) {
+		status = forward_option(sfd, capabilities, UFTRACE_AGENT_OPT_PATCH, opts->patch,
+					strlen(opts->patch) + 1);
+		if (status < 0)
+			goto close;
+	}
 
 close:
 	status_close = agent_message_send(sfd, UFTRACE_MSG_AGENT_CLOSE, NULL, 0);
