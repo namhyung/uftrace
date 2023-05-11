@@ -31,5 +31,7 @@ sys.path.insert(0, os.path.dirname(pathname))
 
 code = open(sys.argv[0]).read()
 sys.setprofile(uftrace_python.trace)
+# Python tracing can't have symbols with os._exit(0), fix issue #1685
+code = code.replace("os._exit", "exit")
 exec(code, new_globals)
 sys.setprofile(None)
