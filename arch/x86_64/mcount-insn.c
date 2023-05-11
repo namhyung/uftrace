@@ -40,6 +40,7 @@ enum fail_reason {
 	INSTRUMENT_FAIL_RELJMP = (1U << 1),
 	INSTRUMENT_FAIL_RELCALL = (1U << 2),
 	INSTRUMENT_FAIL_PIC = (1U << 3),
+	INSTRUMENT_FAIL_RET = (1U << 4),
 };
 
 enum branch_group {
@@ -50,15 +51,17 @@ enum branch_group {
 
 void print_instrument_fail_msg(int reason)
 {
-	if (reason & INSTRUMENT_FAIL_RELJMP) {
+	if (reason & INSTRUMENT_FAIL_RELJMP)
 		pr_dbg3("prologue has relative jump\n");
-	}
-	if (reason & INSTRUMENT_FAIL_RELCALL) {
+
+	if (reason & INSTRUMENT_FAIL_RELCALL)
 		pr_dbg3("prologue has (relative) call\n");
-	}
-	if (reason & INSTRUMENT_FAIL_PIC) {
+
+	if (reason & INSTRUMENT_FAIL_PIC)
 		pr_dbg3("prologue has PC-relative addressing\n");
-	}
+
+	if (reason & INSTRUMENT_FAIL_RET)
+		pr_dbg3("prologue has return instruction\n");
 }
 
 static int x86_reg_index(int capstone_reg)
@@ -445,6 +448,9 @@ static int check_instrumentable(struct mcount_disasm_engine *disasm, cs_insn *in
 	int check_branch = OP_GROUP_NOBRANCH;
 	int status = 0;
 
+	pr_dbg4("check_instrumentable: %s %s (status = %d)\n", insn->mnemonic, insn->op_str,
+		status);
+
 	/*
 	 * 'detail' can be NULL on "data" instruction
 	 * if SKIPDATA option is turned ON
@@ -457,10 +463,22 @@ static int check_instrumentable(struct mcount_disasm_engine *disasm, cs_insn *in
 	detail = insn->detail;
 
 	for (i = 0; i < detail->groups_count; i++) {
-		if (detail->groups[i] == CS_GRP_CALL)
+		switch (detail->groups[i]) {
+		case CS_GRP_CALL:
 			check_branch = OP_GROUP_CALL;
-		else if (detail->groups[i] == CS_GRP_JUMP)
+			break;
+		case CS_GRP_JUMP:
 			check_branch = OP_GROUP_JMP;
+			break;
+		case CS_GRP_RET:
+		case CS_GRP_IRET:
+			return INSTRUMENT_FAIL_RET;
+		case CS_GRP_PRIVILEGE:
+		case CS_GRP_BRANCH_RELATIVE:
+			return INSTRUMENT_FAIL_NO_DETAIL;
+		default:
+			/* do nothing for legit instructions. */
+		}
 	}
 
 	x86 = &insn->detail->x86;
