@@ -59,6 +59,7 @@ enum uftrace_short_options {
 	OPT_avg_self,
 	OPT_color,
 	OPT_disabled,
+	OPT_trace,
 	OPT_demangle,
 	OPT_dbg_domain,
 	OPT_report,
@@ -149,7 +150,7 @@ __used static const char uftrace_help[] =
 "      --diff=DATA            Report differences\n"
 "      --diff-policy=POLICY   Control diff report policy\n"
 "                             (default: 'abs,compact,no-percent')\n"
-"      --disable              Start with tracing disabled\n"
+"      --disable              Start with tracing disabled (deprecated)\n"
 "  -D, --depth=DEPTH          Trace functions within DEPTH\n"
 "  -e, --estimate-return      Use only entry record type for safety\n"
 "      --event-full           Show all events outside of function\n"
@@ -221,6 +222,7 @@ __used static const char uftrace_help[] =
 "      --task-newline         Interleave a newline when task is changed\n"
 "      --tid=TID[,TID,...]    Only replay those tasks\n"
 "      --time                 Print time information\n"
+"      --trace=STATE          Set the recording state: on, off (default: on)\n"
 "  -T, --trigger=FUNC@act[,act,...]\n"
 "                             Trigger action on those FUNCs\n"
 "  -U, --unpatch=FUNC         Don't apply dynamic patching for FUNCs\n"
@@ -284,6 +286,7 @@ static const struct option uftrace_options[] = {
 	NO_ARG(avg-self, OPT_avg_self),
 	REQ_ARG(color, OPT_color),
 	NO_ARG(disable, OPT_disabled),
+	REQ_ARG(trace, OPT_trace),
 	REQ_ARG(demangle, OPT_demangle),
 	NO_ARG(record, OPT_record),
 	NO_ARG(report, OPT_report),
@@ -858,7 +861,17 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 		break;
 
 	case OPT_disabled:
-		opts->disabled = true;
+		pr_use("'--disable' is deprecated, use --trace=off instead.\n");
+		opts->trace = TRACE_STATE_OFF;
+		break;
+
+	case OPT_trace:
+		if (!strcmp(arg, "on"))
+			opts->trace = TRACE_STATE_ON;
+		else if (!strcmp(arg, "off"))
+			opts->trace = TRACE_STATE_OFF;
+		else
+			pr_use("unknown tracing state: %s (ignoring..)\n", arg);
 		break;
 
 	case OPT_demangle:
@@ -1483,6 +1496,11 @@ int main(int argc, char *argv[])
 	/* the srcline info is used for TUI status line by default */
 	if (opts.mode == UFTRACE_MODE_TUI)
 		opts.srcline = true;
+
+	if (!opts.pid) { /* Keep uninitialized values in client mode */
+		if (opts.trace == TRACE_STATE_NONE)
+			opts.trace = TRACE_STATE_ON;
+	}
 
 	/* apply 'default.opts' options for analysis commands */
 	apply_default_opts(&argc, &argv, &opts);

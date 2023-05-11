@@ -89,6 +89,12 @@ struct uftrace_pattern {
 	regex_t re;
 };
 
+enum uftrace_trace_state {
+	TRACE_STATE_NONE,
+	TRACE_STATE_OFF,
+	TRACE_STATE_ON,
+};
+
 struct uftrace_filter_setting {
 	enum uftrace_pattern_type ptype;
 	enum uftrace_cpu_arch arch;

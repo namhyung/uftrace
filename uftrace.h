@@ -279,7 +279,6 @@ struct uftrace_opts {
 	bool use_pager;
 	bool avg_total;
 	bool avg_self;
-	bool disabled;
 	bool report;
 	bool column_view;
 	bool want_bind_not;
@@ -310,6 +309,7 @@ struct uftrace_opts {
 	bool agent;
 	struct uftrace_time_range range;
 	enum uftrace_pattern_type patt_type;
+	enum uftrace_trace_state trace;
 };
 
 extern struct strv default_opts;
@@ -458,7 +458,7 @@ struct uftrace_msg_dlopen {
 };
 
 enum uftrace_agent_opt {
-	UFTRACE_AGENT_OPT_XXX,
+	UFTRACE_AGENT_OPT_TRACE = (1U << 0), /* turn tracing on/off */
 };
 
 extern struct uftrace_session *first_session;

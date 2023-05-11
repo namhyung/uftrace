@@ -56,7 +56,7 @@ static bool match_replay_triggers(const char *trigger)
 static void reset_live_opts(struct uftrace_opts *opts)
 {
 	/* this is needed to set display_depth at replay */
-	live_disabled = opts->disabled;
+	live_disabled = (opts->trace == TRACE_STATE_OFF);
 
 	/*
 	 * These options are handled in record and no need to do it in
@@ -144,7 +144,7 @@ static void reset_live_opts(struct uftrace_opts *opts)
 
 others:
 	opts->depth = MCOUNT_DEFAULT_DEPTH;
-	opts->disabled = false;
+	opts->trace = TRACE_STATE_ON;
 	opts->no_event = false;
 	opts->no_sched = false;
 }
@@ -340,9 +340,13 @@ static int forward_options(struct uftrace_opts *opts)
 	if (capabilities < 0)
 		goto close;
 
-	/* FIXME Forward user options and set status */
-	if (0)
-		status = forward_option(sfd, capabilities, 0, NULL, 0);
+	if (opts->trace != TRACE_STATE_NONE) {
+		int trace = (opts->trace == TRACE_STATE_ON);
+		status = forward_option(sfd, capabilities, UFTRACE_AGENT_OPT_TRACE, &trace,
+					sizeof(trace));
+		if (status < 0)
+			goto close;
+	}
 
 close:
 	status_close = agent_message_send(sfd, UFTRACE_MSG_AGENT_CLOSE, NULL, 0);
@@ -461,7 +465,7 @@ TEST_CASE(live_reset_options)
 {
 	struct uftrace_opts o = {
 		.depth = 3,
-		.disabled = true,
+		.trace = TRACE_STATE_OFF,
 		.no_event = true,
 		.no_sched = true,
 	};
@@ -482,7 +486,7 @@ TEST_CASE(live_reset_options)
 	TEST_EQ(o.caller, NULL);
 	/* it should only have the color trigger */
 	TEST_STREQ(o.trigger, "bar@time=1us,color=red;baz@backtrace,trace");
-	TEST_EQ(o.disabled, false);
+	TEST_EQ(o.trace, TRACE_STATE_ON);
 	TEST_EQ(o.no_event, false);
 	TEST_EQ(o.no_sched, false);
 

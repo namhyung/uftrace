@@ -50,7 +50,7 @@ static void setup_task_handle(struct uftrace_data *handle, struct uftrace_task_r
 	task->event_color = DEFAULT_EVENT_COLOR;
 
 	/*
-	 * set display depth to non-zero only when trace-on trigger (with --disabled
+	 * set display depth to non-zero only when trace-on trigger (with --trace=off
 	 * option) or time range is set.
 	 */
 	task->display_depth_set = (fstack_enabled && !live_disabled && !handle->time_range.start);
@@ -515,7 +515,7 @@ int fstack_setup_filters(struct uftrace_opts *opts, struct uftrace_data *handle)
 		}
 	}
 
-	if (opts->disabled)
+	if (opts->trace == TRACE_STATE_OFF)
 		fstack_enabled = false;
 
 	fstack_setup_task(opts->tid, handle);

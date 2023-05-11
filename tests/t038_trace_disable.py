@@ -21,4 +21,4 @@ class TestCase(TestBase):
 """, sort='simple')
 
     def setup(self):
-        self.option = '--disable -T "ns::ns2::foo::bar@trace_on"'
+        self.option = '--trace=off -T "ns::ns2::foo::bar@trace_on"'

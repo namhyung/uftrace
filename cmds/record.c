@@ -299,8 +299,8 @@ static void setup_child_environ(struct uftrace_opts *opts, int argc, char *argv[
 		setenv("UFTRACE_DEBUG_DOMAIN", build_debug_domain_string(), 1);
 	}
 
-	if (opts->disabled)
-		setenv("UFTRACE_DISABLED", "1", 1);
+	if (opts->trace == TRACE_STATE_OFF)
+		setenv("UFTRACE_TRACE_OFF", "1", 1);
 
 	if (log_color == COLOR_ON) {
 		snprintf(buf, sizeof(buf), "%d", log_color);

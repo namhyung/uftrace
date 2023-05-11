@@ -106,7 +106,7 @@ static pthread_t agent;
 /* state flag for the agent */
 static volatile bool agent_run = false;
 
-#define MCOUNT_AGENT_CAPABILITIES 0
+#define MCOUNT_AGENT_CAPABILITIES (UFTRACE_AGENT_OPT_TRACE)
 
 __weak void dynamic_return(void)
 {
@@ -445,7 +445,7 @@ static void mcount_filter_init(enum uftrace_pattern_type ptype, bool force)
 	if (getenv("UFTRACE_DEPTH"))
 		mcount_depth = strtol(getenv("UFTRACE_DEPTH"), NULL, 0);
 
-	if (getenv("UFTRACE_DISABLED"))
+	if (getenv("UFTRACE_TRACE_OFF"))
 		mcount_enabled = false;
 }
 
@@ -1865,8 +1865,17 @@ static int agent_read_option(int fd, int *opt, void **value, size_t read_size)
 static int agent_apply_option(int opt, void *value, size_t size, struct rb_root *triggers)
 {
 	int ret = 0;
+	int trace;
 
 	switch (opt) {
+	case UFTRACE_AGENT_OPT_TRACE:
+		trace = *((int *)value);
+		if (mcount_enabled != trace) {
+			mcount_enabled = trace;
+			pr_dbg("turn trace %s\n", mcount_enabled ? "on" : "off");
+		}
+		break;
+
 	default:
 		ret = -1;
 	}

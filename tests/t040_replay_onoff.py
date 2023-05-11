@@ -26,4 +26,4 @@ class TestCase(TestBase):
 
     def setup(self):
         self.subcmd = "replay"
-        self.option = "--disable -T 'operator new@trace_on' -T 'malloc@trace_off'"
+        self.option = "--trace=off -T 'operator new@trace_on' -T 'malloc@trace_off'"

@@ -21,4 +21,4 @@ class TestCase(TestBase):
 """, sort='simple')
 
     def setup(self):
-        self.option = '--disable -F ".*foo::foo" -T .foo::foo@trace_on -F .bar2'
+        self.option = '--trace=off -F ".*foo::foo" -T .foo::foo@trace_on -F .bar2'
