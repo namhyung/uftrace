@@ -453,7 +453,7 @@ static void mcount_filter_setup(struct mcount_thread_data *mtdp)
 {
 	mtdp->filter.max_depth = FILTER_NO_MAX_DEPTH;
 	mtdp->filter.depth = 0;
-	mtdp->filter.time = mcount_threshold;
+	mtdp->filter.time = FILTER_NO_TIME;
 	mtdp->filter.size = mcount_min_size;
 	mtdp->enable_cached = mcount_enabled;
 	mtdp->argbuf = xmalloc(mcount_rstack_max * ARGBUF_SIZE);
@@ -1142,6 +1142,9 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp, struct mcount_re
 			       long *retval)
 {
 	uint64_t time_filter = mtdp->filter.time;
+
+	if (time_filter == FILTER_NO_TIME)
+		time_filter = mcount_threshold;
 
 	pr_dbg3("<%d> exit  %lx\n", mtdp->idx, rstack->child_ip);
 

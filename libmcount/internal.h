@@ -48,6 +48,7 @@ enum filter_result {
 #ifndef DISABLE_MCOUNT_FILTER
 
 #define FILTER_NO_MAX_DEPTH 0xffff
+#define FILTER_NO_TIME 0xffffffffffffffff
 
 struct filter_control {
 	int in_count;
