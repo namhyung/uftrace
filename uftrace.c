@@ -684,6 +684,10 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 		strv_append(&default_opts, arg);
 
 		opts->threshold = parse_time(arg, 3);
+		if (opts->threshold >= OPT_THRESHOLD_MAX) {
+			pr_use("invalid time given: %lu (ignoring..)\n", opts->threshold);
+			opts->threshold = OPT_THRESHOLD_MAX - 1;
+		}
 		if (opts->range.start || opts->range.stop) {
 			pr_use("--time-range cannot be used with --time-filter\n");
 			opts->range.start = opts->range.stop = 0;
