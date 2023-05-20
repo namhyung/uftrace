@@ -1608,10 +1608,10 @@ again:
 		pr_err("Cannot read '%s'", opts->exename);
 
 	if (memcmp(elf_ident, ELFMAG, SELFMAG)) {
-		char *script = str_ltrim(check_script_file(opts->exename));
+		char *script = altname;
 		char *p;
 
-		if (script == NULL)
+		if (!check_script_file(opts->exename, altname, sizeof(altname)))
 			pr_err_ns(UFTRACE_ELF_MSG, opts->exename);
 
 		if (strstr(script, "python")) {
@@ -1622,6 +1622,8 @@ again:
 
 		if (!opts->force && !opts->patch)
 			pr_err_ns(SCRIPT_MSG, opts->exename);
+
+		script = str_ltrim(script);
 
 		/* ignore options */
 		p = strchr(script, ' ');
@@ -2135,7 +2137,8 @@ int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
 {
 	uint64_t dummy;
 	char *shebang = NULL;
-	char fullpath[PATH_MAX];
+	char dirpath[PATH_MAX];
+	char exepath[PATH_MAX];
 	struct strv new_args = STRV_INIT;
 	bool is_python = false;
 
@@ -2149,12 +2152,13 @@ int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
 	 * The current working directory can be changed by calling chdir.
 	 * So dirname has to be converted to an absolute path to avoid unexpected problems.
 	 */
-	if (realpath(opts->dirname, fullpath) != NULL)
-		opts->dirname = fullpath;
+	if (realpath(opts->dirname, dirpath) != NULL)
+		opts->dirname = dirpath;
 
 	if (access(argv[0], F_OK) == 0) {
 		/* prefer current directory over PATH */
-		shebang = check_script_file(argv[0]);
+		if (check_script_file(argv[0], exepath, sizeof(exepath)))
+			shebang = exepath;
 	}
 	else {
 		struct strv path_names = STRV_INIT;
@@ -2165,8 +2169,8 @@ int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
 		strv_for_each(&path_names, dir, i) {
 			xasprintf(&path, "%s/%s", dir, argv[0]);
 			ret = access(path, F_OK);
-			if (ret == 0)
-				shebang = check_script_file(path);
+			if (ret == 0 && check_script_file(path, exepath, sizeof(exepath)))
+				shebang = exepath;
 			free(path);
 			if (ret == 0)
 				break;
@@ -2207,8 +2211,6 @@ int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
 
 		argc = new_args.nr;
 		argv = new_args.p;
-
-		free(shebang);
 	}
 
 	setup_child_environ(opts, argc, argv);

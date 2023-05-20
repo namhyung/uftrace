@@ -173,17 +173,16 @@ int check_static_binary(const char *filename)
 	return ret;
 }
 
-/* caller should free the result */
-char *check_script_file(const char *filename)
+bool check_script_file(const char *filename, char *buf, size_t len)
 {
-	char *shebang = NULL;
 	char magic[2];
 	int fd;
 	char *p;
+	bool ret = false;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0)
-		return NULL;
+		return false;
 
 	if (read(fd, magic, sizeof(magic)) < 0)
 		goto out;
@@ -191,21 +190,19 @@ char *check_script_file(const char *filename)
 	if (magic[0] != '#' || magic[1] != '!')
 		goto out;
 
-	shebang = xmalloc(1024);
-	if (read(fd, shebang, 1024) < 0) {
-		free(shebang);
-		shebang = NULL;
+	if (read(fd, buf, len) < 0) {
 		goto out;
 	}
-	shebang[1023] = '\0';
+	buf[len - 1] = '\0';
 
-	p = strchr(shebang, '\n');
+	p = strchr(buf, '\n');
 	if (p)
 		*p = '\0';
 
+	ret = true;
 out:
 	close(fd);
-	return shebang;
+	return ret;
 }
 
 static bool is_symbol_end(const char *name)
