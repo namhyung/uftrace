@@ -2178,13 +2178,10 @@ int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
 		char *s, *p;
 		int i;
 
-		s = shebang;
-
 		if (strstr(shebang, "python"))
 			is_python = true;
 
-		while (isspace(*s))
-			s++;
+		s = str_ltrim(shebang);
 
 		p = strchr(s, ' ');
 		if (p != NULL)
