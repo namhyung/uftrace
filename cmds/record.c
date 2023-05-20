@@ -1551,35 +1551,32 @@ static bool is_regular_executable(const char *pathname)
 	return false;
 }
 
-static void find_in_path(char **exename)
+static void find_in_path(char *exename, char *buf, size_t len)
 {
 	/* try to find the binary in PATH */
 	struct strv strv = STRV_INIT;
 	char *env = getenv("PATH");
-	char *pathname = NULL;
 	char *path;
 	bool found = false;
 	int i;
 
-	if (!env || *exename[0] == '/')
-		pr_err_ns(UFTRACE_MSG, *exename);
+	if (!env || exename[0] == '/')
+		pr_err_ns(UFTRACE_MSG, exename);
 
 	/* search opts->exename in PATH one by one */
 	strv_split(&strv, env, ":");
 
 	strv_for_each(&strv, path, i) {
-		xasprintf(&pathname, "%s/%s", path, *exename);
-		if (is_regular_executable(pathname)) {
+		snprintf(buf, len, "%s/%s", path, exename);
+		if (is_regular_executable(buf)) {
 			found = true;
 			break;
 		}
-		free(pathname);
 	}
 
 	if (!found)
-		pr_err_ns(UFTRACE_MSG, *exename);
+		pr_err_ns(UFTRACE_MSG, exename);
 
-	*exename = pathname;
 	strv_free(&strv);
 }
 
@@ -1589,14 +1586,17 @@ static void check_binary(struct uftrace_opts *opts)
 	int chk;
 	size_t i;
 	char elf_ident[EI_NIDENT];
+	static char altname[PATH_MAX]; // for opts->exename to be persistent
 	uint16_t e_type;
 	uint16_t e_machine;
 	uint16_t supported_machines[] = { EM_X86_64, EM_ARM, EM_AARCH64, EM_386 };
 
 again:
 	/* if it cannot be found in PATH, then fails inside */
-	if (!is_regular_executable(opts->exename))
-		find_in_path(&opts->exename);
+	if (!is_regular_executable(opts->exename)) {
+		find_in_path(opts->exename, altname, sizeof(altname));
+		opts->exename = altname;
+	}
 
 	pr_dbg("checking binary %s\n", opts->exename);
 
