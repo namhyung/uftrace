@@ -26,6 +26,7 @@
 #define OPT_RSTACK_MAX 65535
 #define OPT_RSTACK_DEFAULT 1024
 #define OPT_DEPTH_MAX OPT_RSTACK_MAX
+#define OPT_THRESHOLD_MAX 0xFFFFFFFFFFFFFFFF /* max uint64 = 2^64-1 */
 #define OPT_DEPTH_DEFAULT OPT_RSTACK_DEFAULT
 #define OPT_COLUMN_OFFSET 8
 #define OPT_SORT_COLUMN 2
@@ -459,6 +460,8 @@ struct uftrace_msg_dlopen {
 
 enum uftrace_agent_opt {
 	UFTRACE_AGENT_OPT_TRACE = (1U << 0), /* turn tracing on/off */
+	UFTRACE_AGENT_OPT_DEPTH = (1U << 1), /* mcount depth filter */
+	UFTRACE_AGENT_OPT_THRESHOLD = (1U << 2), /* mcount time filter */
 };
 
 extern struct uftrace_session *first_session;

@@ -46,11 +46,17 @@ enum filter_result {
 };
 
 #ifndef DISABLE_MCOUNT_FILTER
+
+#define FILTER_NO_MAX_DEPTH 0xffff
+#define FILTER_NO_TIME 0xffffffffffffffff
+
 struct filter_control {
 	int in_count;
 	int out_count;
 	uint16_t depth;
 	uint16_t saved_depth;
+	uint16_t max_depth;
+	uint16_t saved_max_depth;
 	uint64_t time;
 	uint64_t saved_time;
 	unsigned size;

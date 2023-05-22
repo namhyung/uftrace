@@ -344,6 +344,18 @@ static int forward_options(struct uftrace_opts *opts)
 		int trace = (opts->trace == TRACE_STATE_ON);
 		status = forward_option(sfd, capabilities, UFTRACE_AGENT_OPT_TRACE, &trace,
 					sizeof(trace));
+	}
+
+	if (opts->depth) {
+		status = forward_option(sfd, capabilities, UFTRACE_AGENT_OPT_DEPTH, &opts->depth,
+					sizeof(opts->depth));
+		if (status < 0)
+			goto close;
+	}
+
+	if (opts->threshold) {
+		status = forward_option(sfd, capabilities, UFTRACE_AGENT_OPT_THRESHOLD,
+					&opts->threshold, sizeof(opts->threshold));
 		if (status < 0)
 			goto close;
 	}
