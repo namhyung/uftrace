@@ -403,6 +403,9 @@ static int load_symtab(struct uftrace_symtab *symtab, const char *filename,
 		pr_dbg4("no symtab, using dynsyms instead\n");
 	}
 
+	if (iter.shdr.sh_size == 0 || iter.shdr.sh_entsize == 0)
+		goto out;
+
 	/* pre-allocate enough symbol table entries */
 	symtab->nr_alloc = iter.shdr.sh_size / iter.shdr.sh_entsize;
 	symtab->sym = xmalloc(symtab->nr_alloc * sizeof(*symtab->sym));
@@ -422,8 +425,11 @@ static int load_symtab(struct uftrace_symtab *symtab, const char *filename,
 	}
 	pr_dbg4("loaded %zd symbols\n", symtab->nr_sym);
 
-	if (symtab->nr_sym == 0)
+	if (symtab->nr_sym == 0) {
+		free(symtab->sym);
+		symtab->sym = NULL;
 		goto out;
+	}
 
 	/* also fixup the size of symbol table */
 	sort_symtab(symtab);
