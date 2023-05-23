@@ -473,9 +473,11 @@ static int check_instrumentable(struct mcount_disasm_engine *disasm, cs_insn *in
 		case CS_GRP_RET:
 		case CS_GRP_IRET:
 			return INSTRUMENT_FAIL_RET;
+#if CS_API_MAJOR >= 4
 		case CS_GRP_PRIVILEGE:
 		case CS_GRP_BRANCH_RELATIVE:
 			return INSTRUMENT_FAIL_NO_DETAIL;
+#endif
 		default:
 			/* do nothing for legit instructions. */
 			break;
