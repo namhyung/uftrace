@@ -14,6 +14,7 @@
 #include "utils/filter.h"
 #include "utils/list.h"
 #include "utils/script-luajit.h"
+#include "utils/script-native.h"
 #include "utils/script-python.h"
 #include "utils/utils.h"
 #include <unistd.h>
@@ -52,6 +53,8 @@ enum script_type_t get_script_type(const char *str)
 		return SCRIPT_PYTHON;
 	else if (!strcmp(ext, ".lua"))
 		return SCRIPT_LUAJIT;
+	else if (!strcmp(ext, ".so"))
+		return SCRIPT_NATIVE;
 	else if (!strcmp(ext, ".testing"))
 		return SCRIPT_TESTING;
 
@@ -101,13 +104,22 @@ void script_finish_filter(void)
 	}
 }
 
-static int script_init_for_testing(struct script_info *info, enum uftrace_pattern_type ptype)
+static int script_init_for_testing(struct uftrace_script_info *info,
+				   enum uftrace_pattern_type ptype)
 {
 	int i;
 	char *name;
+	struct strv sv = {
+		0,
+	};
 
-	strv_for_each(&info->cmds, name, i)
+	if (info->cmds)
+		strv_split(&sv, info->cmds, "\n");
+
+	strv_for_each(&sv, name, i)
 		script_add_filter(name, ptype);
+
+	strv_free(&sv);
 
 	return 0;
 }
@@ -116,7 +128,7 @@ static void script_finish_for_testing(void)
 {
 }
 
-int script_init(struct script_info *info, enum uftrace_pattern_type ptype)
+int script_init(struct uftrace_script_info *info, enum uftrace_pattern_type ptype)
 {
 	char *script_pathname = info->name;
 
@@ -137,6 +149,12 @@ int script_init(struct script_info *info, enum uftrace_pattern_type ptype)
 	case SCRIPT_LUAJIT:
 		if (script_init_for_luajit(info, ptype) < 0) {
 			pr_warn("failed to init luajit scripting\n");
+			script_pathname = NULL;
+		}
+		break;
+	case SCRIPT_NATIVE:
+		if (script_init_for_native(info, ptype) < 0) {
+			pr_warn("failed to init native scripting\n");
 			script_pathname = NULL;
 		}
 		break;
@@ -167,6 +185,9 @@ void script_finish(void)
 	case SCRIPT_LUAJIT:
 		script_finish_for_luajit();
 		break;
+	case SCRIPT_NATIVE:
+		script_finish_for_native();
+		break;
 	case SCRIPT_TESTING:
 		script_finish_for_testing();
 		break;
@@ -182,7 +203,7 @@ void script_finish(void)
 
 #define SCRIPT_FILE "xxx.testing"
 
-static int setup_testing_script(struct script_info *info)
+static int setup_testing_script(struct uftrace_script_info *info)
 {
 	FILE *fp;
 
@@ -192,23 +213,24 @@ static int setup_testing_script(struct script_info *info)
 
 	fprintf(fp, "# uftrace script testing\n");
 
-	strv_append(&info->cmds, "abc");
-	strv_append(&info->cmds, "x*z");
+	info->cmds = xstrdup("abc\nx*z");
 
 	fclose(fp);
 	return 0;
 }
 
-static int cleanup_testing_script(struct script_info *info)
+static int cleanup_testing_script(struct uftrace_script_info *info)
 {
+	char *cmds = (char *)info->cmds;
+
 	unlink(SCRIPT_FILE);
-	strv_free(&info->cmds);
+	free(cmds);
 	return 0;
 }
 
 TEST_CASE(script_init)
 {
-	struct script_info info = {
+	struct uftrace_script_info info = {
 		.version = "UFTRACE_VERSION",
 		.name = SCRIPT_FILE,
 	};

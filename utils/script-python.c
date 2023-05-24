@@ -391,24 +391,25 @@ static void insert_dict_bool(PyObject *dict, const char *key, bool v)
 
 #define PYCTX(_item) py_context_table[PY_CTX_##_item]
 
-static void setup_common_context(PyObject **pDict, struct script_context *sc_ctx)
+static void setup_common_context(PyObject **pDict, struct uftrace_script_context *sc_ctx)
 {
-	insert_dict_long(*pDict, PYCTX(TID), sc_ctx->tid);
-	insert_dict_long(*pDict, PYCTX(DEPTH), sc_ctx->depth);
-	insert_dict_ull(*pDict, PYCTX(TIMESTAMP), sc_ctx->timestamp);
-	insert_dict_long(*pDict, PYCTX(ADDRESS), sc_ctx->address);
-	insert_dict_string(*pDict, PYCTX(NAME), sc_ctx->name);
+	insert_dict_long(*pDict, PYCTX(TID), sc_ctx->base.tid);
+	insert_dict_long(*pDict, PYCTX(DEPTH), sc_ctx->base.depth);
+	insert_dict_ull(*pDict, PYCTX(TIMESTAMP), sc_ctx->base.timestamp);
+	insert_dict_long(*pDict, PYCTX(ADDRESS), sc_ctx->base.address);
+	insert_dict_string(*pDict, PYCTX(NAME), sc_ctx->base.name);
 }
 
-static void setup_argument_context(PyObject **pDict, bool is_retval, struct script_context *sc_ctx)
+static void setup_argument_context(PyObject **pDict, bool is_retval,
+				   struct uftrace_script_context *sc_ctx)
 {
 	struct uftrace_arg_spec *spec;
-	void *data = sc_ctx->argbuf;
+	void *data = sc_ctx->args.argbuf;
 	PyObject *args;
 	union script_arg_val val;
 	int count = 0;
 
-	list_for_each_entry(spec, sc_ctx->argspec, list) {
+	list_for_each_entry(spec, sc_ctx->args.argspec, list) {
 		/* skip unwanted arguments or retval */
 		if (is_retval != (spec->idx == RETVAL_IDX))
 			continue;
@@ -424,7 +425,7 @@ static void setup_argument_context(PyObject **pDict, bool is_retval, struct scri
 		pr_err("failed to allocate python tuple for argument");
 
 	count = 0;
-	list_for_each_entry(spec, sc_ctx->argspec, list) {
+	list_for_each_entry(spec, sc_ctx->args.argspec, list) {
 		const int null_str = -1;
 		unsigned short slen;
 		char ch_str[2];
@@ -543,9 +544,9 @@ static void setup_argument_context(PyObject **pDict, bool is_retval, struct scri
 	Py_XDECREF(args);
 }
 
-static void setup_event_argument(PyObject *pDict, struct script_context *sc_ctx)
+static void setup_event_argument(PyObject *pDict, struct uftrace_script_context *sc_ctx)
 {
-	char *data = sc_ctx->argbuf;
+	char *data = sc_ctx->args.argbuf;
 	PyObject *args;
 
 	if (data == NULL)
@@ -564,13 +565,16 @@ static void setup_event_argument(PyObject *pDict, struct script_context *sc_ctx)
 	Py_XDECREF(args);
 }
 
-int python_uftrace_begin(struct script_info *info)
+int python_uftrace_begin(struct uftrace_script_info *info)
 {
 	PyObject *dict;
 	PyObject *cmds;
 	PyObject *ctx;
 	int i;
 	char *s;
+	struct strv sv = {
+		0,
+	};
 
 	if (unlikely(!pFuncBegin))
 		return -1;
@@ -581,9 +585,12 @@ int python_uftrace_begin(struct script_info *info)
 	insert_dict_bool(dict, "record", info->record);
 	insert_dict_string(dict, "version", info->version);
 
-	cmds = __PyTuple_New(info->cmds.nr);
+	if (info->cmds)
+		strv_split(&sv, info->cmds, "\n");
 
-	strv_for_each(&info->cmds, s, i)
+	cmds = __PyTuple_New(sv.nr);
+
+	strv_for_each(&sv, s, i)
 		insert_tuple_string(cmds, i, s);
 
 	__PyDict_SetItemString(dict, "cmds", cmds);
@@ -605,7 +612,7 @@ int python_uftrace_begin(struct script_info *info)
 	return 0;
 }
 
-int python_uftrace_entry(struct script_context *sc_ctx)
+int python_uftrace_entry(struct uftrace_script_context *sc_ctx)
 {
 	PyObject *pDict;
 	PyObject *pythonContext;
@@ -621,7 +628,7 @@ int python_uftrace_entry(struct script_context *sc_ctx)
 	/* Setup common info in both entry and exit into a dictionary */
 	setup_common_context(&pDict, sc_ctx);
 
-	if (sc_ctx->arglen)
+	if (sc_ctx->args.arglen)
 		setup_argument_context(&pDict, false, sc_ctx);
 
 	/* Python function arguments must be passed in a tuple. */
@@ -647,7 +654,7 @@ int python_uftrace_entry(struct script_context *sc_ctx)
 	return 0;
 }
 
-int python_uftrace_exit(struct script_context *sc_ctx)
+int python_uftrace_exit(struct uftrace_script_context *sc_ctx)
 {
 	PyObject *pDict;
 	PyObject *pythonContext;
@@ -664,9 +671,9 @@ int python_uftrace_exit(struct script_context *sc_ctx)
 	setup_common_context(&pDict, sc_ctx);
 
 	/* Add time duration info */
-	insert_dict_ull(pDict, PYCTX(DURATION), sc_ctx->duration);
+	insert_dict_ull(pDict, PYCTX(DURATION), sc_ctx->base.duration);
 
-	if (sc_ctx->arglen)
+	if (sc_ctx->args.arglen)
 		setup_argument_context(&pDict, true, sc_ctx);
 
 	/* Python function arguments must be passed in a tuple. */
@@ -692,7 +699,7 @@ int python_uftrace_exit(struct script_context *sc_ctx)
 	return 0;
 }
 
-int python_uftrace_event(struct script_context *sc_ctx)
+int python_uftrace_event(struct uftrace_script_context *sc_ctx)
 {
 	PyObject *pDict;
 	PyObject *pythonContext;
@@ -786,7 +793,7 @@ static PyObject *get_python_callback(char *name)
 	return func;
 }
 
-int script_init_for_python(struct script_info *info, enum uftrace_pattern_type ptype)
+int script_init_for_python(struct uftrace_script_info *info, enum uftrace_pattern_type ptype)
 {
 	char *py_pathname = info->name;
 
