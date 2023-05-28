@@ -46,7 +46,7 @@ class TestCase(TestBase):
         self.option += ' --agent'
         self.option += ' --no-libcall'
         self.option += ' -D 4'
-        self.exearg = f't-{self.name}'
+        self.exearg = 't-' + self.name
         record_cmd  = self.runcmd()
         self.pr_debug("prerun command: " + record_cmd)
         # bufsize=0 to write characters one by one
