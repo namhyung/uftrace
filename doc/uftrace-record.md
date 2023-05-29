@@ -223,6 +223,10 @@ RECORD CONFIG OPTIONS
 :   Disable ASLR (Address Space Layout Randomization).  It makes the target
     process fix its address space layout.
 
+-g, \--agent
+:   Spawn an agent thread in the target.  At runtime, the agent receives
+    external commands and can change supported tracing options.  See *AGENT*.
+
 \--srcline
 :   Enable recording source line in the debug info.
 
@@ -236,9 +240,8 @@ filter; an opt-in filter with `-F`/`--filter` and an opt-out filter with
 `-N`/`--notrace`.
 
 These filters can be applied either at record time or replay time.  They can be
-added and removed at runtime from the client.  Removing filters is achieved by
-specifying the `@clear` suffix for the `-F` / `--filter` or `-N` / `--notrace`
-options.
+added and removed at runtime from the client.  See `uftrace-live`(1) for details
+about agent operations.
 
 The first type of filter is opt-in. By default, it doesn't trace anything.  But
 when one of the specified functions is executed, tracing is started.  When the

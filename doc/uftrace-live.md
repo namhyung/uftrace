@@ -94,6 +94,10 @@ LIVE OPTIONS
 \--record
 :   Do not discard the recorded data.
 
+-p *PID*, \--pid=*PID*
+:   Switch to client mode.  Forward the supported tracing options to a running
+    target with given PID.  See *AGENT*.
+
 
 RECORD OPTIONS
 ==============
@@ -226,6 +230,10 @@ RECORD CONFIG OPTIONS
 :   Disable ASLR (Address Space Layout Randomization).  It makes the target
     process fix its address space layout.
 
+-g, \--agent
+:   Spawn an agent thread in the target.  At runtime, the agent receives
+    external commands and can change supported tracing options.  See *AGENT*.
+
 
 REPLAY OPTIONS
 ==============
@@ -300,9 +308,9 @@ filter; an opt-in filter with `-F`/`--filter` and an opt-out filter with
 `-N`/`--notrace`.
 
 These filters can be applied either at record time or replay time.  For record
-time, they can be added and removed at runtime from the client.  Removing
-filters is achieved by specifying the `@clear` suffix for the `-F` / `--filter`
-or `-N` / `--notrace` options.
+time, they can be added and removed at runtime from the client, see *AGENT*.
+Removing filters is achieved by specifying the `@clear` suffix for the `-F` /
+`--filter` or `-N` / `--notrace` options.
 
 The first type of filter is opt-in. By default, it doesn't trace anything.  But
 when one of the specified functions is executed, tracing is started.  When the
@@ -990,6 +998,121 @@ The 'ctx' variable is a dictionary type that contains the below information.
 
 Each field in 'script_context' can be read inside the script.
 Please see `uftrace-script`(1) for details about scripting.
+
+
+AGENT
+=====
+uftrace supports running an agent inside the traced target, which can modify the
+tracing config at runtime.  The agent is disabled by default, and is enabled at
+start-up using the `-g`/`--agent` option.  The user can interact with the agent
+during while the target executes, from uftrace client instance, using the
+`-p`/`--pid` option.
+
+The client currently supports the following features:
+  * toggle tracing
+  * call depth filter
+  * time threshold filter
+  * opt-in and opt-out filters
+  * caller filters
+
+Consider the following program, which calls `a() -> b() -> c()` twice, and waits
+for external input in between.
+
+    $ cat abc_abc.c
+    void c(void) {
+        /* do nothing */
+    }
+
+    void b(void) {
+        c();
+    }
+
+    void a(void) {
+        b();
+    }
+
+    int main(void) {
+        a();
+        wait_for_sigusr1();
+        a();
+
+        return 0;
+    }
+
+    $ gcc -pg -o abc_abc abc_abc.c
+
+Tracing can be toggled anytime during execution.
+
+    $ uftrace --agent --trace=off abc_abc &
+    $ uftrace --pid $(pidof abc_abc) --trace=on
+    $ kill -s SIGUSR1 $(pidof abc_abc)
+    # DURATION     TID     FUNCTION
+      10.508 us [ 30324] |   } /* wait_for_sigusr1 */
+                [ 30324] |   a() {
+                [ 30324] |     b() {
+       0.138 us [ 30324] |       c();
+       0.757 us [ 30324] |     } /* b */
+       1.217 us [ 30324] |   } /* a */
+      12.346 us [ 30324] | } /* main */
+
+The call depth filter can be increased or decreased from the client.
+
+    $ uftrace --agent --depth=2 abc_abc &
+    $ uftrace --pid $(pidof abc_abc) --depth=4
+    $ kill -s SIGUSR1 $(pidof abc_abc)
+    # DURATION     TID     FUNCTION
+                [ 32384] | main() {
+       0.324 us [ 32384] |   a();
+       5.081  s [ 32384] |   wait_for_sigusr1();
+                [ 32384] |   a() {
+                [ 32384] |     b() {
+       0.106 us [ 32384] |       c();
+       0.552 us [ 32384] |     } /* b */
+       0.862 us [ 32384] |   } /* a */
+       5.081  s [ 32384] | } /* main */
+
+The time threshold can also be increased or decreased from the client.
+
+    $ uftrace --agent --time-filter=0.8us abc_abc &
+    $ uftrace --pid $(pidof abc_abc) --time-filter=0.5us
+    $ kill -s SIGUSR1 $(pidof abc_abc)
+    # DURATION     TID     FUNCTION
+                [ 30196] | main() {
+       0.805 us [ 30196] |   a();
+       6.859  s [ 30196] |   wait_for_sigusr1();
+                [ 30196] |   a() {
+       0.522 us [ 30196] |     b();
+       0.802 us [ 30196] |   } /* a */
+       6.859  s [ 30196] | } /* main */
+
+The agent can enforce opt-in and opt-out filters, as well as caller filters.
+
+    $ uftrace --agent --filter=c abc_abc &
+    $ uftrace --pid $(pidof abc_abc) --filter=a
+    $ kill -s SIGUSR1 $(pidof abc_abc)
+    # DURATION     TID     FUNCTION
+       0.398 us [  3679] | c();
+                [  3679] | a() {
+                [  3679] |   b() {
+       0.163 us [  3679] |     c();
+       2.099 us [  3679] |   } /* b */
+       3.655 us [  3679] | } /* a */
+
+Filters can be removed using the `@clear` suffix.
+
+    $ uftrace --agent --caller-filter=a abc_abc &
+    $ uftrace --pid $(pidof abc_abc) --caller-filter=a@clear
+    $ kill -s SIGUSR1 $(pidof abc_abc)
+    # DURATION     TID     FUNCTION
+                [  4956] | main() {
+       0.821 us [  4956] |   a();
+      10.525  s [  4956] |   wait_for_sigusr1();
+                [  4956] |   a() {
+                [  4956] |     b() {
+       0.116 us [  4956] |       c();
+       0.573 us [  4956] |     } /* b */
+       0.806 us [  4956] |   } /* a */
+      10.525  s [  4956] | } /* main */
 
 
 WATCH POINT
