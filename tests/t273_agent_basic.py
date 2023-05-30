@@ -34,7 +34,10 @@ class TestCase(TestBase):
         sleep(.05)              # time for the agent to start
         if self.client_send_command(record_p.pid, '') != 0:
             return TestBase.TEST_NONZERO_RETURN
+        record_p.stdin.write(b'0')
+
         record_p.stdin.close()
+        record_p.wait()
 
         return TestBase.TEST_SUCCESS
 

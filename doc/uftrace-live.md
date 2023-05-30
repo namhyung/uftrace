@@ -297,10 +297,14 @@ The uftrace tool supports filtering out uninteresting functions.  Filtering is
 highly recommended since it helps users focus on the interesting functions and
 reduces the data size.  When uftrace is called, it receives two types of function
 filter; an opt-in filter with `-F`/`--filter` and an opt-out filter with
-`-N`/`--notrace`.  These filters can be applied either at record time or
-replay time.
+`-N`/`--notrace`.
 
-The first one is an opt-in filter. By default, it doesn't trace anything.  But
+These filters can be applied either at record time or replay time.  For record
+time, they can be added and removed at runtime from the client.  Removing
+filters is achieved by specifying the `@clear` suffix for the `-F` / `--filter`
+or `-N` / `--notrace` options.
+
+The first type of filter is opt-in. By default, it doesn't trace anything.  But
 when one of the specified functions is executed, tracing is started.  When the
 function returns, tracing is stopped again.
 
@@ -395,6 +399,9 @@ parent functions to the function.
 
 In the above example, functions not in the calling path were not shown.  Also
 the function 'c' - which is a child of the function 'b' - is also hidden.
+
+Caller filters can be added and removed from the client at runtime, using the
+`@clear` suffix for the `-C` / `--caller-filter` option.
 
 In addition, you can limit the nesting level of functions with the `-D` option.
 

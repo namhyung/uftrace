@@ -20,8 +20,8 @@ static struct rb_root auto_argspec = RB_ROOT;
 static struct rb_root auto_retspec = RB_ROOT;
 static struct rb_root auto_enum = RB_ROOT;
 
-extern void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
-			bool exact_match);
+extern void update_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
+			   bool exact_match);
 extern int setup_trigger_action(char *str, struct uftrace_trigger *tr, char **module,
 				unsigned long orig_flags, struct uftrace_filter_setting *setting);
 
@@ -41,7 +41,7 @@ static void add_auto_args(struct rb_root *root, struct uftrace_filter *entry,
 
 		cmp = strcmp(iter->name, entry->name);
 		if (cmp == 0) {
-			add_trigger(iter, tr, true);
+			update_trigger(iter, tr, true);
 			return;
 		}
 
@@ -57,7 +57,7 @@ static void add_auto_args(struct rb_root *root, struct uftrace_filter *entry,
 	INIT_LIST_HEAD(&new->args);
 	new->trigger.pargs = &new->args;
 
-	add_trigger(new, tr, true);
+	update_trigger(new, tr, true);
 
 	rb_link_node(&new->node, parent, p);
 	rb_insert_color(&new->node, root);

@@ -38,8 +38,18 @@ enum trigger_flag {
 	TRIGGER_FL_HIDE = (1U << 17),
 	TRIGGER_FL_LOC = (1U << 18),
 	TRIGGER_FL_SIZE_FILTER = (1U << 19),
+	TRIGGER_FL_CLEAR = (1U << 20), /* Reverse other flags when set */
 };
 
+/**
+ * filter_mode - opt-in or opt-out mode
+ *
+ * When in opt-in mode, only trace functions that have an explicit filter. When
+ * in opt-out mode, trace all but explicitly excluded functions.
+
+ * @FILTER_MODE_NONE is neutral and is only used for initialization in the
+ * location filter.
+ */
 enum filter_mode {
 	FILTER_MODE_NONE,
 	FILTER_MODE_IN,
@@ -109,27 +119,35 @@ struct uftrace_filter_setting {
 typedef void (*trigger_fn_t)(struct uftrace_trigger *tr, void *arg);
 
 struct uftrace_sym_info;
+struct mcount_triggers_info;
 
-void uftrace_setup_filter(char *filter_str, struct uftrace_sym_info *sinfo, struct rb_root *root,
-			  enum filter_mode *mode, struct uftrace_filter_setting *setting);
-void uftrace_setup_trigger(char *trigger_str, struct uftrace_sym_info *sinfo, struct rb_root *root,
-			   enum filter_mode *mode, struct uftrace_filter_setting *setting);
-void uftrace_setup_argument(char *trigger_str, struct uftrace_sym_info *sinfo, struct rb_root *root,
+void uftrace_setup_filter(char *filter_str, struct uftrace_sym_info *sinfo,
+			  struct mcount_triggers_info *triggers,
+			  struct uftrace_filter_setting *setting);
+void uftrace_setup_trigger(char *trigger_str, struct uftrace_sym_info *sinfo,
+			   struct mcount_triggers_info *triggers,
+			   struct uftrace_filter_setting *setting);
+void uftrace_setup_argument(char *args_str, struct uftrace_sym_info *sinfo,
+			    struct mcount_triggers_info *triggers,
 			    struct uftrace_filter_setting *setting);
-void uftrace_setup_retval(char *trigger_str, struct uftrace_sym_info *sinfo, struct rb_root *root,
+void uftrace_setup_retval(char *retval_str, struct uftrace_sym_info *sinfo,
+			  struct mcount_triggers_info *triggers,
 			  struct uftrace_filter_setting *setting);
 void uftrace_setup_caller_filter(char *filter_str, struct uftrace_sym_info *sinfo,
-				 struct rb_root *root, struct uftrace_filter_setting *setting);
+				 struct mcount_triggers_info *triggers,
+				 struct uftrace_filter_setting *setting);
 void uftrace_setup_hide_filter(char *filter_str, struct uftrace_sym_info *sinfo,
-			       struct rb_root *root, struct uftrace_filter_setting *setting);
+			       struct mcount_triggers_info *triggers,
+			       struct uftrace_filter_setting *setting);
 void uftrace_setup_loc_filter(char *filter_str, struct uftrace_sym_info *sinfo,
-			      struct rb_root *root, enum filter_mode *mode,
+			      struct mcount_triggers_info *triggers,
 			      struct uftrace_filter_setting *setting);
 
-struct rb_root uftrace_deep_copy_triggers(struct rb_root *src);
+struct mcount_triggers_info uftrace_deep_copy_triggers(struct mcount_triggers_info *src);
 struct uftrace_filter *uftrace_match_filter(uint64_t ip, struct rb_root *root,
 					    struct uftrace_trigger *tr);
 void uftrace_cleanup_filter(struct rb_root *root);
+void uftrace_cleanup_triggers(struct mcount_triggers_info *triggers);
 void uftrace_print_filter(struct rb_root *root);
 int uftrace_count_filter(struct rb_root *root, unsigned long flag);
 

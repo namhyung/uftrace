@@ -21,8 +21,19 @@
 bool fstack_enabled = true;
 bool live_disabled = false;
 
-static enum filter_mode fstack_filter_mode = FILTER_MODE_NONE;
-static enum filter_mode fstack_loc_mode = FILTER_MODE_NONE;
+static struct mcount_triggers_info fstack_triggers;
+
+static inline int fstack_get_filter_mode()
+{
+	int filter_count = fstack_triggers.filter_count;
+	return filter_count > 0 ? FILTER_MODE_IN : FILTER_MODE_OUT;
+}
+
+static inline int fstack_get_loc_mode()
+{
+	int loc_count = fstack_triggers.loc_count;
+	return loc_count > 0 ? FILTER_MODE_IN : FILTER_MODE_OUT;
+}
 
 static int __read_task_ustack(struct uftrace_task_reader *task);
 
@@ -217,43 +228,67 @@ setup:
 static int setup_filters(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
+	struct mcount_triggers_info triggers = {
+		.root = s->filters,
+		.filter_count = 0,
+	};
 
-	uftrace_setup_filter(setting->info_str, &s->sym_info, &s->filters, &fstack_filter_mode,
-			     setting);
+	uftrace_setup_filter(setting->info_str, &s->sym_info, &triggers, setting);
+	s->filters = triggers.root;
+	fstack_triggers.filter_count = triggers.filter_count;
 	return 0;
 }
 
 static int setup_trigger(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
+	struct mcount_triggers_info triggers = {
+		.root = s->filters,
+	};
 
-	uftrace_setup_trigger(setting->info_str, &s->sym_info, &s->filters, &fstack_filter_mode,
-			      setting);
+	uftrace_setup_trigger(setting->info_str, &s->sym_info, &triggers, setting);
+	s->filters = triggers.root;
 	return 0;
 }
 
 static int setup_callers(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
+	struct mcount_triggers_info triggers = {
+		.root = s->filters,
+		.filter_count = 0,
+	};
 
-	uftrace_setup_caller_filter(setting->info_str, &s->sym_info, &s->filters, setting);
+	uftrace_setup_caller_filter(setting->info_str, &s->sym_info, &triggers, setting);
+	s->filters = triggers.root;
+	fstack_triggers.caller_count = triggers.caller_count;
 	return 0;
 }
 
 static int setup_hides(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
+	struct mcount_triggers_info triggers = {
+		.root = s->filters,
+	};
 
-	uftrace_setup_hide_filter(setting->info_str, &s->sym_info, &s->filters, setting);
+	uftrace_setup_hide_filter(setting->info_str, &s->sym_info, &triggers, setting);
+	s->filters = triggers.root;
+	fstack_triggers.loc_count = triggers.loc_count;
 	return 0;
 }
 
 static int setup_locs(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
+	struct mcount_triggers_info triggers = {
+		.root = s->filters,
+		.loc_count = 0,
+	};
 
-	uftrace_setup_loc_filter(setting->info_str, &s->sym_info, &s->filters, &fstack_loc_mode,
-				 setting);
+	uftrace_setup_loc_filter(setting->info_str, &s->sym_info, &triggers, setting);
+	s->filters = triggers.root;
+	fstack_triggers.loc_count = triggers.loc_count;
 	return 0;
 }
 
@@ -396,13 +431,16 @@ static int build_fixup_filter(struct uftrace_session *s, void *arg)
 		.ptype = PATT_SIMPLE,
 		.auto_args = false,
 	};
+	struct mcount_triggers_info fixups = {
+		.root = s->fixups,
+	};
 
 	pr_dbg("fixup for some special functions\n");
 
 	for (i = 0; i < ARRAY_SIZE(fixup_syms); i++) {
-		uftrace_setup_trigger((char *)fixup_syms[i], &s->sym_info, &s->fixups, NULL,
-				      &setting);
+		uftrace_setup_trigger((char *)fixup_syms[i], &s->sym_info, &fixups, &setting);
 	}
+	s->fixups = fixups.root;
 	return 0;
 }
 
@@ -421,9 +459,14 @@ static void fstack_prepare_fixup(struct uftrace_data *handle)
 static int build_arg_spec(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
+	struct mcount_triggers_info triggers = {
+		.root = s->filters,
+	};
 
-	if (setting->info_str)
-		uftrace_setup_argument(setting->info_str, &s->sym_info, &s->filters, setting);
+	if (setting->info_str) {
+		uftrace_setup_argument(setting->info_str, &s->sym_info, &triggers, setting);
+		s->filters = triggers.root;
+	}
 
 	return 0;
 }
@@ -431,9 +474,14 @@ static int build_arg_spec(struct uftrace_session *s, void *arg)
 static int build_ret_spec(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
+	struct mcount_triggers_info triggers = {
+		.root = s->filters,
+	};
 
-	if (setting->info_str)
-		uftrace_setup_retval(setting->info_str, &s->sym_info, &s->filters, setting);
+	if (setting->info_str) {
+		uftrace_setup_retval(setting->info_str, &s->sym_info, &triggers, setting);
+		s->filters = triggers.root;
+	}
 
 	return 0;
 }
@@ -642,7 +690,7 @@ int fstack_entry(struct uftrace_task_reader *task, struct uftrace_record *rstack
 		task->filter.depth = task->h->depth;
 	}
 	else {
-		if (fstack_filter_mode == FILTER_MODE_IN && task->filter.in_count == 0) {
+		if (fstack_get_filter_mode() == FILTER_MODE_IN && task->filter.in_count == 0) {
 			fstack->flags |= FSTACK_FL_NORECORD;
 			return -1;
 		}
@@ -655,7 +703,7 @@ int fstack_entry(struct uftrace_task_reader *task, struct uftrace_record *rstack
 		}
 	}
 	else {
-		if (fstack_loc_mode == FILTER_MODE_IN) {
+		if (fstack_get_loc_mode(&sess->filters) == FILTER_MODE_IN) {
 			fstack->flags |= FSTACK_FL_NORECORD;
 			return -1;
 		}
@@ -838,7 +886,8 @@ static int fstack_check_skip(struct uftrace_task_reader *task, struct uftrace_re
 		if (tr.fmode == FILTER_MODE_OUT)
 			return -1;
 	}
-	else if ((fstack_filter_mode == FILTER_MODE_IN || fstack_loc_mode == FILTER_MODE_IN) &&
+	else if ((fstack_get_filter_mode(&sess->filters) == FILTER_MODE_IN ||
+		  fstack_get_loc_mode(&sess->filters) == FILTER_MODE_IN) &&
 		 task->filter.in_count == 0) {
 		return -1;
 	}
@@ -975,7 +1024,8 @@ bool fstack_check_filter(struct uftrace_task_reader *task)
 	else if (task->rstack->type == UFTRACE_EVENT) {
 		/* don't change filter state, just check it */
 		if (task->filter.out_count > 0 || task->filter.depth <= 0 ||
-		    (fstack_filter_mode == FILTER_MODE_IN && task->filter.in_count == 0))
+		    (fstack_get_filter_mode(&fstack_triggers) == FILTER_MODE_IN &&
+		     task->filter.in_count == 0))
 			return false;
 
 		if (task->rstack->addr == EVENT_ID_PERF_SCHED_IN ||
