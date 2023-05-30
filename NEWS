@@ -1,3 +1,29 @@
+uftrace v0.14
+=============
+* new options
+  --trigger option is restored
+  --trace=(on|off) option to deprecate --disable
+  filters and triggers can be deleted with @clear action (with agent)
+
+* new features
+  python tracing  (#436, #1640, #1641, #1676)
+  change options at runtime with agent  (#1665, #1678, #1643, #1644, #1645, #1646)
+
+* bug fixes
+  Lots of fixes for the test infra  (#1628)
+
+* other changes
+  Android build support  (#1605)
+  Update symbol file format to add symbol size  (#1616)
+  Improve Rust symbol demangling  (#1625)
+  Change default library install path  (#1618)
+  Use C11 + GNU extensions for compilation  (#1642)
+
+And many other fixes and improvements.  Thanks all contributors:
+  Bernhard Kaindl, ChoKyuWon, Clément Guidi, Honggyu Kim, Kang Minchul,
+  Khem Raj, Michelle Jin, Namhyung Kim, Sangwon Hong, Yi Hong, Yuri Gribov
+
+
 uftrace v0.13
 =============
 * new options
