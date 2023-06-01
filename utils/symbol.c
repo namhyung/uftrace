@@ -173,17 +173,16 @@ int check_static_binary(const char *filename)
 	return ret;
 }
 
-/* caller should free the result */
-char *check_script_file(const char *filename)
+bool check_script_file(const char *filename, char *buf, size_t len)
 {
-	char *shebang = NULL;
 	char magic[2];
 	int fd;
 	char *p;
+	bool ret = false;
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0)
-		return NULL;
+		return false;
 
 	if (read(fd, magic, sizeof(magic)) < 0)
 		goto out;
@@ -191,21 +190,19 @@ char *check_script_file(const char *filename)
 	if (magic[0] != '#' || magic[1] != '!')
 		goto out;
 
-	shebang = xmalloc(1024);
-	if (read(fd, shebang, 1024) < 0) {
-		free(shebang);
-		shebang = NULL;
+	if (read(fd, buf, len) < 0) {
 		goto out;
 	}
-	shebang[1023] = '\0';
+	buf[len - 1] = '\0';
 
-	p = strchr(shebang, '\n');
+	p = strchr(buf, '\n');
 	if (p)
 		*p = '\0';
 
+	ret = true;
 out:
 	close(fd);
-	return shebang;
+	return ret;
 }
 
 static bool is_symbol_end(const char *name)
@@ -406,6 +403,9 @@ static int load_symtab(struct uftrace_symtab *symtab, const char *filename,
 		pr_dbg4("no symtab, using dynsyms instead\n");
 	}
 
+	if (iter.shdr.sh_size == 0 || iter.shdr.sh_entsize == 0)
+		goto out;
+
 	/* pre-allocate enough symbol table entries */
 	symtab->nr_alloc = iter.shdr.sh_size / iter.shdr.sh_entsize;
 	symtab->sym = xmalloc(symtab->nr_alloc * sizeof(*symtab->sym));
@@ -425,8 +425,11 @@ static int load_symtab(struct uftrace_symtab *symtab, const char *filename,
 	}
 	pr_dbg4("loaded %zd symbols\n", symtab->nr_sym);
 
-	if (symtab->nr_sym == 0)
+	if (symtab->nr_sym == 0) {
+		free(symtab->sym);
+		symtab->sym = NULL;
 		goto out;
+	}
 
 	/* also fixup the size of symbol table */
 	sort_symtab(symtab);

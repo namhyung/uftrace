@@ -1551,35 +1551,32 @@ static bool is_regular_executable(const char *pathname)
 	return false;
 }
 
-static void find_in_path(char **exename)
+static void find_in_path(char *exename, char *buf, size_t len)
 {
 	/* try to find the binary in PATH */
 	struct strv strv = STRV_INIT;
 	char *env = getenv("PATH");
-	char *pathname = NULL;
 	char *path;
 	bool found = false;
 	int i;
 
-	if (!env || *exename[0] == '/')
-		pr_err_ns(UFTRACE_MSG, *exename);
+	if (!env || exename[0] == '/')
+		pr_err_ns(UFTRACE_MSG, exename);
 
 	/* search opts->exename in PATH one by one */
 	strv_split(&strv, env, ":");
 
 	strv_for_each(&strv, path, i) {
-		xasprintf(&pathname, "%s/%s", path, *exename);
-		if (is_regular_executable(pathname)) {
+		snprintf(buf, len, "%s/%s", path, exename);
+		if (is_regular_executable(buf)) {
 			found = true;
 			break;
 		}
-		free(pathname);
 	}
 
 	if (!found)
-		pr_err_ns(UFTRACE_MSG, *exename);
+		pr_err_ns(UFTRACE_MSG, exename);
 
-	*exename = pathname;
 	strv_free(&strv);
 }
 
@@ -1589,14 +1586,17 @@ static void check_binary(struct uftrace_opts *opts)
 	int chk;
 	size_t i;
 	char elf_ident[EI_NIDENT];
+	static char altname[PATH_MAX]; // for opts->exename to be persistent
 	uint16_t e_type;
 	uint16_t e_machine;
 	uint16_t supported_machines[] = { EM_X86_64, EM_ARM, EM_AARCH64, EM_386 };
 
 again:
 	/* if it cannot be found in PATH, then fails inside */
-	if (!is_regular_executable(opts->exename))
-		find_in_path(&opts->exename);
+	if (!is_regular_executable(opts->exename)) {
+		find_in_path(opts->exename, altname, sizeof(altname));
+		opts->exename = altname;
+	}
 
 	pr_dbg("checking binary %s\n", opts->exename);
 
@@ -1608,10 +1608,10 @@ again:
 		pr_err("Cannot read '%s'", opts->exename);
 
 	if (memcmp(elf_ident, ELFMAG, SELFMAG)) {
-		char *script = str_ltrim(check_script_file(opts->exename));
+		char *script = altname;
 		char *p;
 
-		if (script == NULL)
+		if (!check_script_file(opts->exename, altname, sizeof(altname)))
 			pr_err_ns(UFTRACE_ELF_MSG, opts->exename);
 
 		if (strstr(script, "python")) {
@@ -1622,6 +1622,8 @@ again:
 
 		if (!opts->force && !opts->patch)
 			pr_err_ns(SCRIPT_MSG, opts->exename);
+
+		script = str_ltrim(script);
 
 		/* ignore options */
 		p = strchr(script, ' ');
@@ -2135,7 +2137,8 @@ int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
 {
 	uint64_t dummy;
 	char *shebang = NULL;
-	char fullpath[PATH_MAX];
+	char dirpath[PATH_MAX];
+	char exepath[PATH_MAX];
 	struct strv new_args = STRV_INIT;
 	bool is_python = false;
 
@@ -2149,12 +2152,13 @@ int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
 	 * The current working directory can be changed by calling chdir.
 	 * So dirname has to be converted to an absolute path to avoid unexpected problems.
 	 */
-	if (realpath(opts->dirname, fullpath) != NULL)
-		opts->dirname = fullpath;
+	if (realpath(opts->dirname, dirpath) != NULL)
+		opts->dirname = dirpath;
 
 	if (access(argv[0], F_OK) == 0) {
 		/* prefer current directory over PATH */
-		shebang = check_script_file(argv[0]);
+		if (check_script_file(argv[0], exepath, sizeof(exepath)))
+			shebang = exepath;
 	}
 	else {
 		struct strv path_names = STRV_INIT;
@@ -2165,8 +2169,8 @@ int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
 		strv_for_each(&path_names, dir, i) {
 			xasprintf(&path, "%s/%s", dir, argv[0]);
 			ret = access(path, F_OK);
-			if (ret == 0)
-				shebang = check_script_file(path);
+			if (ret == 0 && check_script_file(path, exepath, sizeof(exepath)))
+				shebang = exepath;
 			free(path);
 			if (ret == 0)
 				break;
@@ -2178,13 +2182,10 @@ int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
 		char *s, *p;
 		int i;
 
-		s = shebang;
-
 		if (strstr(shebang, "python"))
 			is_python = true;
 
-		while (isspace(*s))
-			s++;
+		s = str_ltrim(shebang);
 
 		p = strchr(s, ' ');
 		if (p != NULL)
@@ -2210,8 +2211,6 @@ int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
 
 		argc = new_args.nr;
 		argv = new_args.p;
-
-		free(shebang);
 	}
 
 	setup_child_environ(opts, argc, argv);

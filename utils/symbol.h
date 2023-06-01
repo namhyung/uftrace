@@ -175,7 +175,7 @@ char *get_soname(const char *filename);
 bool has_dependency(const char *filename, const char *libname);
 enum uftrace_trace_type check_trace_functions(const char *filename);
 int check_static_binary(const char *filename);
-char *check_script_file(const char *filename);
+bool check_script_file(const char *filename, char *buf, size_t len);
 
 /* pseudo-map for kernel image */
 #define MAP_KERNEL (struct uftrace_mmap *)1
