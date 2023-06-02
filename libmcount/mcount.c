@@ -375,11 +375,10 @@ static void mcount_filter_init(struct uftrace_filter_setting *filter_setting, bo
 	char *autoargs_str = getenv("UFTRACE_AUTO_ARGS");
 	char *caller_str = getenv("UFTRACE_CALLER");
 	char *loc_str = getenv("UFTRACE_LOCATION");
+	bool needs_debug_info = false;
 
 	filter_setting->lp64 = host_is_lp64();
 	filter_setting->arch = host_cpu_arch();
-
-	bool needs_debug_info = false;
 
 	load_module_symtabs(&mcount_sym_info);
 
