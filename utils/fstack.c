@@ -228,67 +228,50 @@ setup:
 static int setup_filters(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
-	struct uftrace_triggers_info triggers = {
-		.root = s->filters,
-		.filter_count = 0,
-	};
 
-	uftrace_setup_filter(setting->info_str, &s->sym_info, &triggers, setting);
-	s->filters = triggers.root;
-	fstack_triggers.filter_count = triggers.filter_count;
+	fstack_triggers.root = s->filters;
+	uftrace_setup_filter(setting->info_str, &s->sym_info, &fstack_triggers, setting);
+	s->filters = fstack_triggers.root;
 	return 0;
 }
 
 static int setup_trigger(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
-	struct uftrace_triggers_info triggers = {
-		.root = s->filters,
-	};
 
-	uftrace_setup_trigger(setting->info_str, &s->sym_info, &triggers, setting);
-	s->filters = triggers.root;
+	fstack_triggers.root = s->filters;
+	uftrace_setup_trigger(setting->info_str, &s->sym_info, &fstack_triggers, setting);
+	s->filters = fstack_triggers.root;
 	return 0;
 }
 
 static int setup_callers(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
-	struct uftrace_triggers_info triggers = {
-		.root = s->filters,
-		.filter_count = 0,
-	};
 
-	uftrace_setup_caller_filter(setting->info_str, &s->sym_info, &triggers, setting);
-	s->filters = triggers.root;
-	fstack_triggers.caller_count = triggers.caller_count;
+	fstack_triggers.root = s->filters;
+	uftrace_setup_caller_filter(setting->info_str, &s->sym_info, &fstack_triggers, setting);
+	s->filters = fstack_triggers.root;
 	return 0;
 }
 
 static int setup_hides(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
-	struct uftrace_triggers_info triggers = {
-		.root = s->filters,
-	};
 
-	uftrace_setup_hide_filter(setting->info_str, &s->sym_info, &triggers, setting);
-	s->filters = triggers.root;
-	fstack_triggers.loc_count = triggers.loc_count;
+	fstack_triggers.root = s->filters;
+	uftrace_setup_hide_filter(setting->info_str, &s->sym_info, &fstack_triggers, setting);
+	s->filters = fstack_triggers.root;
 	return 0;
 }
 
 static int setup_locs(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
-	struct uftrace_triggers_info triggers = {
-		.root = s->filters,
-		.loc_count = 0,
-	};
 
-	uftrace_setup_loc_filter(setting->info_str, &s->sym_info, &triggers, setting);
-	s->filters = triggers.root;
-	fstack_triggers.loc_count = triggers.loc_count;
+	fstack_triggers.root = s->filters;
+	uftrace_setup_loc_filter(setting->info_str, &s->sym_info, &fstack_triggers, setting);
+	s->filters = fstack_triggers.root;
 	return 0;
 }
 
