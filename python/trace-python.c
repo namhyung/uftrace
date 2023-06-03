@@ -33,7 +33,13 @@ static PyObject *uftrace_func __maybe_unused;
 static struct rb_root code_tree = RB_ROOT;
 
 /* name of the python script file it's running */
-static const char *main_file;
+static char *main_file;
+
+/* pathname where the main python script is loaded from */
+static char *main_dir;
+
+/* length of the main_dir (for comparison) */
+static int main_dir_len;
 
 /* initial size of the symbol table and unit size for increment */
 #define UFTRACE_PYTHON_SYMTAB_SIZE (1 * 1024 * 1024)
@@ -585,6 +591,8 @@ static bool can_trace(bool is_entry, struct uftrace_python_symbol *sym)
 static void init_uftrace(void)
 {
 	const char *libcall = getenv("UFTRACE_PY_LIBCALL");
+	const char *pymain = getenv("UFTRACE_PYMAIN");
+	char *p;
 
 	/* check if it's loaded in a uftrace session */
 	if (getenv("UFTRACE_SHMEM") == NULL)
@@ -595,10 +603,23 @@ static void init_uftrace(void)
 		dbg_domain[DBG_UFTRACE] = 1;
 	}
 
-	if (getenv("UFTRACE_SRCLINE") || need_dbg_info) {
-		/* read UFTRACE_PYMAIN, which was set in uftrace.py. */
-		main_file = getenv("UFTRACE_PYMAIN");
+	if (getenv("UFTRACE_SRCLINE"))
 		need_dbg_info = true;
+
+	/* UFTRACE_PYMAIN was set in uftrace.py. */
+	if (pymain != NULL) {
+		main_file = xstrdup(pymain);
+		/* main_dir keeps the dirname of the main file */
+		if (main_file[0] != '/')
+			main_dir = realpath(main_file, NULL);
+		else
+			main_dir = xstrdup(main_file);
+		/* get dirname of main_file */
+		p = strrchr(main_dir, '/');
+		if (p && p != main_dir)
+			*p = '\0';
+		main_dir_len = strlen(main_dir);
+		pr_dbg2("main module is loaded from: %s\n", main_dir);
 	}
 
 	if (libcall != NULL) {
@@ -846,6 +867,7 @@ static struct uftrace_python_symbol *convert_function_addr(PyObject *frame, PyOb
 	struct rb_node **p = &code_tree.rb_node;
 	struct uftrace_python_symbol *iter, *new_sym;
 	PyObject *code;
+	const char *file_name = NULL;
 	char *func_name;
 	bool is_main = false;
 
@@ -883,6 +905,18 @@ static struct uftrace_python_symbol *convert_function_addr(PyObject *frame, PyOb
 	if (func_name == NULL)
 		return NULL;
 
+	if (main_dir && PyObject_HasAttrString(code, "co_filename")) {
+		PyObject *obj;
+
+		obj = PyObject_GetAttrString(code, "co_filename");
+		file_name = get_c_string(obj);
+		Py_DECREF(obj);
+
+		/* check if this function is from the same directory as the main script */
+		if (!strncmp(file_name, main_dir, main_dir_len) && file_name[main_dir_len] == '/')
+			is_main = true;
+	}
+
 	new_sym = xmalloc(sizeof(*new_sym));
 	new_sym->code = code;
 	new_sym->addr = get_new_sym_addr(func_name, !is_main);
@@ -890,23 +924,18 @@ static struct uftrace_python_symbol *convert_function_addr(PyObject *frame, PyOb
 	new_sym->flag = is_main ? 0 : UFT_PYSYM_F_LIBCALL;
 
 	if (need_dbg_info) {
-		if (PyObject_HasAttrString(code, "co_filename") &&
-		    PyObject_HasAttrString(code, "co_firstlineno")) {
+		if (file_name && PyObject_HasAttrString(code, "co_firstlineno")) {
 			PyObject *obj;
-			const char *file;
 			int line;
 
-			obj = PyObject_GetAttrString(code, "co_filename");
-			file = get_c_string(obj);
-			Py_DECREF(obj);
-			if (!strcmp(file, "<string>"))
-				file = main_file;
+			if (!strcmp(file_name, "<string>") && main_file)
+				file_name = main_file;
 
 			obj = PyObject_GetAttrString(code, "co_firstlineno");
 			line = PyLong_AsLong(obj);
 			Py_DECREF(obj);
 
-			update_dbg_info(func_name, new_sym->addr, file, line);
+			update_dbg_info(func_name, new_sym->addr, file_name, line);
 		}
 	}
 
@@ -983,6 +1012,9 @@ static void __attribute__((destructor)) uftrace_trace_python_finish(void)
 		write_dbginfo(dirname);
 
 	remove_filters();
+
+	free(main_file);
+	free(main_dir);
 }
 
 #else /* UNIT_TEST */
