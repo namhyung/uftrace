@@ -65,19 +65,6 @@ struct mcount_ret_stack {
 	struct list_head *pargs;
 };
 
-struct mcount_triggers_info {
-	/* filters, trigger actions, arg/retval specs */
-	/* container type: struct uftrace_filter */
-	struct rb_root root;
-
-	/* count of registered opt-in filters (-F) */
-	int filter_count;
-	/* count of registered caller filters */
-	int caller_count;
-	/* count of registered opt-in location filters (-L) */
-	int loc_count;
-};
-
 void __monstartup(unsigned long low, unsigned long high);
 void _mcleanup(void);
 void mcount_restore(void);

@@ -951,7 +951,7 @@ static int update_trigger_entry(struct rb_root *root, struct uftrace_pattern *pa
  * @setting    - filter settings
  */
 static void setup_trigger(char *filter_str, struct uftrace_sym_info *sinfo,
-			  struct mcount_triggers_info *triggers, unsigned long flags,
+			  struct uftrace_triggers_info *triggers, unsigned long flags,
 			  struct uftrace_filter_setting *setting)
 {
 	struct strv filters = STRV_INIT;
@@ -1091,7 +1091,7 @@ next:
  * @setting    - filter settings
  */
 void uftrace_setup_filter(char *filter_str, struct uftrace_sym_info *sinfo,
-			  struct mcount_triggers_info *triggers,
+			  struct uftrace_triggers_info *triggers,
 			  struct uftrace_filter_setting *setting)
 {
 	setup_trigger(filter_str, sinfo, triggers, TRIGGER_FL_FILTER, setting);
@@ -1106,7 +1106,7 @@ void uftrace_setup_filter(char *filter_str, struct uftrace_sym_info *sinfo,
  * @setting     - filter settings
  */
 void uftrace_setup_trigger(char *trigger_str, struct uftrace_sym_info *sinfo,
-			   struct mcount_triggers_info *triggers,
+			   struct uftrace_triggers_info *triggers,
 			   struct uftrace_filter_setting *setting)
 {
 	setup_trigger(trigger_str, sinfo, triggers, 0, setting);
@@ -1120,7 +1120,7 @@ void uftrace_setup_trigger(char *trigger_str, struct uftrace_sym_info *sinfo,
  * @setting    - filter settings
  */
 void uftrace_setup_argument(char *args_str, struct uftrace_sym_info *sinfo,
-			    struct mcount_triggers_info *triggers,
+			    struct uftrace_triggers_info *triggers,
 			    struct uftrace_filter_setting *setting)
 {
 	unsigned long flags = TRIGGER_FL_ARGUMENT;
@@ -1139,7 +1139,7 @@ void uftrace_setup_argument(char *args_str, struct uftrace_sym_info *sinfo,
  * @setting    - filter settings
  */
 void uftrace_setup_retval(char *retval_str, struct uftrace_sym_info *sinfo,
-			  struct mcount_triggers_info *triggers,
+			  struct uftrace_triggers_info *triggers,
 			  struct uftrace_filter_setting *setting)
 {
 	unsigned long flags = TRIGGER_FL_RETVAL;
@@ -1159,7 +1159,7 @@ void uftrace_setup_retval(char *retval_str, struct uftrace_sym_info *sinfo,
  * @setting    - filter settings
  */
 void uftrace_setup_caller_filter(char *filter_str, struct uftrace_sym_info *sinfo,
-				 struct mcount_triggers_info *triggers,
+				 struct uftrace_triggers_info *triggers,
 				 struct uftrace_filter_setting *setting)
 {
 	setup_trigger(filter_str, sinfo, triggers, TRIGGER_FL_CALLER, setting);
@@ -1173,7 +1173,7 @@ void uftrace_setup_caller_filter(char *filter_str, struct uftrace_sym_info *sinf
  * @setting    - filter settings
  */
 void uftrace_setup_hide_filter(char *filter_str, struct uftrace_sym_info *sinfo,
-			       struct mcount_triggers_info *triggers,
+			       struct uftrace_triggers_info *triggers,
 			       struct uftrace_filter_setting *setting)
 {
 	setup_trigger(filter_str, sinfo, triggers, TRIGGER_FL_HIDE, setting);
@@ -1188,7 +1188,7 @@ void uftrace_setup_hide_filter(char *filter_str, struct uftrace_sym_info *sinfo,
  * @setting    - filter settings
  */
 void uftrace_setup_loc_filter(char *filter_str, struct uftrace_sym_info *sinfo,
-			      struct mcount_triggers_info *triggers,
+			      struct uftrace_triggers_info *triggers,
 			      struct uftrace_filter_setting *setting)
 {
 	setup_trigger(filter_str, sinfo, triggers, TRIGGER_FL_LOC, setting);
@@ -1262,9 +1262,9 @@ static void deep_copy_triggers(struct rb_node **dest, struct rb_node *src)
  * @src    - root of the rbtree to copy
  * @return - root of the deep copy
  */
-struct mcount_triggers_info uftrace_deep_copy_triggers(struct mcount_triggers_info *src)
+struct uftrace_triggers_info uftrace_deep_copy_triggers(struct uftrace_triggers_info *src)
 {
-	struct mcount_triggers_info new = *src;
+	struct uftrace_triggers_info new = *src;
 	new.root = RB_ROOT;
 	deep_copy_triggers(&new.root.rb_node, src->root.rb_node);
 	return new;
@@ -1298,7 +1298,7 @@ void uftrace_cleanup_filter(struct rb_root *root)
  * uftrace_cleanup_triggers - delete filters and reset counters
  * @triggers - triggers info
  */
-void uftrace_cleanup_triggers(struct mcount_triggers_info *triggers)
+void uftrace_cleanup_triggers(struct uftrace_triggers_info *triggers)
 {
 	uftrace_cleanup_filter(&triggers->root);
 	triggers->filter_count = 0;
@@ -1396,7 +1396,7 @@ TEST_CASE(filter_setup_simple)
 	struct uftrace_sym_info sinfo = {
 		.loaded = false,
 	};
-	struct mcount_triggers_info triggers = {
+	struct uftrace_triggers_info triggers = {
 		.root = RB_ROOT,
 	};
 	struct rb_node *node;
@@ -1445,7 +1445,7 @@ TEST_CASE(filter_setup_regex)
 	struct uftrace_sym_info sinfo = {
 		.loaded = false,
 	};
-	struct mcount_triggers_info triggers = {
+	struct uftrace_triggers_info triggers = {
 		.root = RB_ROOT,
 	};
 	struct rb_node *node;
@@ -1496,7 +1496,7 @@ TEST_CASE(filter_setup_glob)
 	struct uftrace_sym_info sinfo = {
 		.loaded = false,
 	};
-	struct mcount_triggers_info triggers = {
+	struct uftrace_triggers_info triggers = {
 		.root = RB_ROOT,
 	};
 	struct rb_node *node;
@@ -1547,7 +1547,7 @@ TEST_CASE(filter_setup_notrace)
 	struct uftrace_sym_info sinfo = {
 		.loaded = false,
 	};
-	struct mcount_triggers_info triggers = {
+	struct uftrace_triggers_info triggers = {
 		.root = RB_ROOT,
 		.filter_count = 0,
 	};
@@ -1595,7 +1595,7 @@ TEST_CASE(filter_match)
 	struct uftrace_sym_info sinfo = {
 		.loaded = false,
 	};
-	struct mcount_triggers_info triggers = {
+	struct uftrace_triggers_info triggers = {
 		.root = RB_ROOT,
 		.filter_count = 0,
 	};
@@ -1642,7 +1642,7 @@ TEST_CASE(trigger_setup_actions)
 	struct uftrace_sym_info sinfo = {
 		.loaded = false,
 	};
-	struct mcount_triggers_info triggers = {
+	struct uftrace_triggers_info triggers = {
 		.root = RB_ROOT,
 	};
 	struct uftrace_trigger tr;
@@ -1698,7 +1698,7 @@ TEST_CASE(trigger_setup_filters)
 	struct uftrace_sym_info sinfo = {
 		.loaded = false,
 	};
-	struct mcount_triggers_info triggers = {
+	struct uftrace_triggers_info triggers = {
 		.root = RB_ROOT,
 		.filter_count = 0,
 	};
@@ -1756,10 +1756,10 @@ TEST_CASE(filter_rbtree_deep_copy)
 	struct uftrace_sym_info sinfo = {
 		.loaded = false,
 	};
-	struct mcount_triggers_info orig = {
+	struct uftrace_triggers_info orig = {
 		.root = RB_ROOT,
 	};
-	struct mcount_triggers_info copy = {
+	struct uftrace_triggers_info copy = {
 		.root = RB_ROOT,
 	};
 	struct rb_node *node;
@@ -1812,7 +1812,7 @@ TEST_CASE(trigger_setup_args)
 	struct uftrace_sym_info sinfo = {
 		.loaded = false,
 	};
-	struct mcount_triggers_info triggers = {
+	struct uftrace_triggers_info triggers = {
 		.root = RB_ROOT,
 	};
 	struct uftrace_trigger tr;
@@ -2060,7 +2060,7 @@ TEST_CASE(locfilter_setup_simple)
 	struct uftrace_sym_info sinfo = {
 		.loaded = false,
 	};
-	struct mcount_triggers_info triggers = {
+	struct uftrace_triggers_info triggers = {
 		.root = RB_ROOT,
 	};
 	struct rb_node *node;
@@ -2108,7 +2108,7 @@ TEST_CASE(locfilter_setup_regex)
 	struct uftrace_sym_info sinfo = {
 		.loaded = false,
 	};
-	struct mcount_triggers_info triggers = {
+	struct uftrace_triggers_info triggers = {
 		.root = RB_ROOT,
 	};
 	struct rb_node *node;
@@ -2155,7 +2155,7 @@ TEST_CASE(locfilter_setup_glob)
 	struct uftrace_sym_info sinfo = {
 		.loaded = false,
 	};
-	struct mcount_triggers_info triggers = {
+	struct uftrace_triggers_info triggers = {
 		.root = RB_ROOT,
 	};
 	struct rb_node *node;
@@ -2203,7 +2203,7 @@ TEST_CASE(locfilter_setup_dir_simple)
 	struct uftrace_sym_info sinfo = {
 		.loaded = false,
 	};
-	struct mcount_triggers_info triggers = {
+	struct uftrace_triggers_info triggers = {
 		.root = RB_ROOT,
 	};
 	struct rb_node *node;
@@ -2370,7 +2370,7 @@ TEST_CASE(locfilter_setup_dir_regex)
 	struct uftrace_sym_info sinfo = {
 		.loaded = false,
 	};
-	struct mcount_triggers_info triggers = {
+	struct uftrace_triggers_info triggers = {
 		.root = RB_ROOT,
 	};
 	struct rb_node *node;
@@ -2421,7 +2421,7 @@ TEST_CASE(locfilter_setup_dir_glob)
 	struct uftrace_sym_info sinfo = {
 		.loaded = false,
 	};
-	struct mcount_triggers_info triggers = {
+	struct uftrace_triggers_info triggers = {
 		.root = RB_ROOT,
 	};
 	struct rb_node *node;
@@ -2468,7 +2468,7 @@ TEST_CASE(locfilter_match)
 	struct uftrace_sym_info sinfo = {
 		.loaded = false,
 	};
-	struct mcount_triggers_info triggers = {
+	struct uftrace_triggers_info triggers = {
 		.root = RB_ROOT,
 		.loc_count = 0,
 	};
