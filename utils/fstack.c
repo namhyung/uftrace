@@ -21,7 +21,7 @@
 bool fstack_enabled = true;
 bool live_disabled = false;
 
-static struct mcount_triggers_info fstack_triggers;
+static struct uftrace_triggers_info fstack_triggers;
 
 static inline int fstack_get_filter_mode()
 {
@@ -228,7 +228,7 @@ setup:
 static int setup_filters(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
-	struct mcount_triggers_info triggers = {
+	struct uftrace_triggers_info triggers = {
 		.root = s->filters,
 		.filter_count = 0,
 	};
@@ -242,7 +242,7 @@ static int setup_filters(struct uftrace_session *s, void *arg)
 static int setup_trigger(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
-	struct mcount_triggers_info triggers = {
+	struct uftrace_triggers_info triggers = {
 		.root = s->filters,
 	};
 
@@ -254,7 +254,7 @@ static int setup_trigger(struct uftrace_session *s, void *arg)
 static int setup_callers(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
-	struct mcount_triggers_info triggers = {
+	struct uftrace_triggers_info triggers = {
 		.root = s->filters,
 		.filter_count = 0,
 	};
@@ -268,7 +268,7 @@ static int setup_callers(struct uftrace_session *s, void *arg)
 static int setup_hides(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
-	struct mcount_triggers_info triggers = {
+	struct uftrace_triggers_info triggers = {
 		.root = s->filters,
 	};
 
@@ -281,7 +281,7 @@ static int setup_hides(struct uftrace_session *s, void *arg)
 static int setup_locs(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
-	struct mcount_triggers_info triggers = {
+	struct uftrace_triggers_info triggers = {
 		.root = s->filters,
 		.loc_count = 0,
 	};
@@ -431,7 +431,7 @@ static int build_fixup_filter(struct uftrace_session *s, void *arg)
 		.ptype = PATT_SIMPLE,
 		.auto_args = false,
 	};
-	struct mcount_triggers_info fixups = {
+	struct uftrace_triggers_info fixups = {
 		.root = s->fixups,
 	};
 
@@ -459,7 +459,7 @@ static void fstack_prepare_fixup(struct uftrace_data *handle)
 static int build_arg_spec(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
-	struct mcount_triggers_info triggers = {
+	struct uftrace_triggers_info triggers = {
 		.root = s->filters,
 	};
 
@@ -474,7 +474,7 @@ static int build_arg_spec(struct uftrace_session *s, void *arg)
 static int build_ret_spec(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
-	struct mcount_triggers_info triggers = {
+	struct uftrace_triggers_info triggers = {
 		.root = s->filters,
 	};
 

@@ -87,7 +87,7 @@ static struct uftrace_filter_setting mcount_filter_setting = {
 static bool __maybe_unused mcount_enabled = true;
 
 /* triggers definition and counters */
-static struct mcount_triggers_info __maybe_unused *mcount_triggers;
+static struct uftrace_triggers_info __maybe_unused *mcount_triggers;
 
 /* bitmask of active watch points */
 static unsigned long __maybe_unused mcount_watchpoints;
@@ -1804,9 +1804,9 @@ static void mcount_script_init(enum uftrace_pattern_type patt_type)
  * @old - pointer to the tree to deprecate
  * @new - new version of the tree to use
  */
-static void swap_triggers(struct mcount_triggers_info **old, struct mcount_triggers_info *new)
+static void swap_triggers(struct uftrace_triggers_info **old, struct uftrace_triggers_info *new)
 {
-	struct mcount_triggers_info *tmp;
+	struct uftrace_triggers_info *tmp;
 	tmp = __sync_val_compare_and_swap(old, *old, new);
 	sleep(1); /* RCU-like grace period */
 	uftrace_cleanup_triggers(tmp);
@@ -1818,7 +1818,7 @@ static void swap_triggers(struct mcount_triggers_info **old, struct mcount_trigg
  * @filter_str - filters to add or remove
  * @triggers   - rbtree of tracing filters
  */
-static void agent_setup_filter(char *filter_str, struct mcount_triggers_info *triggers)
+static void agent_setup_filter(char *filter_str, struct uftrace_triggers_info *triggers)
 {
 	uftrace_setup_filter(filter_str, &mcount_sym_info, triggers, &mcount_filter_setting);
 }
@@ -1828,7 +1828,7 @@ static void agent_setup_filter(char *filter_str, struct mcount_triggers_info *tr
  * @caller_str - caller filters to add or remove
  * @triggers   - rbtree where the filters are stored
  */
-static void agent_setup_caller_filter(char *caller_str, struct mcount_triggers_info *triggers)
+static void agent_setup_caller_filter(char *caller_str, struct uftrace_triggers_info *triggers)
 {
 	uftrace_setup_caller_filter(caller_str, &mcount_sym_info, triggers, &mcount_filter_setting);
 }
@@ -1919,7 +1919,7 @@ static int agent_read_option(int fd, int *opt, void **value, size_t read_size)
  * @return   - 0 on success, -1 on failure
  */
 static int agent_apply_option(int opt, void *value, size_t size,
-			      struct mcount_triggers_info *triggers)
+			      struct uftrace_triggers_info *triggers)
 {
 	struct uftrace_opts opts;
 	int ret = 0;
@@ -1997,7 +1997,7 @@ void *agent_apply_commands(void *arg)
 	struct sockaddr_un addr;
 	void *value = NULL;
 	size_t size;
-	struct mcount_triggers_info *triggers_copy = NULL;
+	struct uftrace_triggers_info *triggers_copy = NULL;
 
 	/* initialize agent */
 	sfd = agent_init(&addr);
