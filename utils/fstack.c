@@ -357,29 +357,26 @@ static int setup_fstack_filters(struct uftrace_data *handle, char *filter_str, c
 
 		setting->info_str = caller_str;
 		walk_sessions(sessions, setup_callers, setting);
-		walk_sessions(sessions, count_filters, &count);
+		walk_sessions(sessions, count_callers, &count);
 
 		if (prev == count)
 			return -1;
-	}
 
-	/* there might be caller triggers, count it separately */
-	count = 0;
-	walk_sessions(sessions, count_callers, &count);
-	if (count != 0) {
 		handle->caller_filter = true;
-		pr_dbg("setup caller filters for %d function(s)\n", count);
+		pr_dbg("setup caller filters for %d function(s)\n", count - prev);
 	}
 
 	if (hide_str) {
+		int prev = count;
+
 		setting->info_str = hide_str;
 		walk_sessions(sessions, setup_hides, setting);
 		walk_sessions(sessions, count_hides, &count);
 
-		if (count == 0)
+		if (prev == count)
 			return -1;
 
-		pr_dbg("setup hide filters for %d function(s)\n", count);
+		pr_dbg("setup hide filters for %d function(s)\n", count - prev);
 	}
 
 	if (loc_str) {
@@ -392,7 +389,7 @@ static int setup_fstack_filters(struct uftrace_data *handle, char *filter_str, c
 		if (prev == count)
 			return -1;
 
-		pr_dbg("setup location filters for %d function(s)\n", count);
+		pr_dbg("setup location filters for %d function(s)\n", count - prev);
 	}
 
 	return 0;
