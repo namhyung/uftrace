@@ -151,9 +151,14 @@ static void (*cygprof_exit)(unsigned long child, unsigned long parent);
 /* main trace function to be called from python interpreter */
 static PyObject *uftrace_trace_python(PyObject *self, PyObject *args);
 
+/* hooking function of os._exit() for proper cleanup */
+static PyObject *uftrace_trace_python_exit(PyObject *self, PyObject *obj);
+
 static __attribute__((used)) PyMethodDef uftrace_py_methods[] = {
 	{ "trace", uftrace_trace_python, METH_VARARGS,
 	  PyDoc_STR("trace python function with uftrace.") },
+	{ "exit", uftrace_trace_python_exit, METH_O,
+	  PyDoc_STR("exit the target program with cleanup.") },
 	{ NULL, NULL, 0, NULL },
 };
 
@@ -1017,6 +1022,14 @@ static void __attribute__((destructor)) uftrace_trace_python_finish(void)
 	free(main_dir);
 }
 
+static PyObject *uftrace_trace_python_exit(PyObject *self, PyObject *obj)
+{
+	int n = PyLong_AsLong(obj);
+	uftrace_trace_python_finish();
+	_exit(n);
+	return NULL;
+}
+
 #else /* UNIT_TEST */
 
 static PyObject *uftrace_trace_python(PyObject *self, PyObject *args)
@@ -1025,6 +1038,11 @@ static PyObject *uftrace_trace_python(PyObject *self, PyObject *args)
 	skip_first_frame = false;
 	code_tree = code_tree;
 
+	return NULL;
+}
+
+static PyObject *uftrace_trace_python_exit(PyObject *self, PyObject *obj)
+{
 	return NULL;
 }
 
