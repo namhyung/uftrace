@@ -23,13 +23,13 @@ bool live_disabled = false;
 
 static struct uftrace_triggers_info fstack_triggers;
 
-static inline int fstack_get_filter_mode()
+static inline int fstack_get_filter_mode(void)
 {
 	int filter_count = fstack_triggers.filter_count;
 	return filter_count > 0 ? FILTER_MODE_IN : FILTER_MODE_OUT;
 }
 
-static inline int fstack_get_loc_mode()
+static inline int fstack_get_loc_mode(void)
 {
 	int loc_count = fstack_triggers.loc_count;
 	return loc_count > 0 ? FILTER_MODE_IN : FILTER_MODE_OUT;

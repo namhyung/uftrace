@@ -841,7 +841,7 @@ extern void *get_argbuf(struct mcount_thread_data *, struct mcount_ret_stack *);
 /**
  * mcount_get_filter_mode - compute the filter mode from the filter count
  */
-static inline enum filter_mode mcount_get_filter_mode()
+static inline enum filter_mode mcount_get_filter_mode(void)
 {
 	return mcount_triggers->filter_count > 0 ? FILTER_MODE_IN : FILTER_MODE_OUT;
 }
@@ -849,7 +849,7 @@ static inline enum filter_mode mcount_get_filter_mode()
 /**
  * mcount_get_loc_mode - compute the location filter mode from the location count
  */
-static inline enum filter_mode mcount_get_loc_mode()
+static inline enum filter_mode mcount_get_loc_mode(void)
 {
 	return mcount_triggers->loc_count > 0 ? FILTER_MODE_IN : FILTER_MODE_OUT;
 }
@@ -2096,7 +2096,7 @@ void *agent_apply_commands(void *arg)
 	return 0;
 }
 
-static void agent_spawn()
+static void agent_spawn(void)
 {
 	errno = pthread_create(&agent, NULL, &agent_apply_commands, NULL);
 	if (errno != 0)
@@ -2105,7 +2105,7 @@ static void agent_spawn()
 
 /* Check if the agent is up. If so, set its run flag to false, open and close
  * connection . */
-static void agent_kill()
+static void agent_kill(void)
 {
 	int sfd;
 	int status;

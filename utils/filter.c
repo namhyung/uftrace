@@ -1958,7 +1958,7 @@ TEST_CASE(trigger_setup_args)
 	return TEST_OK;
 }
 
-static struct uftrace_mmap *locfilter_test_load_mmap()
+static struct uftrace_mmap *locfilter_test_load_mmap(void)
 {
 	static struct uftrace_symbol syms[] = {
 		{ 0x1000, 0x1000, ST_GLOBAL_FUNC, "command_dump" },
@@ -2003,7 +2003,7 @@ static struct uftrace_mmap *locfilter_test_load_mmap()
 	return &map;
 }
 
-static struct uftrace_mmap *locfilter_test_load_mmap2()
+static struct uftrace_mmap *locfilter_test_load_mmap2(void)
 {
 	static struct uftrace_symbol syms2[] = {
 		{ 0xa000, 0x1000, ST_GLOBAL_FUNC, "util_fstack" },
