@@ -18,7 +18,7 @@ jobs:
         run: ./configure
 
       - name: "build the source"
-        run: make
+        run: make DEBUG=1
 
       - name: "setup run-time env"
         run: |
