@@ -58,9 +58,10 @@ export ARCH CC AR LD RM srcdir objdir LDFLAGS
 
 COMMON_CFLAGS := -std=gnu11 -D_GNU_SOURCE $(CFLAGS) $(CPPFLAGS)
 COMMON_CFLAGS += -iquote $(srcdir) -iquote $(objdir) -iquote $(srcdir)/arch/$(ARCH)
-COMMON_CFLAGS += -Wdeclaration-after-statement
-#CFLAGS-DEBUG = -g -D_GNU_SOURCE $(CFLAGS_$@)
-COMMON_LDFLAGS := -ldl -pthread -Wl,-z,noexecstack $(LDFLAGS) $(LDFLAGS_$@)
+COMMON_CFLAGS += -W -Wall -Wno-unused-parameter -Wno-missing-field-initializers
+COMMON_CFLAGS += -Wdeclaration-after-statement -Wstrict-prototypes
+
+COMMON_LDFLAGS := -ldl -pthread -Wl,-z,noexecstack $(LDFLAGS)
 ifeq ($(ANDROID),)
 COMMON_LDFLAGS += -lrt
 else
@@ -72,11 +73,8 @@ ifneq ($(elfdir),)
   COMMON_LDFLAGS += -L$(elfdir)/lib
 endif
 
-COMMON_CFLAGS += -W -Wall -Wno-unused-parameter -Wno-missing-field-initializers
-
 C_STR_TARGET = utils/mermaid.js utils/mermaid.html
 C_STR_EXTENSION = cstr
-
 C_STR_OBJS := $(patsubst %,$(objdir)/%.$(C_STR_EXTENSION),$(C_STR_TARGET))
 
 #
@@ -104,7 +102,7 @@ LIB_LDFLAGS        = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_lib) -Wl,--no-und
 TEST_LDFLAGS       = $(COMMON_LDFLAGS) -L$(objdir)/libtraceevent -ltraceevent
 
 ifeq ($(DEBUG), 1)
-  COMMON_CFLAGS += -O0 -g3 -DDEBUG_MODE=1 -Werror -Wstrict-prototypes
+  COMMON_CFLAGS += -O0 -g3 -DDEBUG_MODE=1 -Werror
 else
   COMMON_CFLAGS += -O2 -g -DDEBUG_MODE=0
 endif
