@@ -104,7 +104,7 @@ LIB_LDFLAGS        = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_lib) -Wl,--no-und
 TEST_LDFLAGS       = $(COMMON_LDFLAGS) -L$(objdir)/libtraceevent -ltraceevent
 
 ifeq ($(DEBUG), 1)
-  COMMON_CFLAGS += -O0 -g3 -DDEBUG_MODE=1
+  COMMON_CFLAGS += -O0 -g3 -DDEBUG_MODE=1 -Werror -Wstrict-prototypes
 else
   COMMON_CFLAGS += -O2 -g -DDEBUG_MODE=0
 endif

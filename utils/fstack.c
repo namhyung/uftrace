@@ -23,13 +23,13 @@ bool live_disabled = false;
 
 static struct uftrace_triggers_info fstack_triggers;
 
-static inline int fstack_get_filter_mode()
+static inline int fstack_get_filter_mode(void)
 {
 	int filter_count = fstack_triggers.filter_count;
 	return filter_count > 0 ? FILTER_MODE_IN : FILTER_MODE_OUT;
 }
 
-static inline int fstack_get_loc_mode()
+static inline int fstack_get_loc_mode(void)
 {
 	int loc_count = fstack_triggers.loc_count;
 	return loc_count > 0 ? FILTER_MODE_IN : FILTER_MODE_OUT;
@@ -683,7 +683,7 @@ int fstack_entry(struct uftrace_task_reader *task, struct uftrace_record *rstack
 		}
 	}
 	else {
-		if (fstack_get_loc_mode(&sess->filters) == FILTER_MODE_IN) {
+		if (fstack_get_loc_mode() == FILTER_MODE_IN) {
 			fstack->flags |= FSTACK_FL_NORECORD;
 			return -1;
 		}
@@ -866,8 +866,8 @@ static int fstack_check_skip(struct uftrace_task_reader *task, struct uftrace_re
 		if (tr.fmode == FILTER_MODE_OUT)
 			return -1;
 	}
-	else if ((fstack_get_filter_mode(&sess->filters) == FILTER_MODE_IN ||
-		  fstack_get_loc_mode(&sess->filters) == FILTER_MODE_IN) &&
+	else if ((fstack_get_filter_mode() == FILTER_MODE_IN ||
+		  fstack_get_loc_mode() == FILTER_MODE_IN) &&
 		 task->filter.in_count == 0) {
 		return -1;
 	}
@@ -1004,8 +1004,7 @@ bool fstack_check_filter(struct uftrace_task_reader *task)
 	else if (task->rstack->type == UFTRACE_EVENT) {
 		/* don't change filter state, just check it */
 		if (task->filter.out_count > 0 || task->filter.depth <= 0 ||
-		    (fstack_get_filter_mode(&fstack_triggers) == FILTER_MODE_IN &&
-		     task->filter.in_count == 0))
+		    (fstack_get_filter_mode() == FILTER_MODE_IN && task->filter.in_count == 0))
 			return false;
 
 		if (task->rstack->addr == EVENT_ID_PERF_SCHED_IN ||

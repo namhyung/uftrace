@@ -1,12 +1,12 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-int bar()
+int bar(void)
 {
 	usleep(100);
 }
 
-int foo()
+int foo(void)
 {
 	usleep(1000);
 	bar();
