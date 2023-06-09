@@ -318,7 +318,7 @@ class TestBase:
         order = 1
         before_main = True
         for ln in output.split('\n'):
-            if ln.find(' | main()') > 0:
+            if ln.find(' | main()') > 0 or ln.find(' | __main__.<module>') > 0:
                 before_main = False
             if before_main:
                 continue

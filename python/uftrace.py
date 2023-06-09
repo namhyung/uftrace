@@ -25,6 +25,14 @@ else:
 # UFTRACE_PYMAIN must be set before importing uftrace_python
 import uftrace_python
 
+# Symbol and debug files are finally written at uftrace_trace_python_finish()
+# when program exits, but os._exit() terminates the program immediately so there
+# is no chance to write symbol and debug files at the destructor.
+# The os._exit() is hooked here to prevent this problem.
+def os_exit(n):
+    uftrace_python.exit(n)
+os._exit = os_exit
+
 new_globals = globals()
 new_globals["__file__"] = pathname
 sys.path.insert(0, os.path.dirname(pathname))

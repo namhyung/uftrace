@@ -27,3 +27,6 @@ class TestCase(PyTestBase):
 
     def setup(self):
         self.option = '--nest-libcall -N ^importlib -D 6'
+
+    def fixup(self, cflags, result):
+        return result.replace(".JSONEncoder", "")
