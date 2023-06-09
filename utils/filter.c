@@ -39,7 +39,7 @@ static void snprintf_trigger_read(char *buf, size_t len, enum trigger_read_type 
 static void print_trigger(struct uftrace_trigger *tr)
 {
 	if (tr->flags & TRIGGER_FL_CLEAR)
-		pr_dbg("\ttrigger: clear\n");
+		pr_dbg("\ttriggers: clear=%#x\n", tr->clear_flags);
 	if (tr->flags & TRIGGER_FL_DEPTH)
 		pr_dbg("\ttrigger: depth %d\n", tr->depth);
 	if (tr->flags & TRIGGER_FL_FILTER) {
@@ -251,13 +251,13 @@ static void add_arg_spec(struct list_head *arg_list, struct uftrace_arg_spec *ar
  */
 void update_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr, bool exact_match)
 {
-	if (tr->flags & TRIGGER_FL_CLEAR) {
-		filter->trigger.flags &= ~tr->flags;
-		tr->fmode = filter->trigger.fmode; /* Read from tree before deleting */
-		return;
-	}
-
 	filter->trigger.flags |= tr->flags;
+
+	if (tr->flags & TRIGGER_FL_CLEAR) {
+		filter->trigger.flags &= ~tr->clear_flags;
+		if (tr->clear_flags & TRIGGER_FL_FILTER)
+			tr->fmode = filter->trigger.fmode; /* read from tree before deleting */
+	}
 
 	if (tr->flags & TRIGGER_FL_DEPTH)
 		filter->trigger.depth = tr->depth;
@@ -888,6 +888,11 @@ int setup_trigger_action(char *str, struct uftrace_trigger *tr, char **module,
 				*module = xstrdup(pos);
 		}
 	}
+	if (tr->flags & TRIGGER_FL_CLEAR) {
+		if (orig_flags && (tr->clear_flags == 0))
+			tr->clear_flags = orig_flags;
+	}
+
 	ret = 0;
 
 out:
@@ -1047,7 +1052,7 @@ static void setup_trigger(char *filter_str, struct uftrace_sym_info *sinfo,
 
 		if (ret > 0 && (tr.flags & TRIGGER_FL_FILTER)) {
 			if (tr.fmode == FILTER_MODE_IN) {
-				if (tr.flags & TRIGGER_FL_CLEAR)
+				if (tr.clear_flags & TRIGGER_FL_FILTER)
 					triggers->filter_count -= ret;
 				else
 					triggers->filter_count += ret;
@@ -1061,7 +1066,7 @@ static void setup_trigger(char *filter_str, struct uftrace_sym_info *sinfo,
 		}
 
 		if (ret > 0 && (tr.flags & TRIGGER_FL_CALLER)) {
-			if (tr.flags & TRIGGER_FL_CLEAR)
+			if (tr.clear_flags & TRIGGER_FL_CALLER)
 				triggers->caller_count -= ret;
 			else
 				triggers->caller_count += ret;
