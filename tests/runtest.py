@@ -707,6 +707,13 @@ class TestBase:
 class PyTestBase(TestBase):
     def __init__(self, name, result, lang='Python', cflags='', ldflags='', sort='simple', serial=False):
         TestBase.__init__(self, name, result, lang, cflags, ldflags, sort, serial)
+        # setup PYTHONPATH to load the new code before the inst
+        orig_path = os.environ["PYTHONPATH"] if "PYTHONPATH" in os.environ else ""
+        os.environ["PYTHONPATH"] = TestBase.objdir + '/python'
+        if TestBase.objdir != TestBase.srcdir:
+            os.environ["PYTHONPATH"] += ':' + TestBase.objdir + '/python'
+        if orig_path != "":
+            os.environ["PYTHONPATH"] += ':' + orig_path
 
 RED     = '\033[1;31m'
 GREEN   = '\033[1;32m'
