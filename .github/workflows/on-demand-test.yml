@@ -17,6 +17,9 @@ on:
       run_args:
         description: 'Run test options'
         type: string
+      python_args:
+        description: 'Python test options'
+        type: string
 
 jobs:
   run-uftrace-tests:
@@ -44,4 +47,4 @@ jobs:
           sudo sh -c "chmod +x /sys/kernel/tracing"
 
       - name: "run tests"
-        run: make test -j1 DEBUG=1 TESTARG="${{ inputs.args }}" UNITTESTARG="${{ inputs.unit_args }}" RUNTESTARG="${{ inputs.run_args }}"
+        run: make test -j1 DEBUG=1 TESTARG="${{ inputs.args }}" UNITTESTARG="${{ inputs.unit_args }}" RUNTESTARG="${{ inputs.run_args }}" PYTESTARG="${{ inputs.python_args }}"

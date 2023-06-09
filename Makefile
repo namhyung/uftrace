@@ -409,7 +409,7 @@ endif
 	@$(MAKE) -sC $(docdir) uninstall DESTDIR=$(DESTDIR)$(mandir)
 
 test: all
-	@$(MAKE) -C $(srcdir)/tests TESTARG="$(TESTARG)" UNITTESTARG="$(UNITTESTARG)" RUNTESTARG="$(RUNTESTARG)" test
+	@$(MAKE) -C $(srcdir)/tests TESTARG="$(TESTARG)" UNITTESTARG="$(UNITTESTARG)" RUNTESTARG="$(RUNTESTARG)" PYTESTARG="$(PYTESTARG)" test
 
 unittest: all
 	@$(MAKE) -C $(srcdir)/tests TESTARG="$(TESTARG)" UNITTESTARG="$(UNITTESTARG)" test_unit
