@@ -870,7 +870,7 @@ def print_test_result(case, result, diffs, color, ftests, nr_compilers):
 def print_test_header(opts, flags, ftests, compilers):
     optslen = len(opts)
     header1 = '%-24s ' % 'Compiler'
-    header2 = '%-24s ' % 'Test case'
+    header2 = '%-24s ' % 'Runtime test case'
     header3 = '-' * 24 + ':'
     empty = ' ' * 100
 
@@ -896,7 +896,7 @@ def print_test_header(opts, flags, ftests, compilers):
 
 
 def print_python_test_header(ftests):
-    header1 = '%-24s  %s' % ('Test case', 'Result')
+    header1 = '%-24s  %s' % ('Python test case', 'Result')
     header2 = '-' * 32
 
     print("")
