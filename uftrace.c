@@ -174,6 +174,7 @@ __used static const char uftrace_help[] =
 "  -K, --kernel-depth=DEPTH   Trace kernel functions within DEPTH\n"
 "      --libmcount-single     Use single thread version of libmcount\n"
 "      --list-event           List available events\n"
+"  -L, --loc-filter=LOCATION  Only trace functions in the source LOCATION\n"
 "      --logfile=FILE         Save log messages to this file\n"
 "  -l, --nest-libcall         Show nested library calls\n"
 "      --libname              Show libname name with symbol name\n"
