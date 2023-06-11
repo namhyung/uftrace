@@ -435,7 +435,7 @@ clean:
 	$(call QUIET_CLEAN, uftrace)
 	$(Q)$(RM) $(objdir)/*.o $(objdir)/*.op $(objdir)/*.so $(objdir)/*.a
 	$(Q)$(RM) $(objdir)/cmds/*.o $(objdir)/utils/*.o $(objdir)/misc/*.o
-	$(Q)$(RM) $(objdir)/utils/*.op $(objdir)/libmcount/*.op
+	$(Q)$(RM) $(objdir)/utils/*.op $(objdir)/libmcount/*.op $(objdir)/python/*.op
 	$(Q)$(RM) $(objdir)/gmon.out $(srcdir)/scripts/*.pyc $(TARGETS)
 	$(Q)$(RM) $(objdir)/uftrace-*.tar.gz $(objdir)/version.h
 	$(Q)find -name "*\.gcda" -o -name "*\.gcno" | xargs $(RM)
