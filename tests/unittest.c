@@ -289,8 +289,9 @@ int main(int argc, char *argv[])
 	char *filter = NULL;
 	char *term;
 	int c;
+	bool color_set = false;
 
-	while ((c = getopt(argc, argv, "dvnpiO:f:")) != -1) {
+	while ((c = getopt(argc, argv, "dvnpiO:f:-:")) != -1) {
 		switch (c) {
 		case 'd':
 		case 'v':
@@ -298,6 +299,22 @@ int main(int argc, char *argv[])
 			break;
 		case 'n':
 			color = false;
+			color_set = true;
+			break;
+		case '-':
+			/* poor man's getopt_long() */
+			if (!strncmp(optarg, "color", 5)) {
+				char *arg;
+				if (optarg[5] == '=')
+					arg = optarg + 6;
+				else
+					arg = argv[optind++];
+				if (!strcmp(arg, "on") || !strcmp(arg, "1"))
+					color = true;
+				if (!strcmp(arg, "off") || !strcmp(arg, "0"))
+					color = false;
+				color_set = true;
+			}
 			break;
 		default:
 			break;
@@ -314,11 +331,13 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	term = getenv("TERM");
-	if (term && !strcmp(term, "dumb"))
-		color = false;
-	if (!isatty(STDIN_FILENO))
-		color = false;
+	if (!color_set) {
+		term = getenv("TERM");
+		if (term && !strcmp(term, "dumb"))
+			color = false;
+		if (!isatty(STDIN_FILENO))
+			color = false;
+	}
 
 	for (i = 0; i < test_num; i++)
 		run_unit_test(&test_cases[i], test_stats, filter);
