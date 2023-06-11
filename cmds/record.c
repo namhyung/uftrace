@@ -1614,11 +1614,13 @@ again:
 		if (!check_script_file(opts->exename, altname, sizeof(altname)))
 			pr_err_ns(UFTRACE_ELF_MSG, opts->exename);
 
+#if defined(HAVE_LIBPYTHON2) || defined(HAVE_LIBPYTHON3)
 		if (strstr(script, "python")) {
 			opts->force = true;
 			/* TODO: disable sched event until it can merge subsequent events */
 			opts->no_sched = true;
 		}
+#endif
 
 		if (!opts->force && !opts->patch)
 			pr_err_ns(SCRIPT_MSG, opts->exename);
@@ -2182,9 +2184,10 @@ int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
 		char *s, *p;
 		int i;
 
+#if defined(HAVE_LIBPYTHON2) || defined(HAVE_LIBPYTHON3)
 		if (strstr(shebang, "python"))
 			is_python = true;
-
+#endif
 		s = str_ltrim(shebang);
 
 		p = strchr(s, ' ');
