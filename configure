@@ -257,7 +257,7 @@ print_feature2()
 printf "...%15s: %s\n" "prefix" "${prefix}"
 print_feature "libelf" "have_libelf" "more flexible ELF data handling"
 print_feature "libdw" "have_libdw" "DWARF debug info support"
-print_feature2 "libpython" "have_libpython2.7" "have_libpython3" "python scripting support"
+print_feature2 "libpython" "have_libpython2.7" "have_libpython3" "python tracing & scripting support"
 print_feature "libluajit" "have_libluajit" "luajit scripting support"
 print_feature "libncursesw" "have_libncurses" "TUI support"
 print_feature "cxa_demangle" "cxa_demangle" "full demangler support with libstdc++"
