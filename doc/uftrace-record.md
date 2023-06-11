@@ -225,7 +225,8 @@ RECORD CONFIG OPTIONS
 
 -g, \--agent
 :   Spawn an agent thread in the target.  At runtime, the agent receives
-    external commands and can change supported tracing options.  See *AGENT*.
+    external commands and can change supported tracing options.  See *AGENT*
+    section in the `uftrace-live`(1).
 
 \--srcline
 :   Enable recording source line in the debug info.
