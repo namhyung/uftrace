@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="keywords" content="uftrace,ftrace,tracing,profiling" />
-    <meta name="description" content="A function (graph) tracer for C/C++ userspace programs." />
+    <meta name="description" content="A function (graph) tracer for C/C++/Rust/Python programs." />
     <title>uftrace</title>
     <style>
       @import url(https://fonts.googleapis.com/css?family=Droid+Serif);
@@ -99,15 +99,17 @@
       /* Two-column layout */
       .left30-column {
         float: left;
-        width: 29%;
+        width: 30%;
       }
       .right70-column {
         float: right;
-        width: 69%;
+        width: 70%;
       }
 
 
       /* Code Font Size */
+      .font-20px { font-size: 20px; }
+      .font-22px { font-size: 22px; }
       .code-3px  .remark-code-line { font-size: 3px;  min-height: 5px;  }
       .code-5px  .remark-code-line { font-size: 5px;  min-height: 7px;  }
       .code-7px  .remark-code-line { font-size: 7px;  min-height: 9px;  }
@@ -183,12 +185,13 @@ name: title
 template: title-layout
 
 # uftrace
-### A function (graph) tracer for C/C++ userspace programs
+### A function (graph) tracer for C/C++/Rust/Python programs
 ### [https://github.com/namhyung/uftrace](https://github.com/namhyung/uftrace)
 .footnote[[https://uftrace.github.io](https://uftrace.github.io)]
 
 ---
 name: toc
+class: font-22px
 ### Table of Contents
 - [Installation](#installation)
 - [Basic Tracing](#basic-tracing)
@@ -210,6 +213,7 @@ name: toc
   - [Dynamic Tracing](#dynamic-tracing)
   - [Full Dynamic Tracing](#full-dynamic-tracing)
   - [Triggers for Trace Control](#trace-control)
+  - [Python Function Tracing](#python-tracing)
 
 ---
 ### uftrace
@@ -3919,6 +3923,307 @@ class: code-24px
        3.230 us [ 17678] |   } = 0; /* raise */
        0.217 us [ 17678] |   foo() = 10;
        5.700 us [ 17678] | } = 0; /* main */
+```
+
+---
+name: python-tracing
+template: title-layout
+# Python Function Tracing
+### Tracing Support for Python Language
+
+---
+### Python Function Tracing
+- uftrace used to be only for compiled native binaries.
+  - i.e. Linux ELF binaries
+
+
+- uftrace now supports python program tracing as well.
+  - with .red[uftrace.py] and .red[uftrace_python.so]
+
+
+- Python .red[sys.setprofile()] provides a way to get hooks
+  - for each Python function entry and exit (.red[`call`] and .red[`return`] precisely)
+  - record trace data as if -finstrument-functions compiled binaries.
+      - at `__cyg_profile_func_enter` and `__cyg_profile_func_exit`
+  - create a fake symbol table for python functions.
+
+---
+class: code-20px
+### Python Function Tracing
+- uftrace is able to trace python scripts.
+
+---
+class: code-20px
+### Python Function Tracing
+- uftrace is able to trace python scripts.
+
+.left30-column[
+```py
+$ cat tests/s-abc.py
+#!/usr/bin/env python3
+import os
+
+def a():
+    b()
+
+def b():
+    c()
+
+def c():
+    return os.getpid()
+
+a()
+```
+]
+
+---
+class: code-20px
+### Python Function Tracing
+- uftrace is able to trace python scripts.
+
+.left30-column[
+```py
+$ cat tests/s-abc.py
+#!/usr/bin/env python3
+import os
+
+def a():
+    b()
+
+def b():
+    c()
+
+def c():
+    return os.getpid()
+
+a()
+```
+]
+.right70-column[
+```
+$ uftrace s-abc.py
+# DURATION      TID     FUNCTION
+             [378162] | __main__.<module>() {
+             [378162] |   a() {
+             [378162] |     b() {
+             [378162] |       c() {
+    0.466 us [378162] |         posix.getpid();
+    3.034 us [378162] |       } /* c */
+    4.970 us [378162] |     } /* b */
+    7.557 us [378162] |   } /* a */
+   10.704 us [378162] | } /* __main__.<module> */
+```
+]
+---
+class: code-20px
+### Python Function Tracing
+- .red[--srcline] shows source locations of python functions.
+
+.left30-column[
+```py
+$ cat tests/s-abc.py
+#!/usr/bin/env python3
+import os
+
+def a():
+    b()
+
+def b():
+    c()
+
+def c():
+    return os.getpid()
+
+a()
+```
+]
+.right70-column[
+```
+$ uftrace `--srcline` s-abc.py
+# DURATION      TID     FUNCTION
+             [378246] | __main__.<module>() { /* `s-abc.py:1` */
+             [378246] |   a() { /* `s-abc.py:4` */
+             [378246] |     b() { /* `s-abc.py:7` */
+             [378246] |       c() { /* `s-abc.py:10` */
+    0.539 us [378246] |         posix.getpid();
+    2.972 us [378246] |       } /* c */
+    4.745 us [378246] |     } /* b */
+    6.321 us [378246] |   } /* a */
+   10.378 us [378246] | } /* __main__.<module> */
+```
+]
+---
+class: code-19px
+### Python Function Tracing
+- uftrace shows imported functions, but discards their internals.
+
+---
+class: code-19px
+### Python Function Tracing
+- uftrace shows imported functions, but discards their internals.
+
+```py
+    $ cat s-file-var.py
+    #!/usr/bin/env python3
+    import os
+
+    def foo():
+        print(os.path.basename(__file__))
+    foo()
+```
+---
+class: code-19px
+### Python Function Tracing
+- uftrace shows imported functions, but discards their internals.
+
+```py
+    $ cat s-file-var.py
+    #!/usr/bin/env python3
+    import os
+
+    def foo():
+        print(os.path.basename(__file__))
+    foo()
+```
+```
+    $ uftrace s-file-var.py
+    s-file-var.py
+    # DURATION     TID     FUNCTION
+                [378976] | __main__.<module>() {
+                [378976] |   foo() {
+      10.166 us [378976] |     posixpath.basename();
+       7.844 us [378976] |     builtins.print();
+      29.320 us [378976] |   } /* foo */
+      32.321 us [378976] | } /* __main__.<module> */
+```
+---
+class: code-19px
+### Python Function Tracing
+- .red[--no-libcall] discards imported functions.
+
+```py
+    $ cat s-file-var.py
+    #!/usr/bin/env python3
+    import os
+
+    def foo():
+        print(os.path.basename(__file__))
+    foo()
+```
+```
+    $ uftrace `--no-libcall` s-file-var.py
+    s-file-var.py
+    # DURATION     TID     FUNCTION
+                [378985] | __main__.<module>() {
+      22.894 us [378985] |   foo();
+      25.991 us [378985] | } /* __main__.<module> */
+```
+---
+class: code-19px
+### Python Function Tracing
+- uftrace shows imported functions, but discards their internals.
+
+```py
+    $ cat s-file-var.py
+    #!/usr/bin/env python3
+    import os
+
+    def foo():
+        print(os.path.basename(__file__))
+    foo()
+```
+```
+    $ uftrace s-file-var.py
+    s-file-var.py
+    # DURATION     TID     FUNCTION
+                [378976] | __main__.<module>() {
+                [378976] |   foo() {
+      10.166 us [378976] |     posixpath.basename();
+       7.844 us [378976] |     builtins.print();
+      29.320 us [378976] |   } /* foo */
+      32.321 us [378976] | } /* __main__.<module> */
+```
+---
+class: code-19px
+### Python Function Tracing
+- .red[-l]/.red[--nest-libcall] shows all the internally imported functions.
+
+```py
+    $ cat s-file-var.py
+    #!/usr/bin/env python3
+    import os
+
+    def foo():
+        print(os.path.basename(__file__))
+    foo()
+```
+```
+    $ uftrace `--nest-libcall` s-file-var.py
+    s-file-var.py
+    # DURATION     TID     FUNCTION
+                [379000] | __main__.<module>() {
+                [379000] |   foo() {
+                [379000] |     posixpath.basename() {
+       0.427 us [379000] |       `posix.fspath`();
+                [379000] |       `posixpath._get_sep`() {
+       0.291 us [379000] |         `builtins.isinstance`();
+       1.999 us [379000] |       } /* posixpath._get_sep */
+       0.642 us [379000] |       `str.rfind`();
+      10.331 us [379000] |     } /* posixpath.basename */
+       7.977 us [379000] |     builtins.print();
+      23.021 us [379000] |   } /* foo */
+      26.175 us [379000] | } /* __main__.<module> */
+```
+---
+### Python Function Tracing
+- Other commands can be used in the same way.
+---
+### Python Function Tracing
+- Other commands can be used in the same way.
+
+```
+    $ uftrace `record` s-file-var.py
+```
+---
+### Python Function Tracing
+- Other commands can be used in the same way.
+
+```
+    $ uftrace `record` s-file-var.py
+
+    $ uftrace `report`
+    Total time   Self time       Calls  Function
+    ==========  ==========  ==========  ====================
+     24.617 us    2.835 us           1  __main__.<module>
+     21.782 us    4.250 us           1  foo
+     11.136 us   11.136 us           1  posixpath.basename
+      6.396 us    6.396 us           1  builtins.print
+```
+---
+### Python Function Tracing
+- Other commands can be used in the same way.
+
+```
+    $ uftrace `record` s-file-var.py
+
+    $ uftrace `report`
+    Total time   Self time       Calls  Function
+    ==========  ==========  ==========  ====================
+     24.617 us    2.835 us           1  __main__.<module>
+     21.782 us    4.250 us           1  foo
+     11.136 us   11.136 us           1  posixpath.basename
+      6.396 us    6.396 us           1  builtins.print
+
+    $ uftrace `graph`
+    # Function Call Graph for 'python3.10' (session: e12caa4f83352a9a)
+    ========== FUNCTION CALL GRAPH ==========
+    # TOTAL TIME   FUNCTION
+       24.617 us : (1) python3.10
+       24.617 us : (1) __main__.<module>
+       21.782 us : (1) foo
+       11.136 us :  +-(1) posixpath.basename
+                 :  |
+        6.396 us :  +-(1) builtins.print
 ```
 
 ---
