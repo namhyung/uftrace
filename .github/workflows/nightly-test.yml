@@ -31,4 +31,4 @@ jobs:
           sudo sh -c "chmod +x /sys/kernel/tracing"
 
       - name: "run tests"
-        run: make test -j1 RUNTESTARG='--quiet --color on'
+        run: make test -j1 TESTARG='--color on' RUNTESTARG='--quiet'
