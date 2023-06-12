@@ -755,7 +755,7 @@ struct trigger_action_parser {
 	const char *name;
 	int (*parse)(char *action, struct uftrace_trigger *tr,
 		     struct uftrace_filter_setting *setting);
-	unsigned long flags;
+	enum trigger_flag compat_flags; /* flags the action is restricted to */
 };
 
 static const struct trigger_action_parser actions[] = {
@@ -871,7 +871,7 @@ int setup_trigger_action(char *str, struct uftrace_trigger *tr, char **module,
 			if (strncasecmp(pos, action->name, strlen(action->name)))
 				continue;
 
-			if (orig_flags && !(orig_flags & action->flags))
+			if (orig_flags && !(orig_flags & action->compat_flags))
 				break; /* ignore incompatible actions */
 
 			if (action->parse(pos, tr, setting) < 0)
