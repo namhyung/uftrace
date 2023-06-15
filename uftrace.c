@@ -258,6 +258,7 @@ static const struct option uftrace_options[] = {
 	REQ_ARG(time-filter, 't'),
 	REQ_ARG(caller-filter, 'C'),
 	REQ_ARG(argument, 'A'),
+	REQ_ARG(trigger, 'T'),
 	REQ_ARG(retval, 'R'),
 	NO_ARG(auto-args, 'a'),
 	NO_ARG(no-args, OPT_no_args),

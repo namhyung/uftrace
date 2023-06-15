@@ -67,6 +67,7 @@ enum trigger_read_type {
 
 struct uftrace_trigger {
 	enum trigger_flag flags;
+	enum trigger_flag clear_flags;
 	int depth;
 	char color;
 	uint64_t time;
