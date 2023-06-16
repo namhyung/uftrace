@@ -1273,7 +1273,6 @@ static struct uftrace_filter *deep_copy_filter(struct uftrace_filter *old)
 	/* deep copy nested argspec list */
 	INIT_LIST_HEAD(&new->args);
 	list_for_each_entry(arg, &old->args, list) {
-		pr_out("copy arg\n");
 		arg_copy = xmalloc(sizeof(*arg_copy));
 		memcpy(arg_copy, arg, sizeof(*arg));
 		if (arg->type_name)
