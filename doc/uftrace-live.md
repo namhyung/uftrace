@@ -507,10 +507,11 @@ The BNF for trigger specification is as follows:
     <actions>    :=  <action>  | <action> "," <actions>
     <action>     :=  "depth="<num> | "backtrace" | "trace" | "trace_on" | "trace_off" |
                      "recover" | "color="<color> | "time="<time_spec> | "read="<read_spec> |
-                     "finish" | "filter" | "notrace" | "hide"
+                     "finish" | "filter" | "notrace" | "hide" | "clear" [ "="<clear_spec> ]
     <time_spec>  :=  <num> [ <time_unit> ]
     <time_unit>  :=  "ns" | "nsec" | "us" | "usec" | "ms" | "msec" | "s" | "sec" | "m" | "min"
     <read_spec>  :=  "proc/statm" | "page-fault" | "pmu-cycle" | "pmu-cache" | "pmu-branch"
+    <clear_spec> :=  <action> | <action> "+" <action>
 
 The `depth` trigger is to change filter depth during execution of the function.
 It can be used to apply different filter depths for different functions.  And
@@ -585,6 +586,11 @@ The `filter` and `notrace` triggers have same effect as `-F`/`--filter` and
 The `hide` trigger has the same effect as `-H`/`--hide` option that hides the
 given functions, but does not affect to the functions in their subtree unlike
 the `notrace` trigger.
+
+The `clear` trigger is to delete existing actions and it's for agent use case.
+It can have optional trigger action names connected by "+" (for example,
+`-T myfunc@clear=trace+read`).  If so it'll delete the specified actions only
+otherwise it'll delete all actions.
 
 Triggers only work for user-level functions for now.
 
