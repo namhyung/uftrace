@@ -26,14 +26,16 @@ It was heavily inspired by the ftrace framework of the Linux kernel and
 the name uftrace stems from the combination of user and ftrace.
 
 It can record data from:
-- User space functions by dynamically patching functions at runtime, or with code
-  compiled with with `-pg`, `-fpatchable-function-entry`, `-mfentry`, `-mnop-mcount`,
-  `-finstrument-functions`, or using clang with `-fxray-instrument`.
-- Library functions (through PLT hooking)
+- User space C/C++/Rust functions (by dynamically patching functions at runtime,
+  or with code compiled with with `-pg`, `-mfentry`, `-finstrument-functions`,
+  or using clang with `-fxray-instrument`)
+- C/C++/Rust Library functions (through PLT hooking)
+- Python functions (using Python's trace/profile infrastructure)
 - Kernel functions (using the ftrace framework in Linux kernel)
-- Kernel trace events affecting the program, e.g. scheduling events (which affect the
-  execution timing of the program) and records nanosecond-exact timestamps
-  (using perf_event and systemtap SDT)
+- Kernel trace events (using event tracing framework in Linux kernel)
+- Task creation, termination and scheduling events (using Linux perf_event)
+- User space events in the target binary or libraries (using SystemTap SDT ABI)
+- PMU counter values for given functions (using Linux perf_event)
 
 With the recorded data, uftrace can:
 - Show colored and nested function call graphs.
@@ -351,10 +353,10 @@ now.
 
 Limitations
 ===========
-- It can trace a native C/C++ application on Linux and Android.
-- It *cannot* trace already running process.
-- It *cannot* be used for system-wide tracing.
-- It supports x86 (32 and 64 bit), ARM (v6 or later) and AArch64 for now.
+- It can trace a C/C++/Rust/Python application on Linux and Android.
+- It *cannot* trace an already running process yet.
+- It was *not* designed for system-wide tracing in mind.
+- It mainly supports x86_64, AArch64 architectures.  It also works on x86 (32-bit), ARM (v6 and v7) but some features like dynamic tracing and automatic argument fetching might not work well.
 
 
 License
