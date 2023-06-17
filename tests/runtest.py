@@ -804,6 +804,11 @@ def run_single_case(case, flags, opts, arg, compilers):
                 tc.set_compiler(compiler)
 
                 cflags = ' '.join(["-" + flag, "-" + opt])
+                # add -fno-ipa-sra to prevent function renames like foo.isra.0
+                # this is available on GCC only
+                if compiler == 'gcc':
+                    cflags += ' -fno-ipa-sra'
+
                 dif = ''
                 ret = tc.build(tc.name, cflags)
                 if ret == TestBase.TEST_SUCCESS:
