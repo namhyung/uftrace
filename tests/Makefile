@@ -35,7 +35,9 @@ test: test_all
 test_all: unittest
 	$(QUIET_TEST)./unittest $(TESTARG) $(UNITTESTARG)
 	$(QUIET_TEST)./runtest.py $(WORKER) $(TESTARG) $(RUNTESTARG)
+ifneq ($(findstring HAVE_LIBPYTHON, $(TEST_CFLAGS)), )
 	$(QUIET_TEST)./runtest.py -P $(WORKER) $(TESTARG) $(PYTESTARG)
+endif
 
 test_run:
 	$(QUIET_TEST)./runtest.py $(WORKER) $(TESTARG) $(RUNTESTARG)
