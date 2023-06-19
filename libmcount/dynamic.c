@@ -102,6 +102,9 @@ void mcount_save_code(struct mcount_disasm_info *info, unsigned call_size, void 
 	struct mcount_orig_insn *orig;
 	int patch_size;
 
+	if (hashmap_get(code_hmap, (void *)info->addr + call_size))
+		return;
+
 	if (unlikely(info->modified)) {
 		/* it needs to save original instructions as well */
 		int orig_size = ALIGN(info->orig_size, 16);
