@@ -1,4 +1,5 @@
 [![Nightly test](https://github.com/namhyung/uftrace/actions/workflows/nightly-test.yml/badge.svg)](https://github.com/namhyung/uftrace/actions/workflows/nightly-test.yml)
+[![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?logo=discord&logoColor=white)](https://discord.gg/MENMKaCWqD)
 
 uftrace
 =======
