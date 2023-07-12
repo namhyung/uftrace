@@ -383,7 +383,7 @@ void print_time_unit(uint64_t delta_nsec)
 
 void print_diff_percent(uint64_t base_nsec, uint64_t pair_nsec)
 {
-	double percent = 999.99;
+	double percent;
 	const char *sc = get_color(COLOR_CODE_NORMAL);
 	const char *ec = get_color(COLOR_CODE_RESET);
 
