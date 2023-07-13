@@ -655,14 +655,15 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 
 	case 'k':
 		opts->kernel = true;
+		opts->kernel_depth = 1;
 		break;
 
 	case 'K':
 		opts->kernel = true;
 		opts->kernel_depth = strtol(arg, NULL, 0);
 		if (opts->kernel_depth < 1 || opts->kernel_depth > 50) {
-			pr_use("invalid kernel depth: %s (ignoring...)\n", arg);
-			opts->kernel_depth = 0;
+			pr_use("invalid kernel depth: %s. Set depth to 1.\n", arg);
+			opts->kernel_depth = 1;
 		}
 		break;
 
