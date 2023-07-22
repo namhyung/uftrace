@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import select
 import subprocess as sp
 
 from runtest import TestBase
@@ -34,6 +35,9 @@ class TestCase(TestBase):
         self.pr_debug('prerun command: ' + ' '.join(recv_cmd))
         self.recv_p = sp.Popen(recv_cmd, stdout=sp.PIPE, stderr=sp.PIPE)
 
+        epolls = select.epoll()
+        epolls.register(self.recv_p.stdout, select.EPOLLIN)
+
         record_cmd  = [TestBase.uftrace_cmd, 'record']
         record_cmd += TestBase.default_opt.split()
         record_cmd += ['--host', 'localhost', '--port', str(self.port)]
@@ -42,11 +46,16 @@ class TestCase(TestBase):
         record_cmd += ['t-' + self.name]
         self.pr_debug('prerun command: ' + ' '.join(record_cmd))
         sp.call(record_cmd, stderr=sp.PIPE)
+
+        epolls.poll(timeout=timeout)
+
         self.recv_p.terminate()
 
         out = self.recv_p.communicate()[0].decode(errors='ignore')
         self.file_p.write(out)
+        self.file_p.flush()
         self.file_p.close()
+        epolls.close()
 
         return TestBase.TEST_SUCCESS
 
