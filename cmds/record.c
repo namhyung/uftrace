@@ -1625,7 +1625,7 @@ again:
 		if (!opts->force && !opts->patch)
 			pr_err_ns(SCRIPT_MSG, opts->exename);
 
-		script = str_ltrim(script);
+		script = str_trim(script);
 
 		/* ignore options */
 		p = strchr(script, ' ');
