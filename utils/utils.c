@@ -595,33 +595,33 @@ char *strjoin(char *left, char *right, const char *delim)
 }
 
 /**
- * str_ltrim - to trim left spaces
- * @str: input string
- *
- * This function make @str to left trimmed @str
- */
-char *str_ltrim(char *str)
-{
-	if (!str)
-		return NULL;
-	while (isspace((unsigned char)*str)) {
-		str++;
-	}
-	return str;
-}
-
-/**
- * str_rtrim - to trim right spaces
+ * str_trim - to trim all spaces
  * @str: input string
  *
  * This function make @str to right trimmed @str
  */
-char *str_rtrim(char *str)
+char *str_trim(char *str) 
 {
-	char *p = strchr(str, '\0');
-	while (--p >= str && isspace(*p))
-		;
-	*(p + 1) = '\0';
+	int i = 0;
+	int j = 0;
+	bool spaceFound = false;
+
+    if (!str)
+        return NULL;
+
+    while (str[j]) {
+        if (str[j] != ' ' || !spaceFound) {
+            str[i] = str[j];
+            i++;
+            spaceFound = (str[j] == ' ');
+        }
+        j++;
+    }
+
+    if (i > 0 && str[i-1] == ' ')
+        i--;
+
+    str[i] = '\0';
 	return str;
 }
 
