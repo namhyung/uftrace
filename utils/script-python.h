@@ -14,6 +14,7 @@ struct script_info;
 
 #if defined(HAVE_LIBPYTHON2) || defined(HAVE_LIBPYTHON3)
 
+#define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
 #define SCRIPT_PYTHON_ENABLED 1

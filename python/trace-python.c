@@ -5,6 +5,9 @@
  *
  * Released under the GPL v2.
  */
+
+#undef _XOPEN_SOURCE
+#define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
 #include <fcntl.h>
