@@ -1135,5 +1135,5 @@ if __name__ == "__main__":
     sys.stdout.write("\n")
     sys.stdout.flush()
 
-    if shared.total >= 30:
+    if shared.progress >= 10 or shared.total >= 300:
         print_test_report(color, shared)
