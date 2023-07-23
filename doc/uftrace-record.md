@@ -62,9 +62,9 @@ RECORD OPTIONS
     library call from the main executable.  Implies `--force`.
 
 -k, \--kernel
-:   Trace kernel functions as well as user functions.  Only kernel entry/exit
-    functions will be traced by default.  Use the `--kernel-depth` option to
-    override this.
+:   Trace kernel functions as well as user functions.  By default, the tracing
+    depth is 1 (Only kernel entry/exit functions will be traced).
+    Use the `-K`/`--kernel-depth` option to override this.
 
 -K *DEPTH*, \--kernel-depth=*DEPTH*
 :   Set kernel max function depth separately.  Implies `--kernel`.
