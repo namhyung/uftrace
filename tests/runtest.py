@@ -5,6 +5,7 @@ import multiprocessing
 import os
 import random
 import re
+import socket
 import subprocess as sp
 import sys
 import tempfile
@@ -136,8 +137,16 @@ class TestBase:
     def set_keep(self, keep):
         self.keep = keep
 
-    def gen_port(self):
-        self.port = random.randint(40000, 50000)
+    def gen_port(self, start = 40000, end = 50000):
+        for port in random.sample(list(range(start, end + 1)), end - start + 1):
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.bind(("localhost", port))
+                self.port = port
+                return
+            except OSError as e:
+                pass
+        raise Exception("No available port found")
 
     def test_feature(self):
         try:
