@@ -9,7 +9,7 @@ RUN if [ "$test" = "yes" ] ; then \
         && ./misc/install-deps.sh -y \
         && ./configure && make ASAN=1 && make ASAN=1 unittest; \
     else \
-        cd /usr/src/uftrace && ./misc/install-deps.sh -y && ./configure && make && make install; \
+        cd /usr/src/uftrace && ./misc/install-deps.sh -y && ./configure && make && make install || : && make install; \
     fi
 RUN apt-get clean \
     && rm -rf /var/lib/apt/lists/*
