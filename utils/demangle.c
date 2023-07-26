@@ -1750,6 +1750,10 @@ static char *demangle_full(char *str)
 	size_t len = 64; /* minimum length */
 	int status;
 
+	/* str is not mangled C++ symbol */
+	if (str[0] != '_' || str[1] != 'Z')
+		return xstrdup(str);
+
 	__cxa_demangle(str, NULL, &len, &status);
 	if (status < 0)
 		return xstrdup(str);
