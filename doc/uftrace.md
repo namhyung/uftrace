@@ -356,7 +356,7 @@ record and `replay` internally. Thus, it describes most regular option in detail
 :   Hide small functions run less than the *TIME*
 
 \--task
-:   [info]: Print task relationship in a tree form instead of the tracing info.
+:   Print task relationship in a tree form instead of the tracing info.
 
 \--task-newline
 :   Interleave a newline when task is changed
