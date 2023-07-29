@@ -132,7 +132,7 @@ subcommands.
 
 Please see the uftrace-<*subcommand*> manual pages for more information:
 The manual for *uftrace-live*(1) is special: The subcommand `live` does
-record and `replay` internally. Thus, it describes most regular option in detail.
+`record` and `replay` internally.  Thus, it describes most regular option in detail.
 
 \--avg-self
 :   Show average/min/max of self function time
@@ -321,7 +321,8 @@ record and `replay` internally. Thus, it describes most regular option in detail
 \--rt-prio=*PRIO*
 :   Record with real-time (*FIFO*) priority
 
--r, \--time-range=*TIME*~*TIME* Show output within the *TIME*(timestamp or elapsed time)
+-r, \--time-range=*TIME*~*TIME*
+:   Show output within the *TIME* (timestamp or elapsed time)
 :   range only
 
 \--run-cmd=*CMDLINE*
@@ -356,7 +357,7 @@ record and `replay` internally. Thus, it describes most regular option in detail
 :   Hide small functions run less than the *TIME*
 
 \--task
-:   [info]: Print task relationship in a tree form instead of the tracing info.
+:   Print task relationship in a tree form instead of the tracing info.
 
 \--task-newline
 :   Interleave a newline when task is changed
@@ -388,4 +389,4 @@ please see the more specific manual pages listed below.
 
 SEE ALSO
 ========
-`uftrace-live`(1), `uftrace-record`(1), `uftrace-replay`(1), `uftrace-report`(1), `uftrace-info`(1), `uftrace-dump`(1), `uftrace-recv`(1), `uftrace-graph`(1), `uftrace-script`(1), `uftrace-tui(1)`
+`uftrace-live`(1), `uftrace-record`(1), `uftrace-replay`(1), `uftrace-report`(1), `uftrace-info`(1), `uftrace-dump`(1), `uftrace-recv`(1), `uftrace-graph`(1), `uftrace-script`(1), `uftrace-tui`(1)
