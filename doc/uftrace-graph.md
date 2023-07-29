@@ -28,7 +28,7 @@ GRAPH OPTIONS
     Multiple fields can be set by using comma.  Special field of 'none' can be
     used (solely) to hide all fields.  Default is 'total'.  See *FIELDS*.
 
---task
+\--task
 :   Print task graph instead of normal function graph.  Each node in the
     output shows a process or thread(printed in green color).
 
