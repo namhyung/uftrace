@@ -1354,7 +1354,7 @@ static void dump_mermaid_footer(struct uftrace_dump_ops *ops, struct uftrace_dat
 	pr_out("flowchart TB\n");
 	print_graph_node_mermaid(&mermaid_graph, &mermaid_graph.root);
 	pr_out("</div>\n");
-	pr_out("<script src=\"https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js\"></script>\n");
+	pr_out("<script src=\"https://cdn.jsdelivr.net/npm/mermaid@9/dist/mermaid.min.js\"></script>\n");
 	pr_out("<script>\n");
 	pr_out("var config = {\n");
 	pr_out("	startOnLoad: true,\n");
