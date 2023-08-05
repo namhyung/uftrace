@@ -625,6 +625,7 @@ int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *
 
 	switch (mdi->type) {
 	case DYNAMIC_FENTRY:
+	case DYNAMIC_PATCHABLE:
 		result = unpatch_fentry_func(mdi, sym);
 		break;
 
