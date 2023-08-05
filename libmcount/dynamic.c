@@ -508,6 +508,8 @@ static void patch_patchable_func_matched(struct mcount_dynamic_info *mdi, struct
 		.size = UINT_MAX,
 		.name = namebuf,
 	};
+	bool found = false;
+	int match;
 	char *soname = get_soname(map->libname);
 
 	symtab = &map->mod->symtab;
@@ -531,8 +533,18 @@ static void patch_patchable_func_matched(struct mcount_dynamic_info *mdi, struct
 				continue;
 		}
 
-		mcount_patch_func_with_stats(mdi, sym);
+		found = true;
+		match = match_pattern_list(map, soname, sym->name);
+		if (!match)
+			continue;
+		else if (match == 1)
+			mcount_patch_func_with_stats(mdi, sym);
+		else
+			mcount_unpatch_func(mdi, sym, NULL);
 	}
+
+	if (!found)
+		stats.nomatch++;
 
 	free(soname);
 }
