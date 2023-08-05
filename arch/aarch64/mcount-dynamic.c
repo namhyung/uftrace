@@ -63,13 +63,21 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 	mdi->trampoline -= sizeof(trampoline);
 
 	if (unlikely(mdi->trampoline < mdi->text_addr + mdi->text_size)) {
+		void *trampoline_check;
+
 		mdi->trampoline += sizeof(trampoline);
 		mdi->text_size += PAGE_SIZE;
 
 		pr_dbg("adding a page for fentry trampoline at %#lx\n", mdi->trampoline);
 
-		mmap((void *)mdi->trampoline, PAGE_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC,
-		     MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+		trampoline_check = mmap((void *)mdi->trampoline, PAGE_SIZE,
+					PROT_READ | PROT_WRITE | PROT_EXEC,
+					MAP_FIXED_NOREPLACE | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+
+		if (trampoline_check != (void *)mdi->trampoline) {
+			pr_err("could not map trampoline at desired location %#lx, got %#lx: %m\n",
+			       mdi->trampoline, (uintptr_t)trampoline_check);
+		}
 	}
 
 	page_offset = mdi->text_addr & (PAGE_SIZE - 1);
