@@ -1,67 +1,41 @@
 #include <fcntl.h>
+#include <mntent.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "utils/tracefs.h"
 #include "utils/utils.h"
 
-#define PROC_MOUNTINFO "/proc/self/mountinfo"
+#define PROC_MOUNTS_DIR_PATH "/proc/mounts"
 
 static char *TRACING_DIR = NULL;
 
 static bool find_tracing_dir(void)
 {
 	FILE *fp;
-	char *line = NULL, fs_type[NAME_MAX], mount_point[PATH_MAX];
-	static char debugfs_suffix[] = "tracing";
-	bool debugfs_found = false;
-	size_t len;
+	struct mntent *ent;
 
 	if (TRACING_DIR)
-		return false;
+		return true;
 
-	fp = fopen(PROC_MOUNTINFO, "r");
+	fp = setmntent(PROC_MOUNTS_DIR_PATH, "r");
 	if (fp == NULL)
 		return false;
 
-	while (getline(&line, &len, fp) > 0) {
-		/*
-		 * /proc/<pid>/mountinfo format:
-		 * 36 35 98:0 /mnt1 /mnt2 rw,noatime master:1 - ext3 .... ....
-		 * (1)(2)(3)   (4)   (5)      (6)      (7)   (8) (9) (10) (11)
-		 *                mount_point                  fs_type
-		 *
-		 * (9) is the file system type, (5) is the mount point relative
-		 * to self's root directory.
-		 */
-		sscanf(line, "%*i %*i %*u:%*u %*s %s %*s %*s - %s %*s %*s\n", mount_point, fs_type);
-
-		if (!strcmp(fs_type, "tracefs")) {
-			/* discard previously kept debugfs tracing dir */
-			if (TRACING_DIR)
-				free(TRACING_DIR);
-			xasprintf(&TRACING_DIR, "%s", mount_point);
-			pr_dbg2("Found tracefs at %s\n", mount_point);
-			pr_dbg2("Use %s as TRACING_DIR\n", TRACING_DIR);
-			return true;
-		}
-
-		if (!strcmp(fs_type, "debugfs")) {
-			xasprintf(&TRACING_DIR, "%s/%s", mount_point, debugfs_suffix);
-			pr_dbg2("Found debugfs at %s\n", mount_point);
-			pr_dbg2("Keep searching for tracefs...\n");
-			debugfs_found = true;
+	while ((ent = getmntent(fp)) != NULL) {
+		if (!strcmp(ent->mnt_fsname, "tracefs")) {
+			xasprintf(&TRACING_DIR, "%s", ent->mnt_dir);
+			break;
 		}
 	}
+	endmntent(fp);
 
-	/* we couldn't find a tracefs, but found a debugfs... */
-	if (debugfs_found) {
-		pr_dbg2("Use %s as TRACING_DIR\n", TRACING_DIR);
-		return true;
+	if (!TRACING_DIR) {
+		pr_dbg2("No tracefs or debugfs found..!\n");
+		return false;
 	}
 
-	pr_dbg2("No tracefs or debugfs found..!\n");
-	return false;
+	return true;
 }
 
 char *get_tracing_file(const char *name)
