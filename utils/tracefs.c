@@ -1,12 +1,16 @@
 #include <fcntl.h>
+#include <linux/magic.h>
 #include <mntent.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/vfs.h>
 
 #include "utils/tracefs.h"
 #include "utils/utils.h"
 
 #define PROC_MOUNTS_DIR_PATH "/proc/mounts"
+#define TRACEFS_DIR_PATH "/sys/kernel/tracing"
+#define OLD_TRACEFS_DIR_PATH "/sys/kernel/debug/tracing"
 
 static char *TRACING_DIR = NULL;
 
@@ -14,9 +18,19 @@ static bool find_tracing_dir(void)
 {
 	FILE *fp;
 	struct mntent *ent;
+	struct statfs fs;
 
 	if (TRACING_DIR)
 		return true;
+
+	if (!statfs(TRACEFS_DIR_PATH, &fs) && fs.f_type == TRACEFS_MAGIC) {
+		xasprintf(&TRACING_DIR, "%s", TRACEFS_DIR_PATH);
+		return true;
+	}
+	else if (!statfs(OLD_TRACEFS_DIR_PATH, &fs) && fs.f_type == TRACEFS_MAGIC) {
+		xasprintf(&TRACING_DIR, "%s", OLD_TRACEFS_DIR_PATH);
+		return true;
+	}
 
 	fp = setmntent(PROC_MOUNTS_DIR_PATH, "r");
 	if (fp == NULL)
