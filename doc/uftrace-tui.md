@@ -180,6 +180,8 @@ Following keys can be used in the TUI window:
  * `Up`, `Down`:          Move cursor up/down
  * `PageUp`, `PageDown`:  Move page up/down
  * `Home`, `End`:         Move to the first/last entry
+ * `Ctrl` + `u`/`d`:      Move half page up/down
+ * `Ctrl` + `e`/`y`:      Scroll line up/down
  * `Enter`:               Fold/unfold graph or Select session
  * `G`:                   Show full graph of the current session
  * `g`:                   Show backtrace and call graph of the current function
