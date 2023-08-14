@@ -258,7 +258,7 @@ static int import_python_module(char *py_pathname)
 union python_val {
 	long l;
 	unsigned long long ull;
-	char *s;
+	const char *s;
 	double f;
 };
 
@@ -341,7 +341,7 @@ static void insert_tuple_ull(PyObject *tuple, int idx, unsigned long long v)
 	python_insert_tuple(tuple, 'U', idx, val);
 }
 
-static void insert_tuple_string(PyObject *tuple, int idx, char *v)
+static void insert_tuple_string(PyObject *tuple, int idx, const char *v)
 {
 	union python_val val = {
 		.s = v,
@@ -373,7 +373,7 @@ static void insert_dict_ull(PyObject *dict, const char *key, unsigned long long 
 	python_insert_dict(dict, 'U', key, val);
 }
 
-static void insert_dict_string(PyObject *dict, const char *key, char *v)
+static void insert_dict_string(PyObject *dict, const char *key, const char *v)
 {
 	union python_val val = {
 		.s = v,

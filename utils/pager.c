@@ -93,7 +93,7 @@ char *setup_pager(void)
 	return pager;
 }
 
-void start_pager(char *pager)
+void start_pager(const char *pager)
 {
 	const char *pager_argv[] = { "sh", "-c", NULL, NULL };
 

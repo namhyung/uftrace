@@ -406,7 +406,7 @@ static int end_graph(struct task_graph *tg)
 	return 0;
 }
 
-static void pr_indent(bool *indent_mask, int indent, bool line)
+static void pr_indent(const bool *indent_mask, int indent, bool line)
 {
 	int i;
 	int last = -1;

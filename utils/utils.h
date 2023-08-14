@@ -364,7 +364,7 @@ void start_pager(char *pager);
 void wait_for_pager(void);
 
 bool check_time_range(struct uftrace_time_range *range, uint64_t timestamp);
-uint64_t parse_time(char *arg, int limited_digits);
+uint64_t parse_time(const char *arg, int limited_digits);
 uint64_t parse_timestamp(char *arg);
 
 char *strjoin(char *left, char *right, const char *delim);

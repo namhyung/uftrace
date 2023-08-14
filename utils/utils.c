@@ -470,7 +470,7 @@ static uint64_t parse_min(uint64_t min, uint64_t decimal, int decimal_places)
 	return nsec;
 }
 
-uint64_t parse_time(char *arg, int limited_digits)
+uint64_t parse_time(const char *arg, int limited_digits)
 {
 	char *unit, *pos;
 	int i, decimal_places = 0, exp = 0;

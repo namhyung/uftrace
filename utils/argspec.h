@@ -56,7 +56,7 @@ struct uftrace_arg_spec {
 
 struct uftrace_filter_setting;
 
-struct uftrace_arg_spec *parse_argspec(char *str, struct uftrace_filter_setting *setting);
+struct uftrace_arg_spec *parse_argspec(const char *str, struct uftrace_filter_setting *setting);
 
 void setup_auto_args(struct uftrace_filter_setting *setting);
 void setup_auto_args_str(char *args, char *rets, char *enums,

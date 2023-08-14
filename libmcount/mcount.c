@@ -1276,8 +1276,8 @@ bool within_same_module(unsigned long addr1, unsigned long addr2)
 	return find_map(&mcount_sym_info, addr1) == find_map(&mcount_sym_info, addr2);
 }
 
-void mcount_rstack_inject_return(struct mcount_thread_data *mtdp, unsigned long *frame_pointer,
-				 unsigned long addr)
+void mcount_rstack_inject_return(struct mcount_thread_data *mtdp,
+				 const unsigned long *frame_pointer, unsigned long addr)
 {
 	uint64_t estimated_ret_time = 0;
 

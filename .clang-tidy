@@ -1,0 +1,3 @@
+Checks: >-
+    -*,
+    readability-non-const-parameter,

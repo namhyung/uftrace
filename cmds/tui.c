@@ -2530,8 +2530,8 @@ static void tui_window_help(void)
 	delwin(win);
 }
 
-static void display_tui_field(WINDOW *win, int selected_field, bool field_flags[], int num_field,
-			      const char *field_names[])
+static void display_tui_field(WINDOW *win, int selected_field, const bool field_flags[],
+			      int num_field, const char *field_names[])
 {
 	int i;
 
@@ -2544,7 +2544,7 @@ static void display_tui_field(WINDOW *win, int selected_field, bool field_flags[
 	}
 }
 
-static void update_graph_output_fields(bool graph_field_flags[])
+static void update_graph_output_fields(const bool graph_field_flags[])
 {
 	struct display_field *field, *tmp;
 	int i;
@@ -2558,7 +2558,7 @@ static void update_graph_output_fields(bool graph_field_flags[])
 	}
 }
 
-static void update_report_output_fields(bool report_field_flags[])
+static void update_report_output_fields(const bool report_field_flags[])
 {
 	struct display_field *field, *tmp;
 	int i, j = 0;

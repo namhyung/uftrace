@@ -34,7 +34,7 @@ struct fill_handler_arg {
 	int exit_status;
 	struct uftrace_opts *opts;
 	struct rusage *rusage;
-	char *elapsed_time;
+	const char *elapsed_time;
 	char buf[PATH_MAX];
 };
 
@@ -854,7 +854,7 @@ struct uftrace_info_handler {
 };
 
 void fill_uftrace_info(uint64_t *info_mask, int fd, struct uftrace_opts *opts, int status,
-		       struct rusage *rusage, char *elapsed_time)
+		       struct rusage *rusage, const char *elapsed_time)
 {
 	size_t i;
 	off_t offset;
