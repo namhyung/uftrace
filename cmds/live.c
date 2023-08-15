@@ -412,8 +412,7 @@ socket_error:
 
 	if (status < 0 || status_close < 0)
 		return UFTRACE_EXIT_FAILURE;
-	else
-		return UFTRACE_EXIT_SUCCESS;
+	return UFTRACE_EXIT_SUCCESS;
 }
 
 int command_live(int argc, char *argv[], struct uftrace_opts *opts)

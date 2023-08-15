@@ -1072,7 +1072,7 @@ static int fold_graph_node(struct tui_graph_node *node, bool fold, bool all, int
 
 	if (!all && depth < 0)
 		return 0;
-	else if (depth > 0)
+	if (depth > 0)
 		curr_fold = false;
 
 	/* do not fold leaf nodes - it's meaningless but confusing */

@@ -633,8 +633,7 @@ retry:
 			goto retry;
 		if (errno == EAGAIN)
 			return 0;
-		else
-			return -errno;
+		return -errno;
 	}
 
 	if (n == 0)
@@ -750,8 +749,7 @@ static const char *get_endian_str(void)
 {
 	if (get_elf_endian() == ELFDATA2LSB)
 		return "LE";
-	else
-		return "BE";
+	return "BE";
 }
 
 static int save_kernel_file(FILE *fp, const char *name)

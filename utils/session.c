@@ -724,8 +724,8 @@ struct uftrace_symbol *task_find_sym_addr(struct uftrace_session_link *sessions,
 		if (EVENT_ID_PERF_SCHED_IN == addr || EVENT_ID_PERF_SCHED_OUT == addr ||
 		    EVENT_ID_PERF_SCHED_BOTH == addr)
 			return &sched_sym;
-		else if (EVENT_ID_PERF_SCHED_OUT_PREEMPT == addr ||
-			 EVENT_ID_PERF_SCHED_BOTH_PREEMPT == addr)
+		if (EVENT_ID_PERF_SCHED_OUT_PREEMPT == addr ||
+		    EVENT_ID_PERF_SCHED_BOTH_PREEMPT == addr)
 			return &sched_preempt_sym;
 	}
 

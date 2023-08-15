@@ -509,8 +509,7 @@ static bool has_time_unit(const char *str)
 {
 	if (isalpha(str[strlen(str) - 1]))
 		return true;
-	else
-		return false;
+	return false;
 }
 
 static uint64_t parse_any_timestamp(char *str, bool *elapsed)

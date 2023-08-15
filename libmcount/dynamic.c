@@ -559,7 +559,7 @@ static void patch_normal_func_matched(struct mcount_dynamic_info *mdi, struct uf
 		match = match_pattern_list(map, soname, sym->name);
 		if (!match)
 			continue;
-		else if (match == 1)
+		if (match == 1)
 			mcount_patch_func_with_stats(mdi, sym);
 		else
 			mcount_unpatch_func(mdi, sym, NULL);

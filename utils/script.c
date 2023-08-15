@@ -50,9 +50,9 @@ enum script_type_t get_script_type(const char *str)
 	 */
 	if (!strcmp(ext, ".py"))
 		return SCRIPT_PYTHON;
-	else if (!strcmp(ext, ".lua"))
+	if (!strcmp(ext, ".lua"))
 		return SCRIPT_LUAJIT;
-	else if (!strcmp(ext, ".testing"))
+	if (!strcmp(ext, ".testing"))
 		return SCRIPT_TESTING;
 
 	return SCRIPT_UNKNOWN;

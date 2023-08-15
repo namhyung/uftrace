@@ -391,7 +391,7 @@ static void report_task(struct uftrace_data *handle, struct uftrace_opts *opts)
 				task->t->time.stamp = rstack->time;
 				continue;
 			}
-			else if (rstack->addr == EVENT_ID_PERF_SCHED_IN) {
+			if (rstack->addr == EVENT_ID_PERF_SCHED_IN) {
 				if (task->t->time.stamp) {
 					task->t->time.idle += rstack->time - task->t->time.stamp;
 				}

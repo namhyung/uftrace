@@ -1637,21 +1637,20 @@ uint64_t guess_kernel_base(char *str)
 	 */
 	if (addr < 0x40000000UL) /* 1G:3G split */
 		return 0x40000000UL;
-	else if (addr < 0x80000000UL) /* 2G:2G split */
+	if (addr < 0x80000000UL) /* 2G:2G split */
 		return 0x80000000UL;
-	else if (addr < 0xB0000000UL) /* 3G:1G split (variant) */
+	if (addr < 0xB0000000UL) /* 3G:1G split (variant) */
 		return 0xB0000000UL;
-	else if (addr < 0xC0000000UL) /* 3G:1G split */
+	if (addr < 0xC0000000UL) /* 3G:1G split */
 		return 0xC0000000UL;
 	/* below is for 64-bit systems */
-	else if (addr < 0x8000000000ULL) /* 512G:512G split */
+	if (addr < 0x8000000000ULL) /* 512G:512G split */
 		return 0xFFFFFF8000000000ULL;
-	else if (addr < 0x40000000000ULL) /* 4T:4T split */
+	if (addr < 0x40000000000ULL) /* 4T:4T split */
 		return 0xFFFFFC0000000000ULL;
-	else if (addr < 0x800000000000ULL) /* 128T:128T split (x86_64) */
+	if (addr < 0x800000000000ULL) /* 128T:128T split (x86_64) */
 		return 0xFFFF800000000000ULL;
-	else
-		return 0xFFFF000000000000ULL;
+	return 0xFFFF000000000000ULL;
 }
 
 int read_build_id(const char *filename, char *buf, int len)

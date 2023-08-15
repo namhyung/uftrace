@@ -679,7 +679,7 @@ static int get_param_class(Dwarf_Die *die, struct arg_data *ad, struct param_dat
 				pd->prev_class = PARAM_CLASS_NONE;
 				return PARAM_CLASS_FP;
 			}
-			else if (!strcmp(tname, "float") && pd->use_fpregs) {
+			if (!strcmp(tname, "float") && pd->use_fpregs) {
 				/* if it's already "int", don't change */
 				if (pd->prev_class != PARAM_CLASS_INT)
 					pd->prev_class = PARAM_CLASS_FP;
@@ -1593,8 +1593,7 @@ static struct comp_dir_entry *get_max_comp_dir(struct comp_dir_entry *a, struct 
 {
 	if (a->nr_used > b->nr_used || (a->nr_used == b->nr_used && a->nr_locs > b->nr_locs))
 		return a;
-	else
-		return b;
+	return b;
 }
 
 static char *get_base_comp_dir(struct rb_root *dirs)

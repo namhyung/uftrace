@@ -124,7 +124,7 @@ char *get_libmcount_path(struct uftrace_opts *opts)
 		if (access(lib, F_OK) == 0) {
 			return lib;
 		}
-		else if (errno == ENOENT) {
+		if (errno == ENOENT) {
 			snprintf(lib, PATH_MAX, "%s/%s", opts->lib_path, libmcount);
 			if (access(lib, F_OK) == 0)
 				return lib;

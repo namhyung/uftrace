@@ -1038,11 +1038,11 @@ static int dd_type(struct demangle_data *dd)
 			dd_qualifier(dd);
 			continue;
 		}
-		else if (strchr(prefix, c)) {
+		if (strchr(prefix, c)) {
 			dd_consume(dd);
 			continue;
 		}
-		else if (c == 'F') {
+		if (c == 'F') {
 			ret = dd_function_type(dd);
 			done = 1;
 		}
@@ -1155,7 +1155,7 @@ static int dd_discriminator(struct demangle_data *dd)
 	if (isdigit(c)) {
 		return dd_number(dd) > 0 ? 0 : -1;
 	}
-	else if (c == '_') {
+	if (c == '_') {
 		__dd_consume(dd, NULL);
 		if (dd_number(dd) < 0)
 			return -1;

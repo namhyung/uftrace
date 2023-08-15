@@ -507,7 +507,7 @@ uint64_t parse_time(const char *arg, int limited_digits)
 
 	if (!strcasecmp(unit, "ns") || !strcasecmp(unit, "nsec"))
 		return val;
-	else if (!strcasecmp(unit, "us") || !strcasecmp(unit, "usec"))
+	if (!strcasecmp(unit, "us") || !strcasecmp(unit, "usec"))
 		exp = 3; /* 10^3*/
 	else if (!strcasecmp(unit, "ms") || !strcasecmp(unit, "msec"))
 		exp = 6; /* 10^6 */
@@ -953,14 +953,13 @@ char *uftrace_strerror(int errnum, char *buf, size_t buflen)
 	if (result == 0)
 		/* XSI-compliant strerror_r succeed */
 		return buf;
-	else if (result < 4096) {
+	if (result < 4096) {
 		/* XSI-compliant strerror_r failed */
 		snprintf(buf, buflen, "error: %d", errnum);
 		return buf;
 	}
-	else
-		/* GNU-specific strerror_r */
-		return (char *)result;
+	/* GNU-specific strerror_r */
+	return (char *)result;
 }
 
 void stacktrace(void)

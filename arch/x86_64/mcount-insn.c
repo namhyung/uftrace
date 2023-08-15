@@ -139,7 +139,7 @@ static int handle_rel_jmp(cs_insn *insn, uint8_t insns[], struct mcount_dynamic_
 		return JMP_INSN_SIZE + sizeof(target);
 	}
 	/* Jump relative 8 if condition is met (except JCXZ, JECXZ and JRCXZ) */
-	else if ((opcode & 0xF0) == 0x70) {
+	if ((opcode & 0xF0) == 0x70) {
 		cbi = &info->branch_info[info->nr_branch++];
 		cbi->insn_index = info->copy_size;
 		cbi->branch_target = target;
@@ -155,7 +155,7 @@ static int handle_rel_jmp(cs_insn *insn, uint8_t insns[], struct mcount_dynamic_
 		return JCC8_INSN_SIZE;
 	}
 	/* Jump relative 32 if condition is met */
-	else if (opcode == 0x0F && (insn->bytes[1] & 0xF0) == 0x80) {
+	if (opcode == 0x0F && (insn->bytes[1] & 0xF0) == 0x80) {
 		cbi = &info->branch_info[info->nr_branch++];
 		cbi->insn_index = info->copy_size;
 		cbi->branch_target = target;
