@@ -128,7 +128,7 @@ struct mcount_orig_insn *mcount_find_insn(unsigned long addr);
 void mcount_freeze_code(void);
 
 /* these should be implemented for each architecture */
-int mcount_setup_trampoline(struct mcount_dynamic_info *adi);
+int mcount_setup_trampoline(struct mcount_dynamic_info *mdi);
 void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi);
 
 int mcount_patch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,

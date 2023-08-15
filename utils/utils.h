@@ -341,7 +341,7 @@ struct iovec;
 
 int read_all(int fd, void *buf, size_t size);
 int pread_all(int fd, void *buf, size_t size, off_t off);
-int fread_all(void *byf, size_t size, FILE *fp);
+int fread_all(void *buf, size_t size, FILE *fp);
 int write_all(int fd, const void *buf, size_t size);
 int writev_all(int fd, struct iovec *iov, int count);
 int fwrite_all(const void *buf, size_t size, FILE *fp);
@@ -355,7 +355,7 @@ extern clockid_t clock_source;
 void setup_clock_id(const char *clock_str);
 
 void print_time_unit(uint64_t delta_nsec);
-void print_diff_percent(uint64_t base_nsec, uint64_t delta_nsec);
+void print_diff_percent(uint64_t base_nsec, uint64_t pair_nsec);
 void print_diff_time_unit(uint64_t base_nsec, uint64_t pair_nsec);
 void print_diff_count(uint64_t base, uint64_t pair);
 

@@ -3,3 +3,4 @@ Checks: >-
     readability-non-const-parameter,
     readability-isolate-declaration,
     readability-else-after-return,
+    readability-inconsistent-declaration-parameter-name,
