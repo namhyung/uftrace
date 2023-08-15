@@ -7,10 +7,6 @@
 #include "utils/utils.h"
 #include "version.h"
 
-char *demangle(char *str);
-
-extern enum symbol_demangler demangler;
-
 enum options {
 	OPT_simple = 301,
 	OPT_full,

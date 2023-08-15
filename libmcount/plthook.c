@@ -173,7 +173,6 @@ static void restore_plt_functions(struct plthook_data *pd)
 }
 
 extern void __weak plt_hooker(void);
-extern unsigned long plthook_return(void);
 
 __weak struct plthook_data *mcount_arch_hook_no_plt(struct uftrace_elf_data *elf,
 						    const char *modname, unsigned long offset)
