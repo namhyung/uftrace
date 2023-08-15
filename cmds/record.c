@@ -2095,6 +2095,12 @@ int do_main_loop(int ready, struct uftrace_opts *opts, int pid)
 
 	xasprintf(&channel, "%s/%s", opts->dirname, ".channel");
 
+	/* try fallback fifo under tmpfs */
+	if (access(channel, F_OK) != 0) {
+		free(channel);
+		xasprintf(&channel, "/tmp/%s%s", opts->dirname, ".channel");
+	}
+
 	wd.pid = pid;
 	wd.pipefd = open(channel, O_RDONLY | O_NONBLOCK);
 
@@ -2269,8 +2275,13 @@ int command_record(int argc, char *argv[], struct uftrace_opts *opts)
 			return -1;
 
 		xasprintf(&channel, "%s/%s", opts->dirname, ".channel");
-		if (mkfifo(channel, 0600) < 0)
-			pr_err("cannot create a communication channel");
+		if (mkfifo(channel, 0600) < 0) {
+			free(channel);
+			/* try fallback fifo under tmpfs */
+			xasprintf(&channel, "/tmp/%s%s", opts->dirname, ".channel");
+			if (mkfifo(channel, 0600) < 0)
+				pr_err("cannot create a communication channel");
+		}
 	}
 
 	fflush(stdout);
