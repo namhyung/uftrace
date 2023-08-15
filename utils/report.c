@@ -745,10 +745,10 @@ void report_sort_tasks(struct uftrace_data *handle, struct rb_root *name_root,
 }
 
 #define FIELD_STRUCT(_id, _name, _func, _header, _length)                                          \
-	static struct display_field field_##_func = { .id = _id,                                   \
+	static struct display_field field_##_func = { .id = (_id),                                 \
 						      .name = #_name,                              \
-						      .header = _header,                           \
-						      .length = _length,                           \
+						      .header = (_header),                         \
+						      .length = (_length),                         \
 						      .print = print_##_func,                      \
 						      .list = LIST_HEAD_INIT(                      \
 							      field_##_func.list) };

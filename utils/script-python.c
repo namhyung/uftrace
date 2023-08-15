@@ -85,7 +85,7 @@ static inline void __Py_DECREF(PyObject *obj)
 }
 
 #undef Py_DECREF
-#define Py_DECREF(obj) __Py_DECREF((PyObject *)obj))
+#define Py_DECREF(obj) __Py_DECREF((PyObject *)(obj)))
 
 static inline void __Py_XDECREF(PyObject *obj)
 {
@@ -94,7 +94,7 @@ static inline void __Py_XDECREF(PyObject *obj)
 }
 
 #undef Py_XDECREF
-#define Py_XDECREF(obj) __Py_XDECREF((PyObject *)obj)
+#define Py_XDECREF(obj) __Py_XDECREF((PyObject *)(obj))
 
 #endif /* PY_VERSION_HEX >= 0x03080000 */
 

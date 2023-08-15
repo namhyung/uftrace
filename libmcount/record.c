@@ -247,8 +247,8 @@ void *get_argbuf(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstac
 	return mtdp->argbuf + (idx * ARGBUF_SIZE);
 }
 
-#define HEAP_REGION_UNIT 128 * MB
-#define STACK_REGION_UNIT 8 * MB
+#define HEAP_REGION_UNIT (128 * MB)
+#define STACK_REGION_UNIT (8 * MB)
 
 struct mem_region {
 	struct rb_node node;

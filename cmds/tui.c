@@ -337,10 +337,10 @@ static struct display_field *graph_field_table[] = {
 
 #define REPORT_FIELD_STRUCT(_id, _name, _func, _header, _length)                                   \
 static struct display_field report_field_##_func = {                                               \
-	.id      = _id,                                                                            \
+	.id      = (_id),                                                                            \
 	.name    = #_name,                                                                         \
-	.header  = _header,                                                                        \
-	.length  = _length,                                                                        \
+	.header  = (_header),                                                                        \
+	.length  = (_length),                                                                        \
 	.print   = print_report_##_func,                                                           \
 	.list    = LIST_HEAD_INIT(report_field_##_func.list)                                       \
 };
