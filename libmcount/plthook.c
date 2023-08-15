@@ -113,7 +113,8 @@ size_t plt_skip_nr = ARRAY_SIZE(plt_skip_syms);
  */
 static void restore_plt_functions(struct plthook_data *pd)
 {
-	unsigned i, k;
+	unsigned i;
+	unsigned k;
 	struct uftrace_symtab *dsymtab = &pd->dsymtab;
 
 	for (i = 0; i < dsymtab->nr_sym; i++) {

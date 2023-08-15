@@ -448,7 +448,8 @@ static void parse_pattern_list(char *patch_funcs, char *def_mod, enum uftrace_pa
 
 static void release_pattern_list(void)
 {
-	struct patt_list *pl, *tmp;
+	struct patt_list *pl;
+	struct patt_list *tmp;
 
 	list_for_each_entry_safe(pl, tmp, &patterns, list) {
 		list_del(&pl->list);
@@ -618,7 +619,8 @@ static int do_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 
 static void freeze_dynamic_update(void)
 {
-	struct mcount_dynamic_info *mdi, *tmp;
+	struct mcount_dynamic_info *mdi;
+	struct mcount_dynamic_info *tmp;
 
 	mdi = mdinfo;
 	while (mdi) {
@@ -662,7 +664,8 @@ int mcount_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 
 	if (stats.total && (stats.failed || stats.skipped)) {
 		int success = stats.total - stats.failed - stats.skipped;
-		int r, q;
+		int r;
+		int q;
 
 		pr_dbg("dynamic patch stats for '%s'\n", basename(sinfo->filename));
 		pr_dbg("   total: %8d\n", stats.total);
@@ -774,7 +777,8 @@ bool mcount_add_badsym(struct mcount_dynamic_info *mdi, unsigned long callsite,
 
 void mcount_free_badsym(struct mcount_dynamic_info *mdi)
 {
-	struct dynamic_bad_symbol *badsym, *tmp;
+	struct dynamic_bad_symbol *badsym;
+	struct dynamic_bad_symbol *tmp;
 
 	list_for_each_entry_safe(badsym, tmp, &mdi->bad_syms, list) {
 		list_del(&badsym->list);

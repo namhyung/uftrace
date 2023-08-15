@@ -495,7 +495,9 @@ void report_diff_nodes(struct rb_root *orig_root, struct rb_root *pair_root,
 	*diff_root = RB_ROOT;
 
 	while (n && !uftrace_done) {
-		struct uftrace_report_node *iter, *pair, *node;
+		struct uftrace_report_node *iter;
+		struct uftrace_report_node *pair;
+		struct uftrace_report_node *node;
 
 		iter = rb_entry(n, typeof(*iter), name_link);
 		pair = report_find_node(pair_root, iter->name);
@@ -517,7 +519,8 @@ void report_diff_nodes(struct rb_root *orig_root, struct rb_root *pair_root,
 	/* add non-used pair nodes */
 	n = rb_first(pair_root);
 	while (n && !uftrace_done) {
-		struct uftrace_report_node *iter, *node;
+		struct uftrace_report_node *iter;
+		struct uftrace_report_node *node;
 
 		iter = rb_entry(n, typeof(*iter), name_link);
 		if (iter->pair == NULL) {

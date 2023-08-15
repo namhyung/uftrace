@@ -174,9 +174,11 @@ static int pr_task_txt(struct uftrace_opts *opts)
 {
 	FILE *fp;
 	char buf[PATH_MAX];
-	char *ptr, *end;
+	char *ptr;
+	char *end;
 	char *timestamp;
-	int pid, tid;
+	int pid;
+	int tid;
 	char sid[20];
 
 	snprintf(buf, sizeof(buf), "%s/task.txt", opts->dirname);
@@ -681,7 +683,8 @@ static void dump_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 		unsigned char *tmp = data - 12; /* data still returns next record */
 
 		if ((*tmp & 0x1f) == KBUFFER_TYPE_TIME_EXTEND) {
-			uint32_t upper, lower;
+			uint32_t upper;
+			uint32_t lower;
 			int size;
 
 			size = kbuffer_event_size(kbuf);
@@ -1089,7 +1092,8 @@ static void print_flame_graph(struct uftrace_dump_ops *ops, struct uftrace_graph
 	if (sample) {
 		struct uftrace_graph_node *parent = node;
 		char *names[opts->max_stack];
-		char *buf, *ptr;
+		char *buf;
+		char *ptr;
 		int i = 0;
 		size_t len = 0;
 
@@ -1744,7 +1748,8 @@ int command_dump(int argc, char *argv[], struct uftrace_opts *opts)
 		};
 
 		if (!opts->sample_time && handle.hdr.info_mask & RECORD_DATE) {
-			uint64_t total_time, sample_time;
+			uint64_t total_time;
+			uint64_t sample_time;
 
 			/* elapsed time is saved in second */
 			total_time = strtod(handle.info.elapsed_time, NULL) * 1e9;

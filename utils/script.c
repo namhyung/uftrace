@@ -92,7 +92,8 @@ int script_match_filter(char *func)
 
 void script_finish_filter(void)
 {
-	struct script_filter_item *item, *tmp;
+	struct script_filter_item *item;
+	struct script_filter_item *tmp;
 
 	list_for_each_entry_safe(item, tmp, &filters, list) {
 		list_del(&item->list);

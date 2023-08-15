@@ -53,7 +53,8 @@ struct kfilter {
 
 static int set_filter_file(const char *filter_file, struct list_head *filters)
 {
-	struct kfilter *pos, *tmp;
+	struct kfilter *pos;
+	struct kfilter *tmp;
 	int ret = -1;
 	int fd;
 
@@ -193,7 +194,8 @@ static void build_kernel_filter(struct uftrace_kernel_writer *kernel, char *filt
 {
 	struct list_head *head;
 	struct strv strv = STRV_INIT;
-	char *pos, *name;
+	char *pos;
+	char *name;
 	int j;
 
 	if (filter_str == NULL)
@@ -235,7 +237,8 @@ struct kevent {
 
 static int set_tracing_event(struct uftrace_kernel_writer *kernel)
 {
-	struct kevent *pos, *tmp;
+	struct kevent *pos;
+	struct kevent *tmp;
 
 	list_for_each_entry_safe(pos, tmp, &kernel->events, list) {
 		if (append_tracing_file("set_event", pos->name) < 0)
@@ -282,7 +285,8 @@ static void build_kernel_event(struct uftrace_kernel_writer *kernel, char *event
 			       enum uftrace_pattern_type ptype, struct list_head *events)
 {
 	struct strv strv = STRV_INIT;
-	char *pos, *name;
+	char *pos;
+	char *name;
 	int j;
 
 	if (event_str == NULL)
@@ -489,7 +493,8 @@ static void skip_kernel_functions(struct uftrace_kernel_writer *kernel)
  */
 int setup_kernel_tracing(struct uftrace_kernel_writer *kernel, struct uftrace_opts *opts)
 {
-	int i, n;
+	int i;
+	int n;
 	int ret;
 
 	INIT_LIST_HEAD(&kernel->filters);
@@ -771,7 +776,8 @@ static int save_event_files(struct uftrace_kernel_writer *kernel, FILE *fp)
 	char *filename = NULL;
 	DIR *subsys = NULL;
 	DIR *event = NULL;
-	struct dirent *sys, *name;
+	struct dirent *sys;
+	struct dirent *name;
 
 	if (read_tracing_file("events/enable", buf, sizeof(buf)))
 		goto out;
@@ -1221,7 +1227,8 @@ static void add_kfunc_addr(struct rb_root *root, uint64_t addr)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
-	struct uftrace_kfunc *iter, *kfunc;
+	struct uftrace_kfunc *iter;
+	struct uftrace_kfunc *kfunc;
 
 	while (*p) {
 		parent = *p;
@@ -1401,7 +1408,8 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 	struct uftrace_kernel_reader *kernel = handle->kernel;
 	struct uftrace_rstack_list *rstack_list = &kernel->rstack_list[cpu];
 	struct uftrace_record *curr;
-	int tid, prev_tid = -1;
+	int tid;
+	int prev_tid = -1;
 
 	if (rstack_list->count)
 		goto out;

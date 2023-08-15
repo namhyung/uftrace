@@ -698,7 +698,8 @@ static void copy_graph_node(struct uftrace_graph_node *dst, struct uftrace_graph
 static int tui_last_index(struct tui_window *win)
 {
 	int count = win->curr_index;
-	void *next, *prev = win->curr;
+	void *next;
+	void *prev = win->curr;
 
 	while (true) {
 		next = win->ops->next(win, prev, false);
@@ -727,7 +728,8 @@ static void tui_window_init(struct tui_window *win, const struct tui_window_ops 
 static struct tui_graph *tui_graph_init(struct uftrace_opts *opts)
 {
 	struct tui_graph *graph;
-	struct uftrace_graph_node *top, *node;
+	struct uftrace_graph_node *top;
+	struct uftrace_graph_node *node;
 
 	list_for_each_entry(graph, &tui_graph_list, list) {
 		/* top (root) is an artificial node, fill the info */
@@ -783,7 +785,8 @@ static void tui_graph_finish(void)
 static void build_partial_graph(struct tui_report_node *root_node, struct tui_graph *target)
 {
 	struct tui_graph *graph = &partial_graph;
-	struct tui_graph_node *root, *node;
+	struct tui_graph_node *root;
+	struct tui_graph_node *node;
 	char *str;
 
 	graph_destroy(&graph->ug);
@@ -804,7 +807,8 @@ static void build_partial_graph(struct tui_report_node *root_node, struct tui_gr
 	root = append_graph_node(&graph->ug.root, target, "========== Back-trace ==========");
 
 	list_for_each_entry(node, &root_node->head, link) {
-		struct tui_graph_node *tmp, *parent;
+		struct tui_graph_node *tmp;
+		struct tui_graph_node *parent;
 		int n = 0;
 
 		if (node->graph != &target->ug)
@@ -1104,8 +1108,10 @@ static bool win_expand_graph(struct tui_window *win, void *node, bool all, int d
 
 static void win_header_graph(struct tui_window *win, struct uftrace_data *handle)
 {
-	int w = 0, c;
-	char *buf, *p;
+	int w = 0;
+	int c;
+	char *buf;
+	char *p;
 	struct tui_graph *graph = (struct tui_graph *)win;
 	struct display_field *field;
 
@@ -1420,7 +1426,8 @@ static void *win_parent_no(struct tui_window *win, void *node)
 
 static void report_sort_key_init(void)
 {
-	int i, j = 0;
+	int i;
+	int j = 0;
 
 	for (i = 0; i < NUM_REPORT_FIELD; i++) {
 		if (report_field_table[i]->used)
@@ -1526,8 +1533,10 @@ static bool win_search_report(struct tui_window *win, void *node, char *str)
 
 static void win_header_report(struct tui_window *win, struct uftrace_data *handle)
 {
-	int w = 0, c;
-	char *buf, *p;
+	int w = 0;
+	int c;
+	char *buf;
+	char *p;
 	struct display_field *field;
 	int i = 0;
 
@@ -1705,7 +1714,8 @@ static struct tui_list *tui_info_init(struct uftrace_opts *opts, struct uftrace_
 
 static void tui_info_finish(void)
 {
-	struct tui_list_node *node, *tmp;
+	struct tui_list_node *node;
+	struct tui_list_node *tmp;
 
 	list_for_each_entry_safe(node, tmp, &tui_info.head, list) {
 		list_del(&node->list);
@@ -1789,7 +1799,8 @@ static struct tui_list *tui_session_init(struct uftrace_opts *opts)
 
 static void tui_session_finish(void)
 {
-	struct tui_list_node *node, *tmp;
+	struct tui_list_node *node;
+	struct tui_list_node *tmp;
 
 	list_for_each_entry_safe(node, tmp, &tui_session.head, list) {
 		list_del(&node->list);
@@ -2205,7 +2216,8 @@ static void tui_window_set_middle_prev(struct tui_window *win, void *target)
 
 static void tui_window_set_middle_next(struct tui_window *win, void *target)
 {
-	void *old, *next;
+	void *old;
+	void *next;
 	int next_index;
 
 	while (win->curr != target)
@@ -2441,7 +2453,8 @@ static bool tui_window_open_editor(struct tui_window *win)
 	struct uftrace_dbg_loc *dloc;
 	const char *editor = getenv("EDITOR");
 	struct strv editor_strv;
-	int pid, status;
+	int pid;
+	int status;
 	int ret;
 
 	if (win->ops->location == NULL)
@@ -2546,7 +2559,8 @@ static void display_tui_field(WINDOW *win, int selected_field, const bool field_
 
 static void update_graph_output_fields(const bool graph_field_flags[])
 {
-	struct display_field *field, *tmp;
+	struct display_field *field;
+	struct display_field *tmp;
 	int i;
 
 	list_for_each_entry_safe(field, tmp, &graph_output_fields, list)
@@ -2560,8 +2574,10 @@ static void update_graph_output_fields(const bool graph_field_flags[])
 
 static void update_report_output_fields(const bool report_field_flags[])
 {
-	struct display_field *field, *tmp;
-	int i, j = 0;
+	struct display_field *field;
+	struct display_field *tmp;
+	int i;
+	int j = 0;
 
 	list_for_each_entry_safe(field, tmp, &report_output_fields, list)
 		del_field(field);
@@ -3004,7 +3020,8 @@ out:
 static void display_loading_msg(struct uftrace_opts *opts)
 {
 	char *tuimsg = "Building graph for TUI...";
-	int row, col;
+	int row;
+	int col;
 
 	if (opts->report)
 		tuimsg = "Building report for TUI...";

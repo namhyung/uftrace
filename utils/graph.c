@@ -156,7 +156,8 @@ static int add_graph_exit(struct uftrace_task_graph *tg)
 	}
 
 	if (node->addr != fstack->addr) {
-		struct uftrace_special_node *snode, *tmp;
+		struct uftrace_special_node *snode;
+		struct uftrace_special_node *tmp;
 
 		list_for_each_entry_safe(snode, tmp, &tg->graph->special_nodes, list) {
 			if (snode->node->addr == tg->task->rstack->addr &&
@@ -235,7 +236,8 @@ struct uftrace_graph_node *graph_find_node(struct uftrace_graph_node *parent, ui
 
 static void graph_destroy_node(struct uftrace_graph_node *node)
 {
-	struct uftrace_graph_node *child, *tmp;
+	struct uftrace_graph_node *child;
+	struct uftrace_graph_node *tmp;
 
 	list_for_each_entry_safe(child, tmp, &node->head, list)
 		graph_destroy_node(child);
@@ -247,8 +249,10 @@ static void graph_destroy_node(struct uftrace_graph_node *node)
 
 void graph_destroy(struct uftrace_graph *graph)
 {
-	struct uftrace_graph_node *node, *tmp;
-	struct uftrace_special_node *snode, *stmp;
+	struct uftrace_graph_node *node;
+	struct uftrace_graph_node *tmp;
+	struct uftrace_special_node *snode;
+	struct uftrace_special_node *stmp;
 
 	list_for_each_entry_safe(node, tmp, &graph->root.head, list)
 		graph_destroy_node(node);

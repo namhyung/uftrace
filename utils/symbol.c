@@ -474,7 +474,8 @@ static int load_dyn_symbol(struct uftrace_symtab *dsymtab, int sym_idx, unsigned
 
 static void sort_dynsymtab(struct uftrace_symtab *dsymtab)
 {
-	unsigned i, k;
+	unsigned i;
+	unsigned k;
 
 	dsymtab->nr_alloc = dsymtab->nr_sym;
 	dsymtab->sym = xrealloc(dsymtab->sym, dsymtab->nr_sym * sizeof(*dsymtab->sym));
@@ -1352,7 +1353,8 @@ int save_kernel_symbol(char *dirname)
 {
 	char *symfile = NULL;
 	char buf[PATH_MAX];
-	FILE *ifp, *ofp;
+	FILE *ifp;
+	FILE *ofp;
 	ssize_t len;
 	int ret = 0;
 
@@ -1410,7 +1412,8 @@ struct uftrace_module *get_kernel_module(void)
 void build_dynsym_idxlist(struct uftrace_symtab *dsymtab, struct dynsym_idxlist *idxlist,
 			  const char *symlist[], unsigned symcount)
 {
-	unsigned i, k;
+	unsigned i;
+	unsigned k;
 	unsigned *idx = NULL;
 	unsigned count = 0;
 

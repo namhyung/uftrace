@@ -30,7 +30,8 @@ static void add_auto_args(struct rb_root *root, struct uftrace_filter *entry,
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
-	struct uftrace_filter *iter, *new;
+	struct uftrace_filter *iter;
+	struct uftrace_filter *new;
 	int cmp;
 
 	pr_dbg2("add auto-argument for %s\n", entry->name);
@@ -244,7 +245,8 @@ static void release_auto_args(struct rb_root *root)
 {
 	struct rb_node *p;
 	struct uftrace_filter *entry;
-	struct uftrace_arg_spec *arg, *tmp;
+	struct uftrace_arg_spec *arg;
+	struct uftrace_arg_spec *tmp;
 
 	while (!RB_EMPTY_ROOT(root)) {
 		p = rb_first(root);
@@ -308,7 +310,8 @@ int extract_trigger_args(char **pargs, char **prets, char *trigger)
 	/* extract argspec (and retspec) in trigger action */
 	if (trigger) {
 		struct strv actions = STRV_INIT;
-		char *pos, *act;
+		char *pos;
+		char *act;
 		int j;
 
 		strv_split(&actions, trigger, ";");
@@ -376,7 +379,8 @@ static char enum_token[256];
 
 static enum enum_token_ret enum_next_token(char **str)
 {
-	char *pos, *tok;
+	char *pos;
+	char *tok;
 	enum enum_token_ret ret;
 	ptrdiff_t len;
 
@@ -583,7 +587,8 @@ int parse_enum_string(char *enum_str, struct rb_root *root)
 {
 	char *pos;
 	struct enum_def *e_def = NULL;
-	struct enum_val *e_val, *e;
+	struct enum_val *e_val;
+	struct enum_val *e;
 	enum enum_token_ret ret;
 	struct strv strv = STRV_INIT;
 	int err = -1;

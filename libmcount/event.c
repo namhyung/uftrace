@@ -88,7 +88,9 @@ static int search_sdt_event(struct dl_phdr_info *info, size_t sz, void *data)
 	elf_for_each_note(&elf, &iter) {
 		struct stapsdt *sdt;
 		struct event_spec *spec;
-		char *vendor, *event, *args;
+		char *vendor;
+		char *event;
+		char *args;
 
 		if (strncmp(iter.note_name, SDT_NAME, iter.nhdr.n_namesz))
 			continue;
@@ -146,7 +148,8 @@ int mcount_setup_events(char *dirname, char *event_str, enum uftrace_pattern_typ
 	struct mcount_event_info *mei;
 	struct strv strv = STRV_INIT;
 	LIST_HEAD(specs);
-	struct event_spec *es, *tmp;
+	struct event_spec *es;
+	struct event_spec *tmp;
 	char *spec;
 	int i;
 
@@ -255,7 +258,8 @@ int mcount_save_event(struct mcount_event_info *mei)
 
 void mcount_finish_events(void)
 {
-	struct mcount_event_info *mei, *tmp;
+	struct mcount_event_info *mei;
+	struct mcount_event_info *tmp;
 
 	list_for_each_entry_safe(mei, tmp, &events, list) {
 		list_del(&mei->list);

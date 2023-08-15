@@ -88,7 +88,8 @@ void uftrace_send_message(int type, void *data, size_t len)
 
 void build_debug_domain(char *dbg_domain_str)
 {
-	int i, len;
+	int i;
+	int len;
 
 	if (dbg_domain_str == NULL)
 		return;
@@ -145,7 +146,8 @@ void mcount_rstack_restore(struct mcount_thread_data *mtdp)
 			 * by the plt_hooker().  So it needs to scan the stack to
 			 * look up the value.
 			 */
-			unsigned long *loc, *end;
+			unsigned long *loc;
+			unsigned long *end;
 
 			if (idx < mtdp->idx - 1) {
 				struct mcount_ret_stack *next_rstack;

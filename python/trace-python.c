@@ -197,7 +197,8 @@ static void find_libmcount_funcs(void)
 		return;
 
 	while (getline(&line, &len, fp) != -1) {
-		unsigned long start, end;
+		unsigned long start;
+		unsigned long end;
 		char prot[5];
 		char path[PATH_MAX];
 
@@ -239,7 +240,9 @@ static void init_symtab(void)
 
 static uint32_t get_new_sym_addr(const char *name, bool is_libcall)
 {
-	union uftrace_python_symtab old_hdr, new_hdr, tmp_hdr;
+	union uftrace_python_symtab old_hdr;
+	union uftrace_python_symtab new_hdr;
+	union uftrace_python_symtab tmp_hdr;
 	char *data = (void *)symtab;
 	int entry_size = strlen(name) + 20; /* addr(16) + spaces(2) + type(1) + newline(1) */
 
@@ -359,7 +362,9 @@ static void init_dbginfo(void)
 
 static void update_dbg_info(const char *name, uint64_t addr, const char *file, int line)
 {
-	union uftrace_python_symtab old_hdr, new_hdr, tmp_hdr;
+	union uftrace_python_symtab old_hdr;
+	union uftrace_python_symtab new_hdr;
+	union uftrace_python_symtab tmp_hdr;
 	char *data = (void *)dbg_info;
 	char *buf = NULL;
 	int entry_size = xasprintf(&buf, "F: %" PRIx64 " %s\nL: %d %s\n", addr, name, line, file);
@@ -556,7 +561,8 @@ static bool apply_filters(const char *event, struct uftrace_python_symbol *sym, 
 
 static void remove_filters(void)
 {
-	struct uftrace_python_filter *filter, *tmp;
+	struct uftrace_python_filter *filter;
+	struct uftrace_python_filter *tmp;
 
 	list_for_each_entry_safe(filter, tmp, &filters, list) {
 		list_del(&filter->list);
@@ -734,7 +740,9 @@ static char *get_c_string(PyObject *utf8)
 /* the name should be 'PyInit_' + <module name> */
 PyMODINIT_FUNC PyInit_uftrace_python(void)
 {
-	PyObject *m, *d, *f;
+	PyObject *m;
+	PyObject *d;
+	PyObject *f;
 	struct uftrace_py_state *s;
 
 	outfp = stdout;
@@ -799,7 +807,8 @@ static char *get_c_string(PyObject *str)
 
 static char *get_python_funcname(PyObject *frame, PyObject *code, bool *is_main)
 {
-	PyObject *name, *global;
+	PyObject *name;
+	PyObject *global;
 	char *func_name = NULL;
 
 	*is_main = false;
@@ -837,7 +846,8 @@ static char *get_python_funcname(PyObject *frame, PyObject *code, bool *is_main)
 
 static char *get_c_funcname(PyObject *frame, PyObject *code)
 {
-	PyObject *name, *mod;
+	PyObject *name;
+	PyObject *mod;
 	PyCFunctionObject *cfunc;
 	char *func_name = NULL;
 
@@ -870,7 +880,8 @@ static struct uftrace_python_symbol *convert_function_addr(PyObject *frame, PyOb
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &code_tree.rb_node;
-	struct uftrace_python_symbol *iter, *new_sym;
+	struct uftrace_python_symbol *iter;
+	struct uftrace_python_symbol *new_sym;
 	PyObject *code;
 	const char *file_name = NULL;
 	char *func_name;
@@ -957,7 +968,8 @@ static struct uftrace_python_symbol *convert_function_addr(PyObject *frame, PyOb
  */
 static PyObject *uftrace_trace_python(PyObject *self, PyObject *args)
 {
-	PyObject *frame, *args_tuple;
+	PyObject *frame;
+	PyObject *args_tuple;
 	static PyObject *first_frame;
 	const char *event;
 	struct uftrace_python_symbol *sym;

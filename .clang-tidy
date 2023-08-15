@@ -1,3 +1,4 @@
 Checks: >-
     -*,
     readability-non-const-parameter,
+    readability-isolate-declaration,

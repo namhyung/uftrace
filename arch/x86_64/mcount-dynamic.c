@@ -656,7 +656,8 @@ static void revert_normal_func(struct mcount_dynamic_info *mdi, struct uftrace_s
 void mcount_arch_dynamic_recover(struct mcount_dynamic_info *mdi,
 				 struct mcount_disasm_engine *disasm)
 {
-	struct dynamic_bad_symbol *badsym, *tmp;
+	struct dynamic_bad_symbol *badsym;
+	struct dynamic_bad_symbol *tmp;
 
 	list_for_each_entry_safe(badsym, tmp, &mdi->bad_syms, list) {
 		if (!badsym->reverted)

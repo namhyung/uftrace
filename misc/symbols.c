@@ -35,7 +35,8 @@ static void parse_option(int argc, char **argv, struct symbols_opts *opts)
 	bool done = false;
 
 	while (!done) {
-		int key, tmp;
+		int key;
+		int tmp;
 
 		key = getopt_long(argc, argv, "d:v", symbols_options, &tmp);
 		switch (key) {
@@ -92,11 +93,13 @@ static int read_sessions(struct uftrace_session_link *link, char *dirname)
 	char *fname = NULL;
 	char *line = NULL;
 	size_t sz = 0;
-	unsigned long sec, nsec;
+	unsigned long sec;
+	unsigned long nsec;
 	struct uftrace_msg_task tmsg;
 	struct uftrace_msg_sess smsg;
 	struct uftrace_msg_dlopen dlop;
-	char *exename, *pos;
+	char *exename;
+	char *pos;
 	int count = 0;
 
 	xasprintf(&fname, "%s/%s", dirname, "task.txt");

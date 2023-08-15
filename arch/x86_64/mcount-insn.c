@@ -588,7 +588,9 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm, struct mcount_dynami
 {
 	int status;
 	cs_insn *insn = NULL;
-	uint32_t count, i, size;
+	uint32_t count;
+	uint32_t i;
+	uint32_t size;
 	uint8_t endbr64[] = { 0xf3, 0x0f, 0x1e, 0xfa };
 	struct dynamic_bad_symbol *badsym;
 	unsigned long addr = info->addr;

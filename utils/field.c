@@ -112,9 +112,11 @@ void setup_field(struct list_head *output_fields, struct uftrace_opts *opts,
 		 setup_default_field_t setup_default_field, struct display_field *field_table[],
 		 size_t field_table_size)
 {
-	struct display_field *field, *tmp;
+	struct display_field *field;
+	struct display_field *tmp;
 	struct strv strv = STRV_INIT;
-	char *str, *p;
+	char *str;
+	char *p;
 	unsigned i;
 	int j;
 	bool *field_flags;

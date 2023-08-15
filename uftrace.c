@@ -454,7 +454,8 @@ static int parse_demangle(char *arg)
 static void parse_debug_domain(char *arg)
 {
 	struct strv strv = STRV_INIT;
-	char *tok, *tmp;
+	char *tok;
+	char *tmp;
 	int i;
 
 	strv_split(&strv, arg, ",");
@@ -528,7 +529,8 @@ static uint64_t parse_any_timestamp(char *str, bool *elapsed)
 
 static bool parse_time_range(struct uftrace_time_range *range, char *arg)
 {
-	char *str, *pos;
+	char *str;
+	char *pos;
 
 	str = xstrdup(arg);
 
@@ -1185,7 +1187,8 @@ static void parse_opt_file(int *argc, char ***argv, char *filename, struct uftra
 	}
 
 	while (true) {
-		int key, tmp = 0;
+		int key;
+		int tmp = 0;
 
 		key = getopt_long(file_argc, file_argv, uftrace_shopts, uftrace_options, &tmp);
 		if (key == -1 || key == '?') {
@@ -1285,7 +1288,8 @@ void parse_script_opt(struct uftrace_opts *opts)
 		optind = 0;
 
 		while (true) {
-			int key, tmp = 0;
+			int key;
+			int tmp = 0;
 
 			key = getopt_long(opt_argc, opt_argv, uftrace_shopts, uftrace_options,
 					  &tmp);
@@ -1327,7 +1331,8 @@ static int parse_options(int argc, char **argv, struct uftrace_opts *opts)
 	optind = 1;
 
 	while (true) {
-		int key, tmp = 0;
+		int key;
+		int tmp = 0;
 
 		key = getopt_long(argc, argv, uftrace_shopts, uftrace_options, &tmp);
 		if (key == -1 || key == '?') {

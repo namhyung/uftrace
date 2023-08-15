@@ -172,7 +172,8 @@ struct uftrace_filter *uftrace_match_filter(uint64_t addr, struct rb_root *root,
 static void add_arg_spec(struct list_head *arg_list, struct uftrace_arg_spec *arg, bool exact_match)
 {
 	bool found = false;
-	struct uftrace_arg_spec *oarg, *narg;
+	struct uftrace_arg_spec *oarg;
+	struct uftrace_arg_spec *narg;
 
 	list_for_each_entry(oarg, arg_list, list) {
 		if (arg->type != oarg->type)
@@ -317,7 +318,8 @@ static int update_filter(struct rb_root *root, struct uftrace_filter *filter,
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
-	struct uftrace_filter *iter, *new;
+	struct uftrace_filter *iter;
+	struct uftrace_filter *new;
 	struct uftrace_filter *auto_arg = NULL;
 	struct uftrace_filter *auto_ret = NULL;
 	unsigned long orig_flags = tr->flags;
@@ -1263,7 +1265,8 @@ void uftrace_setup_loc_filter(char *filter_str, struct uftrace_sym_info *sinfo,
 static struct uftrace_filter *deep_copy_filter(struct uftrace_filter *old)
 {
 	struct uftrace_filter *new;
-	struct uftrace_arg_spec *arg, *arg_copy;
+	struct uftrace_arg_spec *arg;
+	struct uftrace_arg_spec *arg_copy;
 
 	new = xmalloc(sizeof(*new));
 
@@ -1294,7 +1297,8 @@ static struct uftrace_filter *deep_copy_filter(struct uftrace_filter *old)
  */
 static void deep_copy_triggers(struct rb_node **dest, struct rb_node *src)
 {
-	struct uftrace_filter *old, *new;
+	struct uftrace_filter *old;
+	struct uftrace_filter *new;
 
 	if (!src) {
 		*dest = NULL;
@@ -1338,7 +1342,8 @@ void uftrace_cleanup_filter(struct rb_root *root)
 {
 	struct rb_node *node;
 	struct uftrace_filter *filter;
-	struct uftrace_arg_spec *arg, *tmp;
+	struct uftrace_arg_spec *arg;
+	struct uftrace_arg_spec *tmp;
 
 	while (!RB_EMPTY_ROOT(root)) {
 		node = rb_first(root);
@@ -1388,7 +1393,8 @@ void uftrace_print_filter(struct rb_root *root)
 char *uftrace_clear_kernel(char *filter_str)
 {
 	struct strv filters = STRV_INIT;
-	char *pos, *ret = NULL;
+	char *pos;
+	char *ret = NULL;
 	int j;
 
 	/* check filter string contains a kernel filter */

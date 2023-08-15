@@ -113,11 +113,13 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname, char *s
 	char *fname = NULL;
 	char *line = NULL;
 	size_t sz = 0;
-	unsigned long sec, nsec;
+	unsigned long sec;
+	unsigned long nsec;
 	struct uftrace_msg_task tmsg;
 	struct uftrace_msg_sess smsg;
 	struct uftrace_msg_dlopen dlop;
-	char *exename, *pos;
+	char *exename;
+	char *pos;
 	int ret = -1;
 	int num;
 

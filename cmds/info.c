@@ -244,7 +244,8 @@ static int read_cpuinfo(void *arg)
 	struct uftrace_data *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
 	char *buf = rha->buf;
-	int i, lines;
+	int i;
+	int lines;
 
 	if (fgets(buf, sizeof(rha->buf), handle->fp) == NULL)
 		return -1;
@@ -411,7 +412,8 @@ static int read_osinfo(void *arg)
 	struct uftrace_data *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
 	char *buf = rha->buf;
-	int i, lines;
+	int i;
+	int lines;
 
 	if (fgets(buf, sizeof(rha->buf), handle->fp) == NULL)
 		return -1;
@@ -505,7 +507,8 @@ static int read_taskinfo(void *arg)
 	struct read_handler_arg *rha = arg;
 	struct uftrace_data *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
-	int i, lines;
+	int i;
+	int lines;
 	int ret = -1;
 	char *buf = NULL;
 	size_t len = 0;
@@ -592,7 +595,8 @@ static int read_usageinfo(void *arg)
 	struct uftrace_data *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
 	char *buf = rha->buf;
-	int i, lines;
+	int i;
+	int lines;
 
 	if (fgets(buf, sizeof(rha->buf), handle->fp) == NULL)
 		return -1;
@@ -705,7 +709,8 @@ static int read_arg_spec(void *arg)
 	struct read_handler_arg *rha = arg;
 	struct uftrace_data *handle = rha->handle;
 	struct uftrace_info *info = &handle->info;
-	int i, lines;
+	int i;
+	int lines;
 	int ret = -1;
 	char *buf = NULL;
 	size_t len = 0;
@@ -1028,7 +1033,8 @@ void process_uftrace_info(struct uftrace_data *handle, struct uftrace_opts *opts
 		bool first = true;
 		struct uftrace_task *task;
 		char *task_list;
-		int sz, len;
+		int sz;
+		int len;
 		char *p;
 
 		/* ignore errors */

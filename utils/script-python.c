@@ -821,7 +821,8 @@ int script_init_for_python(struct script_info *info, enum uftrace_pattern_type p
 
 	/* check if script has its own list of functions to run */
 	if (__PyObject_HasAttrString(pModule, "UFTRACE_FUNCS")) {
-		int i, len;
+		int i;
+		int len;
 		PyObject *filter_list = __PyObject_GetAttrString(pModule, "UFTRACE_FUNCS");
 		/* XXX: type checking is hard */
 		len = __PyList_Size(filter_list);

@@ -1382,7 +1382,8 @@ static int dd_source_name(struct demangle_data *dd)
 {
 	int num = dd_number(dd);
 	char *dollar;
-	char *p, *end;
+	char *p;
+	char *end;
 	unsigned i;
 	bool add_name = false;
 

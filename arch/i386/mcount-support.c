@@ -194,8 +194,10 @@ unsigned long *mcount_arch_parent_location(struct uftrace_sym_info *symtabs,
 					   unsigned long *parent_loc, unsigned long child_ip)
 {
 	if (!search_main_ret) {
-		struct uftrace_symbol *parent_sym, *child_sym;
-		char *parent_name, *child_name;
+		struct uftrace_symbol *parent_sym;
+		struct uftrace_symbol *child_sym;
+		char *parent_name;
+		char *child_name;
 
 		const char *find_main[] = { "__libc_start_main", "main" };
 		unsigned long ret_addr;

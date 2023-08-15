@@ -79,7 +79,8 @@ static bool can_use_fast_libmcount(struct uftrace_opts *opts)
 
 static char *build_debug_domain_string(void)
 {
-	int i, d;
+	int i;
+	int d;
 	static char domain[2 * DBG_DOMAIN_MAX + 1];
 
 	for (i = 0, d = 0; d < DBG_DOMAIN_MAX; d++) {
@@ -95,7 +96,8 @@ static char *build_debug_domain_string(void)
 
 char *get_libmcount_path(struct uftrace_opts *opts)
 {
-	char *libmcount, *lib = xmalloc(PATH_MAX);
+	char *libmcount;
+	char *lib = xmalloc(PATH_MAX);
 	bool must_use_multi_thread = has_dependency(opts->exename, "libpthread.so.0");
 
 	if (opts->nop) {
@@ -149,7 +151,8 @@ void put_libmcount_path(char *libpath)
 static void setup_child_environ(struct uftrace_opts *opts, int argc, char *argv[])
 {
 	char buf[PATH_MAX];
-	char *old_preload, *libpath;
+	char *old_preload;
+	char *libpath;
 
 #ifdef INSTALL_LIB_PATH
 	if (!opts->lib_path) {
@@ -430,7 +433,8 @@ static uint64_t calc_feat_mask(struct uftrace_opts *opts)
 int fill_file_header(struct uftrace_opts *opts, int status, struct rusage *rusage,
 		     char *elapsed_time)
 {
-	int fd, efd;
+	int fd;
+	int efd;
 	int ret = -1;
 	char *filename = NULL;
 	struct uftrace_file_header hdr;
@@ -674,11 +678,13 @@ static void finish_pollfd(struct pollfd *pollfd)
 
 void *writer_thread(void *arg)
 {
-	struct buf_list *buf, *pos;
+	struct buf_list *buf;
+	struct buf_list *pos;
 	struct writer_arg *warg = arg;
 	struct uftrace_opts *opts = warg->opts;
 	struct pollfd *pollfd;
-	int i, dummy;
+	int i;
+	int dummy;
 	sigset_t sigset;
 
 	pthread_setname_np(pthread_self(), "WriterThread");
@@ -901,7 +907,8 @@ static void record_remaining_buffer(struct uftrace_opts *opts, int sock)
 
 static void flush_shmem_list(const char *dirname, int bufsize)
 {
-	struct shmem_list *sl, *tmp;
+	struct shmem_list *sl;
+	struct shmem_list *tmp;
 
 	/* flush remaining list (due to abnormal termination) */
 	list_for_each_entry_safe(sl, tmp, &shmem_list_head, list) {
@@ -923,13 +930,15 @@ static int filter_shmem(const struct dirent *de)
 
 static void unlink_shmem_list(void)
 {
-	struct shmem_list *sl, *tmp;
+	struct shmem_list *sl;
+	struct shmem_list *tmp;
 
 	/* unlink shmem list (not used anymore) */
 	list_for_each_entry_safe(sl, tmp, &shmem_need_unlink, list) {
 		char sid[128];
 		struct dirent **shmem_bufs;
-		int i, num;
+		int i;
+		int num;
 
 		list_del(&sl->list);
 
@@ -1015,7 +1024,8 @@ static void add_tid_list(int pid, int tid)
 
 static void free_tid_list(void)
 {
-	struct tid_list *tl, *tmp;
+	struct tid_list *tl;
+	struct tid_list *tmp;
 
 	list_for_each_entry_safe(tl, tmp, &tid_list_head, list) {
 		list_del(&tl->list);
@@ -1029,7 +1039,8 @@ static bool check_tid_list(void)
 	char buf[128];
 
 	list_for_each_entry(tl, &tid_list_head, list) {
-		int fd, len;
+		int fd;
+		int len;
 		char state;
 		char line[PATH_MAX];
 
@@ -1080,8 +1091,10 @@ static LIST_HEAD(dlopen_libs);
 static void read_record_mmap(int pfd, const char *dirname, int bufsize)
 {
 	char buf[128];
-	struct shmem_list *sl, *tmp;
-	struct tid_list *tl, *pos;
+	struct shmem_list *sl;
+	struct shmem_list *tmp;
+	struct tid_list *tl;
+	struct tid_list *pos;
 	struct uftrace_msg msg;
 	struct uftrace_msg_task tmsg;
 	struct uftrace_msg_sess sess;
@@ -1304,7 +1317,8 @@ static int filter_map(const struct dirent *de)
 
 static void send_map_files(int sock, const char *dirname)
 {
-	int i, maps;
+	int i;
+	int maps;
 	struct dirent **map_list;
 
 	maps = scandir(dirname, &map_list, filter_map, alphasort);
@@ -1328,7 +1342,8 @@ static int filter_sym(const struct dirent *de)
 
 static void send_sym_files(int sock, const char *dirname)
 {
-	int i, syms;
+	int i;
+	int syms;
 	struct dirent **sym_list;
 
 	syms = scandir(dirname, &sym_list, filter_sym, alphasort);
@@ -1352,7 +1367,8 @@ static int filter_dbg(const struct dirent *de)
 
 static void send_dbg_files(int sock, const char *dirname)
 {
-	int i, dbgs;
+	int i;
+	int dbgs;
 	struct dirent **dbg_list;
 
 	dbgs = scandir(dirname, &dbg_list, filter_dbg, alphasort);
@@ -1428,7 +1444,8 @@ static void send_log_file(int sock, const char *logfile)
 static void update_session_maps(struct uftrace_opts *opts)
 {
 	struct dirent **map_list;
-	int i, maps;
+	int i;
+	int maps;
 
 	maps = scandir(opts->dirname, &map_list, filter_map, alphasort);
 	if (maps <= 0) {
@@ -1451,7 +1468,8 @@ static void update_session_maps(struct uftrace_opts *opts)
 static void load_session_symbols(struct uftrace_opts *opts)
 {
 	struct dirent **map_list;
-	int i, maps;
+	int i;
+	int maps;
 
 	maps = scandir(opts->dirname, &map_list, filter_map, alphasort);
 	if (maps <= 0) {
@@ -1836,7 +1854,8 @@ out:
 
 static void start_tracing(struct writer_data *wd, struct uftrace_opts *opts, int ready_fd)
 {
-	int i, k;
+	int i;
+	int k;
 	uint64_t go = 1;
 
 	clock_gettime(CLOCK_MONOTONIC, &wd->ts1);
@@ -2011,7 +2030,8 @@ static void copy_data_files(struct uftrace_opts *opts, const char *ext)
 
 static void write_symbol_files(struct writer_data *wd, struct uftrace_opts *opts)
 {
-	struct dlopen_list *dlib, *tmp;
+	struct dlopen_list *dlib;
+	struct dlopen_list *tmp;
 
 	if (opts->nop)
 		return;
@@ -2164,8 +2184,10 @@ int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
 	}
 	else {
 		struct strv path_names = STRV_INIT;
-		char *path, *dir;
-		int i, ret;
+		char *path;
+		char *dir;
+		int i;
+		int ret;
 
 		strv_split(&path_names, getenv("PATH"), ":");
 		strv_for_each(&path_names, dir, i) {
@@ -2181,7 +2203,8 @@ int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
 	}
 
 	if (shebang) {
-		char *s, *p;
+		char *s;
+		char *p;
 		int i;
 
 #if defined(HAVE_LIBPYTHON2) || defined(HAVE_LIBPYTHON3)

@@ -95,7 +95,9 @@ static void reset_live_opts(struct uftrace_opts *opts)
 
 		strv_for_each(&trs, s, i) {
 			struct strv sv = STRV_INIT;
-			char *name, *tmp, *o;
+			char *name;
+			char *tmp;
+			char *o;
 			bool found = false;
 			int k;
 
@@ -166,7 +168,8 @@ static bool can_skip_replay(struct uftrace_opts *opts, int record_result)
 
 static void setup_child_environ(struct uftrace_opts *opts)
 {
-	char *old_preload, *libpath;
+	char *old_preload;
+	char *libpath;
 
 #ifdef INSTALL_LIB_PATH
 	if (!opts->lib_path) {

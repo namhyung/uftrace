@@ -261,7 +261,8 @@ static void add_mem_region(struct rb_root *root, unsigned long start, unsigned l
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
-	struct mem_region *iter, *entry;
+	struct mem_region *iter;
+	struct mem_region *entry;
 
 	while (*p) {
 		parent = *p;
@@ -307,8 +308,10 @@ static void update_mem_regions(struct mcount_mem_regions *regions)
 		return;
 
 	while (fgets(buf, sizeof(buf), fp) != NULL) {
-		char *p = buf, *next;
-		unsigned long start, end;
+		char *p = buf;
+		char *next;
+		unsigned long start;
+		unsigned long end;
 		bool is_stack = false;
 
 		/* XXX: cannot use *scanf() due to crash (SSE alignment?) */
@@ -405,7 +408,8 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 			       struct mcount_arg_context *ctx)
 {
 	struct uftrace_arg_spec *spec;
-	unsigned size, total_size = 0;
+	unsigned size;
+	unsigned total_size = 0;
 	unsigned max_size = ARGBUF_SIZE - sizeof(size);
 	bool is_retval = !!ctx->retval;
 	void *ptr;
@@ -1117,7 +1121,8 @@ struct uftrace_mmap *new_map(const char *path, uint64_t start, uint64_t end, con
 
 void record_proc_maps(char *dirname, const char *sess_id, struct uftrace_sym_info *sinfo)
 {
-	FILE *ifp, *ofp;
+	FILE *ifp;
+	FILE *ofp;
 	char buf[PATH_MAX];
 	struct uftrace_mmap *prev_map = NULL;
 	bool prev_written = false;
@@ -1135,12 +1140,17 @@ void record_proc_maps(char *dirname, const char *sess_id, struct uftrace_sym_inf
 	sinfo->kernel_base = -1ULL;
 
 	while (fgets(buf, sizeof(buf), ifp)) {
-		unsigned long start, end;
+		unsigned long start;
+		unsigned long end;
 		char prot[5];
-		unsigned char major, minor;
-		unsigned char prev_major = 0, prev_minor = 0;
-		uint32_t ino, prev_ino = 0;
-		uint64_t off, prev_off = 0;
+		unsigned char major;
+		unsigned char minor;
+		unsigned char prev_major = 0;
+		unsigned char prev_minor = 0;
+		uint32_t ino;
+		uint32_t prev_ino = 0;
+		uint64_t off;
+		uint64_t prev_off = 0;
 		char path[PATH_MAX];
 		struct uftrace_mmap *map;
 

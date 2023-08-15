@@ -256,7 +256,8 @@ char *event_get_data_str(unsigned evt_id, void *data, bool verbose)
  */
 void finish_events_file(struct uftrace_data *handle)
 {
-	struct uftrace_event *ev, *tmp;
+	struct uftrace_event *ev;
+	struct uftrace_event *tmp;
 
 	list_for_each_entry_safe(ev, tmp, &handle->events, list) {
 		list_del(&ev->list);

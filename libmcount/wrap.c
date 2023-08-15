@@ -158,7 +158,8 @@ void mcount_rstack_reset_exception(struct mcount_thread_data *mtdp, unsigned lon
 static char **collect_uftrace_envp(void)
 {
 	size_t n = 0;
-	size_t i, k;
+	size_t i;
+	size_t k;
 	char **envp;
 
 #define ENV(_name) "UFTRACE_" #_name
@@ -220,7 +221,8 @@ static char **collect_uftrace_envp(void)
 
 static int count_envp(char *const *env)
 {
-	int i, n = 0;
+	int i;
+	int n = 0;
 
 	for (i = 0; env && env[i]; i++)
 		n++;
@@ -230,7 +232,8 @@ static int count_envp(char *const *env)
 
 static char **merge_envp(char *const *env1, char **env2)
 {
-	int i, n = 0;
+	int i;
+	int n = 0;
 	char **envp;
 
 	n += count_envp(env1);

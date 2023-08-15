@@ -217,7 +217,8 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm, struct mcount_dynami
 		       struct mcount_disasm_info *info)
 {
 	cs_insn *insn = NULL;
-	uint32_t count, i;
+	uint32_t count;
+	uint32_t i;
 	int ret = INSTRUMENT_FAILED;
 	struct dynamic_bad_symbol *badsym;
 
