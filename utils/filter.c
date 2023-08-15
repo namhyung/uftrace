@@ -921,7 +921,7 @@ int setup_trigger_action(char *str, struct uftrace_trigger *tr, char **module,
 		for (i = 0; i < ARRAY_SIZE(actions); i++) {
 			const struct trigger_action_parser *action = &actions[i];
 
-			if (strncasecmp(pos, action->name, strlen(action->name)))
+			if (strncasecmp(pos, action->name, strlen(action->name)) != 0)
 				continue;
 
 			if (orig_flags && !(orig_flags & action->compat_flags))

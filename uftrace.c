@@ -1086,7 +1086,8 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 		break;
 
 	case OPT_clock:
-		if (strcmp(arg, "mono") && strcmp(arg, "mono_raw") && strcmp(arg, "boot")) {
+		if (strcmp(arg, "mono") != 0 && strcmp(arg, "mono_raw") != 0 &&
+		    strcmp(arg, "boot") != 0) {
 			pr_use("invalid clock source: '%s' "
 			       "(force to use 'mono')\n",
 			       arg);
@@ -1263,14 +1264,14 @@ void parse_script_opt(struct uftrace_opts *opts)
 	while (getline(&line, &len, fp) > 0) {
 		char *pos;
 
-		if (strncmp(line, comment, comment_len))
+		if (strncmp(line, comment, comment_len) != 0)
 			continue;
 
 		pos = line + comment_len;
 		while (isspace(*pos))
 			pos++;
 
-		if (strncmp(pos, optname, strlen(optname)))
+		if (strncmp(pos, optname, strlen(optname)) != 0)
 			continue;
 
 		/* extract option value */

@@ -281,7 +281,7 @@ static void setup_child_environ(struct uftrace_opts *opts, int argc, char *argv[
 			setenv("UFTRACE_NEST_LIBCALL", "1", 1);
 	}
 
-	if (strcmp(opts->dirname, UFTRACE_DIR_NAME))
+	if (strcmp(opts->dirname, UFTRACE_DIR_NAME) != 0)
 		setenv("UFTRACE_DIR", opts->dirname, 1);
 
 	if (opts->bufsize != SHMEM_BUFFER_SIZE) {
@@ -1625,7 +1625,7 @@ again:
 	if (read(fd, elf_ident, sizeof(elf_ident)) < 0)
 		pr_err("Cannot read '%s'", opts->exename);
 
-	if (memcmp(elf_ident, ELFMAG, SELFMAG)) {
+	if (memcmp(elf_ident, ELFMAG, SELFMAG) != 0) {
 		char *script = altname;
 		char *p;
 

@@ -92,7 +92,7 @@ static int search_sdt_event(struct dl_phdr_info *info, size_t sz, void *data)
 		char *event;
 		char *args;
 
-		if (strncmp(iter.note_name, SDT_NAME, iter.nhdr.n_namesz))
+		if (strncmp(iter.note_name, SDT_NAME, iter.nhdr.n_namesz) != 0)
 			continue;
 
 		if (iter.nhdr.n_type != SDT_TYPE)

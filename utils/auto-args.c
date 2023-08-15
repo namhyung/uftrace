@@ -606,7 +606,7 @@ int parse_enum_string(char *enum_str, struct rb_root *root)
 		if (ret == TOKEN_NULL)
 			continue;
 
-		if (ret != TOKEN_STR || strcmp(enum_token, "enum")) {
+		if (ret != TOKEN_STR || strcmp(enum_token, "enum") != 0) {
 			pr_dbg("don't have 'enum' prefix\n");
 			goto out;
 		}
@@ -623,7 +623,7 @@ int parse_enum_string(char *enum_str, struct rb_root *root)
 		INIT_LIST_HEAD(&e_def->vals);
 
 		ret = enum_next_token(&pos);
-		if (ret != TOKEN_SIGN || strcmp(enum_token, "{")) {
+		if (ret != TOKEN_SIGN || strcmp(enum_token, "{") != 0) {
 			pr_dbg("enum start brace is missing\n");
 			goto out;
 		}
@@ -631,7 +631,7 @@ int parse_enum_string(char *enum_str, struct rb_root *root)
 		pr_dbg2("parse enum %s\n", e_def->name);
 
 		ret = enum_next_token(&pos);
-		while (ret != TOKEN_NULL && strcmp(enum_token, "}")) {
+		while (ret != TOKEN_NULL && strcmp(enum_token, "}") != 0) {
 			char *name = xstrdup(enum_token);
 
 			ret = enum_next_token(&pos);

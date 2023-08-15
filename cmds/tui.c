@@ -1326,7 +1326,7 @@ static void win_display_graph(struct tui_window *win, void *node)
 			width += snprintf(buf, sizeof(buf), "%s(%d) ", fold_sign, curr->n.nr_calls);
 
 			/* handle UTF-8 character length */
-			if (strcmp(fold_sign, " ")) {
+			if (strcmp(fold_sign, " ") != 0) {
 				width -= 2;
 				w += 2;
 			}

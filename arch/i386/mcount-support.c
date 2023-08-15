@@ -212,7 +212,7 @@ unsigned long *mcount_arch_parent_location(struct uftrace_sym_info *symtabs,
 		child_name = symbol_getname(child_sym, child_ip);
 
 		// Assuming that this happens only in main..
-		if (!(strcmp(find_main[0], parent_name) || strcmp(find_main[1], child_name))) {
+		if (!(strcmp(find_main[0], parent_name) != 0 || strcmp(find_main[1], child_name))) {
 			ret_addr = *parent_loc;
 			for (stack_index = 1; stack_index < MAX_SEARCH_STACK; stack_index++) {
 				search_ret_addr = *(unsigned long *)(parent_loc + stack_index);

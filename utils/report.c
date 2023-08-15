@@ -247,7 +247,7 @@ int report_setup_sort(const char *key_str)
 		for (i = 0; i < ARRAY_SIZE(all_sort_keys); i++) {
 			struct sort_key *sort_key = all_sort_keys[i];
 
-			if (strcmp(k, sort_key->name))
+			if (strcmp(k, sort_key->name) != 0)
 				continue;
 
 			list_add_tail(&sort_key->list, &sort_keys);
@@ -436,7 +436,7 @@ int report_setup_diff(const char *key_str)
 		for (i = 0; i < ARRAY_SIZE(all_diff_keys); i++) {
 			struct diff_key *sort_key = all_diff_keys[i];
 
-			if (strcmp(k, sort_key->name))
+			if (strcmp(k, sort_key->name) != 0)
 				continue;
 
 			list_add_tail(&sort_key->list, &diff_keys);
@@ -673,7 +673,7 @@ int report_setup_task(const char *key_str)
 		for (i = 0; i < ARRAY_SIZE(all_task_keys); i++) {
 			struct sort_task_key *sort_key = all_task_keys[i];
 
-			if (strcmp(k, sort_key->name))
+			if (strcmp(k, sort_key->name) != 0)
 				continue;
 
 			list_add_tail(&sort_key->list, &task_keys);

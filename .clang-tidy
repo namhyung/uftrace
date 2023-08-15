@@ -6,3 +6,4 @@ Checks: >-
     readability-inconsistent-declaration-parameter-name,
     readability-redundant-declaration,
     bugprone-macro-parentheses,
+    bugprone-suspicious-string-compare,

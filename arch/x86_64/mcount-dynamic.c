@@ -262,10 +262,10 @@ static int patch_fentry_code(struct mcount_dynamic_info *mdi, struct uftrace_sym
 		insn += sizeof(endbr64);
 
 	/* support patchable function entry and __fentry__ at the beginning */
-	if (memcmp(insn, patchable_gcc_nop, sizeof(patchable_gcc_nop)) &&
-	    memcmp(insn, patchable_clang_nop, sizeof(patchable_clang_nop)) &&
-	    memcmp(insn, fentry_nop_patt1, sizeof(fentry_nop_patt1)) &&
-	    memcmp(insn, fentry_nop_patt2, sizeof(fentry_nop_patt2))) {
+	if (memcmp(insn, patchable_gcc_nop, sizeof(patchable_gcc_nop)) != 0 &&
+	    memcmp(insn, patchable_clang_nop, sizeof(patchable_clang_nop)) != 0 &&
+	    memcmp(insn, fentry_nop_patt1, sizeof(fentry_nop_patt1)) != 0 &&
+	    memcmp(insn, fentry_nop_patt2, sizeof(fentry_nop_patt2)) != 0) {
 		pr_dbg4("skip non-applicable functions: %s\n", sym->name);
 		return INSTRUMENT_SKIPPED;
 	}
@@ -311,11 +311,11 @@ static int update_xray_code(struct mcount_dynamic_info *mdi, struct uftrace_symb
 		char bytes[8];
 	} patch;
 
-	if (memcmp(func + 2, pad, sizeof(pad)))
+	if (memcmp(func + 2, pad, sizeof(pad)) != 0)
 		return INSTRUMENT_FAILED;
 
 	if (xrmap->kind == 0) { /* ENTRY */
-		if (memcmp(func, entry_insn, sizeof(entry_insn)))
+		if (memcmp(func, entry_insn, sizeof(entry_insn)) != 0)
 			return INSTRUMENT_FAILED;
 
 		target_addr = mdi->trampoline - (xrmap->address + 5);
@@ -330,7 +330,7 @@ static int update_xray_code(struct mcount_dynamic_info *mdi, struct uftrace_symb
 		memcpy(func, patch.bytes, sizeof(patch));
 	}
 	else { /* EXIT */
-		if (memcmp(func, exit_insn, sizeof(exit_insn)))
+		if (memcmp(func, exit_insn, sizeof(exit_insn)) != 0)
 			return INSTRUMENT_FAILED;
 
 		target_addr = mdi->trampoline + 16 - (xrmap->address + 5);

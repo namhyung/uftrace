@@ -643,7 +643,7 @@ void get_argspec_string(struct uftrace_task_reader *task, char *args, size_t len
 
 			dinfo = &map->mod->dinfo;
 			estr = get_enum_string(&dinfo->enums, spec->type_name, (int)val.i);
-			if (strstr(estr, "|") && strcmp("|", color_enum_or)) {
+			if (strstr(estr, "|") && strcmp("|", color_enum_or) != 0) {
 				struct strv enum_vals = STRV_INIT;
 
 				strv_split(&enum_vals, estr, "|");
@@ -666,7 +666,7 @@ void get_argspec_string(struct uftrace_task_reader *task, char *args, size_t len
 				 * gcc puts "<lambda" to anonymous lambda
 				 * but let's ignore to make it same as clang.
 				 */
-				if (strcmp(spec->type_name, "<lambda")) {
+				if (strcmp(spec->type_name, "<lambda") != 0) {
 					print_args(&args, &len, "%s%s%s", color_struct,
 						   spec->type_name, color_reset);
 				}

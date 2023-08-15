@@ -250,7 +250,7 @@ static int parse_sigspec(char *spec, struct uftrace_filter_setting *setting)
 
 	if (isdigit(spec[0]))
 		num_spec = true;
-	else if (strncmp(spec, "SIG", 3))
+	else if (strncmp(spec, "SIG", 3) != 0)
 		off = 3; /* skip "SIG" prefix */
 
 	for (i = 0; i < ARRAY_SIZE(sigtable); i++) {

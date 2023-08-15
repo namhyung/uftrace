@@ -240,7 +240,7 @@ void create_session(struct uftrace_session_link *sessions, struct uftrace_msg_se
 		s->sym_info.flags = SYMTAB_FL_USE_SYMFILE | SYMTAB_FL_DEMANGLE;
 		if (sym_rel_addr)
 			s->sym_info.flags |= SYMTAB_FL_ADJ_OFFSET;
-		if (strcmp(dirname, symdir))
+		if (strcmp(dirname, symdir) != 0)
 			s->sym_info.flags |= SYMTAB_FL_SYMS_DIR;
 
 		read_session_map(dirname, &s->sym_info, s->sid);

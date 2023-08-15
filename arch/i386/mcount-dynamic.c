@@ -111,7 +111,7 @@ static int patch_fentry_func(struct mcount_dynamic_info *mdi, struct uftrace_sym
 	unsigned int target_addr;
 
 	/* only support calls to __fentry__ at the beginning */
-	if (memcmp(insn, fentry_nop_patt, sizeof(fentry_nop_patt))) {
+	if (memcmp(insn, fentry_nop_patt, sizeof(fentry_nop_patt)) != 0) {
 		pr_dbg2("skip non-applicable functions: %s\n", sym->name);
 		return -2;
 	}

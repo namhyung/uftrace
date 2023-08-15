@@ -205,7 +205,7 @@ static void find_libmcount_funcs(void)
 		if (sscanf(line, "%lx-%lx %s %*x %*x:%*x %*d %s\n", &start, &end, prot, path) != 4)
 			continue;
 
-		if (strncmp(basename(path), "libmcount", 9))
+		if (strncmp(basename(path), "libmcount", 9) != 0)
 			continue;
 
 		find_cygprof_funcs(path, start);

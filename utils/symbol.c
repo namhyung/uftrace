@@ -1069,8 +1069,9 @@ static void load_module_symbol(struct uftrace_sym_info *sinfo, struct uftrace_mo
 		if (access(symfile, F_OK) == 0) {
 			if (check_symbol_file(symfile, buf, sizeof(buf), build_id,
 					      sizeof(build_id)) > 0 &&
-			    ((strcmp(buf, m->name) && !(flags & SYMTAB_FL_SYMS_DIR)) ||
-			     (build_id[0] && m->build_id[0] && strcmp(build_id, m->build_id)))) {
+			    ((strcmp(buf, m->name) != 0 && !(flags & SYMTAB_FL_SYMS_DIR)) ||
+			     (build_id[0] && m->build_id[0] &&
+			      strcmp(build_id, m->build_id) != 0))) {
 				char *new_file;
 
 				new_file = make_new_symbol_filename(symfile, m->name, m->build_id);

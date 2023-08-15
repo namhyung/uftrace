@@ -1188,7 +1188,7 @@ static void add_location(char *spec, size_t len, Dwarf_Die *die, struct arg_data
 	case ARG_TYPE_REG:
 		reg = arch_register_dwarf_name(host_cpu_arch(), data.reg);
 
-		if (strcmp(reg, "invalid register")) {
+		if (strcmp(reg, "invalid register") != 0) {
 			snprintf(buf, sizeof(buf), "%%%s", reg);
 			strcat(spec, buf);
 

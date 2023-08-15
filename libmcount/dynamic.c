@@ -400,8 +400,8 @@ static int match_pattern_list(struct uftrace_mmap *map, char *soname, char *sym_
 	list_for_each_entry(pl, &patterns, list) {
 		int len = strlen(pl->module);
 
-		if (strncmp(libname, pl->module, len) &&
-		    (!soname || strncmp(soname, pl->module, len)))
+		if (strncmp(libname, pl->module, len) != 0 &&
+		    (!soname || strncmp(soname, pl->module, len) != 0))
 			continue;
 
 		if (match_filter_pattern(&pl->patt, sym_name))

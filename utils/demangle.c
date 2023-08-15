@@ -776,7 +776,7 @@ static int dd_expression(struct demangle_data *dd)
 
 	for (i = 0; i < ARRAY_SIZE(unary_ops); i++) {
 		/* unary operator */
-		if (strncmp(unary_ops[i], exp, strlen(unary_ops[i])))
+		if (strncmp(unary_ops[i], exp, strlen(unary_ops[i])) != 0)
 			continue;
 		dd_consume_n(dd, strlen(unary_ops[i]));
 		return dd_expression(dd);
@@ -1442,7 +1442,7 @@ static int dd_source_name(struct demangle_data *dd)
 
 		for (i = 0; i < ARRAY_SIZE(rust_mappings); i++) {
 			if (strncmp(rust_mappings[i].code, dollar + 1,
-				    strlen(rust_mappings[i].code)))
+				    strlen(rust_mappings[i].code)) != 0)
 				continue;
 
 			dd_add_debug(dd);

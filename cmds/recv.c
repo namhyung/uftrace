@@ -689,7 +689,7 @@ int command_recv(int argc, char *argv[], struct uftrace_opts *opts)
 	int sigfd;
 	int efd;
 
-	if (strcmp(opts->dirname, UFTRACE_DIR_NAME)) {
+	if (strcmp(opts->dirname, UFTRACE_DIR_NAME) != 0) {
 		char *dirname = "current";
 
 		if ((mkdir(opts->dirname, 0755) == 0 || errno == EEXIST) &&

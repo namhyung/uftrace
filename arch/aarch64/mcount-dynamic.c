@@ -202,7 +202,7 @@ static int patch_patchable_func(struct mcount_dynamic_info *mdi, struct uftrace_
 	void *insn = (void *)sym->addr + mdi->map->start;
 
 	/* only support calls to 2 NOPs at the beginning */
-	if (memcmp(insn, patchable_nop_patt, sizeof(patchable_nop_patt))) {
+	if (memcmp(insn, patchable_nop_patt, sizeof(patchable_nop_patt)) != 0) {
 		pr_dbg4("skip non-applicable functions: %s\n", sym->name);
 		return INSTRUMENT_SKIPPED;
 	}
