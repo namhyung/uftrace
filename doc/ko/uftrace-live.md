@@ -36,7 +36,6 @@ uftrace [live] [*options*] COMMAND [*command-options*]
 :   선택된 함수의 호출자를 출력하는 필터를 설정한다. 이 옵션은 한번 이상 쓰일 수 있다.
     필터에 대한 설명은 *FILTERS* 를 참고한다.
 
-
 -T *TRG*, \--trigger=*TRG*
 :   선택된 함수의 트리거를 설정한다. 이 옵션은 한번 이상 쓰일 수 있다.
     트리거에 대한 설명은 *TRIGGERS* 를 참고한다.
@@ -50,6 +49,15 @@ uftrace [live] [*options*] COMMAND [*command-options*]
 :   설정한 시간 이하로 수행된 함수는 표시하지 않게 한다. 만약 어떤 함수가
     명시적으로 'trace' 트리거가 적용된 경우, 그 함수는 실행 시간과 상관없이 항상
     출력된다. 필터에 대한 설명은 *FILTERS* 를 참고한다.
+
+-Z *SIZE*, \--size-filter=*SIZE*
+:   SIZE 바이트보다 작은 함수들을 표시하지 않게 한다. 만약 어떤 함수가 명시적으로
+    'trace' 트리거가 적용된 경우, 그 함수는 함수 크기와 상관없이 항상 출력된다.
+    필터에 대한 설명은 *FILTERS* 을 참고한다.
+
+-L *LOCATION*, \--loc-filter=*LOCATION*
+:   사용할 필터의 경로를 지정한다.
+    이 옵션은 1번이상 사용할 수 있다.
 
 \--no-libcall
 :   라이브러리 호출은 표시하지 않게 한다.
@@ -69,6 +77,10 @@ uftrace [live] [*options*] COMMAND [*command-options*]
 :   uftrace 를 시작할때 데이터를 기록하지 않고 시작한다.
     이것은 `trace_on` 트리거와 함께 사용되었을 때만 의미를 가진다.
 
+\--with-syms=*DIR*
+:   DIR 디렉토리의 .sym 파일에서 심볼(symbol) 데이터를 읽는다.
+    이는 심볼(symbol) 데이터가 제거된 바이너리 파일을 다루는데 유용하다.
+    바이너리 파일 이름은 저장할 때와 사용할 때 동일해야 한다.
 
 LIVE 옵션
 ============
