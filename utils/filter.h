@@ -172,7 +172,6 @@ const char *get_filter_pattern(enum uftrace_pattern_type ptype);
 
 char *uftrace_clear_kernel(char *filter_str);
 
-void add_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr, bool exact_match);
 int setup_trigger_action(char *str, struct uftrace_trigger *tr, char **module,
 			 unsigned long orig_flags, struct uftrace_filter_setting *setting);
 
