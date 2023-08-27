@@ -70,7 +70,7 @@ COMMON OPTIONS
 :   Set trigger on selected functions.  This option can be used more than once.
     See `uftrace-replay`(1) for an explanation of triggers.
 
--D *DEPTH*, \--depth *DEPTH*
+-D *DEPTH*, \--depth=*DEPTH*
 :   Set trace limit in nesting level.
 
 -t *TIME*, \--time-filter=*TIME*
