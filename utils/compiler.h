@@ -37,6 +37,29 @@
 #endif
 #endif
 
+/* TODO: not implemented yet (Start)
+ *
+ *	From RISC-V's "The RISC-V Instruction Set Manual, Volume I: User-Level
+ *	ISA, Document Version 20191213", the G Extension consists of "I, M, A,
+ *	F, D, Zicsr, Zifencei".
+ *
+ *	In RISC-V, two instructions exist for memory barriers: the fence
+ *	instruction, defined in the I Extension, and the fence.i instruction,
+ *	defined in the Zifencei Extension.
+ *
+ *	So the memory barrier commands we can use are fence, fence.i, and
+ *	we'll have to figure out which one we need later when we implement
+ *	the functions that call those macro functions.
+ *
+ */
+#if defined(__riscv)
+#define cpu_relax() asm volatile("nop" ::: "memory")
+#define full_memory_barrier() asm volatile("nop" ::: "memory")
+#define read_memory_barrier() asm volatile("nop" ::: "memory")
+#define write_memory_barrier() asm volatile("nop" ::: "memory")
+#endif
+/* TODO: not implemented yet (End) */
+
 /* ignore 'restrict' keyword if not supported (before C99) */
 #if !defined(__STDC_VERSION__) || __STDC_VERSION__ < 199901L
 #define restrict

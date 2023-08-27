@@ -12,6 +12,7 @@ enum uftrace_cpu_arch {
 	UFT_CPU_ARM,
 	UFT_CPU_AARCH64,
 	UFT_CPU_I386,
+	UFT_CPU_RISCV64,
 };
 
 static inline enum uftrace_cpu_arch host_cpu_arch(void)
@@ -24,6 +25,8 @@ static inline enum uftrace_cpu_arch host_cpu_arch(void)
 	return UFT_CPU_AARCH64;
 #elif defined(__i386__)
 	return UFT_CPU_I386;
+#elif defined(__riscv) && __riscv_xlen == 64
+	return UFT_CPU_RISCV64;
 #else
 	return UFT_CPU_NONE;
 #endif
@@ -34,6 +37,7 @@ static inline bool arch_is_lp64(enum uftrace_cpu_arch arch)
 	switch (arch) {
 	case UFT_CPU_X86_64:
 	case UFT_CPU_AARCH64:
+	case UFT_CPU_RISCV64:
 		return true;
 	default:
 		return false;
