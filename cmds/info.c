@@ -281,6 +281,9 @@ static int read_cpuinfo(void *arg)
 			else if (!strncmp(info->cpudesc, "ARM64", 5)) {
 				handle->arch = UFT_CPU_AARCH64;
 			}
+			else if (!strncmp(info->cpudesc, "RISCV64", 7)) {
+				handle->arch = UFT_CPU_RISCV64;
+			}
 			else if (data_is_lp64(handle)) {
 				handle->arch = UFT_CPU_X86_64;
 			}

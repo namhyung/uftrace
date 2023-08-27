@@ -12,6 +12,7 @@ enum uftrace_cpu_arch {
 	UFT_CPU_ARM,
 	UFT_CPU_AARCH64,
 	UFT_CPU_I386,
+	UFT_CPU_RISCV64,
 };
 
 static inline enum uftrace_cpu_arch host_cpu_arch(void)
@@ -24,6 +25,10 @@ static inline enum uftrace_cpu_arch host_cpu_arch(void)
 	return UFT_CPU_AARCH64;
 #elif defined(__i386__)
 	return UFT_CPU_I386;
+#elif defined(__riscv)
+#if __riscv_xlen == 64
+	return UFT_CPU_RISCV64;
+#endif
 #else
 	return UFT_CPU_NONE;
 #endif
@@ -34,6 +39,7 @@ static inline bool arch_is_lp64(enum uftrace_cpu_arch arch)
 	switch (arch) {
 	case UFT_CPU_X86_64:
 	case UFT_CPU_AARCH64:
+	case UFT_CPU_RISCV64:
 		return true;
 	default:
 		return false;
@@ -151,6 +157,30 @@ enum uftrace_i386_reg_index {
 	UFT_I386_REG_XMM5,
 	UFT_I386_REG_XMM6,
 	UFT_I386_REG_XMM7,
+};
+
+enum uftrace_riscv64_reg_index {
+	UFT_RISCV64_REG_INT_BASE = 0,
+	/* integer argument registers */
+	UFT_RISCV64_REG_A0,
+	UFT_RISCV64_REG_A1,
+	UFT_RISCV64_REG_A2,
+	UFT_RISCV64_REG_A3,
+	UFT_RISCV64_REG_A4,
+	UFT_RISCV64_REG_A5,
+	UFT_RISCV64_REG_A6,
+	UFT_RISCV64_REG_A7,
+
+	UFT_RISCV64_REG_FLOAT_BASE = 100,
+	/* floating-point argument registers */
+	UFT_RISCV64_REG_FA0,
+	UFT_RISCV64_REG_FA1,
+	UFT_RISCV64_REG_FA2,
+	UFT_RISCV64_REG_FA3,
+	UFT_RISCV64_REG_FA4,
+	UFT_RISCV64_REG_FA5,
+	UFT_RISCV64_REG_FA6,
+	UFT_RISCV64_REG_FA7,
 };
 
 int arch_register_number(enum uftrace_cpu_arch arch, char *reg_name);
