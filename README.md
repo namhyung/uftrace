@@ -133,7 +133,7 @@ installed like following:
     $ make
     $ sudo make install
 
-For details about installation and dependencies, please refer to [INSTALL.md](INSTALL.md)
+For details about installation and dependencies, please refer to [INSTALL.md](../../INSTALL.md)
 
 
 How to use uftrace
