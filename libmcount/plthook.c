@@ -189,9 +189,14 @@ static int find_got(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter,
 		    const char *modname, unsigned long offset)
 {
 	bool plt_found = false;
+	bool skip_found = false;
 	unsigned long pltgot_addr = 0;
 	unsigned long plt_addr = 0;
 	struct plthook_data *pd;
+	static const char *const skip_got_syms[] = {
+		"__monstartup",
+	};
+	size_t k;
 
 	elf_for_each_shdr(elf, iter) {
 		if (iter->shdr.sh_type == SHT_DYNAMIC)
@@ -204,7 +209,16 @@ static int find_got(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter,
 			pltgot_addr = (unsigned long)iter->dyn.d_un.d_val + offset;
 			break;
 		case DT_JMPREL:
-			plt_found = true;
+			for (k = 0; k < ARRAY_SIZE(skip_got_syms); k++) {
+				if (!strncmp(skip_got_syms[k],
+					     elf_get_name(elf, iter, iter->sym.st_name),
+					     sizeof(skip_got_syms[k]))) {
+					skip_found = true;
+					break;
+				}
+			}
+			if (!skip_found)
+				plt_found = true;
 			break;
 		default:
 			break;
@@ -212,11 +226,15 @@ static int find_got(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter,
 	}
 
 	if (!plt_found) {
-		pd = mcount_arch_hook_no_plt(elf, modname, offset);
-		if (pd == NULL)
-			pr_dbg2("no PLTGOT found.. ignoring...\n");
-		else
-			list_add_tail(&pd->list, &plthook_modules);
+		pr_dbg("WARNING: It seems the target binary built with -fno-plt option.\n"
+		       "Some libraries will not be traced correctly.\n"
+		       "You can rebuild your program without -fno-plt or -Zplt=yes for Rust project.\n");
+		// FIXME: fix the mcount_arch_hook_no_plt
+		// pd = mcount_arch_hook_no_plt(elf, modname, offset);
+		// if (pd == NULL)
+		// 	pr_dbg2("no PLTGOT found.. ignoring...\n");
+		// else
+		// 	list_add_tail(&pd->list, &plthook_modules);
 
 		return 0;
 	}
