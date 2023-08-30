@@ -397,7 +397,6 @@ void free_parsed_cmdline(char **argv);
 
 struct uftrace_data;
 
-char *get_event_name(struct uftrace_data *handle, unsigned evt_id);
 char *absolute_dirname(const char *path, char *resolved_path);
 
 char *uftrace_strerror(int errnum, char *buf, size_t buflen);
