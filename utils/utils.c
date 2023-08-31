@@ -595,6 +595,22 @@ char *strjoin(char *left, char *right, const char *delim)
 }
 
 /**
+ * str_trim - to trim all spaces
+ * @str: input string
+ *
+ * This function make @str to all trimmed @str
+ */
+char *str_trim(char *str)
+{
+	if (!str)
+		return NULL;
+	str = str_ltrim(str);
+	str = str_rtrim(str);
+	str = str_mtrim(str);
+	return str;
+}
+
+/**
  * str_ltrim - to trim left spaces
  * @str: input string
  *
@@ -622,6 +638,39 @@ char *str_rtrim(char *str)
 	while (--p >= str && isspace(*p))
 		;
 	*(p + 1) = '\0';
+	return str;
+}
+
+/**
+ * str_mtrim - to trim middle spaces
+ * @str: input string
+ *
+ * This function make @str to middle trimmed @str
+ */
+char *str_mtrim(char *str)
+{
+	char *read_ptr = str;
+	char *write_ptr = str;
+	int space_flag = 0;
+
+	if (!str)
+		return NULL;
+
+	while (*read_ptr != '\0') {
+		if (isspace((unsigned char)*read_ptr)) {
+			if (!space_flag) {
+				*write_ptr++ = ' ';
+				space_flag = 1;
+			}
+		}
+		else {
+			*write_ptr++ = *read_ptr;
+			space_flag = 0;
+		}
+		read_ptr++;
+	}
+
+	*write_ptr = '\0';
 	return str;
 }
 
