@@ -56,7 +56,7 @@ class Elf:
 
                 # read e_machine
                 e_machine = f.read(2)[0]
-                if type(e_machine) is str:
+                if isinstance(e_machine, str):
                     e_machine = ord(e_machine)
 
             return machine[e_machine]
