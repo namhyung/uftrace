@@ -32,7 +32,7 @@ class Elf:
 
             if ei_class == ELFCLASS32:
                 return True
-        except:
+        except Exception:
             pass
 
         return False
@@ -63,7 +63,7 @@ class Elf:
                     e_machine = ord(e_machine)
 
             return machine[e_machine]
-        except:
+        except Exception:
             pass
 
         return None
@@ -156,7 +156,7 @@ class TestBase:
             for i in range(3, len(s) - 1):
                 self.feature.add(s[i])
             return True
-        except:
+        except Exception:
             return False
 
     def convert_abs_path(self, build_cmd):
@@ -185,7 +185,7 @@ class TestBase:
         except OSError as e:
             self.pr_debug(e.strerror)
             return TestBase.TEST_BUILD_FAIL
-        except:
+        except Exception:
             return TestBase.TEST_BUILD_FAIL
 
     def build(self, name, cflags='', ldflags=''):
@@ -332,7 +332,7 @@ class TestBase:
             m = pid_patt.match(ln)
             try:
                 pid = int(m.group(1))
-            except:
+            except Exception:
                 continue
 
             func = ln.split('|', 1)[-1]
@@ -352,7 +352,7 @@ class TestBase:
                 for p in pid_list:
                     result += '\n'.join(pids[p]['result']) + '\n'
                 result = result.strip()
-        except:
+        except Exception:
             pass  # this leads to a failure with 'NG'
         return result
 
@@ -387,7 +387,7 @@ class TestBase:
             try:
                 if line[-1].startswith('__'):
                     continue
-            except:
+            except Exception:
                 pass
             result.append('%s %s' % (line[-2], line[-1]))
 
@@ -464,7 +464,7 @@ class TestBase:
         result = []
         try:
             o = json.loads(output)
-        except:
+        except Exception:
             return ''
         for ln in o['traceEvents']:
             if ln['name'].startswith('__'):
@@ -539,7 +539,7 @@ class TestBase:
 
             if v >= 3:
                 return False
-        except:
+        except Exception:
             pass
 
         return True
@@ -692,7 +692,7 @@ class TestBase:
                 dif = "%s: diff result of %s %s\n" % (name, compiler, cflags)
                 try:
                     p = sp.Popen(['colordiff', '-U1', 'expect', 'result'], stdout=sp.PIPE)
-                except:
+                except Exception:
                     p = sp.Popen(['diff', '-U1', 'expect', 'result'], stdout=sp.PIPE)
                 dif += p.communicate()[0].decode(errors='ignore')
                 os.remove('expect')
