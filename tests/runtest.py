@@ -199,11 +199,9 @@ class TestBase:
 
         build_cflags  = ' '.join(TestBase.default_cflags + [self.cflags, cflags, \
                                   os.getenv(lang['flags'], '')])
-        build_ldflags = ' '.join([self.ldflags, ldflags, \
-                                  os.getenv('LDFLAGS', '')])
+        build_ldflags = ' '.join([self.ldflags, ldflags, os.getenv('LDFLAGS', '')])
 
-        build_cmd = '%s -o %s %s %s %s' % \
-                    (lang['cc'], prog, build_cflags, src, build_ldflags)
+        build_cmd = '%s -o %s %s %s %s' % (lang['cc'], prog, build_cflags, src, build_ldflags)
 
         self.pr_debug("build command: %s" % build_cmd)
         return self.build_it(build_cmd)
@@ -213,8 +211,7 @@ class TestBase:
 
         build_cflags  = ' '.join(TestBase.default_cflags + [self.cflags, cflags, \
                                   os.getenv(lang['flags'], '')])
-        build_ldflags = ' '.join([self.ldflags, ldflags, \
-                                  os.getenv('LDFLAGS', '')])
+        build_ldflags = ' '.join([self.ldflags, ldflags, os.getenv('LDFLAGS', '')])
 
         lib_cflags = build_cflags + ' -shared -fPIC'
 
@@ -230,8 +227,7 @@ class TestBase:
 
         build_cflags  = ' '.join(TestBase.default_cflags + [self.cflags, cflags, \
                                   os.getenv(lang['flags'], '')])
-        build_ldflags = ' '.join([self.ldflags, ldflags, \
-                                  os.getenv('LDFLAGS', '')])
+        build_ldflags = ' '.join([self.ldflags, ldflags, os.getenv('LDFLAGS', '')])
 
         lib_cflags = build_cflags + ' -shared -fPIC'
 
@@ -239,8 +235,7 @@ class TestBase:
             self.p_libs.append('libabc_test_lib.so')
 
         # build libabc_test_lib.so library
-        build_cmd = '%s -o libabc_test_lib.so %s s-lib.c %s' % \
-                    (lang['cc'], lib_cflags, build_ldflags)
+        build_cmd = '%s -o libabc_test_lib.so %s s-lib.c %s' % (lang['cc'], lib_cflags, build_ldflags)
 
         self.pr_debug("build command for library: %s" % build_cmd)
         return self.build_it(build_cmd)
@@ -250,8 +245,7 @@ class TestBase:
 
         build_cflags  = ' '.join(TestBase.default_cflags + [self.cflags, cflags, \
                                   os.getenv(lang['flags'], '')])
-        build_ldflags = ' '.join([self.ldflags, ldflags, \
-                                  os.getenv('LDFLAGS', '')])
+        build_ldflags = ' '.join([self.ldflags, ldflags, os.getenv('LDFLAGS', '')])
 
         lib_cflags = build_cflags + ' -shared -fPIC'
 
