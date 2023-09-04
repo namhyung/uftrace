@@ -19,11 +19,8 @@ class Elf:
         # e_ident[] indexes
         EI_CLASS      = 4
 
-        # EI_CLASS
-        ELFCLASSNONE  = 0
+        # EI_CLASS: ELFCLASSNONE, ELFCLASS32, ELFCLASS64, ELFCLASSNUM
         ELFCLASS32    = 1
-        ELFCLASS64    = 2
-        ELFCLASSNUM   = 3
 
         try:
             with open(filename, 'rb') as f:
@@ -144,7 +141,7 @@ class TestBase:
                     s.bind(("localhost", port))
                 self.port = port
                 return
-            except OSError as e:
+            except OSError:
                 pass
         raise Exception("No available port found")
 
@@ -424,7 +421,6 @@ class TestBase:
     def dump_sort(self, output, ignored):
         """ This function post-processes output of the test to be compared .
             It ignores blank and comment (#) lines and remaining functions.  """
-        mode = 1
         result = []
 
         # A (raw) dump result consists of following data
