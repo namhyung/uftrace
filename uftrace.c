@@ -1420,18 +1420,21 @@ int main(int argc, char *argv[])
 
 	switch (parse_options(argc, argv, &opts)) {
 	case -1:
-		return 0;
+		ret = 0;
+		goto cleanup;
 	case -2:
 		pr_out(uftrace_usage);
 		pr_out(uftrace_footer);
-		return 0;
+		ret = 0;
+		goto cleanup;
 	case -3:
 		if (opts.use_pager)
 			start_pager(setup_pager());
 		pr_out(uftrace_usage);
 		pr_out(uftrace_help);
 		wait_for_pager();
-		return 0;
+		ret = 0;
+		goto cleanup;
 	}
 
 	if (opts.opt_file)
@@ -1444,7 +1447,8 @@ int main(int argc, char *argv[])
 		case UFTRACE_MODE_INVALID:
 			pr_out(uftrace_usage);
 			pr_out(uftrace_footer);
-			return 1;
+			ret = 1;
+			goto cleanup;
 		}
 	}
 
@@ -1563,6 +1567,7 @@ int main(int argc, char *argv[])
 
 	wait_for_pager();
 
+cleanup:
 	if (opts.logfile)
 		fclose(logfp);
 
