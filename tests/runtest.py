@@ -19,11 +19,8 @@ class Elf:
         # e_ident[] indexes
         EI_CLASS      = 4
 
-        # EI_CLASS
-        ELFCLASSNONE  = 0
+        # EI_CLASS: ELFCLASSNONE, ELFCLASS32, ELFCLASS64, ELFCLASSNUM
         ELFCLASS32    = 1
-        ELFCLASS64    = 2
-        ELFCLASSNUM   = 3
 
         try:
             with open(filename, 'rb') as f:
@@ -32,7 +29,7 @@ class Elf:
 
             if ei_class == ELFCLASS32:
                 return True
-        except:
+        except Exception:
             pass
 
         return False
@@ -59,11 +56,11 @@ class Elf:
 
                 # read e_machine
                 e_machine = f.read(2)[0]
-                if type(e_machine) is str:
+                if isinstance(e_machine, str):
                     e_machine = ord(e_machine)
 
             return machine[e_machine]
-        except:
+        except Exception:
             pass
 
         return None
@@ -144,7 +141,7 @@ class TestBase:
                     s.bind(("localhost", port))
                 self.port = port
                 return
-            except OSError as e:
+            except OSError:
                 pass
         raise Exception("No available port found")
 
@@ -156,7 +153,7 @@ class TestBase:
             for i in range(3, len(s) - 1):
                 self.feature.add(s[i])
             return True
-        except:
+        except Exception:
             return False
 
     def convert_abs_path(self, build_cmd):
@@ -185,7 +182,7 @@ class TestBase:
         except OSError as e:
             self.pr_debug(e.strerror)
             return TestBase.TEST_BUILD_FAIL
-        except:
+        except Exception:
             return TestBase.TEST_BUILD_FAIL
 
     def build(self, name, cflags='', ldflags=''):
@@ -199,11 +196,9 @@ class TestBase:
 
         build_cflags  = ' '.join(TestBase.default_cflags + [self.cflags, cflags, \
                                   os.getenv(lang['flags'], '')])
-        build_ldflags = ' '.join([self.ldflags, ldflags, \
-                                  os.getenv('LDFLAGS', '')])
+        build_ldflags = ' '.join([self.ldflags, ldflags, os.getenv('LDFLAGS', '')])
 
-        build_cmd = '%s -o %s %s %s %s' % \
-                    (lang['cc'], prog, build_cflags, src, build_ldflags)
+        build_cmd = '%s -o %s %s %s %s' % (lang['cc'], prog, build_cflags, src, build_ldflags)
 
         self.pr_debug("build command: %s" % build_cmd)
         return self.build_it(build_cmd)
@@ -213,8 +208,7 @@ class TestBase:
 
         build_cflags  = ' '.join(TestBase.default_cflags + [self.cflags, cflags, \
                                   os.getenv(lang['flags'], '')])
-        build_ldflags = ' '.join([self.ldflags, ldflags, \
-                                  os.getenv('LDFLAGS', '')])
+        build_ldflags = ' '.join([self.ldflags, ldflags, os.getenv('LDFLAGS', '')])
 
         lib_cflags = build_cflags + ' -shared -fPIC'
 
@@ -230,8 +224,7 @@ class TestBase:
 
         build_cflags  = ' '.join(TestBase.default_cflags + [self.cflags, cflags, \
                                   os.getenv(lang['flags'], '')])
-        build_ldflags = ' '.join([self.ldflags, ldflags, \
-                                  os.getenv('LDFLAGS', '')])
+        build_ldflags = ' '.join([self.ldflags, ldflags, os.getenv('LDFLAGS', '')])
 
         lib_cflags = build_cflags + ' -shared -fPIC'
 
@@ -239,8 +232,7 @@ class TestBase:
             self.p_libs.append('libabc_test_lib.so')
 
         # build libabc_test_lib.so library
-        build_cmd = '%s -o libabc_test_lib.so %s s-lib.c %s' % \
-                    (lang['cc'], lib_cflags, build_ldflags)
+        build_cmd = '%s -o libabc_test_lib.so %s s-lib.c %s' % (lang['cc'], lib_cflags, build_ldflags)
 
         self.pr_debug("build command for library: %s" % build_cmd)
         return self.build_it(build_cmd)
@@ -250,8 +242,7 @@ class TestBase:
 
         build_cflags  = ' '.join(TestBase.default_cflags + [self.cflags, cflags, \
                                   os.getenv(lang['flags'], '')])
-        build_ldflags = ' '.join([self.ldflags, ldflags, \
-                                  os.getenv('LDFLAGS', '')])
+        build_ldflags = ' '.join([self.ldflags, ldflags, os.getenv('LDFLAGS', '')])
 
         lib_cflags = build_cflags + ' -shared -fPIC'
 
@@ -338,7 +329,7 @@ class TestBase:
             m = pid_patt.match(ln)
             try:
                 pid = int(m.group(1))
-            except:
+            except Exception:
                 continue
 
             func = ln.split('|', 1)[-1]
@@ -358,7 +349,7 @@ class TestBase:
                 for p in pid_list:
                     result += '\n'.join(pids[p]['result']) + '\n'
                 result = result.strip()
-        except:
+        except Exception:
             pass  # this leads to a failure with 'NG'
         return result
 
@@ -393,7 +384,7 @@ class TestBase:
             try:
                 if line[-1].startswith('__'):
                     continue
-            except:
+            except Exception:
                 pass
             result.append('%s %s' % (line[-2], line[-1]))
 
@@ -430,7 +421,6 @@ class TestBase:
     def dump_sort(self, output, ignored):
         """ This function post-processes output of the test to be compared .
             It ignores blank and comment (#) lines and remaining functions.  """
-        mode = 1
         result = []
 
         # A (raw) dump result consists of following data
@@ -470,7 +460,7 @@ class TestBase:
         result = []
         try:
             o = json.loads(output)
-        except:
+        except Exception:
             return ''
         for ln in o['traceEvents']:
             if ln['name'].startswith('__'):
@@ -545,7 +535,7 @@ class TestBase:
 
             if v >= 3:
                 return False
-        except:
+        except Exception:
             pass
 
         return True
@@ -698,7 +688,7 @@ class TestBase:
                 dif = "%s: diff result of %s %s\n" % (name, compiler, cflags)
                 try:
                     p = sp.Popen(['colordiff', '-U1', 'expect', 'result'], stdout=sp.PIPE)
-                except:
+                except Exception:
                     p = sp.Popen(['diff', '-U1', 'expect', 'result'], stdout=sp.PIPE)
                 dif += p.communicate()[0].decode(errors='ignore')
                 os.remove('expect')
