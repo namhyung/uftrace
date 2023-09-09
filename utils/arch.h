@@ -157,6 +157,30 @@ enum uftrace_i386_reg_index {
 	UFT_I386_REG_XMM7,
 };
 
+enum uftrace_riscv64_reg_index {
+	UFT_RISCV64_REG_INT_BASE = 0,
+	/* integer argument registers */
+	UFT_RISCV64_REG_A0,
+	UFT_RISCV64_REG_A1,
+	UFT_RISCV64_REG_A2,
+	UFT_RISCV64_REG_A3,
+	UFT_RISCV64_REG_A4,
+	UFT_RISCV64_REG_A5,
+	UFT_RISCV64_REG_A6,
+	UFT_RISCV64_REG_A7,
+
+	UFT_RISCV64_REG_FLOAT_BASE = 100,
+	/* floating-point argument registers */
+	UFT_RISCV64_REG_FA0,
+	UFT_RISCV64_REG_FA1,
+	UFT_RISCV64_REG_FA2,
+	UFT_RISCV64_REG_FA3,
+	UFT_RISCV64_REG_FA4,
+	UFT_RISCV64_REG_FA5,
+	UFT_RISCV64_REG_FA6,
+	UFT_RISCV64_REG_FA7,
+};
+
 int arch_register_number(enum uftrace_cpu_arch arch, char *reg_name);
 int arch_register_at(enum uftrace_cpu_arch arch, bool integer, int idx);
 int arch_register_index(enum uftrace_cpu_arch arch, int idx);
