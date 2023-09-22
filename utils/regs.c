@@ -149,7 +149,7 @@ static const int arch_reg_int_sizes[] = {
 };
 
 /* returns uftrace register number for the architecture */
-int arch_register_number(enum uftrace_cpu_arch arch, char *reg_name)
+int arch_register_number(enum uftrace_cpu_arch arch, const char *reg_name)
 {
 	unsigned i;
 	const struct uftrace_reg_table *table;

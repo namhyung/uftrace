@@ -39,7 +39,8 @@ void read_session_map(char *dirname, struct uftrace_sym_info *sinfo, char *sid)
 		pr_err("cannot open maps file: %s", buf);
 
 	while (fgets(buf, sizeof(buf), fp) != NULL) {
-		uint64_t start, end;
+		uint64_t start;
+		uint64_t end;
 		char prot[5];
 		char path[PATH_MAX];
 		char build_id[BUILD_ID_STR_SIZE + sizeof(build_id_prefix)];
@@ -110,7 +111,8 @@ void read_session_map(char *dirname, struct uftrace_sym_info *sinfo, char *sid)
  */
 void delete_session_map(struct uftrace_sym_info *sinfo)
 {
-	struct uftrace_mmap *map, *tmp;
+	struct uftrace_mmap *map;
+	struct uftrace_mmap *tmp;
 
 	map = sinfo->maps;
 	while (map) {
@@ -132,7 +134,8 @@ void delete_session_map(struct uftrace_sym_info *sinfo)
  */
 void update_session_map(const char *filename)
 {
-	FILE *ifp, *ofp;
+	FILE *ifp;
+	FILE *ofp;
 	char buf[PATH_MAX];
 	const char build_id_prefix[] = "build-id:";
 
@@ -237,7 +240,7 @@ void create_session(struct uftrace_session_link *sessions, struct uftrace_msg_se
 		s->sym_info.flags = SYMTAB_FL_USE_SYMFILE | SYMTAB_FL_DEMANGLE;
 		if (sym_rel_addr)
 			s->sym_info.flags |= SYMTAB_FL_ADJ_OFFSET;
-		if (strcmp(dirname, symdir))
+		if (strcmp(dirname, symdir) != 0)
 			s->sym_info.flags |= SYMTAB_FL_SYMS_DIR;
 
 		read_session_map(dirname, &s->sym_info, s->sid);
@@ -348,7 +351,8 @@ struct uftrace_session *get_session_from_sid(struct uftrace_session_link *sessio
 void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp, unsigned long base_addr,
 			const char *libname)
 {
-	struct uftrace_dlopen_list *udl, *pos;
+	struct uftrace_dlopen_list *udl;
+	struct uftrace_dlopen_list *pos;
 	char build_id[BUILD_ID_STR_SIZE];
 
 	udl = xmalloc(sizeof(*udl));
@@ -397,7 +401,8 @@ struct uftrace_symbol *session_find_dlsym(struct uftrace_session *sess, uint64_t
 
 void delete_session(struct uftrace_session *sess)
 {
-	struct uftrace_dlopen_list *udl, *tmp;
+	struct uftrace_dlopen_list *udl;
+	struct uftrace_dlopen_list *tmp;
 
 	list_for_each_entry_safe(udl, tmp, &sess->dlopen_libs, list) {
 		list_del(&udl->list);
@@ -571,7 +576,8 @@ void create_task(struct uftrace_session_link *sessions, struct uftrace_msg_task 
 
 static void delete_task(struct uftrace_task *t)
 {
-	struct uftrace_sess_ref *sref, *tmp;
+	struct uftrace_sess_ref *sref;
+	struct uftrace_sess_ref *tmp;
 
 	sref = t->sref.next;
 	while (sref) {
@@ -718,8 +724,8 @@ struct uftrace_symbol *task_find_sym_addr(struct uftrace_session_link *sessions,
 		if (EVENT_ID_PERF_SCHED_IN == addr || EVENT_ID_PERF_SCHED_OUT == addr ||
 		    EVENT_ID_PERF_SCHED_BOTH == addr)
 			return &sched_sym;
-		else if (EVENT_ID_PERF_SCHED_OUT_PREEMPT == addr ||
-			 EVENT_ID_PERF_SCHED_BOTH_PREEMPT == addr)
+		if (EVENT_ID_PERF_SCHED_OUT_PREEMPT == addr ||
+		    EVENT_ID_PERF_SCHED_BOTH_PREEMPT == addr)
 			return &sched_preempt_sym;
 	}
 

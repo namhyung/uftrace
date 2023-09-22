@@ -454,7 +454,8 @@ static int parse_demangle(char *arg)
 static void parse_debug_domain(char *arg)
 {
 	struct strv strv = STRV_INIT;
-	char *tok, *tmp;
+	char *tok;
+	char *tmp;
 	int i;
 
 	strv_split(&strv, arg, ",");
@@ -508,8 +509,7 @@ static bool has_time_unit(const char *str)
 {
 	if (isalpha(str[strlen(str) - 1]))
 		return true;
-	else
-		return false;
+	return false;
 }
 
 static uint64_t parse_any_timestamp(char *str, bool *elapsed)
@@ -528,7 +528,8 @@ static uint64_t parse_any_timestamp(char *str, bool *elapsed)
 
 static bool parse_time_range(struct uftrace_time_range *range, char *arg)
 {
-	char *str, *pos;
+	char *str;
+	char *pos;
 
 	str = xstrdup(arg);
 
@@ -1085,7 +1086,8 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 		break;
 
 	case OPT_clock:
-		if (strcmp(arg, "mono") && strcmp(arg, "mono_raw") && strcmp(arg, "boot")) {
+		if (strcmp(arg, "mono") != 0 && strcmp(arg, "mono_raw") != 0 &&
+		    strcmp(arg, "boot") != 0) {
 			pr_use("invalid clock source: '%s' "
 			       "(force to use 'mono')\n",
 			       arg);
@@ -1185,7 +1187,8 @@ static void parse_opt_file(int *argc, char ***argv, char *filename, struct uftra
 	}
 
 	while (true) {
-		int key, tmp = 0;
+		int key;
+		int tmp = 0;
 
 		key = getopt_long(file_argc, file_argv, uftrace_shopts, uftrace_options, &tmp);
 		if (key == -1 || key == '?') {
@@ -1261,14 +1264,14 @@ void parse_script_opt(struct uftrace_opts *opts)
 	while (getline(&line, &len, fp) > 0) {
 		char *pos;
 
-		if (strncmp(line, comment, comment_len))
+		if (strncmp(line, comment, comment_len) != 0)
 			continue;
 
 		pos = line + comment_len;
 		while (isspace(*pos))
 			pos++;
 
-		if (strncmp(pos, optname, strlen(optname)))
+		if (strncmp(pos, optname, strlen(optname)) != 0)
 			continue;
 
 		/* extract option value */
@@ -1285,7 +1288,8 @@ void parse_script_opt(struct uftrace_opts *opts)
 		optind = 0;
 
 		while (true) {
-			int key, tmp = 0;
+			int key;
+			int tmp = 0;
 
 			key = getopt_long(opt_argc, opt_argv, uftrace_shopts, uftrace_options,
 					  &tmp);
@@ -1327,7 +1331,8 @@ static int parse_options(int argc, char **argv, struct uftrace_opts *opts)
 	optind = 1;
 
 	while (true) {
-		int key, tmp = 0;
+		int key;
+		int tmp = 0;
 
 		key = getopt_long(argc, argv, uftrace_shopts, uftrace_options, &tmp);
 		if (key == -1 || key == '?') {

@@ -85,7 +85,7 @@ static inline void __Py_DECREF(PyObject *obj)
 }
 
 #undef Py_DECREF
-#define Py_DECREF(obj) __Py_DECREF((PyObject *)obj))
+#define Py_DECREF(obj) __Py_DECREF((PyObject *)(obj)))
 
 static inline void __Py_XDECREF(PyObject *obj)
 {
@@ -94,7 +94,7 @@ static inline void __Py_XDECREF(PyObject *obj)
 }
 
 #undef Py_XDECREF
-#define Py_XDECREF(obj) __Py_XDECREF((PyObject *)obj)
+#define Py_XDECREF(obj) __Py_XDECREF((PyObject *)(obj))
 
 #endif /* PY_VERSION_HEX >= 0x03080000 */
 
@@ -258,7 +258,7 @@ static int import_python_module(char *py_pathname)
 union python_val {
 	long l;
 	unsigned long long ull;
-	char *s;
+	const char *s;
 	double f;
 };
 
@@ -341,7 +341,7 @@ static void insert_tuple_ull(PyObject *tuple, int idx, unsigned long long v)
 	python_insert_tuple(tuple, 'U', idx, val);
 }
 
-static void insert_tuple_string(PyObject *tuple, int idx, char *v)
+static void insert_tuple_string(PyObject *tuple, int idx, const char *v)
 {
 	union python_val val = {
 		.s = v,
@@ -373,7 +373,7 @@ static void insert_dict_ull(PyObject *dict, const char *key, unsigned long long 
 	python_insert_dict(dict, 'U', key, val);
 }
 
-static void insert_dict_string(PyObject *dict, const char *key, char *v)
+static void insert_dict_string(PyObject *dict, const char *key, const char *v)
 {
 	union python_val val = {
 		.s = v,
@@ -821,7 +821,8 @@ int script_init_for_python(struct script_info *info, enum uftrace_pattern_type p
 
 	/* check if script has its own list of functions to run */
 	if (__PyObject_HasAttrString(pModule, "UFTRACE_FUNCS")) {
-		int i, len;
+		int i;
+		int len;
 		PyObject *filter_list = __PyObject_GetAttrString(pModule, "UFTRACE_FUNCS");
 		/* XXX: type checking is hard */
 		len = __PyList_Size(filter_list);

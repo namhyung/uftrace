@@ -351,7 +351,8 @@ static void save_backtrace_time(struct task_graph *tg)
 
 static int print_backtrace(struct session_graph *graph)
 {
-	int i = 0, k;
+	int i = 0;
+	int k;
 	struct graph_backtrace *bt;
 	struct uftrace_symbol *sym;
 	char *symname;
@@ -406,7 +407,7 @@ static int end_graph(struct task_graph *tg)
 	return 0;
 }
 
-static void pr_indent(bool *indent_mask, int indent, bool line)
+static void pr_indent(const bool *indent_mask, int indent, bool line)
 {
 	int i;
 	int last = -1;
@@ -956,7 +957,8 @@ int command_graph(int argc, char *argv[], struct uftrace_opts *opts)
 	struct uftrace_data handle;
 	struct session_graph *graph;
 	char *func;
-	struct graph_backtrace *bt, *btmp;
+	struct graph_backtrace *bt;
+	struct graph_backtrace *btmp;
 
 	__fsetlocking(outfp, FSETLOCKING_BYCALLER);
 	__fsetlocking(logfp, FSETLOCKING_BYCALLER);

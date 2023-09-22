@@ -22,15 +22,14 @@ static struct rb_root auto_enum = RB_ROOT;
 
 extern void update_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr,
 			   bool exact_match);
-extern int setup_trigger_action(char *str, struct uftrace_trigger *tr, char **module,
-				unsigned long orig_flags, struct uftrace_filter_setting *setting);
 
 static void add_auto_args(struct rb_root *root, struct uftrace_filter *entry,
 			  struct uftrace_trigger *tr)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
-	struct uftrace_filter *iter, *new;
+	struct uftrace_filter *iter;
+	struct uftrace_filter *new;
 	int cmp;
 
 	pr_dbg2("add auto-argument for %s\n", entry->name);
@@ -244,7 +243,8 @@ static void release_auto_args(struct rb_root *root)
 {
 	struct rb_node *p;
 	struct uftrace_filter *entry;
-	struct uftrace_arg_spec *arg, *tmp;
+	struct uftrace_arg_spec *arg;
+	struct uftrace_arg_spec *tmp;
 
 	while (!RB_EMPTY_ROOT(root)) {
 		p = rb_first(root);
@@ -308,7 +308,8 @@ int extract_trigger_args(char **pargs, char **prets, char *trigger)
 	/* extract argspec (and retspec) in trigger action */
 	if (trigger) {
 		struct strv actions = STRV_INIT;
-		char *pos, *act;
+		char *pos;
+		char *act;
 		int j;
 
 		strv_split(&actions, trigger, ";");
@@ -376,7 +377,8 @@ static char enum_token[256];
 
 static enum enum_token_ret enum_next_token(char **str)
 {
-	char *pos, *tok;
+	char *pos;
+	char *tok;
 	enum enum_token_ret ret;
 	ptrdiff_t len;
 
@@ -583,7 +585,8 @@ int parse_enum_string(char *enum_str, struct rb_root *root)
 {
 	char *pos;
 	struct enum_def *e_def = NULL;
-	struct enum_val *e_val, *e;
+	struct enum_val *e_val;
+	struct enum_val *e;
 	enum enum_token_ret ret;
 	struct strv strv = STRV_INIT;
 	int err = -1;
@@ -603,7 +606,7 @@ int parse_enum_string(char *enum_str, struct rb_root *root)
 		if (ret == TOKEN_NULL)
 			continue;
 
-		if (ret != TOKEN_STR || strcmp(enum_token, "enum")) {
+		if (ret != TOKEN_STR || strcmp(enum_token, "enum") != 0) {
 			pr_dbg("don't have 'enum' prefix\n");
 			goto out;
 		}
@@ -620,7 +623,7 @@ int parse_enum_string(char *enum_str, struct rb_root *root)
 		INIT_LIST_HEAD(&e_def->vals);
 
 		ret = enum_next_token(&pos);
-		if (ret != TOKEN_SIGN || strcmp(enum_token, "{")) {
+		if (ret != TOKEN_SIGN || strcmp(enum_token, "{") != 0) {
 			pr_dbg("enum start brace is missing\n");
 			goto out;
 		}
@@ -628,7 +631,7 @@ int parse_enum_string(char *enum_str, struct rb_root *root)
 		pr_dbg2("parse enum %s\n", e_def->name);
 
 		ret = enum_next_token(&pos);
-		while (ret != TOKEN_NULL && strcmp(enum_token, "}")) {
+		while (ret != TOKEN_NULL && strcmp(enum_token, "}") != 0) {
 			char *name = xstrdup(enum_token);
 
 			ret = enum_next_token(&pos);

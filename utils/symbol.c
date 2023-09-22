@@ -474,7 +474,8 @@ static int load_dyn_symbol(struct uftrace_symtab *dsymtab, int sym_idx, unsigned
 
 static void sort_dynsymtab(struct uftrace_symtab *dsymtab)
 {
-	unsigned i, k;
+	unsigned i;
+	unsigned k;
 
 	dsymtab->nr_alloc = dsymtab->nr_sym;
 	dsymtab->sym = xrealloc(dsymtab->sym, dsymtab->nr_sym * sizeof(*dsymtab->sym));
@@ -1068,8 +1069,9 @@ static void load_module_symbol(struct uftrace_sym_info *sinfo, struct uftrace_mo
 		if (access(symfile, F_OK) == 0) {
 			if (check_symbol_file(symfile, buf, sizeof(buf), build_id,
 					      sizeof(build_id)) > 0 &&
-			    ((strcmp(buf, m->name) && !(flags & SYMTAB_FL_SYMS_DIR)) ||
-			     (build_id[0] && m->build_id[0] && strcmp(build_id, m->build_id)))) {
+			    ((strcmp(buf, m->name) != 0 && !(flags & SYMTAB_FL_SYMS_DIR)) ||
+			     (build_id[0] && m->build_id[0] &&
+			      strcmp(build_id, m->build_id) != 0))) {
 				char *new_file;
 
 				new_file = make_new_symbol_filename(symfile, m->name, m->build_id);
@@ -1352,7 +1354,8 @@ int save_kernel_symbol(char *dirname)
 {
 	char *symfile = NULL;
 	char buf[PATH_MAX];
-	FILE *ifp, *ofp;
+	FILE *ifp;
+	FILE *ofp;
 	ssize_t len;
 	int ret = 0;
 
@@ -1410,7 +1413,8 @@ struct uftrace_module *get_kernel_module(void)
 void build_dynsym_idxlist(struct uftrace_symtab *dsymtab, struct dynsym_idxlist *idxlist,
 			  const char *symlist[], unsigned symcount)
 {
-	unsigned i, k;
+	unsigned i;
+	unsigned k;
 	unsigned *idx = NULL;
 	unsigned count = 0;
 
@@ -1634,21 +1638,20 @@ uint64_t guess_kernel_base(char *str)
 	 */
 	if (addr < 0x40000000UL) /* 1G:3G split */
 		return 0x40000000UL;
-	else if (addr < 0x80000000UL) /* 2G:2G split */
+	if (addr < 0x80000000UL) /* 2G:2G split */
 		return 0x80000000UL;
-	else if (addr < 0xB0000000UL) /* 3G:1G split (variant) */
+	if (addr < 0xB0000000UL) /* 3G:1G split (variant) */
 		return 0xB0000000UL;
-	else if (addr < 0xC0000000UL) /* 3G:1G split */
+	if (addr < 0xC0000000UL) /* 3G:1G split */
 		return 0xC0000000UL;
 	/* below is for 64-bit systems */
-	else if (addr < 0x8000000000ULL) /* 512G:512G split */
+	if (addr < 0x8000000000ULL) /* 512G:512G split */
 		return 0xFFFFFF8000000000ULL;
-	else if (addr < 0x40000000000ULL) /* 4T:4T split */
+	if (addr < 0x40000000000ULL) /* 4T:4T split */
 		return 0xFFFFFC0000000000ULL;
-	else if (addr < 0x800000000000ULL) /* 128T:128T split (x86_64) */
+	if (addr < 0x800000000000ULL) /* 128T:128T split (x86_64) */
 		return 0xFFFF800000000000ULL;
-	else
-		return 0xFFFF000000000000ULL;
+	return 0xFFFF000000000000ULL;
 }
 
 int read_build_id(const char *filename, char *buf, int len)

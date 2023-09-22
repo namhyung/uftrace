@@ -131,21 +131,21 @@ static char __dd_consume(struct demangle_data *dd, const char *dbg)
 
 #define DD_DEBUG(dd, exp, inc)                                                                     \
 	({                                                                                         \
-		dd->func = __func__;                                                               \
-		dd->line = __LINE__ - 1;                                                           \
-		dd->pos += inc;                                                                    \
-		dd->expected = exp;                                                                \
+		(dd)->func = __func__;                                                             \
+		(dd)->line = __LINE__ - 1;                                                         \
+		(dd)->pos += (inc);                                                                \
+		(dd)->expected = exp;                                                              \
 		return -1;                                                                         \
 	})
 
 #define DD_DEBUG_CONSUME(dd, exp_c)                                                                \
 	({                                                                                         \
-		if (dd_consume(dd) != exp_c) {                                                     \
-			if (!dd->expected) {                                                       \
-				dd->func = __func__;                                               \
-				dd->line = __LINE__;                                               \
-				dd->pos--;                                                         \
-				dd->expected = dd_expbuf;                                          \
+		if (dd_consume(dd) != (exp_c)) {                                                   \
+			if (!(dd)->expected) {                                                     \
+				(dd)->func = __func__;                                             \
+				(dd)->line = __LINE__;                                             \
+				(dd)->pos--;                                                       \
+				(dd)->expected = dd_expbuf;                                        \
 				dd_expbuf[0] = exp_c;                                              \
 			}                                                                          \
 			return -1;                                                                 \
@@ -154,12 +154,12 @@ static char __dd_consume(struct demangle_data *dd, const char *dbg)
 
 #define __DD_DEBUG_CONSUME(dd, exp_c)                                                              \
 	({                                                                                         \
-		if (__dd_consume(dd, NULL) != exp_c) {                                             \
-			if (!dd->expected) {                                                       \
-				dd->func = __func__;                                               \
-				dd->line = __LINE__;                                               \
-				dd->pos--;                                                         \
-				dd->expected = dd_expbuf;                                          \
+		if (__dd_consume(dd, NULL) != (exp_c)) {                                           \
+			if (!(dd)->expected) {                                                     \
+				(dd)->func = __func__;                                             \
+				(dd)->line = __LINE__;                                             \
+				(dd)->pos--;                                                       \
+				(dd)->expected = dd_expbuf;                                        \
 				dd_expbuf[0] = exp_c;                                              \
 			}                                                                          \
 			return -1;                                                                 \
@@ -776,7 +776,7 @@ static int dd_expression(struct demangle_data *dd)
 
 	for (i = 0; i < ARRAY_SIZE(unary_ops); i++) {
 		/* unary operator */
-		if (strncmp(unary_ops[i], exp, strlen(unary_ops[i])))
+		if (strncmp(unary_ops[i], exp, strlen(unary_ops[i])) != 0)
 			continue;
 		dd_consume_n(dd, strlen(unary_ops[i]));
 		return dd_expression(dd);
@@ -1038,11 +1038,11 @@ static int dd_type(struct demangle_data *dd)
 			dd_qualifier(dd);
 			continue;
 		}
-		else if (strchr(prefix, c)) {
+		if (strchr(prefix, c)) {
 			dd_consume(dd);
 			continue;
 		}
-		else if (c == 'F') {
+		if (c == 'F') {
 			ret = dd_function_type(dd);
 			done = 1;
 		}
@@ -1155,7 +1155,7 @@ static int dd_discriminator(struct demangle_data *dd)
 	if (isdigit(c)) {
 		return dd_number(dd) > 0 ? 0 : -1;
 	}
-	else if (c == '_') {
+	if (c == '_') {
 		__dd_consume(dd, NULL);
 		if (dd_number(dd) < 0)
 			return -1;
@@ -1382,7 +1382,8 @@ static int dd_source_name(struct demangle_data *dd)
 {
 	int num = dd_number(dd);
 	char *dollar;
-	char *p, *end;
+	char *p;
+	char *end;
 	unsigned i;
 	bool add_name = false;
 
@@ -1441,7 +1442,7 @@ static int dd_source_name(struct demangle_data *dd)
 
 		for (i = 0; i < ARRAY_SIZE(rust_mappings); i++) {
 			if (strncmp(rust_mappings[i].code, dollar + 1,
-				    strlen(rust_mappings[i].code)))
+				    strlen(rust_mappings[i].code)) != 0)
 				continue;
 
 			dd_add_debug(dd);

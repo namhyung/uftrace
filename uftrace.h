@@ -588,7 +588,7 @@ struct rusage;
 int fill_file_header(struct uftrace_opts *opts, int status, struct rusage *rusage,
 		     char *elapsed_time);
 void fill_uftrace_info(uint64_t *info_mask, int fd, struct uftrace_opts *opts, int status,
-		       struct rusage *rusage, char *elapsed_time);
+		       struct rusage *rusage, const char *elapsed_time);
 int read_uftrace_info(uint64_t info_mask, struct uftrace_data *handle);
 void process_uftrace_info(struct uftrace_data *handle, struct uftrace_opts *opts,
 			  void (*process)(void *data, const char *fmt, ...), void *data);

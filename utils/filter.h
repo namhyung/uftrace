@@ -157,7 +157,7 @@ void uftrace_setup_loc_filter(char *filter_str, struct uftrace_sym_info *sinfo,
 			      struct uftrace_filter_setting *setting);
 
 struct uftrace_triggers_info uftrace_deep_copy_triggers(struct uftrace_triggers_info *src);
-struct uftrace_filter *uftrace_match_filter(uint64_t ip, struct rb_root *root,
+struct uftrace_filter *uftrace_match_filter(uint64_t addr, struct rb_root *root,
 					    struct uftrace_trigger *tr);
 void uftrace_cleanup_filter(struct rb_root *root);
 void uftrace_cleanup_triggers(struct uftrace_triggers_info *triggers);

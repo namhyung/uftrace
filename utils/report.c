@@ -247,7 +247,7 @@ int report_setup_sort(const char *key_str)
 		for (i = 0; i < ARRAY_SIZE(all_sort_keys); i++) {
 			struct sort_key *sort_key = all_sort_keys[i];
 
-			if (strcmp(k, sort_key->name))
+			if (strcmp(k, sort_key->name) != 0)
 				continue;
 
 			list_add_tail(&sort_key->list, &sort_keys);
@@ -436,7 +436,7 @@ int report_setup_diff(const char *key_str)
 		for (i = 0; i < ARRAY_SIZE(all_diff_keys); i++) {
 			struct diff_key *sort_key = all_diff_keys[i];
 
-			if (strcmp(k, sort_key->name))
+			if (strcmp(k, sort_key->name) != 0)
 				continue;
 
 			list_add_tail(&sort_key->list, &diff_keys);
@@ -495,7 +495,9 @@ void report_diff_nodes(struct rb_root *orig_root, struct rb_root *pair_root,
 	*diff_root = RB_ROOT;
 
 	while (n && !uftrace_done) {
-		struct uftrace_report_node *iter, *pair, *node;
+		struct uftrace_report_node *iter;
+		struct uftrace_report_node *pair;
+		struct uftrace_report_node *node;
 
 		iter = rb_entry(n, typeof(*iter), name_link);
 		pair = report_find_node(pair_root, iter->name);
@@ -517,7 +519,8 @@ void report_diff_nodes(struct rb_root *orig_root, struct rb_root *pair_root,
 	/* add non-used pair nodes */
 	n = rb_first(pair_root);
 	while (n && !uftrace_done) {
-		struct uftrace_report_node *iter, *node;
+		struct uftrace_report_node *iter;
+		struct uftrace_report_node *node;
 
 		iter = rb_entry(n, typeof(*iter), name_link);
 		if (iter->pair == NULL) {
@@ -670,7 +673,7 @@ int report_setup_task(const char *key_str)
 		for (i = 0; i < ARRAY_SIZE(all_task_keys); i++) {
 			struct sort_task_key *sort_key = all_task_keys[i];
 
-			if (strcmp(k, sort_key->name))
+			if (strcmp(k, sort_key->name) != 0)
 				continue;
 
 			list_add_tail(&sort_key->list, &task_keys);
@@ -742,10 +745,10 @@ void report_sort_tasks(struct uftrace_data *handle, struct rb_root *name_root,
 }
 
 #define FIELD_STRUCT(_id, _name, _func, _header, _length)                                          \
-	static struct display_field field_##_func = { .id = _id,                                   \
+	static struct display_field field_##_func = { .id = (_id),                                 \
 						      .name = #_name,                              \
-						      .header = _header,                           \
-						      .length = _length,                           \
+						      .header = (_header),                         \
+						      .length = (_length),                         \
 						      .print = print_##_func,                      \
 						      .list = LIST_HEAD_INIT(                      \
 							      field_##_func.list) };

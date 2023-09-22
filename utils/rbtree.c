@@ -68,7 +68,8 @@ static void __rb_rotate_right(struct rb_node *node, struct rb_root *root)
 
 void rb_insert_color(struct rb_node *node, struct rb_root *root)
 {
-	struct rb_node *parent, *gparent;
+	struct rb_node *parent;
+	struct rb_node *gparent;
 
 	while ((parent = rb_parent(node)) && rb_is_red(parent)) {
 		gparent = rb_parent(parent);
@@ -196,7 +197,8 @@ static void __rb_erase_color(struct rb_node *node, struct rb_node *parent, struc
 
 void rb_erase(struct rb_node *node, struct rb_root *root)
 {
-	struct rb_node *child, *parent;
+	struct rb_node *child;
+	struct rb_node *parent;
 	int color;
 
 	if (!node->rb_left)
@@ -204,7 +206,8 @@ void rb_erase(struct rb_node *node, struct rb_root *root)
 	else if (!node->rb_right)
 		child = node->rb_left;
 	else {
-		struct rb_node *old = node, *left;
+		struct rb_node *old = node;
+		struct rb_node *left;
 
 		node = node->rb_right;
 		while ((left = node->rb_left) != NULL)

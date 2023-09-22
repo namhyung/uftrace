@@ -45,7 +45,7 @@ typedef struct Hashmap Hashmap;
  * @param hash function which hashes keys
  * @param equals function which compares keys for equality
  */
-Hashmap *hashmap_create(size_t initialCapacity, hash_t (*hash)(void *key),
+Hashmap *hashmap_create(size_t initial_capacity, hash_t (*hash)(void *key),
 			bool (*equals)(void *keyA, void *keyB));
 
 /**
@@ -57,7 +57,7 @@ void hashmap_free(Hashmap *map);
  * Hashes the memory pointed to by key with the given size. Useful for
  * implementing hash functions.
  */
-hash_t hashmap_hash(void *key, size_t keySize);
+hash_t hashmap_hash(void *key, size_t key_size);
 
 /**
  * Puts value for the given key in the map. Returns pre-existing value if
@@ -86,7 +86,7 @@ bool hashmap_contains_key(Hashmap *map, void *key);
  * If memory allocation fails, the callback is not called, this function
  * returns NULL, and errno is set to ENOMEM.
  */
-void *hashmap_memoize(Hashmap *map, void *key, void *(*initialValue)(void *key, void *context),
+void *hashmap_memoize(Hashmap *map, void *key, void *(*initial_value)(void *key, void *context),
 		      void *context);
 
 /**

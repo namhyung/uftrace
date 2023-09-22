@@ -43,7 +43,7 @@ static int has_shared_object(const char *soname)
 }
 
 /* argument_spec = arg1/i32,arg2/x64,... */
-struct uftrace_arg_spec *parse_argspec(char *str, struct uftrace_filter_setting *setting)
+struct uftrace_arg_spec *parse_argspec(const char *str, struct uftrace_filter_setting *setting)
 {
 	struct uftrace_arg_spec *arg;
 	int fmt = ARG_FMT_AUTO;
@@ -51,11 +51,11 @@ struct uftrace_arg_spec *parse_argspec(char *str, struct uftrace_filter_setting 
 	int idx;
 	int type;
 	int bit;
-	char *suffix;
+	const char *suffix;
 	char *p;
 
 	if (!strncmp(str, "arg", 3) && isdigit(str[3])) {
-		idx = strtol(str + 3, &suffix, 0);
+		idx = strtol(str + 3, (char **)&suffix, 0);
 		type = ARG_TYPE_INDEX;
 	}
 	else if (!strncmp(str, "retval", 6)) {
@@ -64,7 +64,7 @@ struct uftrace_arg_spec *parse_argspec(char *str, struct uftrace_filter_setting 
 		suffix = str + 6;
 	}
 	else if (!strncmp(str, "fparg", 5) && isdigit(str[5])) {
-		idx = strtol(str + 5, &suffix, 0);
+		idx = strtol(str + 5, (char **)&suffix, 0);
 		fmt = ARG_FMT_FLOAT;
 		type = ARG_TYPE_FLOAT;
 		size = sizeof(double);
@@ -142,7 +142,7 @@ struct uftrace_arg_spec *parse_argspec(char *str, struct uftrace_filter_setting 
 	case 't':
 		/* struct/union/class passed-by-value */
 		fmt = ARG_FMT_STRUCT;
-		size = strtol(&suffix[1], &suffix, 0);
+		size = strtol(&suffix[1], (char **)&suffix, 0);
 		arg->struct_reg_cnt = 0;
 
 		if (*suffix == ':') {
@@ -194,7 +194,7 @@ struct uftrace_arg_spec *parse_argspec(char *str, struct uftrace_filter_setting 
 		goto type;
 
 size:
-	bit = strtol(suffix, &suffix, 10);
+	bit = strtol(suffix, (char **)&suffix, 10);
 	switch (bit) {
 	case 8:
 	case 16:

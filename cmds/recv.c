@@ -81,7 +81,8 @@ int setup_client_socket(struct uftrace_opts *opts)
 		.sin_family = AF_INET,
 		.sin_port = htons(opts->port),
 	};
-	struct addrinfo *results, hints;
+	struct addrinfo *results;
+	struct addrinfo hints;
 	int err;
 	int sock;
 	int one = 1;
@@ -357,7 +358,8 @@ static struct client_data *find_client(int sock)
 
 static void write_client_file(struct client_data *c, char *filename, int nr, ...)
 {
-	int i, fd;
+	int i;
+	int fd;
 	va_list ap;
 	struct iovec iov[nr];
 	char buf[PATH_MAX];
@@ -687,7 +689,7 @@ int command_recv(int argc, char *argv[], struct uftrace_opts *opts)
 	int sigfd;
 	int efd;
 
-	if (strcmp(opts->dirname, UFTRACE_DIR_NAME)) {
+	if (strcmp(opts->dirname, UFTRACE_DIR_NAME) != 0) {
 		char *dirname = "current";
 
 		if ((mkdir(opts->dirname, 0755) == 0 || errno == EEXIST) &&
@@ -709,7 +711,8 @@ int command_recv(int argc, char *argv[], struct uftrace_opts *opts)
 
 	while (!uftrace_done) {
 		struct epoll_event ev[10];
-		int i, len;
+		int i;
+		int len;
 
 		len = epoll_wait(efd, ev, 10, -1);
 		if (len < 0)

@@ -139,7 +139,7 @@ static int handle_rel_jmp(cs_insn *insn, uint8_t insns[], struct mcount_dynamic_
 		return JMP_INSN_SIZE + sizeof(target);
 	}
 	/* Jump relative 8 if condition is met (except JCXZ, JECXZ and JRCXZ) */
-	else if ((opcode & 0xF0) == 0x70) {
+	if ((opcode & 0xF0) == 0x70) {
 		cbi = &info->branch_info[info->nr_branch++];
 		cbi->insn_index = info->copy_size;
 		cbi->branch_target = target;
@@ -155,7 +155,7 @@ static int handle_rel_jmp(cs_insn *insn, uint8_t insns[], struct mcount_dynamic_
 		return JCC8_INSN_SIZE;
 	}
 	/* Jump relative 32 if condition is met */
-	else if (opcode == 0x0F && (insn->bytes[1] & 0xF0) == 0x80) {
+	if (opcode == 0x0F && (insn->bytes[1] & 0xF0) == 0x80) {
 		cbi = &info->branch_info[info->nr_branch++];
 		cbi->insn_index = info->copy_size;
 		cbi->branch_target = target;
@@ -588,7 +588,9 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm, struct mcount_dynami
 {
 	int status;
 	cs_insn *insn = NULL;
-	uint32_t count, i, size;
+	uint32_t count;
+	uint32_t i;
+	uint32_t size;
 	uint8_t endbr64[] = { 0xf3, 0x0f, 0x1e, 0xfa };
 	struct dynamic_bad_symbol *badsym;
 	unsigned long addr = info->addr;

@@ -100,7 +100,7 @@ static int analyze_mcount_insn(unsigned short *insn, struct lr_offset *lr)
 		/* done! */
 		return 0;
 	}
-	else if ((opcode & 0xfe00) == 0xb400) {
+	if ((opcode & 0xfe00) == 0xb400) {
 		/* PUSH (reg mask) */
 		int i;
 

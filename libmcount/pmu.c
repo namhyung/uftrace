@@ -112,7 +112,8 @@ static struct pmu_data *prepare_pmu_event(struct mcount_thread_data *mtdp, enum 
 {
 	struct pmu_data *pd;
 	const struct pmu_info *info;
-	unsigned i, k;
+	unsigned i;
+	unsigned k;
 	int group_fd;
 
 	list_for_each_entry(pd, &mtdp->pmu_fds, list) {
@@ -185,7 +186,8 @@ int read_pmu_event(struct mcount_thread_data *mtdp, enum uftrace_event_id id, vo
 
 void finish_pmu_event(struct mcount_thread_data *mtdp)
 {
-	struct pmu_data *pd, *tmp;
+	struct pmu_data *pd;
+	struct pmu_data *tmp;
 
 	list_for_each_entry_safe(pd, tmp, &mtdp->pmu_fds, list) {
 		list_del(&pd->list);
@@ -206,7 +208,8 @@ void finish_pmu_event(struct mcount_thread_data *mtdp)
 
 void release_pmu_event(struct mcount_thread_data *mtdp, enum uftrace_event_id id)
 {
-	struct pmu_data *pd, *tmp;
+	struct pmu_data *pd;
+	struct pmu_data *tmp;
 
 	list_for_each_entry_safe(pd, tmp, &mtdp->pmu_fds, list) {
 		if (pd->evt_id != id)

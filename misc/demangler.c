@@ -7,10 +7,6 @@
 #include "utils/utils.h"
 #include "version.h"
 
-char *demangle(char *str);
-
-extern enum symbol_demangler demangler;
-
 enum options {
 	OPT_simple = 301,
 	OPT_full,
@@ -44,7 +40,8 @@ static void parse_option(int argc, char **argv, struct demangler_opts *opts)
 	bool done = false;
 
 	while (!done) {
-		int key, tmp;
+		int key;
+		int tmp;
 
 		key = getopt_long(argc, argv, "v", demangler_options, &tmp);
 		switch (key) {

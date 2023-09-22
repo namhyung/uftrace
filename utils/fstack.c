@@ -157,7 +157,8 @@ static void update_first_timestamp(struct uftrace_data *handle, struct uftrace_t
  */
 void fstack_setup_task(char *tid_filter, struct uftrace_data *handle)
 {
-	int i, k;
+	int i;
+	int k;
 	int nr_filters = 0;
 	int *filter_tids = NULL;
 	char *p = tid_filter;
@@ -1745,7 +1746,8 @@ out:
 
 static int read_user_stack(struct uftrace_data *handle, struct uftrace_task_reader **task)
 {
-	int i, next_i = -1;
+	int i;
+	int next_i = -1;
 	uint64_t next_time = 0;
 	struct uftrace_record *tmp;
 
@@ -1770,10 +1772,12 @@ static int read_user_stack(struct uftrace_data *handle, struct uftrace_task_read
 
 static int read_event_stack(struct uftrace_data *handle, struct uftrace_task_reader **task)
 {
-	int i, next_i = -1;
+	int i;
+	int next_i = -1;
 	uint64_t next_time = 0;
 	struct uftrace_task_reader *t;
-	struct uftrace_record *curr, *next;
+	struct uftrace_record *curr;
+	struct uftrace_record *next;
 
 	for (i = 0; i < handle->info.nr_tid; i++) {
 		t = &handle->tasks[i];
@@ -2259,7 +2263,11 @@ static void adjust_rstack_after_schedule(struct uftrace_data *handle,
 static int __read_rstack(struct uftrace_data *handle, struct uftrace_task_reader **taskp,
 			 bool consume)
 {
-	int u, k = -1, p, e, x;
+	int u;
+	int k = -1;
+	int p;
+	int e;
+	int x;
 	struct uftrace_task_reader *task = NULL;
 	struct uftrace_task_reader *utask = NULL;
 	struct uftrace_task_reader *ktask = NULL;

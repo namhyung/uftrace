@@ -113,7 +113,8 @@ size_t plt_skip_nr = ARRAY_SIZE(plt_skip_syms);
  */
 static void restore_plt_functions(struct plthook_data *pd)
 {
-	unsigned i, k;
+	unsigned i;
+	unsigned k;
 	struct uftrace_symtab *dsymtab = &pd->dsymtab;
 
 	for (i = 0; i < dsymtab->nr_sym; i++) {
@@ -134,7 +135,7 @@ static void restore_plt_functions(struct plthook_data *pd)
 			const struct plthook_skip_symbol *skip_sym;
 
 			skip_sym = &plt_skip_syms[k];
-			if (strcmp(sym->name, skip_sym->name))
+			if (strcmp(sym->name, skip_sym->name) != 0)
 				continue;
 
 			overwrite_pltgot(pd, got_idx, skip_sym->addr);
@@ -172,7 +173,6 @@ static void restore_plt_functions(struct plthook_data *pd)
 }
 
 extern void __weak plt_hooker(void);
-extern unsigned long plthook_return(void);
 
 __weak struct plthook_data *mcount_arch_hook_no_plt(struct uftrace_elf_data *elf,
 						    const char *modname, unsigned long offset)
@@ -863,7 +863,7 @@ static unsigned long __plthook_entry(unsigned long *ret_addr, unsigned long chil
 			 * called from libmcount due to the return address.
 			 */
 			if (ARG1(regs) == (unsigned long)RTLD_NEXT &&
-			    strcmp(pd->mod_name, mcount_exename)) {
+			    strcmp(pd->mod_name, mcount_exename) != 0) {
 				*ret_addr = rstack->parent_ip;
 				if (mcount_auto_recover)
 					mcount_auto_reset(mtdp);

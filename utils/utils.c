@@ -107,7 +107,8 @@ int write_all(int fd, const void *buf, size_t size)
 
 int writev_all(int fd, struct iovec *iov, int count)
 {
-	int i, ret;
+	int i;
+	int ret;
 	int size = 0;
 
 	for (i = 0; i < count; i++)
@@ -470,11 +471,15 @@ static uint64_t parse_min(uint64_t min, uint64_t decimal, int decimal_places)
 	return nsec;
 }
 
-uint64_t parse_time(char *arg, int limited_digits)
+uint64_t parse_time(const char *arg, int limited_digits)
 {
-	char *unit, *pos;
-	int i, decimal_places = 0, exp = 0;
-	uint64_t limited, decimal = 0;
+	char *unit;
+	char *pos;
+	int i;
+	int decimal_places = 0;
+	int exp = 0;
+	uint64_t limited;
+	uint64_t decimal = 0;
 	uint64_t val = strtoull(arg, &unit, 10);
 
 	pos = strchr(arg, '.');
@@ -502,7 +507,7 @@ uint64_t parse_time(char *arg, int limited_digits)
 
 	if (!strcasecmp(unit, "ns") || !strcasecmp(unit, "nsec"))
 		return val;
-	else if (!strcasecmp(unit, "us") || !strcasecmp(unit, "usec"))
+	if (!strcasecmp(unit, "us") || !strcasecmp(unit, "usec"))
 		exp = 3; /* 10^3*/
 	else if (!strcasecmp(unit, "ms") || !strcasecmp(unit, "msec"))
 		exp = 6; /* 10^6 */
@@ -529,7 +534,8 @@ uint64_t parse_time(char *arg, int limited_digits)
 uint64_t parse_timestamp(char *arg)
 {
 	char *sep;
-	uint64_t ts, tmp;
+	uint64_t ts;
+	uint64_t tmp;
 	int len;
 
 	tmp = strtoull(arg, &sep, 10);
@@ -637,7 +643,8 @@ void strv_split(struct strv *strv, const char *str, const char *delim)
 {
 	int c = 1;
 	char *saved_str = xstrdup(str);
-	char *tmp, *pos;
+	char *tmp;
+	char *pos;
 	size_t len = strlen(delim);
 
 	tmp = saved_str;
@@ -761,7 +768,8 @@ char *json_quote(char *str, int *len)
 {
 	char *p = str;
 	int quote = 0;
-	int i, k;
+	int i;
+	int k;
 	int orig_len = *len;
 
 	/* find number of necessary escape */
@@ -945,14 +953,13 @@ char *uftrace_strerror(int errnum, char *buf, size_t buflen)
 	if (result == 0)
 		/* XSI-compliant strerror_r succeed */
 		return buf;
-	else if (result < 4096) {
+	if (result < 4096) {
 		/* XSI-compliant strerror_r failed */
 		snprintf(buf, buflen, "error: %d", errnum);
 		return buf;
 	}
-	else
-		/* GNU-specific strerror_r */
-		return (char *)result;
+	/* GNU-specific strerror_r */
+	return (char *)result;
 }
 
 void stacktrace(void)
@@ -1000,7 +1007,8 @@ void stacktrace(void)
 int copy_file(const char *path_in, const char *path_out)
 {
 	char buf[4096];
-	FILE *ifp, *ofp;
+	FILE *ifp;
+	FILE *ofp;
 	int n;
 
 	ifp = fopen(path_in, "r");

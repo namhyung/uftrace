@@ -408,7 +408,8 @@ static void print_escaped_char(char **args, size_t *len, const char c)
 void get_argspec_string(struct uftrace_task_reader *task, char *args, size_t len,
 			enum uftrace_argspec_string_bits str_mode)
 {
-	int i = 0, n = 0;
+	int i = 0;
+	int n = 0;
 	char *str = NULL;
 
 	const int null_str = -1;
@@ -453,7 +454,8 @@ void get_argspec_string(struct uftrace_task_reader *task, char *args, size_t len
 	list_for_each_entry(spec, arg_list, list) {
 		char fmtstr[16];
 		char *len_mod[] = { "hh", "h", "", "ll" };
-		char fmt, *lm;
+		char fmt;
+		char *lm;
 		unsigned idx;
 		size_t size = spec->size;
 
@@ -641,7 +643,7 @@ void get_argspec_string(struct uftrace_task_reader *task, char *args, size_t len
 
 			dinfo = &map->mod->dinfo;
 			estr = get_enum_string(&dinfo->enums, spec->type_name, (int)val.i);
-			if (strstr(estr, "|") && strcmp("|", color_enum_or)) {
+			if (strstr(estr, "|") && strcmp("|", color_enum_or) != 0) {
 				struct strv enum_vals = STRV_INIT;
 
 				strv_split(&enum_vals, estr, "|");
@@ -664,7 +666,7 @@ void get_argspec_string(struct uftrace_task_reader *task, char *args, size_t len
 				 * gcc puts "<lambda" to anonymous lambda
 				 * but let's ignore to make it same as clang.
 				 */
-				if (strcmp(spec->type_name, "<lambda")) {
+				if (strcmp(spec->type_name, "<lambda") != 0) {
 					print_args(&args, &len, "%s%s%s", color_struct,
 						   spec->type_name, color_reset);
 				}
@@ -892,7 +894,8 @@ static int print_graph_rstack(struct uftrace_data *handle, struct uftrace_task_r
 		fstack_exit(task);
 	}
 	else if (rstack->type == UFTRACE_LOST) {
-		int depth, losts;
+		int depth;
+		int losts;
 lost:
 		depth = task->display_depth + 1;
 		losts = (int)rstack->addr;
@@ -1013,7 +1016,8 @@ static bool skip_sys_exit(struct uftrace_opts *opts, struct uftrace_task_reader 
 
 static void print_remaining_stack(struct uftrace_opts *opts, struct uftrace_data *handle)
 {
-	int i, k;
+	int i;
+	int k;
 	int total = 0;
 	struct uftrace_session_link *sessions = &handle->sessions;
 

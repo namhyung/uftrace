@@ -67,7 +67,8 @@ int setup_perf_record(struct uftrace_perf_writer *perf, int nr_cpu, int pid, con
 		      int use_ctxsw)
 {
 	char filename[PATH_MAX];
-	int fd, cpu;
+	int fd;
+	int cpu;
 
 	perf->event_fd = xcalloc(nr_cpu, sizeof(*perf->event_fd));
 	perf->data_pos = xcalloc(nr_cpu, sizeof(*perf->data_pos));
@@ -169,7 +170,10 @@ void record_perf_data(struct uftrace_perf_writer *perf, int cpu, int sock)
 	unsigned char *data;
 	volatile uint64_t *ptr;
 	uint64_t mask;
-	uint64_t old, pos, start, end;
+	uint64_t old;
+	uint64_t pos;
+	uint64_t start;
+	uint64_t end;
 	unsigned long size;
 	unsigned char *buf;
 

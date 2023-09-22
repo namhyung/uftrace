@@ -113,11 +113,13 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname, char *s
 	char *fname = NULL;
 	char *line = NULL;
 	size_t sz = 0;
-	unsigned long sec, nsec;
+	unsigned long sec;
+	unsigned long nsec;
 	struct uftrace_msg_task tmsg;
 	struct uftrace_msg_sess smsg;
 	struct uftrace_msg_dlopen dlop;
-	char *exename, *pos;
+	char *exename;
+	char *pos;
 	int ret = -1;
 	int num;
 
@@ -410,7 +412,7 @@ ok:
 	if (fread(&handle->hdr, sizeof(handle->hdr), 1, fp) != 1)
 		pr_err("cannot read header data");
 
-	if (memcmp(handle->hdr.magic, UFTRACE_MAGIC_STR, UFTRACE_MAGIC_LEN))
+	if (memcmp(handle->hdr.magic, UFTRACE_MAGIC_STR, UFTRACE_MAGIC_LEN) != 0)
 		pr_err_ns("invalid magic string found!\n");
 
 	check_data_order(handle);

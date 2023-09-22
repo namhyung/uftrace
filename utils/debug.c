@@ -182,8 +182,7 @@ static const char *get_color(char code)
 		if (code == colors[i].code) {
 			if (format_mode == FORMAT_HTML)
 				return colors[i].html_color;
-			else
-				return colors[i].color;
+			return colors[i].color;
 		}
 	}
 	return TERM_COLOR_NORMAL;

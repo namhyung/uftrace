@@ -223,7 +223,8 @@ static const struct sigtable {
 
 static int parse_sigspec(char *spec, struct uftrace_filter_setting *setting)
 {
-	char *pos, *tmp;
+	char *pos;
+	char *tmp;
 	unsigned i;
 	int sig = -1;
 	int off = 0;
@@ -249,7 +250,7 @@ static int parse_sigspec(char *spec, struct uftrace_filter_setting *setting)
 
 	if (isdigit(spec[0]))
 		num_spec = true;
-	else if (strncmp(spec, "SIG", 3))
+	else if (strncmp(spec, "SIG", 3) != 0)
 		off = 3; /* skip "SIG" prefix */
 
 	for (i = 0; i < ARRAY_SIZE(sigtable); i++) {
@@ -722,8 +723,10 @@ static void segv_handler(int sig, siginfo_t *si, void *ctx)
 	pr_warn("=====================================\n");
 
 	while (rstack >= mtdp->rstack) {
-		struct uftrace_symbol *parent, *child;
-		char *pname, *cname;
+		struct uftrace_symbol *parent;
+		struct uftrace_symbol *child;
+		char *pname;
+		char *cname;
 
 		parent = find_symtabs(&mcount_sym_info, rstack->parent_ip);
 		pname = symbol_getname(parent, rstack->parent_ip);
@@ -1200,7 +1203,8 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp, struct mcount_re
 		}
 		else if (mtdp->nr_events) {
 			bool flush = false;
-			int i, k;
+			int i;
+			int k;
 
 			/*
 			 * Record rstacks if async event was recorded
@@ -1276,8 +1280,8 @@ bool within_same_module(unsigned long addr1, unsigned long addr2)
 	return find_map(&mcount_sym_info, addr1) == find_map(&mcount_sym_info, addr2);
 }
 
-void mcount_rstack_inject_return(struct mcount_thread_data *mtdp, unsigned long *frame_pointer,
-				 unsigned long addr)
+void mcount_rstack_inject_return(struct mcount_thread_data *mtdp,
+				 const unsigned long *frame_pointer, unsigned long addr)
 {
 	uint64_t estimated_ret_time = 0;
 
@@ -2008,7 +2012,8 @@ static bool triggers_needs_copy(int opt)
 /* Agent routine, applying instructions from the CLI. */
 void *agent_apply_commands(void *arg)
 {
-	int sfd, cfd; /* socket fd, connection fd */
+	int sfd; /* socket fd */
+	int cfd; /* connection fd */
 	bool close_connection;
 	struct uftrace_msg msg;
 	struct sockaddr_un addr;

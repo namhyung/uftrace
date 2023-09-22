@@ -50,9 +50,9 @@ enum script_type_t get_script_type(const char *str)
 	 */
 	if (!strcmp(ext, ".py"))
 		return SCRIPT_PYTHON;
-	else if (!strcmp(ext, ".lua"))
+	if (!strcmp(ext, ".lua"))
 		return SCRIPT_LUAJIT;
-	else if (!strcmp(ext, ".testing"))
+	if (!strcmp(ext, ".testing"))
 		return SCRIPT_TESTING;
 
 	return SCRIPT_UNKNOWN;
@@ -92,7 +92,8 @@ int script_match_filter(char *func)
 
 void script_finish_filter(void)
 {
-	struct script_filter_item *item, *tmp;
+	struct script_filter_item *item;
+	struct script_filter_item *tmp;
 
 	list_for_each_entry_safe(item, tmp, &filters, list) {
 		list_del(&item->list);

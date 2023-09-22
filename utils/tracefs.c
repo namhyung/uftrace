@@ -27,7 +27,7 @@ static bool find_tracing_dir(void)
 		xasprintf(&TRACING_DIR, "%s", TRACEFS_DIR_PATH);
 		return true;
 	}
-	else if (!statfs(OLD_TRACEFS_DIR_PATH, &fs) && fs.f_type == TRACEFS_MAGIC) {
+	if (!statfs(OLD_TRACEFS_DIR_PATH, &fs) && fs.f_type == TRACEFS_MAGIC) {
 		xasprintf(&TRACING_DIR, "%s", OLD_TRACEFS_DIR_PATH);
 		return true;
 	}

@@ -46,7 +46,8 @@ struct debug_entry {
 
 static int add_debug_entry(struct rb_root *root, char *func, uint64_t offset, char *argspec)
 {
-	struct debug_entry *entry, *iter;
+	struct debug_entry *entry;
+	struct debug_entry *iter;
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
 
@@ -678,7 +679,7 @@ static int get_param_class(Dwarf_Die *die, struct arg_data *ad, struct param_dat
 				pd->prev_class = PARAM_CLASS_NONE;
 				return PARAM_CLASS_FP;
 			}
-			else if (!strcmp(tname, "float") && pd->use_fpregs) {
+			if (!strcmp(tname, "float") && pd->use_fpregs) {
 				/* if it's already "int", don't change */
 				if (pd->prev_class != PARAM_CLASS_INT)
 					pd->prev_class = PARAM_CLASS_FP;
@@ -709,7 +710,9 @@ static void place_struct_members(Dwarf_Die *die, struct arg_data *ad, struct typ
 	Dwarf_Die child;
 	int param_class = PARAM_CLASS_NONE;
 	struct param_data pd;
-	int i, reg_cnt = 0, fp_cnt = 0;
+	int i;
+	int reg_cnt = 0;
+	int fp_cnt = 0;
 	const char *sname;
 	bool found_mem_class = false;
 	bool check_class_ptr_only = false;
@@ -1070,7 +1073,9 @@ static bool get_arg_location(Dwarf_Die *die, struct location_data *ld)
 		int (*get_location_list)(Dwarf_Attribute * loc, Dwarf_Off offset, Dwarf_Addr * base,
 					 Dwarf_Addr * start, Dwarf_Addr * end, Dwarf_Op * *ops,
 					 size_t * len);
-		Dwarf_Addr base, start, end;
+		Dwarf_Addr base;
+		Dwarf_Addr start;
+		Dwarf_Addr end;
 
 		get_location_list = dlsym(RTLD_DEFAULT, "dwarf_getlocations");
 		if (get_location_list == NULL)
@@ -1183,7 +1188,7 @@ static void add_location(char *spec, size_t len, Dwarf_Die *die, struct arg_data
 	case ARG_TYPE_REG:
 		reg = arch_register_dwarf_name(host_cpu_arch(), data.reg);
 
-		if (strcmp(reg, "invalid register")) {
+		if (strcmp(reg, "invalid register") != 0) {
 			snprintf(buf, sizeof(buf), "%%%s", reg);
 			strcat(spec, buf);
 
@@ -1313,7 +1318,9 @@ struct build_data {
 /* caller should free the return value */
 static char *find_last_component(char *name)
 {
-	char *tmp, *p, *last;
+	char *tmp;
+	char *p;
+	char *last;
 	int count = 0;
 
 	tmp = p = last = xstrdup(name);
@@ -1531,7 +1538,8 @@ struct comp_dir_entry {
 
 static int add_comp_dir(struct rb_root *root, char *name, int nr_locs)
 {
-	struct comp_dir_entry *entry, *iter;
+	struct comp_dir_entry *entry;
+	struct comp_dir_entry *iter;
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
 	int cmp;
@@ -1585,8 +1593,7 @@ static struct comp_dir_entry *get_max_comp_dir(struct comp_dir_entry *a, struct 
 {
 	if (a->nr_used > b->nr_used || (a->nr_used == b->nr_used && a->nr_locs > b->nr_locs))
 		return a;
-	else
-		return b;
+	return b;
 }
 
 static char *get_base_comp_dir(struct rb_root *dirs)

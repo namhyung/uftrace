@@ -172,7 +172,8 @@ struct uftrace_filter *uftrace_match_filter(uint64_t addr, struct rb_root *root,
 static void add_arg_spec(struct list_head *arg_list, struct uftrace_arg_spec *arg, bool exact_match)
 {
 	bool found = false;
-	struct uftrace_arg_spec *oarg, *narg;
+	struct uftrace_arg_spec *oarg;
+	struct uftrace_arg_spec *narg;
 
 	list_for_each_entry(oarg, arg_list, list) {
 		if (arg->type != oarg->type)
@@ -317,7 +318,8 @@ static int update_filter(struct rb_root *root, struct uftrace_filter *filter,
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &root->rb_node;
-	struct uftrace_filter *iter, *new;
+	struct uftrace_filter *iter;
+	struct uftrace_filter *new;
 	struct uftrace_filter *auto_arg = NULL;
 	struct uftrace_filter *auto_ret = NULL;
 	unsigned long orig_flags = tr->flags;
@@ -529,7 +531,7 @@ const char *get_filter_pattern(enum uftrace_pattern_type ptype)
 }
 
 /* argument_spec = arg1/i32,arg2/x64%reg,arg3%stack+1,... */
-static int parse_argument_spec(char *str, struct uftrace_trigger *tr,
+static int parse_argument_spec(const char *str, struct uftrace_trigger *tr,
 			       struct uftrace_filter_setting *setting)
 {
 	struct uftrace_arg_spec *arg;
@@ -549,7 +551,7 @@ static int parse_argument_spec(char *str, struct uftrace_trigger *tr,
 	return 0;
 }
 /* argument_spec = retval/i32 or retval/x64 ... */
-static int parse_retval_spec(char *str, struct uftrace_trigger *tr,
+static int parse_retval_spec(const char *str, struct uftrace_trigger *tr,
 			     struct uftrace_filter_setting *setting)
 {
 	struct uftrace_arg_spec *arg;
@@ -565,7 +567,7 @@ static int parse_retval_spec(char *str, struct uftrace_trigger *tr,
 }
 
 /* argument_spec = fparg1/32,fparg2/64%stack+1,... */
-static int parse_float_argument_spec(char *str, struct uftrace_trigger *tr,
+static int parse_float_argument_spec(const char *str, struct uftrace_trigger *tr,
 				     struct uftrace_filter_setting *setting)
 {
 	struct uftrace_arg_spec *arg;
@@ -585,7 +587,7 @@ static int parse_float_argument_spec(char *str, struct uftrace_trigger *tr,
 	return 0;
 }
 
-static int parse_depth_action(char *action, struct uftrace_trigger *tr,
+static int parse_depth_action(const char *action, struct uftrace_trigger *tr,
 			      struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_DEPTH;
@@ -598,7 +600,7 @@ static int parse_depth_action(char *action, struct uftrace_trigger *tr,
 	return 0;
 }
 
-static int parse_time_action(char *action, struct uftrace_trigger *tr,
+static int parse_time_action(const char *action, struct uftrace_trigger *tr,
 			     struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_TIME_FILTER;
@@ -606,7 +608,7 @@ static int parse_time_action(char *action, struct uftrace_trigger *tr,
 	return 0;
 }
 
-static int parse_size_action(char *action, struct uftrace_trigger *tr,
+static int parse_size_action(const char *action, struct uftrace_trigger *tr,
 			     struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_SIZE_FILTER;
@@ -614,7 +616,7 @@ static int parse_size_action(char *action, struct uftrace_trigger *tr,
 	return 0;
 }
 
-static int parse_read_action(char *action, struct uftrace_trigger *tr,
+static int parse_read_action(const char *action, struct uftrace_trigger *tr,
 			     struct uftrace_filter_setting *setting)
 {
 	const char *target = action + 5;
@@ -637,7 +639,7 @@ static int parse_read_action(char *action, struct uftrace_trigger *tr,
 	return 0;
 }
 
-static int parse_color_action(char *action, struct uftrace_trigger *tr,
+static int parse_color_action(const char *action, struct uftrace_trigger *tr,
 			      struct uftrace_filter_setting *setting)
 {
 	const char *color = action + 6;
@@ -667,7 +669,7 @@ static int parse_color_action(char *action, struct uftrace_trigger *tr,
 	return 0;
 }
 
-static int parse_trace_action(char *action, struct uftrace_trigger *tr,
+static int parse_trace_action(const char *action, struct uftrace_trigger *tr,
 			      struct uftrace_filter_setting *setting)
 {
 	action += 5;
@@ -686,28 +688,28 @@ static int parse_trace_action(char *action, struct uftrace_trigger *tr,
 	return 0;
 }
 
-static int parse_backtrace_action(char *action, struct uftrace_trigger *tr,
+static int parse_backtrace_action(const char *action, struct uftrace_trigger *tr,
 				  struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_BACKTRACE;
 	return 0;
 }
 
-static int parse_recover_action(char *action, struct uftrace_trigger *tr,
+static int parse_recover_action(const char *action, struct uftrace_trigger *tr,
 				struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_RECOVER;
 	return 0;
 }
 
-static int parse_finish_action(char *action, struct uftrace_trigger *tr,
+static int parse_finish_action(const char *action, struct uftrace_trigger *tr,
 			       struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_FINISH;
 	return 0;
 }
 
-static int parse_filter_action(char *action, struct uftrace_trigger *tr,
+static int parse_filter_action(const char *action, struct uftrace_trigger *tr,
 			       struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_FILTER;
@@ -715,7 +717,7 @@ static int parse_filter_action(char *action, struct uftrace_trigger *tr,
 	return 0;
 }
 
-static int parse_notrace_action(char *action, struct uftrace_trigger *tr,
+static int parse_notrace_action(const char *action, struct uftrace_trigger *tr,
 				struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_FILTER;
@@ -723,32 +725,32 @@ static int parse_notrace_action(char *action, struct uftrace_trigger *tr,
 	return 0;
 }
 
-static int parse_auto_args_action(char *action, struct uftrace_trigger *tr,
+static int parse_auto_args_action(const char *action, struct uftrace_trigger *tr,
 				  struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_ARGUMENT | TRIGGER_FL_RETVAL;
 	return 0;
 }
 
-static int parse_caller_action(char *action, struct uftrace_trigger *tr,
+static int parse_caller_action(const char *action, struct uftrace_trigger *tr,
 			       struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_CALLER;
 	return 0;
 }
 
-static int parse_hide_action(char *action, struct uftrace_trigger *tr,
+static int parse_hide_action(const char *action, struct uftrace_trigger *tr,
 			     struct uftrace_filter_setting *setting)
 {
 	tr->flags |= TRIGGER_FL_HIDE;
 	return 0;
 }
 
-static int parse_clear_action(char *action, struct uftrace_trigger *tr,
+static int parse_clear_action(const char *action, struct uftrace_trigger *tr,
 			      struct uftrace_filter_setting *setting)
 {
 	struct strv acts = STRV_INIT;
-	char *pos = NULL;
+	const char *pos = NULL;
 	int j;
 
 	tr->flags |= TRIGGER_FL_CLEAR;
@@ -804,7 +806,7 @@ static int parse_clear_action(char *action, struct uftrace_trigger *tr,
 
 struct trigger_action_parser {
 	const char *name;
-	int (*parse)(char *action, struct uftrace_trigger *tr,
+	int (*parse)(const char *action, struct uftrace_trigger *tr,
 		     struct uftrace_filter_setting *setting);
 	enum trigger_flag compat_flags; /* flags the action is restricted to */
 };
@@ -919,7 +921,7 @@ int setup_trigger_action(char *str, struct uftrace_trigger *tr, char **module,
 		for (i = 0; i < ARRAY_SIZE(actions); i++) {
 			const struct trigger_action_parser *action = &actions[i];
 
-			if (strncasecmp(pos, action->name, strlen(action->name)))
+			if (strncasecmp(pos, action->name, strlen(action->name)) != 0)
 				continue;
 
 			if (orig_flags && !(orig_flags & action->compat_flags))
@@ -1263,7 +1265,8 @@ void uftrace_setup_loc_filter(char *filter_str, struct uftrace_sym_info *sinfo,
 static struct uftrace_filter *deep_copy_filter(struct uftrace_filter *old)
 {
 	struct uftrace_filter *new;
-	struct uftrace_arg_spec *arg, *arg_copy;
+	struct uftrace_arg_spec *arg;
+	struct uftrace_arg_spec *arg_copy;
 
 	new = xmalloc(sizeof(*new));
 
@@ -1294,7 +1297,8 @@ static struct uftrace_filter *deep_copy_filter(struct uftrace_filter *old)
  */
 static void deep_copy_triggers(struct rb_node **dest, struct rb_node *src)
 {
-	struct uftrace_filter *old, *new;
+	struct uftrace_filter *old;
+	struct uftrace_filter *new;
 
 	if (!src) {
 		*dest = NULL;
@@ -1338,7 +1342,8 @@ void uftrace_cleanup_filter(struct rb_root *root)
 {
 	struct rb_node *node;
 	struct uftrace_filter *filter;
-	struct uftrace_arg_spec *arg, *tmp;
+	struct uftrace_arg_spec *arg;
+	struct uftrace_arg_spec *tmp;
 
 	while (!RB_EMPTY_ROOT(root)) {
 		node = rb_first(root);
@@ -1388,7 +1393,8 @@ void uftrace_print_filter(struct rb_root *root)
 char *uftrace_clear_kernel(char *filter_str)
 {
 	struct strv filters = STRV_INIT;
-	char *pos, *ret = NULL;
+	char *pos;
+	char *ret = NULL;
 	int j;
 
 	/* check filter string contains a kernel filter */
