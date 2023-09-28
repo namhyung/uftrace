@@ -98,6 +98,9 @@ unsigned long mcount_return_fn;
 /* do not hook return address and inject EXIT record between functions */
 bool mcount_estimate_return;
 
+/* only setup auto-args once */
+bool mcount_has_auto_args;
+
 /* agent thread */
 static pthread_t agent;
 
@@ -107,7 +110,8 @@ static volatile bool agent_run = false;
 #define MCOUNT_AGENT_CAPABILITIES                                                                  \
 	(UFTRACE_AGENT_OPT_TRACE | UFTRACE_AGENT_OPT_DEPTH | UFTRACE_AGENT_OPT_THRESHOLD |         \
 	 UFTRACE_AGENT_OPT_PATTERN | UFTRACE_AGENT_OPT_FILTER | UFTRACE_AGENT_OPT_CALLER |         \
-	 UFTRACE_AGENT_OPT_TRIGGER)
+	 UFTRACE_AGENT_OPT_TRIGGER | UFTRACE_AGENT_OPT_ARGS | UFTRACE_AGENT_OPT_RETVAL |           \
+	 UFTRACE_AGENT_OPT_AUTO_ARGS)
 
 __weak void dynamic_return(void)
 {
@@ -124,7 +128,6 @@ static void mcount_filter_init(struct uftrace_filter_setting *filter_setting, bo
 
 	/* use debug info if available */
 	prepare_debug_info(&mcount_sym_info, filter_setting->ptype, NULL, NULL, false, force);
-	save_debug_info(&mcount_sym_info, mcount_sym_info.dirname);
 }
 
 static void mcount_filter_finish(void)
@@ -396,11 +399,9 @@ static void mcount_filter_init(struct uftrace_filter_setting *filter_setting, bo
 		needs_debug_info = true;
 
 	/* use debug info if available */
-	if (needs_debug_info) {
+	if (needs_debug_info)
 		prepare_debug_info(&mcount_sym_info, filter_setting->ptype, argument_str,
 				   retval_str, !!autoargs_str, force);
-		save_debug_info(&mcount_sym_info, mcount_sym_info.dirname);
-	}
 
 	mcount_triggers = xmalloc(sizeof(*mcount_triggers));
 	memset(mcount_triggers, 0, sizeof(*mcount_triggers));
@@ -464,6 +465,7 @@ static void mcount_filter_finish(void)
 	free(mcount_triggers);
 	finish_auto_args();
 
+	save_debug_info(&mcount_sym_info, mcount_sym_info.dirname);
 	finish_debug_info(&mcount_sym_info);
 
 	mcount_signal_finish();
@@ -1835,13 +1837,76 @@ static void agent_setup_caller_filter(char *caller_str, struct uftrace_triggers_
 }
 
 /**
+ * agent_enable_auto_args - build known argument and return value specs for all symbols
+ * @setting - filter settings
+ */
+static void agent_enable_auto_args(struct uftrace_filter_setting *setting)
+{
+	if (mcount_has_auto_args)
+		return;
+
+	mcount_has_auto_args = true;
+	setup_auto_args(setting);
+	prepare_debug_info(&mcount_sym_info, setting->ptype, NULL, NULL, true, true);
+}
+
+/**
  * agent_setup_trigger - update the registered triggers from the agent
  * @trigger_str - trigger to add or remove
  * @triggers    - rbtree of tracing filters
  */
 static void agent_setup_trigger(char *trigger_str, struct uftrace_triggers_info *triggers)
 {
+	if (strstr(trigger_str, "arg") || strstr(trigger_str, "retval"))
+		agent_enable_auto_args(&mcount_filter_setting);
+
 	uftrace_setup_trigger(trigger_str, &mcount_sym_info, triggers, &mcount_filter_setting);
+}
+
+/**
+ * agent_setup_argument - update the registered argspec from the agent
+ * @args_str - argspec to apply
+ * @triggers - structure where the triggers are stored
+ */
+static void agent_setup_argument(char *args_str, struct uftrace_triggers_info *triggers)
+{
+	agent_enable_auto_args(&mcount_filter_setting);
+
+	uftrace_setup_argument(args_str, &mcount_sym_info, triggers, &mcount_filter_setting);
+}
+
+/**
+ * agent_setup_retval - update the registered retspec from the agent
+ * @retval_str - retspec to apply
+ * @triggers   - structure where the triggers are stored
+ */
+static void agent_setup_retval(char *retval_str, struct uftrace_triggers_info *triggers)
+{
+	agent_enable_auto_args(&mcount_filter_setting);
+
+	uftrace_setup_retval(retval_str, &mcount_sym_info, triggers, &mcount_filter_setting);
+}
+
+/**
+ * agent_setup_auto_args - collect arg and retval for all known functions
+ * @triggers - trigger rbtree
+ */
+static void agent_setup_auto_args(struct uftrace_triggers_info *triggers)
+{
+	char *autoarg = ".";
+	char *autoret = ".";
+
+	agent_enable_auto_args(&mcount_filter_setting);
+
+	if (mcount_filter_setting.auto_args)
+		return;
+
+	if (mcount_filter_setting.ptype == PATT_GLOB)
+		autoarg = autoret = "*";
+
+	uftrace_setup_argument(autoarg, &mcount_sym_info, triggers, &mcount_filter_setting);
+	uftrace_setup_retval(autoret, &mcount_sym_info, triggers, &mcount_filter_setting);
+	mcount_filter_setting.auto_args = true;
 }
 
 /**
@@ -1883,13 +1948,26 @@ error:
  * agent_fini - finalize the agent thread execution
  * @addr - client socket
  * @sfd - client socket file descriptor
+ * @argspec - arg spec applied by the agent
+ * @retspec - arg spec applied by the agent
+ * @auto_args - agent auto-args flag
  */
-static void agent_fini(struct sockaddr_un *addr, int sfd)
+static void agent_fini(struct sockaddr_un *addr, int sfd, char *argspec, char *retspec,
+		       bool auto_args)
 {
 	if (sfd != -1)
 		close(sfd);
 
 	socket_unlink(addr);
+
+	if (argspec)
+		uftrace_send_message(UFTRACE_MSG_ARGSPEC, argspec, strlen(argspec));
+	free(argspec);
+	if (retspec)
+		uftrace_send_message(UFTRACE_MSG_RETSPEC, retspec, strlen(retspec));
+	free(retspec);
+	if (auto_args)
+		uftrace_send_message(UFTRACE_MSG_AUTO_ARGS, NULL, 0);
 
 	pr_dbg("agent terminated\n");
 }
@@ -1988,6 +2066,21 @@ static int agent_apply_option(int opt, void *value, size_t size,
 		agent_setup_trigger(value, triggers);
 		break;
 
+	case UFTRACE_AGENT_OPT_ARGS:
+		pr_dbg3("apply argument '%s' (size=%d)\n", value, size);
+		agent_setup_argument(value, triggers);
+		break;
+
+	case UFTRACE_AGENT_OPT_RETVAL:
+		pr_dbg3("apply retval '%s' (size=%d)\n", value, size);
+		agent_setup_retval(value, triggers);
+		break;
+
+	case UFTRACE_AGENT_OPT_AUTO_ARGS:
+		pr_dbg3("apply auto args '%s' (size=%d)\n", value, size);
+		agent_setup_auto_args(triggers);
+		break;
+
 	default:
 		ret = -1;
 	}
@@ -1999,10 +2092,26 @@ static bool triggers_needs_copy(int opt)
 {
 	bool ret;
 #define MATCHING_OPTIONS                                                                           \
-	(UFTRACE_AGENT_OPT_FILTER | UFTRACE_AGENT_OPT_CALLER | UFTRACE_AGENT_OPT_TRIGGER)
+	(UFTRACE_AGENT_OPT_FILTER | UFTRACE_AGENT_OPT_CALLER | UFTRACE_AGENT_OPT_TRIGGER |         \
+	 UFTRACE_AGENT_OPT_ARGS | UFTRACE_AGENT_OPT_RETVAL | UFTRACE_AGENT_OPT_AUTO_ARGS)
 	ret = opt & MATCHING_OPTIONS;
 #undef MATCHING_OPTIONS
 	return ret;
+}
+
+void aggregate_arg_retval_spec(int opt, void *value, char **argspec, char **retspec)
+{
+	bool needs_aggregate;
+#define MATCHING_OPTIONS (UFTRACE_AGENT_OPT_ARGS | UFTRACE_AGENT_OPT_RETVAL)
+	needs_aggregate = opt & MATCHING_OPTIONS;
+#undef MATCHING_OPTIONS
+	if (!needs_aggregate)
+		return;
+
+	if (opt == UFTRACE_AGENT_OPT_ARGS)
+		*argspec = strjoin(*argspec, (char *)value, ";");
+	if (opt == UFTRACE_AGENT_OPT_RETVAL)
+		*retspec = strjoin(*retspec, (char *)value, ";");
 }
 
 /* Agent routine, applying instructions from the CLI. */
@@ -2015,6 +2124,8 @@ void *agent_apply_commands(void *arg)
 	void *value = NULL;
 	size_t size;
 	struct uftrace_triggers_info *triggers_copy = NULL;
+	char *argspec = NULL;
+	char *retspec = NULL;
 
 	/* initialize agent */
 	sfd = agent_init(&addr);
@@ -2073,6 +2184,7 @@ void *agent_apply_commands(void *arg)
 					*triggers_copy =
 						uftrace_deep_copy_triggers(mcount_triggers);
 				}
+				aggregate_arg_retval_spec(opt, value, &argspec, &retspec);
 				status = agent_apply_option(opt, value, size, triggers_copy);
 				if (status == 0)
 					agent_message_send(cfd, UFTRACE_MSG_AGENT_OK, NULL, 0);
@@ -2109,7 +2221,8 @@ void *agent_apply_commands(void *arg)
 	}
 
 	free(value);
-	agent_fini(&addr, sfd);
+	agent_fini(&addr, sfd, argspec, retspec, mcount_filter_setting.auto_args);
+
 	return 0;
 }
 

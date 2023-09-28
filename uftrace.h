@@ -409,6 +409,9 @@ enum uftrace_msg_type {
 	UFTRACE_MSG_LOST,
 	UFTRACE_MSG_DLOPEN,
 	UFTRACE_MSG_FINISH,
+	UFTRACE_MSG_ARGSPEC, /* argspec set by the agent */
+	UFTRACE_MSG_RETSPEC, /* retspec set by the agent */
+	UFTRACE_MSG_AUTO_ARGS, /* auto-args flag from the agent */
 
 	UFTRACE_MSG_SEND_START = 100,
 	UFTRACE_MSG_SEND_DIR_NAME,
@@ -466,6 +469,9 @@ enum uftrace_agent_opt {
 	UFTRACE_AGENT_OPT_FILTER = (1U << 4), /* tracing filters */
 	UFTRACE_AGENT_OPT_CALLER = (1U << 5), /* tracing caller filters */
 	UFTRACE_AGENT_OPT_TRIGGER = (1U << 6), /* tracing trigger actions */
+	UFTRACE_AGENT_OPT_ARGS = (1U << 7), /* argument spec */
+	UFTRACE_AGENT_OPT_RETVAL = (1U << 8), /* return value spec */
+	UFTRACE_AGENT_OPT_AUTO_ARGS = (1U << 9), /* use auto-args */
 };
 
 extern struct uftrace_session *first_session;
