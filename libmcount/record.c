@@ -311,6 +311,22 @@ static void update_mem_regions(struct mcount_mem_regions *regions)
 		unsigned long start, end;
 		bool is_stack = false;
 
+		/*
+		 * Please note that unnamed memory region sometimes makes segfault even if it has
+		 * read permission.  To avoid this crash, we better skip such regions by checking
+		 * its length in proc maps.  For both 32 and 64 bits, the location of binary names
+		 * or special regions such as [heap] is same so we can use the length for checking
+		 * unnamed regions.
+		 * https://github.com/namhyung/uftrace/issues/1477
+		 *
+		 * 64-bit
+		 * 7ffff6bba000-7ffff6bdf000 r--p 00000000 fd:00 10229310                   /lib/x86_64-linux-gnu/libc-2.31.so
+		 * 32-bit
+		 * f7db5000-f7dd2000 r--p 00000000 fd:00 10701229                           /lib/i386-linux-gnu/libc-2.31.so
+		 */
+		if (strlen(buf) < 74)
+			continue;
+
 		/* XXX: cannot use *scanf() due to crash (SSE alignment?) */
 		start = strtoul(p, &next, 16);
 		if (*next != '-')
