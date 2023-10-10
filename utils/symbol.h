@@ -162,6 +162,7 @@ struct uftrace_module *load_module_symtab(struct uftrace_sym_info *sinfo, const 
 					  char *build_id);
 void save_module_symtabs(const char *dirname);
 void unload_module_symtabs(void);
+void sort_dynsymtab(struct uftrace_symtab *dsymtab);
 
 enum uftrace_trace_type {
 	TRACE_ERROR = -1,

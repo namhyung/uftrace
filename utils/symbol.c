@@ -472,10 +472,11 @@ static int load_dyn_symbol(struct uftrace_symtab *dsymtab, int sym_idx, unsigned
 	return 1;
 }
 
-static void sort_dynsymtab(struct uftrace_symtab *dsymtab)
+void sort_dynsymtab(struct uftrace_symtab *dsymtab)
 {
 	unsigned i, k;
-
+	if (dsymtab->nr_sym == 0)
+		return;
 	dsymtab->nr_alloc = dsymtab->nr_sym;
 	dsymtab->sym = xrealloc(dsymtab->sym, dsymtab->nr_sym * sizeof(*dsymtab->sym));
 
@@ -643,24 +644,6 @@ out:
 	return ret;
 }
 
-static int load_dynsymtab(struct uftrace_symtab *dsymtab, const char *filename,
-			  unsigned long offset, unsigned long flags)
-{
-	int ret;
-	struct uftrace_elf_data elf;
-
-	if (elf_init(filename, &elf) < 0) {
-		pr_dbg("error during open symbol file: %s: %m\n", filename);
-		return -1;
-	}
-
-	pr_dbg3("loading dynamic symbols from %s (offset: %#lx)\n", filename, offset);
-	ret = load_elf_dynsymtab(dsymtab, &elf, offset, flags);
-
-	elf_finish(&elf);
-	return ret;
-}
-
 static void merge_symtabs(struct uftrace_symtab *left, struct uftrace_symtab *right)
 {
 	size_t nr_sym = left->nr_sym + right->nr_sym;
@@ -712,6 +695,26 @@ static void merge_symtabs(struct uftrace_symtab *left, struct uftrace_symtab *ri
 	qsort(left->sym_names, left->nr_sym, sizeof(*left->sym_names), namesort);
 
 	left->name_sorted = true;
+}
+
+static int load_dynsymtab(struct uftrace_symtab *dsymtab, const char *filename,
+			  unsigned long offset, unsigned long flags)
+{
+	struct uftrace_symtab dsymtab_noplt = {};
+	struct uftrace_elf_data elf;
+
+	if (elf_init(filename, &elf) < 0) {
+		pr_dbg("error during open symbol file: %s: %m\n", filename);
+		return -1;
+	}
+
+	pr_dbg3("loading dynamic symbols from %s (offset: %#lx)\n", filename, offset);
+	load_elf_dynsymtab(dsymtab, &elf, offset, flags);
+	arch_load_dynsymtab_noplt(&dsymtab_noplt, &elf, offset, flags);
+	merge_symtabs(dsymtab, &dsymtab_noplt);
+
+	elf_finish(&elf);
+	return dsymtab->nr_sym;
 }
 
 static int update_symtab_using_dynsym(struct uftrace_symtab *symtab, const char *filename,

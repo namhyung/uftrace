@@ -368,6 +368,8 @@ extern unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx);
 extern unsigned long plthook_resolver_addr;
 extern const struct plthook_skip_symbol plt_skip_syms[];
 extern size_t plt_skip_nr;
+extern const char *const noplt_skip_syms[];
+extern size_t noplt_skip_nr;
 
 struct uftrace_trigger;
 struct uftrace_arg_spec;

@@ -104,6 +104,17 @@ const struct plthook_skip_symbol plt_skip_syms[] = {
 };
 size_t plt_skip_nr = ARRAY_SIZE(plt_skip_syms);
 
+const char *const noplt_skip_syms[] = {
+	/* For GCC/CLANG */
+	"__stack_chk_fail",
+	"__monstartup",
+	"__cxa_atexit",
+	/* For Rust */
+	"__tls_get_addr",
+	"_Unwind_Resume",
+};
+size_t noplt_skip_nr = ARRAY_SIZE(noplt_skip_syms);
+
 #undef SKIP_SYM
 #undef ALIAS_DECL
 
@@ -191,7 +202,12 @@ static int find_got(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter,
 	bool plt_found = false;
 	unsigned long pltgot_addr = 0;
 	unsigned long plt_addr = 0;
+	unsigned long jmprel_addr = 0;
+	struct uftrace_elf_iter sec_iter;
+	size_t jmprel_nr = 0;
 	struct plthook_data *pd;
+	bool is_rela = true;
+	const char *fname;
 
 	elf_for_each_shdr(elf, iter) {
 		if (iter->shdr.sh_type == SHT_DYNAMIC)
@@ -204,9 +220,45 @@ static int find_got(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter,
 			pltgot_addr = (unsigned long)iter->dyn.d_un.d_val + offset;
 			break;
 		case DT_JMPREL:
-			plt_found = true;
+			/* Depends on compiler, noplt binary still has some few plt entry, so we need to traverse them. */
+			jmprel_addr = (unsigned long)iter->dyn.d_un.d_ptr + offset;
+			break;
+		case DT_PLTRELSZ:
+			jmprel_nr = (unsigned long)iter->dyn.d_un.d_val;
+			break;
+		case DT_PLTREL:
+			if (iter->dyn.d_un.d_val == DT_REL)
+				is_rela = false;
 			break;
 		default:
+			break;
+		}
+	}
+
+	elf_for_each_shdr(elf, &sec_iter) {
+		if (sec_iter.shdr.sh_type == SHT_DYNSYM) {
+			elf_get_strtab(elf, &sec_iter, sec_iter.shdr.sh_link);
+			elf_get_secdata(elf, &sec_iter);
+			break;
+		}
+	}
+
+	for (size_t i = 0; i < jmprel_nr; i += (is_rela ? sizeof(Elf64_Rela) : sizeof(Elf64_Rel))) {
+		bool found = false;
+		Elf64_Rela *rel = (void *)jmprel_addr + i;
+
+		elf_get_symbol(elf, &sec_iter, elf_rel_symbol(rel));
+		fname = elf_get_name(elf, &sec_iter, sec_iter.sym.st_name);
+		for (size_t k = 0; k < noplt_skip_nr; k++) {
+			if (!strcmp(fname, noplt_skip_syms[k]))
+				found = true;
+		}
+		for (size_t k = 0; k < plt_skip_nr; k++) {
+			if (!strcmp(fname, plt_skip_syms[k].name))
+				found = true;
+		}
+		if (!found) {
+			plt_found = true;
 			break;
 		}
 	}
