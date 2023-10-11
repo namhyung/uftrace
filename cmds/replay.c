@@ -739,7 +739,10 @@ static int print_graph_rstack(struct uftrace_data *handle, struct uftrace_task_r
 		goto out;
 
 	if (rstack->type == UFTRACE_ENTRY) {
-		if (symname[strlen(symname) - 1] != ')' || rstack->more)
+		int len = strlen(symname);
+
+		if (symname[len - 1] != ')' || rstack->more ||
+		    (len > 10 && !strcmp(symname + len - 10, "operator()")))
 			str_mode |= NEEDS_PAREN;
 	}
 
