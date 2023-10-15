@@ -399,6 +399,13 @@ static void setup_arg_data(struct arg_data *ad, const char *name, struct uftrace
 		ad->struct_arg_needs_ptr = true;
 		/* struct return will use 'x8' register */
 		break;
+	case UFT_CPU_RISCV64:
+		ad->reg_max = 8;
+		ad->fpreg_max = 8;
+		ad->struct_arg_needs_ptr = true;
+		ad->struct_return_needs_ptr = true;
+		ad->struct_uses_fpreg = true;
+		break;
 	default:
 		/* TODO */
 		ad->broken = true;
@@ -585,6 +592,10 @@ static void setup_param_data(struct param_data *data)
 		break;
 	case UFT_CPU_AARCH64:
 		data->max_struct_size = 16 * 8;
+		break;
+	case UFT_CPU_RISCV64:
+		data->max_struct_size = 16 * 8;
+		data->use_fpregs = true;
 		break;
 	default:
 		/* TODO */

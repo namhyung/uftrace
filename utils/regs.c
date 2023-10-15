@@ -131,8 +131,42 @@ static const struct uftrace_reg_table uft_i386_reg_table[] = {
 #undef X86_REG
 };
 
+static const struct uftrace_reg_table uft_riscv64_reg_table[] = {
+#define RISCV64_REG(_r)                                                                            \
+	{                                                                                          \
+#_r, UFT_RISCV64_REG_##_r                                                          \
+	}
+
+	/* integer registers */
+	RISCV64_REG(A0),
+	RISCV64_REG(A1),
+	RISCV64_REG(A2),
+	RISCV64_REG(A3),
+	RISCV64_REG(A4),
+	RISCV64_REG(A5),
+	RISCV64_REG(A6),
+	RISCV64_REG(A7),
+
+	/* floating-point registers */
+	RISCV64_REG(FA0),
+	RISCV64_REG(FA1),
+	RISCV64_REG(FA2),
+	RISCV64_REG(FA3),
+	RISCV64_REG(FA4),
+	RISCV64_REG(FA5),
+	RISCV64_REG(FA6),
+	RISCV64_REG(FA7),
+
+#undef RISCV64_REG
+};
+
 static const struct uftrace_reg_table *arch_reg_tables[] = {
-	NULL, uft_x86_64_reg_table, uft_arm_reg_table, uft_aarch64_reg_table, uft_i386_reg_table,
+	NULL,
+	uft_x86_64_reg_table,
+	uft_arm_reg_table,
+	uft_aarch64_reg_table,
+	uft_i386_reg_table,
+	uft_riscv64_reg_table,
 };
 
 static const size_t arch_reg_sizes[] = {
@@ -141,11 +175,12 @@ static const size_t arch_reg_sizes[] = {
 	ARRAY_SIZE(uft_arm_reg_table),
 	ARRAY_SIZE(uft_aarch64_reg_table),
 	ARRAY_SIZE(uft_i386_reg_table),
+	ARRAY_SIZE(uft_riscv64_reg_table),
 };
 
 /* number of integer registers */
 static const int arch_reg_int_sizes[] = {
-	0, 6, 4, 8, 2,
+	0, 6, 4, 8, 2, 8,
 };
 
 /* returns uftrace register number for the architecture */
@@ -412,12 +447,82 @@ static const struct uftrace_reg_table uft_aarch64_dwarf_table[] = {
 
 static const struct uftrace_reg_table uft_i386_dwarf_table[] = {};
 
+#define RISCV64_REG_FP_BASE 32
+static const struct uftrace_reg_table uft_riscv64_dwarf_table[] = {
+	/* support registers used for arguments */
+	{
+		"a0",
+		DW_OP_reg10,
+	},
+	{
+		"a1",
+		DW_OP_reg11,
+	},
+	{
+		"a2",
+		DW_OP_reg12,
+	},
+	{
+		"a3",
+		DW_OP_reg13,
+	},
+	{
+		"a4",
+		DW_OP_reg14,
+	},
+	{
+		"a5",
+		DW_OP_reg15,
+	},
+	{
+		"a6",
+		DW_OP_reg16,
+	},
+	{
+		"a7",
+		DW_OP_reg17,
+	},
+	{
+		"fa0",
+		RISCV64_REG_FP_BASE + 0,
+	},
+	{
+		"fa1",
+		RISCV64_REG_FP_BASE + 1,
+	},
+	{
+		"fa2",
+		RISCV64_REG_FP_BASE + 2,
+	},
+	{
+		"fa3",
+		RISCV64_REG_FP_BASE + 3,
+	},
+	{
+		"fa4",
+		RISCV64_REG_FP_BASE + 4,
+	},
+	{
+		"fa5",
+		RISCV64_REG_FP_BASE + 5,
+	},
+	{
+		"fa6",
+		RISCV64_REG_FP_BASE + 6,
+	},
+	{
+		"fa7",
+		RISCV64_REG_FP_BASE + 7,
+	},
+};
+
 static const struct uftrace_reg_table *arch_dwarf_tables[] = {
 	NULL,
 	uft_x86_64_dwarf_table,
 	uft_arm_dwarf_table,
 	uft_aarch64_dwarf_table,
 	uft_i386_dwarf_table,
+	uft_riscv64_dwarf_table,
 };
 
 static const size_t arch_dwarf_sizes[] = {
@@ -426,6 +531,7 @@ static const size_t arch_dwarf_sizes[] = {
 	ARRAY_SIZE(uft_arm_dwarf_table),
 	ARRAY_SIZE(uft_aarch64_dwarf_table),
 	ARRAY_SIZE(uft_i386_dwarf_table),
+	ARRAY_SIZE(uft_riscv64_dwarf_table),
 };
 
 const char *arch_register_dwarf_name(enum uftrace_cpu_arch arch, int dwarf_reg)

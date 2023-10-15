@@ -1589,7 +1589,7 @@ static void check_binary(struct uftrace_opts *opts)
 	static char altname[PATH_MAX]; // for opts->exename to be persistent
 	uint16_t e_type;
 	uint16_t e_machine;
-	uint16_t supported_machines[] = { EM_X86_64, EM_ARM, EM_AARCH64, EM_386 };
+	uint16_t supported_machines[] = { EM_X86_64, EM_ARM, EM_AARCH64, EM_386, EM_RISCV };
 
 again:
 	/* if it cannot be found in PATH, then fails inside */
