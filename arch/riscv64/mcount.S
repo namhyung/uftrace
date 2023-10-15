@@ -54,12 +54,13 @@ END(_mcount)
 
 ENTRY(mcount_return)
 	/* setup frame pointer & return address */
-	addi sp, sp, -32
-	sd ra, 24(sp)
-	sd fp, 16(sp)
-	addi fp, sp, 32
+	addi sp, sp, -48
+	sd ra, 40(sp)
+	sd fp, 32(sp)
+	addi fp, sp, 48
 
 	/* save return values */
+	fsd fa0, 16(sp)
 	sd a1, 8(sp)
 	sd a0, 0(sp)
 
@@ -74,12 +75,13 @@ ENTRY(mcount_return)
 	/* restore return values */
 	ld a0, 0(sp)
 	ld a1, 8(sp)
+	fld fa0, 16(sp)
 
 	/* restore frame pointer */
-	ld fp, 16(sp)
-	ld ra, 24(sp)
+	ld fp, 32(sp)
+	ld ra, 40(sp)
 
-	addi sp, sp, 32
+	addi sp, sp, 48
 
 	/* call return address */
 	jr t1
