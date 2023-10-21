@@ -14,6 +14,7 @@ CHECK_LIST += have_libdw
 CHECK_LIST += have_libunwind
 CHECK_LIST += have_libcapstone
 CHECK_LIST += cc_has_minline_all_stringops
+CHECK_LIST += have_membarrier
 
 #
 # This is needed for checking build dependency
