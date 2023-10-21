@@ -613,9 +613,9 @@ void __close_data_file(struct uftrace_opts *opts, struct uftrace_data *handle, b
 #ifdef UNIT_TEST
 #define TEST_SESSION_ID "test-session-id"
 #define TEST_EXIT_STATUS 37
-#define TEST_INFO_MASK ((1U << EXE_NAME) | (1U << EXIT_STATUS))
+#define TEST_INFO_MASK (EXE_NAME | EXIT_STATUS | TASKINFO)
 
-static int create_data(struct uftrace_opts *opts)
+static int create_test_data(struct uftrace_opts *opts)
 {
 	struct uftrace_msg_sess sess_msg = {
 		.task = { .time = 100, .pid = 10 },
@@ -636,6 +636,84 @@ static int create_data(struct uftrace_opts *opts)
 		.sid = TEST_SESSION_ID,
 		.base_addr = 0x123000,
 	};
+	struct uftrace_record parent_funcs[] = {
+		/* ignore symbols for now */
+		{
+			.time = 201,
+			.type = UFTRACE_ENTRY,
+			.magic = RECORD_MAGIC,
+			.depth = 0,
+		},
+		{
+			.time = 202,
+			.type = UFTRACE_ENTRY,
+			.magic = RECORD_MAGIC,
+			.depth = 1,
+		},
+		{
+			.time = 203,
+			.type = UFTRACE_ENTRY,
+			.magic = RECORD_MAGIC,
+			.depth = 2,
+		},
+		{
+			.time = 204,
+			.type = UFTRACE_ENTRY,
+			.magic = RECORD_MAGIC,
+			.depth = 3,
+		},
+		{
+			.time = 205,
+			.type = UFTRACE_EXIT,
+			.magic = RECORD_MAGIC,
+			.depth = 3,
+		},
+		{
+			.time = 206,
+			.type = UFTRACE_EXIT,
+			.magic = RECORD_MAGIC,
+			.depth = 2,
+		},
+		{
+			.time = 207,
+			.type = UFTRACE_EXIT,
+			.magic = RECORD_MAGIC,
+			.depth = 1,
+		},
+		{
+			.time = 208,
+			.type = UFTRACE_EXIT,
+			.magic = RECORD_MAGIC,
+			.depth = 0,
+		},
+	};
+	struct uftrace_record child_funcs[] = {
+		{
+			.time = 301,
+			.type = UFTRACE_ENTRY,
+			.magic = RECORD_MAGIC,
+			.depth = 0,
+		},
+		{
+			.time = 302,
+			.type = UFTRACE_ENTRY,
+			.magic = RECORD_MAGIC,
+			.depth = 1,
+		},
+		{
+			.time = 303,
+			.type = UFTRACE_EXIT,
+			.magic = RECORD_MAGIC,
+			.depth = 1,
+		},
+		{
+			.time = 304,
+			.type = UFTRACE_EXIT,
+			.magic = RECORD_MAGIC,
+			.depth = 0,
+		},
+	};
+
 	char *filename = NULL;
 	FILE *fp;
 
@@ -654,10 +732,15 @@ static int create_data(struct uftrace_opts *opts)
 	creat(filename, 0644);
 	free(filename);
 
-	/* open_data_file() requires at least one non-empty data file */
 	TEST_GE(asprintf(&filename, "%s/%d.dat", opts->dirname, task_msg.pid), 0);
 	fp = fopen(filename, "w");
-	fprintf(fp, "%s\n", "empty file");
+	fwrite(parent_funcs, sizeof(*parent_funcs), ARRAY_SIZE(parent_funcs), fp);
+	fclose(fp);
+	free(filename);
+
+	TEST_GE(asprintf(&filename, "%s/%d.dat", opts->dirname, fork_msg.tid), 0);
+	fp = fopen(filename, "w");
+	fwrite(child_funcs, sizeof(*child_funcs), ARRAY_SIZE(child_funcs), fp);
 	fclose(fp);
 	free(filename);
 
@@ -666,9 +749,54 @@ static int create_data(struct uftrace_opts *opts)
 	return 0;
 }
 
-static int remove_data(struct uftrace_opts *opts)
+static int remove_test_data(struct uftrace_opts *opts)
 {
 	return remove_directory(opts->dirname);
+}
+
+int prepare_test_data(struct uftrace_opts *opts, struct uftrace_data *handle)
+{
+	FILE *dev_null;
+
+	if (create_test_data(opts) < 0)
+		return -1;
+
+	dev_null = fopen("/dev/null", "w+");
+	if (dev_null == NULL) {
+		remove_test_data(opts);
+		return -1;
+	}
+
+	/* prevent any output message during the test */
+	outfp = dev_null;
+
+	open_data_file(opts, handle);
+	fstack_setup_filters(opts, handle);
+
+	if (handle->sessions.first == NULL) {
+		close_data_file(opts, handle);
+		remove_test_data(opts);
+		return -1;
+	}
+	handle->sessions.first->sym_info.kernel_base = -1ULL;
+
+	return 0;
+}
+
+int release_test_data(struct uftrace_opts *opts, struct uftrace_data *handle)
+{
+	FILE *dev_null = outfp;
+
+	close_data_file(opts, handle);
+
+	outfp = stdout;
+	fclose(dev_null);
+
+	if (remove_test_data(opts) < 0) {
+		pr_dbg("failed to remove data\n");
+		return -1;
+	}
+	return 0;
 }
 
 TEST_CASE(data_basic)
@@ -683,7 +811,7 @@ TEST_CASE(data_basic)
 	struct uftrace_task *t;
 
 	pr_dbg("create test data\n");
-	if (create_data(&opts) < 0)
+	if (create_test_data(&opts) < 0)
 		return TEST_SKIP;
 
 	open_data_file(&opts, &handle);
@@ -715,7 +843,7 @@ TEST_CASE(data_basic)
 	close_data_file(&opts, &handle);
 
 	pr_dbg("delete test data\n");
-	if (remove_data(&opts) < 0)
+	if (remove_test_data(&opts) < 0)
 		pr_dbg("failed to remove data\n");
 
 	return TEST_OK;

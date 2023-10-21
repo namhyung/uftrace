@@ -647,4 +647,8 @@ struct uftrace_event {
 	"</body>\n"                                                                                \
 	"</html>\n"
 
+/* for unit tests */
+int prepare_test_data(struct uftrace_opts *opts, struct uftrace_data *handle);
+int release_test_data(struct uftrace_opts *opts, struct uftrace_data *handle);
+
 #endif /* UFTRACE_H */
