@@ -1269,3 +1269,32 @@ out:
 
 	return 0;
 }
+
+#ifdef UNIT_TEST
+TEST_CASE(info_command)
+{
+	struct uftrace_opts opts = {
+		.dirname = "info-cmd-test",
+		.exename = read_exename(),
+		.max_stack = 10,
+		.depth = OPT_DEPTH_DEFAULT,
+	};
+	struct uftrace_data handle;
+
+	TEST_EQ(prepare_test_data(&opts, &handle), 0);
+
+	pr_dbg("process info section in the data\n");
+	process_uftrace_info(&handle, &opts, print_info, NULL);
+
+	if (handle.hdr.feat_mask & PERF_EVENT) {
+		if (setup_perf_data(&handle) == 0)
+			update_perf_task_comm(&handle);
+	}
+
+	pr_dbg("print task info in the data\n");
+	print_task_info(&handle);
+
+	release_test_data(&opts, &handle);
+	return TEST_OK;
+}
+#endif /* UNIT_TEST */

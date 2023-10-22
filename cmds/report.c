@@ -554,3 +554,54 @@ int command_report(int argc, char *argv[], struct uftrace_opts *opts)
 
 	return 0;
 }
+#ifdef UNIT_TEST
+TEST_CASE(report_command1)
+{
+	struct uftrace_opts opts = {
+		.dirname = "report-func-test",
+		.exename = read_exename(),
+		.max_stack = 10,
+		.depth = OPT_DEPTH_DEFAULT,
+	};
+	struct uftrace_data handle;
+	char *sort_keys;
+
+	TEST_EQ(prepare_test_data(&opts, &handle), 0);
+
+	pr_dbg("report setup sort key\n");
+	sort_keys = convert_sort_keys(opts.sort_keys, AVG_TOTAL);
+	TEST_EQ(report_setup_sort(sort_keys), 1);
+
+	pr_dbg("report functions\n");
+	report_functions(&handle, &opts);
+
+	release_test_data(&opts, &handle);
+	free(sort_keys);
+	return TEST_OK;
+}
+
+TEST_CASE(report_command2)
+{
+	struct uftrace_opts opts = {
+		.dirname = "report-task-test",
+		.exename = read_exename(),
+		.max_stack = 10,
+		.depth = OPT_DEPTH_DEFAULT,
+	};
+	struct uftrace_data handle;
+	char *sort_keys;
+
+	TEST_EQ(prepare_test_data(&opts, &handle), 0);
+
+	pr_dbg("report setup sort key\n");
+	sort_keys = convert_sort_keys("self", AVG_SELF);
+	TEST_EQ(report_setup_sort(sort_keys), 1);
+
+	pr_dbg("report task\n");
+	report_task(&handle, &opts);
+
+	release_test_data(&opts, &handle);
+	free(sort_keys);
+	return TEST_OK;
+}
+#endif /* UNIT_TEST */

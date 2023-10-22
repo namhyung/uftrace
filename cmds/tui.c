@@ -3068,6 +3068,41 @@ int command_tui(int argc, char *argv[], struct uftrace_opts *opts)
 	return 0;
 }
 
+#ifdef UNIT_TEST
+TEST_CASE(tui_command)
+{
+	struct uftrace_opts opts = {
+		.dirname = "tui-cmd-test",
+		.exename = read_exename(),
+		.max_stack = 10,
+		.depth = OPT_DEPTH_DEFAULT,
+	};
+	struct uftrace_data handle;
+	struct uftrace_task_reader *task;
+
+	TEST_EQ(prepare_test_data(&opts, &handle), 0);
+
+	pr_dbg("construct data structure for TUI\n");
+	tui_setup(&handle, &opts);
+
+	while (read_rstack(&handle, &task) == 0) {
+		struct uftrace_record *rec = task->rstack;
+
+		TEST_NE(fstack_check_opts(task, &opts), 0);
+		TEST_NE(fstack_check_filter(task), 0);
+		TEST_EQ(build_tui_node(task, rec, &opts), 0);
+
+		fstack_check_filter_done(task);
+	}
+	add_remaining_node(&opts, &handle);
+
+	tui_cleanup();
+
+	release_test_data(&opts, &handle);
+	return TEST_OK;
+}
+#endif /* UNIT_TEST */
+
 #else /* !HAVE_LIBNCURSES */
 
 #include "uftrace.h"

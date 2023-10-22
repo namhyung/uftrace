@@ -1180,3 +1180,77 @@ int command_replay(int argc, char *argv[], struct uftrace_opts *opts)
 
 	return ret;
 }
+
+#ifdef UNIT_TEST
+static const char *record_type_str(struct uftrace_record *rec)
+{
+	switch (rec->type) {
+	case UFTRACE_ENTRY:
+		return "ENTRY";
+	case UFTRACE_EXIT:
+		return "EXIT";
+	case UFTRACE_LOST:
+		return "LOST";
+	case UFTRACE_EVENT:
+		return "EVENT";
+	default:
+		break;
+	}
+	return "UNKNOWN";
+}
+
+TEST_CASE(replay_command)
+{
+	struct uftrace_opts opts = {
+		.dirname = "replay-graph-test",
+		.exename = read_exename(),
+		.max_stack = 10,
+		.depth = OPT_DEPTH_DEFAULT,
+	};
+	struct uftrace_data handle;
+	struct uftrace_task_reader *task;
+	uint64_t prev_time = 0;
+
+	TEST_EQ(prepare_test_data(&opts, &handle), 0);
+
+	setup_field(&output_fields, &opts, &setup_default_field, field_table,
+		    ARRAY_SIZE(field_table));
+	if (peek_rstack(&handle, &task) == 0)
+		print_header(&output_fields, "#", "FUNCTION", 1, false);
+	if (!list_empty(&output_fields))
+		pr_out("\n");
+
+	pr_dbg("replay test data in graph format\n");
+	while (read_rstack(&handle, &task) == 0) {
+		struct uftrace_record *rstack = task->rstack;
+		uint64_t curr_time = rstack->time;
+
+		if (!fstack_check_opts(task, &opts)) {
+			pr_dbg("task=%d time=%lu skip\n", task->tid, rstack->time);
+			continue;
+		}
+
+		pr_dbg("task=%d time=%lu depth=%d type=%s\n", task->tid, rstack->time,
+		       rstack->depth, record_type_str(rstack));
+
+		/*
+		 * data sanity check: timestamp should be ordered.
+		 * But print_graph_rstack() may change task->rstack
+		 * during fstack_skip().  So check the timestamp here.
+		 */
+		if (curr_time) {
+			if (prev_time > curr_time)
+				print_warning(task);
+			prev_time = rstack->time;
+		}
+
+		/* this will merge adjacent ENTRY and EXIT */
+		TEST_EQ(print_graph_rstack(&handle, task, &opts), 0);
+	}
+
+	print_remaining_stack(&opts, &handle);
+
+	release_test_data(&opts, &handle);
+	return TEST_OK;
+}
+#endif /* UNIT_TEST */

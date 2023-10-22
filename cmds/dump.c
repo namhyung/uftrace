@@ -1810,3 +1810,68 @@ int command_dump(int argc, char *argv[], struct uftrace_opts *opts)
 
 	return ret;
 }
+
+#ifdef UNIT_TEST
+TEST_CASE(dump_command1)
+{
+	struct uftrace_opts opts = {
+		.dirname = "dump-file-test",
+		.exename = read_exename(),
+		.max_stack = 10,
+		.depth = OPT_DEPTH_DEFAULT,
+	};
+	struct uftrace_data handle;
+	struct uftrace_raw_dump dump = {
+		.ops = {
+			.header         = dump_raw_header,
+			.task_start     = dump_raw_task_start,
+			.inverted_time  = dump_raw_inverted_time,
+			.task_rstack    = dump_raw_task_rstack,
+			.task_event     = dump_raw_task_event,
+			.kernel_start   = dump_raw_kernel_start,
+			.cpu_start      = dump_raw_cpu_start,
+			.kernel_func    = dump_raw_kernel_rstack,
+			.kernel_event   = dump_raw_kernel_event,
+			.lost           = dump_raw_kernel_lost,
+			.perf_start     = dump_raw_perf_start,
+			.perf_event     = dump_raw_perf_event,
+		},
+	};
+
+	TEST_EQ(prepare_test_data(&opts, &handle), 0);
+
+	pr_dbg("dump each file contents\n");
+	do_dump_file(&dump.ops, &opts, &handle);
+
+	release_test_data(&opts, &handle);
+	return TEST_OK;
+}
+
+TEST_CASE(dump_command2)
+{
+	struct uftrace_opts opts = {
+		.dirname = "dump-replay-test",
+		.exename = read_exename(),
+		.max_stack = 10,
+		.depth = OPT_DEPTH_DEFAULT,
+	};
+	struct uftrace_data handle;
+	struct uftrace_raw_dump dump = {
+		.ops = {
+			.header         = dump_chrome_header,
+			.task_rstack    = dump_chrome_task_rstack,
+			.kernel_func    = dump_chrome_kernel_rstack,
+			.perf_event     = dump_chrome_perf_event,
+			.footer         = dump_chrome_footer,
+		},
+	};
+
+	TEST_EQ(prepare_test_data(&opts, &handle), 0);
+
+	pr_dbg("dump contents in time order\n");
+	do_dump_replay(&dump.ops, &opts, &handle);
+
+	release_test_data(&opts, &handle);
+	return TEST_OK;
+}
+#endif /* UNIT_TEST */
