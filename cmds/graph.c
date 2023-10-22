@@ -1030,3 +1030,54 @@ out:
 
 	return 0;
 }
+
+#ifdef UNIT_TEST
+TEST_CASE(graph_command)
+{
+	struct uftrace_opts opts = {
+		.dirname = "graph-cmd-test",
+		.exename = read_exename(),
+		.max_stack = 10,
+		.depth = OPT_DEPTH_DEFAULT,
+	};
+	struct uftrace_data handle;
+	struct session_graph *graph;
+	struct graph_backtrace *bt, *btmp;
+	char *func;
+	int ret = 0;
+
+	func = "_start";
+	full_graph = true;
+
+	TEST_EQ(prepare_test_data(&opts, &handle), 0);
+
+	pr_dbg("construct full function graph\n");
+	build_graph(&opts, &handle, func);
+
+	graph = graph_list;
+	while (graph && !uftrace_done) {
+		pr_dbg("print graph for %s\n", graph->func);
+		ret += print_graph(graph, &opts);
+		graph = graph->next;
+	}
+	TEST_NE(ret, 0);
+
+	while (graph_list) {
+		graph = graph_list;
+		graph_list = graph->next;
+
+		pr_dbg("destroy graph for %s\n", graph->func);
+		free(graph->func);
+		list_for_each_entry_safe(bt, btmp, &graph->bt_list, list) {
+			list_del(&bt->list);
+			free(bt);
+		}
+		graph_destroy(&graph->ug);
+		free(graph);
+	}
+	graph_remove_task();
+
+	release_test_data(&opts, &handle);
+	return TEST_OK;
+}
+#endif /* UNIT_TEST */
