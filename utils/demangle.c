@@ -1693,6 +1693,12 @@ static int dd_encoding(struct demangle_data *dd)
 	return 0;
 }
 
+/* TODO: implement demangling of Rust v0 mangling */
+static char *demangle_rust_v0(char *str)
+{
+	return xstrdup(str);
+}
+
 static char *demangle_simple(char *str)
 {
 	struct demangle_data dd = {
@@ -1708,14 +1714,13 @@ static char *demangle_simple(char *str)
 		dd.len -= 15;
 	}
 
-	if (dd.old[0] != '_') {
-		if (dd.old[1] != 'Z' || dd.old[1] != 'R')
-			return xstrdup(str);
-	}
+	/* a mangled name should start with "_Z" */
+	if (dd.old[0] != '_' || dd.old[1] != 'Z') {
+		if (dd.old[0] == '_' && dd.old[1] == 'R')
+			return demangle_rust_v0(str);
 
-	// TODO: implement demangling Rust v0 mangling
-	if (dd.old[1] == 'R')
 		return xstrdup(str);
+	}
 
 	if (dd_encoding(&dd) < 0 || dd.level != 0) {
 		dd_debug_print(&dd);
