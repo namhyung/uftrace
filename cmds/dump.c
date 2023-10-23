@@ -5,13 +5,12 @@
 #include <sys/stat.h>
 #include <time.h>
 
-#include "libtraceevent/event-parse.h"
-#include "libtraceevent/kbuffer.h"
 #include "uftrace.h"
 #include "utils/event.h"
 #include "utils/filter.h"
 #include "utils/fstack.h"
 #include "utils/graph.h"
+#include "utils/kernel-parser.h"
 #include "utils/kernel.h"
 #include "utils/list.h"
 #include "utils/utils.h"
@@ -657,34 +656,36 @@ static void dump_raw_cpu_start(struct uftrace_dump_ops *ops, struct uftrace_kern
 			       int cpu)
 {
 	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
-	struct kbuffer *kbuf = kernel->kbufs[cpu];
 
 	pr_out("reading kernel-cpu%d.dat\n", cpu);
 
 	raw->file_offset = 0;
-	raw->kbuf_offset = kbuffer_curr_offset(kbuf);
+	raw->kbuf_offset = __kparser_curr_offset(&kernel->parser, cpu);
 }
+
+/* internal kernel tracing ring buffer format for extended timestamp */
+#define KERNEL_TRACING_TIME_EXTEND 30
 
 static void dump_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 				   struct uftrace_kernel_reader *kernel, int cpu,
 				   struct uftrace_record *frs, char *name)
 {
 	int tid = kernel->tids[cpu];
-	struct kbuffer *kbuf = kernel->kbufs[cpu];
+	struct uftrace_kernel_parser *kp = &kernel->parser;
 	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
 
 	/* check dummy 'time extend' record at the beginning */
 	if (raw->kbuf_offset == 0x18) {
 		uint64_t offset = 0x10;
 		uint64_t timestamp = 0;
-		void *data = kbuffer_read_at_offset(kbuf, offset, NULL);
+		void *data = __kparser_read_offset(kp, cpu, offset);
 		unsigned char *tmp = data - 12; /* data still returns next record */
 
-		if ((*tmp & 0x1f) == KBUFFER_TYPE_TIME_EXTEND) {
+		if ((*tmp & 0x1f) == KERNEL_TRACING_TIME_EXTEND) {
 			uint32_t upper, lower;
 			int size;
 
-			size = kbuffer_event_size(kbuf);
+			size = __kparser_event_size(kp, cpu);
 
 			memcpy(&lower, tmp, 4);
 			memcpy(&upper, tmp + 4, 4);
@@ -696,7 +697,7 @@ static void dump_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 
 			if (debug)
 				pr_hex(&offset, tmp, 8);
-			else if (kbuffer_next_event(kbuf, NULL))
+			else if (__kparser_next_event(kp, cpu))
 				raw->kbuf_offset += size + 4; // 4 = event header size
 			else
 				raw->kbuf_offset = 0;
@@ -709,14 +710,14 @@ static void dump_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 
 	if (debug) {
 		/* this is only needed for hex dump */
-		void *data = kbuffer_read_at_offset(kbuf, raw->kbuf_offset, NULL);
+		void *data = __kparser_read_offset(kp, cpu, raw->kbuf_offset);
 		int size;
 
-		size = kbuffer_event_size(kbuf);
-		raw->file_offset = kernel->offsets[cpu] + kbuffer_curr_offset(kbuf);
+		size = __kparser_event_size(kp, cpu);
+		raw->file_offset = __kparser_curr_offset(kp, cpu);
 		pr_hex(&raw->file_offset, data - 4, size + 4);
 
-		if (kbuffer_next_event(kbuf, NULL))
+		if (__kparser_next_event(kp, cpu))
 			raw->kbuf_offset += size + 4; // 4 = event header size
 		else
 			raw->kbuf_offset = 0;
@@ -728,32 +729,33 @@ static void dump_raw_kernel_event(struct uftrace_dump_ops *ops,
 				  struct uftrace_record *frs)
 {
 	struct uftrace_raw_dump *raw = container_of(ops, typeof(*raw), ops);
-	struct event_format *event;
+	struct uftrace_kernel_parser *kp = &kernel->parser;
 	int tid = kernel->tids[cpu];
+	void *event;
 	char *event_data;
+	char buf[512];
 	int size = 0;
 
-	event = pevent_find_event(kernel->pevent, frs->addr);
+	event = kparser_find_event(kp, frs->addr);
 	if (!event)
 		return;
 
+	kparser_event_name(kp, event, buf, sizeof(buf));
 	event_data = read_kernel_event(kernel, cpu, &size);
 
 	pr_time(frs->time);
-	pr_out("%5d: [%s] %s:%s(%ld) %.*s\n", tid, rstack_type(frs), event->system, event->name,
-	       frs->addr, size, event_data);
+	pr_out("%5d: [%s] %s(%ld) %.*s\n", tid, rstack_type(frs), buf, frs->addr, size, event_data);
 
 	if (debug) {
 		/* this is only needed for hex dump */
-		struct kbuffer *kbuf = kernel->kbufs[cpu];
-		void *data = kbuffer_read_at_offset(kbuf, raw->kbuf_offset, NULL);
+		void *data = __kparser_read_offset(kp, cpu, raw->kbuf_offset);
 		int size;
 
-		size = kbuffer_event_size(kbuf);
-		raw->file_offset = kernel->offsets[cpu] + kbuffer_curr_offset(kbuf);
+		size = __kparser_event_size(kp, cpu);
+		raw->file_offset = __kparser_curr_offset(kp, cpu);
 		pr_hex(&raw->file_offset, data - 4, size + 4);
 
-		if (kbuffer_next_event(kbuf, NULL))
+		if (__kparser_next_event(kp, cpu))
 			raw->kbuf_offset += size + 4; // 4 = event header size
 		else
 			raw->kbuf_offset = 0;
@@ -1449,25 +1451,22 @@ static void do_dump_file(struct uftrace_dump_ops *ops, struct uftrace_opts *opts
 		struct uftrace_kernel_reader *kernel = handle->kernel;
 		struct uftrace_record *frs = &kernel->rstacks[i];
 		struct uftrace_session *fsess = handle->sessions.first;
-		struct stat statbuf;
 
-		if (fstat(kernel->fds[i], &statbuf) < 0)
-			continue;
-		if (statbuf.st_size == 0)
+		if (kparser_data_size(&kernel->parser, i) == 0)
 			continue;
 
 		call_if_nonull(ops->cpu_start, ops, kernel, i);
 
 		while (!read_kernel_cpu_data(kernel, i) && !uftrace_done) {
 			int tid = kernel->tids[i];
-			int losts = kernel->missed_events[i];
+			int losts = kparser_missed_events(&kernel->parser, i);
 			struct uftrace_symbol *sym = NULL;
 			char *name;
 			uint64_t addr;
 
 			if (losts) {
 				call_if_nonull(ops->lost, ops, frs->time, tid, losts);
-				kernel->missed_events[i] = 0;
+				kparser_clear_missed(&kernel->parser, i);
 			}
 
 			if (!check_time_range(&handle->time_range, frs->time))

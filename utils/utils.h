@@ -302,6 +302,14 @@ static inline bool host_is_lp64(void)
 	return get_elf_class() == ELFCLASS64;
 }
 
+static inline const char *get_endian_str(void)
+{
+	if (get_elf_endian() == ELFDATA2LSB)
+		return "LE";
+	else
+		return "BE";
+}
+
 static inline char *has_kernel_opt(char *buf)
 {
 	int idx = 0;

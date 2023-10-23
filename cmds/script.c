@@ -19,8 +19,6 @@
 #include "utils/utils.h"
 #include "version.h"
 
-#include "libtraceevent/event-parse.h"
-
 static int run_script_for_rstack(struct uftrace_data *handle, struct uftrace_task_reader *task,
 				 struct uftrace_opts *opts)
 {
