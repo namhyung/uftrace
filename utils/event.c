@@ -127,8 +127,11 @@ char *event_get_name(struct uftrace_data *handle, unsigned evt_id)
 
 	/* kernel events */
 	if (has_kernel_data(handle->kernel)) {
-		event = pevent_find_event(handle->kernel->pevent, evt_id);
-		xasprintf(&evt_name, "%s:%s", event->system, event->name);
+		char buf[512];
+
+		event = kparser_find_event(&handle->kernel->parser, evt_id);
+		kparser_event_name(&handle->kernel->parser, event, buf, sizeof(buf));
+		evt_name = xstrdup(buf);
 	}
 
 out:

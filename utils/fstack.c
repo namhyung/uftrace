@@ -2039,7 +2039,7 @@ static int find_rstack_cpu(struct uftrace_kernel_reader *kernel, struct uftrace_
 
 	if (rstack->type == UFTRACE_LOST) {
 		for (cpu = 0; cpu < kernel->nr_cpus; cpu++) {
-			if (rstack->addr == (unsigned)kernel->missed_events[cpu] &&
+			if (rstack->addr == (unsigned)kparser_missed_events(&kernel->parser, cpu) &&
 			    rstack->depth == kernel->rstacks[cpu].depth)
 				break;
 		}
@@ -2108,7 +2108,7 @@ static void __fstack_consume(struct uftrace_task_reader *task, struct uftrace_ke
 			consume_first_rstack_list(&task->event_list);
 	}
 	else if (rstack->type == UFTRACE_LOST) {
-		kernel->missed_events[cpu] = 0;
+		kparser_clear_missed(&kernel->parser, cpu);
 	}
 	else if (is_extern_record(task, rstack)) {
 		struct uftrace_extern_reader *extn;

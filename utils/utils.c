@@ -13,7 +13,6 @@
 #include <libunwind.h>
 #endif
 
-#include "libtraceevent/event-parse.h"
 #include "uftrace.h"
 #include "utils/kernel.h"
 #include "utils/utils.h"
