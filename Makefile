@@ -99,7 +99,7 @@ SYMBOLS_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_symbols)
 DBGINFO_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_dbginfo)
 BENCH_LDFLAGS      = -Wl,-z,noexecstack $(LDFLAGS_$@) $(LDFLAGS_bench)
 LIB_LDFLAGS        = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_lib) -Wl,--no-undefined
-TEST_LDFLAGS       = $(COMMON_LDFLAGS) -L$(objdir)/libtraceevent -ltraceevent
+TEST_LDFLAGS       = $(COMMON_LDFLAGS)
 
 ifeq ($(DEBUG), 1)
   COMMON_CFLAGS += -O0 -g3 -DDEBUG_MODE=1 -Werror
@@ -240,7 +240,6 @@ LIBMCOUNT_DEPS := $(COMMON_DEPS) $(srcdir)/libmcount/internal.h
 CFLAGS_$(objdir)/mcount.op = -pthread
 CFLAGS_$(objdir)/cmds/record.o = -DINSTALL_LIB_PATH='"$(libdir)"'
 CFLAGS_$(objdir)/cmds/live.o = -DINSTALL_LIB_PATH='"$(libdir)"'
-LDFLAGS_$(objdir)/uftrace = -L$(objdir)/libtraceevent -ltraceevent -ldl
 
 LIBMCOUNT_FAST_CFLAGS := -DDISABLE_MCOUNT_FILTER
 LIBMCOUNT_SINGLE_CFLAGS := -DSINGLE_THREAD

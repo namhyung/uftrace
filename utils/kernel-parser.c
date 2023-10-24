@@ -1,3 +1,4 @@
+#ifdef HAVE_LIBTRACEEVENT
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
@@ -20,8 +21,8 @@ int kparser_init(struct uftrace_kernel_parser *kp)
 {
 	memset(kp, 0, sizeof(*kp));
 
-	kp->pevent = pevent_alloc();
-	if (kp->pevent == NULL)
+	kp->tep = tep_alloc();
+	if (kp->tep == NULL)
 		return -1;
 
 	trace_seq_init(&kp->seqbuf);
@@ -30,7 +31,7 @@ int kparser_init(struct uftrace_kernel_parser *kp)
 
 int kparser_exit(struct uftrace_kernel_parser *kp)
 {
-	pevent_free(kp->pevent);
+	tep_free(kp->tep);
 	trace_seq_destroy(&kp->seqbuf);
 	memset(kp, 0, sizeof(*kp));
 
@@ -39,12 +40,12 @@ int kparser_exit(struct uftrace_kernel_parser *kp)
 
 bool kparser_ready(struct uftrace_kernel_parser *kp)
 {
-	return kp->pevent != NULL;
+	return kp->tep != NULL;
 }
 
 int kparser_strerror(struct uftrace_kernel_parser *kp, int err, char *buf, int len)
 {
-	return pevent_strerror(kp->pevent, err, buf, len);
+	return tep_strerror(kp->tep, err, buf, len);
 }
 
 void kparser_set_info(struct uftrace_kernel_parser *kp, int page_size, int long_size,
@@ -54,22 +55,22 @@ void kparser_set_info(struct uftrace_kernel_parser *kp, int page_size, int long_
 
 	kp->pagesize = page_size;
 
-	pevent_set_page_size(kp->pevent, page_size);
-	pevent_set_long_size(kp->pevent, long_size);
-	pevent_set_file_bigendian(kp->pevent, is_big_endian);
-	pevent_set_host_bigendian(kp->pevent, is_host_bigendian);
+	tep_set_page_size(kp->tep, page_size);
+	tep_set_long_size(kp->tep, long_size);
+	tep_set_file_bigendian(kp->tep, is_big_endian);
+	tep_set_local_bigendian(kp->tep, is_host_bigendian);
 }
 
 int kparser_read_header(struct uftrace_kernel_parser *kp, char *buf, int len)
 {
-	int long_size = pevent_get_long_size(kp->pevent);
+	int long_size = tep_get_long_size(kp->tep);
 
-	return pevent_parse_header_page(kp->pevent, buf, len, long_size);
+	return tep_parse_header_page(kp->tep, buf, len, long_size);
 }
 
 int kparser_read_event(struct uftrace_kernel_parser *kp, const char *sys, char *buf, int len)
 {
-	return pevent_parse_event(kp->pevent, buf, len, sys);
+	return tep_parse_event(kp->tep, buf, len, sys);
 }
 
 int kparser_prepare_buffers(struct uftrace_kernel_parser *kp, int nr_cpus)
@@ -118,9 +119,9 @@ int kparser_prepare_cpu(struct uftrace_kernel_parser *kp, const char *filename, 
 	enum kbuffer_endian endian = KBUFFER_ENDIAN_LITTLE;
 	enum kbuffer_long_size longsize = KBUFFER_LSIZE_8;
 
-	if (pevent_is_file_bigendian(kp->pevent))
+	if (tep_is_file_bigendian(kp->tep))
 		endian = KBUFFER_ENDIAN_BIG;
-	if (pevent_get_long_size(kp->pevent) == 4)
+	if (tep_get_long_size(kp->tep) == 4)
 		longsize = KBUFFER_LSIZE_4;
 
 	kp->fds[cpu] = open(filename, O_RDONLY);
@@ -136,7 +137,7 @@ int kparser_prepare_cpu(struct uftrace_kernel_parser *kp, const char *filename, 
 	if (kp->kbufs[cpu] == NULL)
 		return -1;
 
-	if (kp->pevent->old_format)
+	if (tep_is_old_format(kp->tep))
 		kbuffer_set_old_format(kp->kbufs[cpu]);
 
 	if (!kp->sizes[cpu])
@@ -159,17 +160,17 @@ int kparser_release_cpu(struct uftrace_kernel_parser *kp, int cpu)
 }
 
 /* kernel trace event handlers */
-static int funcgraph_entry_handler(struct trace_seq *s, struct pevent_record *record,
-				   struct event_format *event, void *context)
+static int funcgraph_entry_handler(struct trace_seq *s, struct tep_record *record,
+				   struct tep_event *event, void *context)
 {
 	struct uftrace_kernel_parser *kp = context;
 	unsigned long long depth;
 	unsigned long long addr;
 
-	if (pevent_get_any_field_val(s, event, "depth", record, &depth, 1))
+	if (tep_get_any_field_val(s, event, "depth", record, &depth, 1))
 		return -1;
 
-	if (pevent_get_any_field_val(s, event, "func", record, &addr, 1))
+	if (tep_get_any_field_val(s, event, "func", record, &addr, 1))
 		return -1;
 
 	kp->rec.type = UFTRACE_ENTRY;
@@ -181,17 +182,17 @@ static int funcgraph_entry_handler(struct trace_seq *s, struct pevent_record *re
 	return 0;
 }
 
-static int funcgraph_exit_handler(struct trace_seq *s, struct pevent_record *record,
-				  struct event_format *event, void *context)
+static int funcgraph_exit_handler(struct trace_seq *s, struct tep_record *record,
+				  struct tep_event *event, void *context)
 {
 	struct uftrace_kernel_parser *kp = context;
 	unsigned long long depth;
 	unsigned long long addr;
 
-	if (pevent_get_any_field_val(s, event, "depth", record, &depth, 1))
+	if (tep_get_any_field_val(s, event, "depth", record, &depth, 1))
 		return -1;
 
-	if (pevent_get_any_field_val(s, event, "func", record, &addr, 1))
+	if (tep_get_any_field_val(s, event, "func", record, &addr, 1))
 		return -1;
 
 	kp->rec.type = UFTRACE_EXIT;
@@ -203,8 +204,8 @@ static int funcgraph_exit_handler(struct trace_seq *s, struct pevent_record *rec
 	return 0;
 }
 
-static int generic_event_handler(struct trace_seq *s, struct pevent_record *record,
-				 struct event_format *event, void *context)
+static int generic_event_handler(struct trace_seq *s, struct tep_record *record,
+				 struct tep_event *event, void *context)
 {
 	struct uftrace_kernel_parser *kp = context;
 
@@ -222,15 +223,14 @@ void kparser_register_handler(struct uftrace_kernel_parser *kp, const char *sys,
 {
 	if (!strcmp(sys, "ftrace")) {
 		if (!strcmp(event, "funcgraph_entry"))
-			pevent_register_event_handler(kp->pevent, -1, sys, event,
-						      funcgraph_entry_handler, kp);
+			tep_register_event_handler(kp->tep, -1, sys, event, funcgraph_entry_handler,
+						   kp);
 		else if (!strcmp(event, "funcgraph_exit"))
-			pevent_register_event_handler(kp->pevent, -1, sys, event,
-						      funcgraph_exit_handler, kp);
+			tep_register_event_handler(kp->tep, -1, sys, event, funcgraph_exit_handler,
+						   kp);
 	}
 	else
-		pevent_register_event_handler(kp->pevent, -1, sys, event, generic_event_handler,
-					      kp);
+		tep_register_event_handler(kp->tep, -1, sys, event, generic_event_handler, kp);
 }
 
 static int kparser_next_page(struct uftrace_kernel_parser *kp, int cpu)
@@ -253,8 +253,8 @@ int kparser_read_data(struct uftrace_kernel_parser *kp, struct uftrace_data *han
 	void *data;
 	int type, tid;
 	unsigned long long timestamp;
-	struct pevent_record record;
-	struct event_format *event;
+	struct tep_record record;
+	struct tep_event *event;
 	struct kbuffer *kbuf = kp->kbufs[cpu];
 
 	data = kbuffer_read_event(kbuf, &timestamp);
@@ -276,11 +276,11 @@ int kparser_read_data(struct uftrace_kernel_parser *kp, struct uftrace_data *han
 	//	record.ref_count = 1;
 	//	record.locked = 1;
 
-	type = pevent_data_type(kp->pevent, &record);
+	type = tep_data_type(kp->tep, &record);
 	if (type == 0)
 		return -1; // padding
 
-	event = pevent_find_event(kp->pevent, type);
+	event = tep_find_event(kp->tep, type);
 	if (event == NULL) {
 		pr_dbg("cannot find event for type: %d\n", type);
 		return -1;
@@ -288,9 +288,9 @@ int kparser_read_data(struct uftrace_kernel_parser *kp, struct uftrace_data *han
 
 	trace_seq_reset(&kp->seqbuf);
 	/* this will call event handlers */
-	pevent_event_info(&kp->seqbuf, event, &record);
+	tep_print_event(kp->tep, &kp->seqbuf, &record, "%s", TEP_PRINT_INFO);
 
-	tid = pevent_data_pid(kp->pevent, &record);
+	tid = tep_data_pid(kp->tep, &record);
 
 	/*
 	 * some event might be saved for unrelated task.  In this case
@@ -300,11 +300,11 @@ int kparser_read_data(struct uftrace_kernel_parser *kp, struct uftrace_data *han
 		unsigned long long try_tid;
 
 		/* for sched_switch event */
-		if (pevent_get_field_val(NULL, event, "next_pid", &record, &try_tid, 0) == 0 &&
+		if (tep_get_field_val(NULL, event, "next_pid", &record, &try_tid, 0) == 0 &&
 		    get_task_handle(handle, try_tid) != NULL)
 			tid = try_tid;
 		/* for sched_wakeup event (or others) */
-		else if (pevent_get_field_val(NULL, event, "pid", &record, &try_tid, 0) == 0 &&
+		else if (tep_get_field_val(NULL, event, "pid", &record, &try_tid, 0) == 0 &&
 			 get_task_handle(handle, try_tid) != NULL)
 			tid = try_tid;
 	}
@@ -343,12 +343,12 @@ void kparser_clear_missed(struct uftrace_kernel_parser *kp, int cpu)
 
 void *kparser_find_event(struct uftrace_kernel_parser *kp, int evt_id)
 {
-	return pevent_find_event(kp->pevent, evt_id);
+	return tep_find_event(kp->tep, evt_id);
 }
 
 char *kparser_event_name(struct uftrace_kernel_parser *kp, void *evt, char *buf, int len)
 {
-	struct event_format *event = evt;
+	struct tep_event *event = evt;
 
 	snprintf(buf, len, "%s:%s", event->system, event->name);
 	buf[len - 1] = '\0';
@@ -374,3 +374,4 @@ int __kparser_event_size(struct uftrace_kernel_parser *kp, int cpu)
 {
 	return kbuffer_event_size(kp->kbufs[cpu]);
 }
+#endif /* HAVE_LIBTRACEEVENT */
