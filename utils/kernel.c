@@ -1481,6 +1481,7 @@ struct uftrace_record *get_kernel_record(struct uftrace_kernel_reader *kernel,
 	return &lost_record;
 }
 
+#ifdef HAVE_LIBTRACEEVENT
 #ifdef UNIT_TEST
 
 #define NUM_CPU 2
@@ -1930,3 +1931,4 @@ TEST_CASE(kernel_event_read)
 }
 
 #endif /* UNIT_TEST */
+#endif /* HAVE_LIBTRACEEVENT */
