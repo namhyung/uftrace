@@ -6,12 +6,14 @@ install_packages() {
             apt-get install $OPT pandoc libdw-dev python3-dev libncursesw5-dev pkg-config
             apt-get install $OPT libluajit-5.1-dev || true
             apt-get install $OPT libcapstone-dev || true
+            apt-get install $OPT libtraceevent-dev || true
             exit
             ;;
         "fedora")
             dnf install $OPT pandoc elfutils-devel python3-devel ncurses-devel pkgconf-pkg-config
             dnf install $OPT luajit-devel || true
             dnf install $OPT capstone-devel || true
+            dnf install $OPT libtraceevent-devel || true
             exit
             ;;
         "rhel" | "centos")
@@ -19,18 +21,21 @@ install_packages() {
             yum install $OPT pandoc elfutils-devel python3-devel ncurses-devel pkgconfig
             yum install $OPT luajit-devel || true
             yum install $OPT capstone-devel || true
+            dnf install $OPT libtraceevent-devel || true
             exit
             ;;
         "arch" | "manjaro")
             pacman $OPT -S pandoc libelf python3 ncurses pkgconf
             pacman $OPT -S luajit || true
             pacman $OPT -S capstone || true
+            pacman $OPT -S libtraceevent || true
             exit
             ;;
         "alpine")
             apk add $OPT elfutils-dev python3-dev ncurses-dev pkgconf
             apk add $OPT luajit-dev || true
             apk add $OPT capstone-dev || true
+            apk add $OPT libtraceevent-dev || true
             exit
             ;;
     esac
