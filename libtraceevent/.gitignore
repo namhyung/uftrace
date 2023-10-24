@@ -3,3 +3,4 @@ libtraceevent.a
 *.so
 .*.cmd
 .*.d
+.*.d.*

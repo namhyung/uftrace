@@ -2259,6 +2259,12 @@ static __used void mcount_startup(void)
 		char *channel = NULL;
 
 		xasprintf(&channel, "%s/%s", dirname, ".channel");
+		/* try fallback fifo under tmpfs */
+		if (access(channel, F_OK) != 0) {
+			free(channel);
+			xasprintf(&channel, "/tmp/%s%s", dirname, ".channel");
+		}
+
 		pfd = open(channel, O_WRONLY);
 		free(channel);
 	}
