@@ -1,5 +1,0 @@
-TRACEEVENT-CFLAGS
-libtraceevent.a
-*.so
-.*.cmd
-.*.d
