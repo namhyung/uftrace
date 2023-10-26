@@ -1539,11 +1539,11 @@ static int __cygprof_entry(unsigned long parent, unsigned long child)
 
 	if (filtered == FILTER_IN) {
 		rstack->start_time = mcount_gettime();
-		rstack->flags = 0;
+		rstack->flags = MCOUNT_FL_CYGPROF;
 	}
 	else {
 		rstack->start_time = 0;
-		rstack->flags = MCOUNT_FL_NORECORD;
+		rstack->flags = MCOUNT_FL_CYGPROF | MCOUNT_FL_NORECORD;
 	}
 
 	mcount_entry_filter_record(mtdp, rstack, &tr, NULL);
@@ -1558,6 +1558,11 @@ static int cygprof_entry(unsigned long parent, unsigned long child)
 
 	errno = saved_errno;
 	return ret;
+}
+
+static void warn_unpaired_cygprof(void)
+{
+	pr_warn("unpaired cygprof exit: dropping...\n");
 }
 
 static void __cygprof_exit(unsigned long parent, unsigned long child)
@@ -1581,6 +1586,15 @@ static void __cygprof_exit(unsigned long parent, unsigned long child)
 		goto out;
 
 	rstack = &mtdp->rstack[mtdp->idx - 1];
+
+	/* discard unpaired cygprof exit (due to compiler bug?) */
+	if (unlikely(!(rstack->flags & MCOUNT_FL_CYGPROF))) {
+		static pthread_once_t warn_once = PTHREAD_ONCE_INIT;
+
+		pthread_once(&warn_once, warn_unpaired_cygprof);
+		mcount_unguard_recursion(mtdp);
+		return;
+	}
 
 	if (!(rstack->flags & MCOUNT_FL_NORECORD))
 		rstack->end_time = mcount_gettime();
