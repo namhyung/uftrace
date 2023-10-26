@@ -99,7 +99,7 @@ SYMBOLS_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_symbols)
 DBGINFO_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_dbginfo)
 BENCH_LDFLAGS      = -Wl,-z,noexecstack $(LDFLAGS_$@) $(LDFLAGS_bench)
 LIB_LDFLAGS        = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_lib) -Wl,--no-undefined
-TEST_LDFLAGS       = $(COMMON_LDFLAGS) -L$(objdir)/libtraceevent -ltraceevent
+TEST_LDFLAGS       = $(COMMON_LDFLAGS)
 
 ifeq ($(DEBUG), 1)
   COMMON_CFLAGS += -O0 -g3 -DDEBUG_MODE=1 -Werror
@@ -167,7 +167,7 @@ include $(srcdir)/Makefile.include
 LIBMCOUNT_TARGETS := libmcount/libmcount.so libmcount/libmcount-fast.so
 LIBMCOUNT_TARGETS += libmcount/libmcount-single.so libmcount/libmcount-fast-single.so
 
-_TARGETS := uftrace libtraceevent/libtraceevent.a python/uftrace_python.so
+_TARGETS := uftrace python/uftrace_python.so
 _TARGETS += $(LIBMCOUNT_TARGETS) libmcount/libmcount-nop.so
 _TARGETS += misc/demangler misc/symbols misc/dbginfo
 TARGETS  := $(patsubst %,$(objdir)/%,$(_TARGETS))
@@ -240,7 +240,6 @@ LIBMCOUNT_DEPS := $(COMMON_DEPS) $(srcdir)/libmcount/internal.h
 CFLAGS_$(objdir)/mcount.op = -pthread
 CFLAGS_$(objdir)/cmds/record.o = -DINSTALL_LIB_PATH='"$(libdir)"'
 CFLAGS_$(objdir)/cmds/live.o = -DINSTALL_LIB_PATH='"$(libdir)"'
-LDFLAGS_$(objdir)/uftrace = -L$(objdir)/libtraceevent -ltraceevent -ldl
 
 LIBMCOUNT_FAST_CFLAGS := -DDISABLE_MCOUNT_FILTER
 LIBMCOUNT_SINGLE_CFLAGS := -DSINGLE_THREAD
@@ -301,9 +300,6 @@ $(LIBMCOUNT_ARCH_OBJS): $(wildcard $(srcdir)/arch/$(ARCH)/*.[cS]) $(LIBMCOUNT_DE
 $(UFTRACE_ARCH_OBJS): $(wildcard $(srcdir)/arch/$(ARCH)/*.[cS]) $(COMMON_DEPS)
 	@$(MAKE) -B -C $(srcdir)/arch/$(ARCH) $@
 
-$(objdir)/libtraceevent/libtraceevent.a: $(wildcard $(srcdir)/libtraceevent/*.[ch]) $(objdir)/.config
-	@$(MAKE) -C $(srcdir)/libtraceevent BUILD_SRC=$(srcdir)/libtraceevent BUILD_OUTPUT=$(objdir)/libtraceevent CONFIG_FLAGS="$(TRACEEVENT_CFLAGS)"
-
 $(objdir)/uftrace.o: $(srcdir)/uftrace.c $(objdir)/version.h $(COMMON_DEPS)
 	$(QUIET_CC)$(CC) $(UFTRACE_CFLAGS) -c -o $@ $<
 
@@ -332,7 +328,7 @@ $(objdir)/version.h: PHONY
 $(srcdir)/utils/auto-args.h: $(srcdir)/misc/prototypes.h $(srcdir)/misc/gen-autoargs.py
 	$(QUIET_GEN)$(srcdir)/misc/gen-autoargs.py -i $< -o $@
 
-$(objdir)/uftrace: $(UFTRACE_OBJS) $(UFTRACE_ARCH_OBJS) $(objdir)/libtraceevent/libtraceevent.a
+$(objdir)/uftrace: $(UFTRACE_OBJS) $(UFTRACE_ARCH_OBJS)
 	$(QUIET_LINK)$(CC) $(UFTRACE_CFLAGS) -o $@ $(UFTRACE_OBJS) $(UFTRACE_ARCH_OBJS) $(UFTRACE_LDFLAGS)
 
 $(objdir)/misc/demangler: $(DEMANGLER_OBJS)
@@ -443,7 +439,6 @@ clean:
 	@$(MAKE) -sC $(srcdir)/arch/$(ARCH) clean
 	@$(MAKE) -sC $(srcdir)/tests ARCH=$(ARCH) clean
 	@$(MAKE) -sC $(docdir) clean
-	@$(MAKE) -sC $(srcdir)/libtraceevent BUILD_SRC=$(srcdir)/libtraceevent BUILD_OUTPUT=$(objdir)/libtraceevent CONFIG_FLAGS="$(TRACEEVENT_CFLAGS)" clean
 
 reset-coverage:
 	$(Q)find -name "*\.gcda" | xargs $(RM)

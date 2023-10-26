@@ -82,3 +82,9 @@ endif
 ifneq ($(wildcard $(objdir)/check-deps/cc_has_minline_all_stringops),)
   LIB_CFLAGS += -minline-all-stringops
 endif
+
+ifneq ($(wildcard $(objdir)/check-deps/have_libtraceevent),)
+  COMMON_CFLAGS  += -DHAVE_LIBTRACEEVENT
+  COMMON_CFLAGS  += $(shell pkg-config --cflags libtraceevent 2> /dev/null)
+  COMMON_LDFLAGS += $(shell pkg-config --libs libtraceevent 2> /dev/null)
+endif

@@ -54,6 +54,9 @@ fi
 if test -f ${SRCDIR}/check-deps/have_libcapstone; then
     DEPS="${DEPS} dynamic"
 fi
+if test -f ${SRCDIR}/check-deps/have_libtraceevent; then
+    DEPS="${DEPS} kernel"
+fi
 if [ "x${DEPS}" != "x" ]; then
     DEPS=" (${DEPS} )"
 fi

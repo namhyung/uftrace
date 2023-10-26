@@ -35,6 +35,8 @@ usage() {
   --without-capstone    build without libcapstone            (even if found on the system)
   --without-perf        build without perf event             (even if available)
   --without-schedule    build without scheduler event        (even if available)
+  --without-libtraceevent
+                        build without libtraceevent          (even if found on the system)
 
   --arch=<ARCH>         set target architecture              (default: system default arch)
                         e.g. x86_64, aarch64, i386, or arm
@@ -188,17 +190,18 @@ make -siC ${srcdir}/check-deps O=${objdir} check-build
 for dep in $IGNORE; do
     TARGET=
     case "$dep" in
-        libelf)      TARGET=have_libelf        ;;
-        libdw)       TARGET=have_libdw         ;;
-        libpython*)  TARGET='have_libpython*'  ;;
-        libluajit*)  TARGET=have_libluajit     ;;
-        libncurse*)  TARGET=have_libncurses    ;;
-        libunwind)   TARGET=have_libunwind     ;;
-        libstdc++)   TARGET=cxa_demangle       ;;
-        capstone)    TARGET=have_libcapstone   ;;
-        perf*)       TARGET=perf_clockid       ;;
-        sched*)      TARGET=perf_context_switch;;
-        *)           ;;
+        libelf)        TARGET=have_libelf        ;;
+        libdw)         TARGET=have_libdw         ;;
+        libpython*)    TARGET='have_libpython*'  ;;
+        libluajit*)    TARGET=have_libluajit     ;;
+        libncurse*)    TARGET=have_libncurses    ;;
+        libunwind)     TARGET=have_libunwind     ;;
+        libstdc++)     TARGET=cxa_demangle       ;;
+        capstone)      TARGET=have_libcapstone   ;;
+        perf*)         TARGET=perf_clockid       ;;
+        sched*)        TARGET=perf_context_switch;;
+        libtraceevent) TARGET=have_libtraceevent   ;;
+        *)             ;;
     esac
     if [ ! -z "$TARGET" ]; then
         rm -f ${objdir}/check-deps/$TARGET
@@ -264,6 +267,7 @@ print_feature "cxa_demangle" "cxa_demangle" "full demangler support with libstdc
 print_feature "perf_event" "perf_clockid" "perf (PMU) event support"
 print_feature "schedule" "perf_context_switch" "scheduler event support"
 print_feature "capstone" "have_libcapstone" "full dynamic tracing support"
+print_feature "libtraceevent" "have_libtraceevent" "kernel tracing support"
 print_feature "libunwind" "have_libunwind" "stacktrace support (optional for debugging)"
 
 cat >$output <<EOF

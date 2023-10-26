@@ -1,5 +1,6 @@
 #include <inttypes.h>
 #include <signal.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdio_ext.h>
 #include <stdlib.h>
@@ -13,8 +14,6 @@
 #include "utils/list.h"
 #include "utils/symbol.h"
 #include "utils/utils.h"
-
-#include "libtraceevent/event-parse.h"
 
 static int column_index;
 static int prev_tid = -1;

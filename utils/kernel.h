@@ -1,8 +1,8 @@
 #ifndef UFTRACE_KERNEL_H
 #define UFTRACE_KERNEL_H
 
-#include "libtraceevent/event-parse.h"
 #include "uftrace.h"
+#include "utils/kernel-parser.h"
 #include "utils/list.h"
 #include "utils/utils.h"
 
@@ -31,21 +31,12 @@ struct uftrace_kernel_reader {
 	int last_read_cpu;
 	bool skip_out;
 	char *dirname;
-	int *fds;
-	int64_t *offsets;
-	int64_t *sizes;
-	size_t pagesize;
-	void **mmaps;
-	struct kbuffer **kbufs;
-	struct pevent *pevent;
 	struct uftrace_data *handle;
+	struct uftrace_kernel_parser parser;
 	struct uftrace_record *rstacks;
 	struct uftrace_rstack_list *rstack_list;
-	struct trace_seq trace_buf;
-	struct uftrace_record trace_rec;
 	bool *rstack_valid;
 	bool *rstack_done;
-	int *missed_events;
 	int *tids;
 };
 
@@ -69,7 +60,7 @@ int finish_kernel_data(struct uftrace_kernel_reader *kernel);
 
 static inline bool has_kernel_data(struct uftrace_kernel_reader *kernel)
 {
-	return kernel && kernel->pevent != NULL;
+	return kernel && kparser_ready(&kernel->parser);
 }
 
 static inline bool has_kernel_event(char *events)
