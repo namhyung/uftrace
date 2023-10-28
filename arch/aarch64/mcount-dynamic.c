@@ -14,6 +14,10 @@
 #include "utils/symbol.h"
 #include "utils/utils.h"
 
+#ifndef MAP_FIXED_NOREPLACE
+#define MAP_FIXED_NOREPLACE MAP_FIXED
+#endif
+
 #define CODE_SIZE 8
 
 static const unsigned int patchable_nop_patt[] = { 0xd503201f, 0xd503201f };

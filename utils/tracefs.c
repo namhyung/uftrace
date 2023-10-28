@@ -8,6 +8,10 @@
 #include "utils/tracefs.h"
 #include "utils/utils.h"
 
+#ifndef TRACEFS_MAGIC
+#define TRACEFS_MAGIC 0x74726163
+#endif
+
 #define PROC_MOUNTS_DIR_PATH "/proc/mounts"
 #define TRACEFS_DIR_PATH "/sys/kernel/tracing"
 #define OLD_TRACEFS_DIR_PATH "/sys/kernel/debug/tracing"

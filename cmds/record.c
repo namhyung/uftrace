@@ -29,6 +29,10 @@
 #include "utils/symbol.h"
 #include "utils/utils.h"
 
+#ifndef EM_RISCV
+#define EM_RISCV 243
+#endif
+
 #ifndef EFD_SEMAPHORE
 #define EFD_SEMAPHORE (1 << 0)
 #endif
