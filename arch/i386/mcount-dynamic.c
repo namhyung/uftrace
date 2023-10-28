@@ -11,6 +11,10 @@
 #include "utils/symbol.h"
 #include "utils/utils.h"
 
+#ifndef MAP_FIXED_NOREPLACE
+#define MAP_FIXED_NOREPLACE MAP_FIXED
+#endif
+
 static const unsigned char fentry_nop_patt[] = { 0x0f, 0x1f, 0x44, 0x00, 0x00 };
 
 int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
