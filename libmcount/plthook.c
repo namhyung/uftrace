@@ -149,7 +149,7 @@ static void restore_plt_functions(struct plthook_data *pd)
 				continue;
 
 			overwrite_pltgot(pd, got_idx, skip_sym->addr);
-			pr_dbg2("overwrite GOT[%d] to %p (%s)\n", got_idx, skip_sym->addr,
+			pr_dbg2("overwrite GOT[%d + 3] to %p (%s)\n", i, skip_sym->addr,
 				skip_sym->name);
 
 			skipped = true;
@@ -171,7 +171,7 @@ static void restore_plt_functions(struct plthook_data *pd)
 				continue;
 
 			symname = demangle(sym->name);
-			pr_dbg2("restore GOT[%d] from \"%s\"(%#lx) to PLT(base + %#lx)\n", got_idx,
+			pr_dbg2("restore GOT[%d + 3] from \"%s\"(%#lx) to PLT(base + %#lx)\n", i,
 				symname, resolved_addr, plthook_addr - pd->base_addr);
 			free(symname);
 		}
