@@ -105,6 +105,9 @@ void mcount_rstack_reset_exception(struct mcount_thread_data *mtdp, unsigned lon
 	int idx;
 	struct mcount_ret_stack *rstack;
 
+	if (unlikely(mcount_estimate_return))
+		return;
+
 	/* it needs to find how much stack frame unwinds */
 	for (idx = mtdp->idx - 1; idx >= 0; idx--) {
 		rstack = &mtdp->rstack[idx];
@@ -393,7 +396,7 @@ __visible_default void *__cxa_begin_catch(void *exception)
 	obj = real_cxa_begin_catch(exception);
 
 	mtdp = get_thread_data();
-	if (!mcount_estimate_return && !check_thread_data(mtdp) && unlikely(mtdp->in_exception)) {
+	if (!check_thread_data(mtdp) && unlikely(mtdp->in_exception)) {
 		unsigned long *frame_ptr;
 		unsigned long frame_addr;
 
