@@ -448,7 +448,36 @@ ctags:
 	@find . -name "*\.[chS]" -o -path ./tests -prune -o -path ./check-deps -prune \
 		| xargs ctags --regex-asm='/^(GLOBAL|ENTRY|END)\(([^)]*)\).*/\2/'
 
+help:
+	@echo "Available targets:"
+	@echo "  all           - Build uftrace (default)"
+	@echo "  config        - Configure uftrace"
+	@echo "  install       - Install built uftrace"
+	@echo "  uninstall     - Uninstall uftrace"
+	@echo "  test          - Run all tests: unit test, integration test, python test"
+	@echo "  unittest      - Run unit tests"
+	@echo "  runtest       - Run integration tests"
+	@echo "  pytest        - Run Python tests"
+	@echo "  bench         - Run benchmark tests"
+	@echo "  dist          - make *.tar file"
+	@echo "  doc           - Build documentation"
+	@echo "  clean         - Clean up built object files"
+	@echo "  reset-coverage- Reset code coverage data (*.gcda)"
+	@echo "  ctags         - Generate ctags"
+	@echo "  help          - Print this help message"
+	@echo ""
+	@echo "Build options:"
+	@echo "  make DEBUG=0|1 [targets]    - Set flags for debugging (default: 0)"
+	@echo "  make TRACE=0|1 [targets]    - Set flags for tracing (default: 0)"
+	@echo "  make COVERAGE=0|1 [targets] - Set flags for code coverage (default: 0)"
+	@echo "  make ASAN=0|1 [targets]     - Set flags for AddressSanitizer (default: 0)"
+	@echo "  make SAN=all [targets]      - Set flags for Sanitizer (default: none)"
+	@echo "  make DOCLANG=ko [targets]   - Generate documentation in Korean (default: English)"
+	@echo "  make V=0|1 [targets]        - Set verbose output (default: 0)"
+	@echo "  make O=dir [targets]        - Set directory as objdir (default: $(srcdir))"
+	@echo ""
+
 $(C_STR_OBJS): $(objdir)/%.$(C_STR_EXTENSION): $(srcdir)/%
 	$(QUIET_GEN)sed -e 's#\\#\\\\#g;s#\"#\\"#g;s#$$#\\n\"#;s#^#\"#' $< > $@
 
-.PHONY: all config clean test dist doc ctags PHONY
+.PHONY: all config clean test dist doc ctags help PHONY
