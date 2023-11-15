@@ -49,6 +49,7 @@ enum uftrace_short_options {
 	OPT_logfile,
 	OPT_force,
 	OPT_task,
+	OPT_system,
 	OPT_no_merge,
 	OPT_nop,
 	OPT_time,
@@ -277,6 +278,7 @@ static const struct option uftrace_options[] = {
 	REQ_ARG(buffer, 'b'),
 	REQ_ARG(logfile, OPT_logfile),
 	NO_ARG(task, OPT_task),
+	NO_ARG(system, OPT_system),
 	REQ_ARG(tid, OPT_tid_filter),
 	NO_ARG(no-merge, OPT_no_merge),
 	NO_ARG(nop, OPT_nop),
@@ -808,6 +810,10 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 
 	case OPT_task:
 		opts->show_task = true;
+		break;
+
+	case OPT_system:
+		opts->show_system = true;
 		break;
 
 	case OPT_tid_filter:
