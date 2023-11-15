@@ -230,6 +230,15 @@ print_feature()
             onoff="OFF"
         fi
     fi
+
+    if [ "$item" == "perf_event" ]; then
+        if [ "$(cat /proc/sys/kernel/perf_event_paranoid)" -le 2 ]; then
+            onoff="\033[32mon \033[0m"
+        else
+            onoff="\033[91mOFF\033[0m"
+        fi
+    fi
+
     printf "...%15s: [ ${onoff} ] - %s\n" "${item}" "${description}"
 }
 
