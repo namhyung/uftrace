@@ -8,6 +8,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <sys/resource.h>
@@ -894,6 +895,53 @@ static int read_utc_offset(void *arg)
 	return 0;
 }
 
+static int fill_sysctl(void *arg)
+{
+	struct fill_handler_arg *fha = arg;
+	int paranoid = INT_MIN;
+	int kptr = -1;
+	FILE *fp;
+
+	fp = fopen("/proc/sys/kernel/perf_event_paranoid", "r");
+	if (fp != NULL) {
+		if (fscanf(fp, "%d", &paranoid) != 1)
+			paranoid = INT_MIN;
+		fclose(fp);
+	}
+	fp = fopen("/proc/sys/kernel/kptr_restrict", "r");
+	if (fp != NULL) {
+		if (fscanf(fp, "%d", &kptr) != 1)
+			kptr = -1;
+		fclose(fp);
+	}
+
+	if (paranoid == INT_MIN && kptr < 0)
+		return -1;
+
+	dprintf(fha->fd, "sysctl:perf_event_paranoid=%d kptr_restrict=%d\n", paranoid, kptr);
+	return 0;
+}
+
+static int read_sysctl(void *arg)
+{
+	struct read_handler_arg *rha = arg;
+	struct uftrace_data *handle = rha->handle;
+	struct uftrace_info *info = &handle->info;
+	char *buf = rha->buf;
+
+	info->perf_event_paranoid = INT_MIN;
+	info->kptr_restrict = -1;
+
+	if (fgets(buf, sizeof(rha->buf), handle->fp) == NULL)
+		return -1;
+	if (strncmp(buf, "sysctl:", 7))
+		return -1;
+
+	sscanf(&buf[7], "perf_event_paranoid=%d kptr_restrict=%d", &info->perf_event_paranoid,
+	       &info->kptr_restrict);
+	return 0;
+}
+
 struct uftrace_info_handler {
 	enum uftrace_info_bits bit;
 	int (*handler)(void *arg);
@@ -927,6 +975,7 @@ void fill_uftrace_info(uint64_t *info_mask, int fd, struct uftrace_opts *opts, i
 		{ PATTERN_TYPE, fill_pattern_type },
 		{ VERSION, fill_uftrace_version },
 		{ UTC_OFFSET, fill_utc_offset },
+		{ SYSCTL, fill_sysctl },
 	};
 
 	for (i = 0; i < ARRAY_SIZE(fill_handlers); i++) {
@@ -971,6 +1020,7 @@ int read_uftrace_info(uint64_t info_mask, struct uftrace_data *handle)
 		{ PATTERN_TYPE, read_pattern_type },
 		{ VERSION, read_uftrace_version },
 		{ UTC_OFFSET, read_utc_offset },
+		{ SYSCTL, read_sysctl },
 	};
 
 	memset(&handle->info, 0, sizeof(handle->info));
@@ -1065,6 +1115,14 @@ void process_uftrace_info(struct uftrace_data *handle, struct uftrace_opts *opts
 		process(data, fmt, "kernel version", info->kernel);
 		process(data, fmt, "hostname", info->hostname);
 		process(data, fmt, "distro", info->distro);
+	}
+
+	if (info_mask & SYSCTL) {
+		if (info->perf_event_paranoid != INT_MIN)
+			process(data, "# %-20s: %d\n", "perf_event_paranoid",
+				info->perf_event_paranoid);
+		if (info->kptr_restrict >= 0)
+			process(data, "# %-20s: %d\n", "kptr_restrict", info->kptr_restrict);
 	}
 
 	process(data, "#\n");
@@ -1255,10 +1313,56 @@ static void print_task_info(struct uftrace_data *handle)
 	}
 }
 
+static void print_system_info(void)
+{
+	const char *fmt = "%-20s: %s\n";
+	struct uftrace_data handle = {};
+	struct fill_handler_arg fha = {};
+	struct read_handler_arg rha = { .handle = &handle };
+	struct uftrace_info *info = &handle.info;
+	int pfd[2];
+
+	if (pipe(pfd) < 0)
+		return;
+
+	fha.fd = pfd[1];
+	fill_cpuinfo(&fha);
+	fill_meminfo(&fha);
+	fill_osinfo(&fha);
+	fill_sysctl(&fha);
+	close(pfd[1]);
+
+	handle.fp = fdopen(pfd[0], "r");
+	read_cpuinfo(&rha);
+	read_meminfo(&rha);
+	read_osinfo(&rha);
+	read_sysctl(&rha);
+	fclose(handle.fp);
+
+	pr_out(fmt, "cpu info", info->cpudesc);
+	pr_out("%-20s: %d / %d (online / possible)\n", "number of cpus", info->nr_cpus_online,
+	       info->nr_cpus_possible);
+	pr_out(fmt, "memory info", info->meminfo);
+	pr_out(fmt, "kernel version", info->kernel);
+	pr_out(fmt, "hostname", info->hostname);
+	pr_out(fmt, "distro", info->distro);
+	if (info->perf_event_paranoid != INT_MIN)
+		pr_out("%-20s: %d\n", "perf_event_paranoid", info->perf_event_paranoid);
+	if (info->kptr_restrict >= 0)
+		pr_out("%-20s: %d\n", "kptr_restrict", info->kptr_restrict);
+
+	clear_uftrace_info(info);
+}
+
 int command_info(int argc, char *argv[], struct uftrace_opts *opts)
 {
 	int ret;
 	struct uftrace_data handle;
+
+	if (opts->show_system) {
+		print_system_info();
+		return 0;
+	}
 
 	ret = open_info_file(opts, &handle);
 	if (ret < 0) {

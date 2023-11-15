@@ -26,6 +26,9 @@ uftrace info [*options*] [*COMMAND*]
 \--task
 :   데이터 정보 대신 태스크의 관계를 트리 형태로 출력한다.
 
+\--system
+:   현재 시스템 정보(`perf_event_paranoid`, `kptr_restrict` 포함)를 출력한다.
+
 
 예시
 =======
@@ -46,6 +49,8 @@ uftrace info [*options*] [*COMMAND*]
     # kernel version      : Linux 4.5.4-1-ARCH
     # hostname            : sejong
     # distro              : "Arch Linux"
+    # perf_event_paranoid : 2
+    # kptr_restrict       : 1
     #
     # process information
     # ===================
@@ -91,6 +96,20 @@ uftrace info [*options*] [*COMMAND*]
     $ uftrace info --task
     [166399] parent
           [166401] child
+
+`--system` 옵션은 현재 시스템에서 읽은 시스템 정보를 출력한다. 기록된 데이터가
+필요하지 않으며, 기록 전에 uftrace 동작에 영향을 주는 커널 설정값을 확인하는
+데 사용할 수 있다.
+
+    $ uftrace info --system
+    cpu info            : Intel(R) Core(TM) i7-3930K CPU @ 3.20GHz
+    number of cpus      : 12 / 12 (online / possible)
+    memory info         : 19.8 / 23.5 GB (free / total)
+    kernel version      : Linux 4.5.4-1-ARCH
+    hostname            : sejong
+    distro              : "Arch Linux"
+    perf_event_paranoid : 2
+    kptr_restrict       : 1
 
 
 함께 보기

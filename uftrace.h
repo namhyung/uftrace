@@ -99,6 +99,7 @@ enum uftrace_info_bits {
 	PATTERN_TYPE_BIT,
 	VERSION_BIT,
 	UTC_OFFSET_BIT,
+	SYSCTL_BIT,
 
 	INFO_BIT_MAX,
 
@@ -118,6 +119,7 @@ enum uftrace_info_bits {
 	PATTERN_TYPE = (1U << PATTERN_TYPE_BIT),
 	VERSION = (1U << VERSION_BIT),
 	UTC_OFFSET = (1U << UTC_OFFSET_BIT),
+	SYSCTL = (1U << SYSCTL_BIT),
 };
 
 struct uftrace_info {
@@ -157,6 +159,8 @@ struct uftrace_info {
 	float load15;
 	enum uftrace_pattern_type patt_type;
 	char *uftrace_version;
+	int perf_event_paranoid;
+	int kptr_restrict;
 };
 
 enum {
@@ -276,6 +280,7 @@ struct uftrace_opts {
 	bool print_symtab;
 	bool force;
 	bool show_task;
+	bool show_system;
 	bool no_merge;
 	bool nop;
 	bool time;
