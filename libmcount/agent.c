@@ -340,16 +340,19 @@ static void *agent_apply_commands(void *arg)
 	return 0;
 }
 
-void agent_spawn(void)
+int agent_spawn(void)
 {
 	errno = pthread_create(&agent, NULL, &agent_apply_commands, NULL);
-	if (errno != 0)
+	if (errno != 0) {
 		pr_warn("cannot start agent: %s\n", strerror((errno)));
+		return -1;
+	}
+	return 0;
 }
 
 /* Check if the agent is up. If so, set its run flag to false, open and close
  * connection . */
-void agent_kill(void)
+int agent_kill(void)
 {
 	int sfd;
 	int status;
@@ -357,7 +360,7 @@ void agent_kill(void)
 	struct uftrace_msg ack;
 
 	if (!agent_run)
-		return;
+		return 0;
 	agent_run = false;
 
 	sfd = agent_socket_create(&addr, getpid());
@@ -381,10 +384,25 @@ void agent_kill(void)
 	if (pthread_join(agent, NULL) != 0)
 		pr_dbg("agent left in unknown state\n");
 
-	return;
+	return 0;
 
 error:
-	pr_dbg2("error terminating agent routine\n ");
+	pr_dbg2("error terminating agent routine\n");
 	close(sfd);
 	socket_unlink(&addr);
+	return -1;
 }
+
+#ifdef UNIT_TEST
+TEST_CASE(mcount_agent)
+{
+	pr_dbg("starting the agent\n");
+	TEST_EQ(agent_spawn(), 0);
+	do {
+		usleep(1000);
+	} while (!agent_run);
+	pr_dbg("killing the agent\n");
+	TEST_EQ(agent_kill(), 0);
+	return TEST_OK;
+}
+#endif /* UNIT_TEST */
