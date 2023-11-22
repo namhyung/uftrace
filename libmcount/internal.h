@@ -458,4 +458,7 @@ void finish_pmu_event(struct mcount_thread_data *mtdp);
 
 bool mcount_is_main_executable(const char *filename, const char *exename);
 
+void agent_spawn(void);
+void agent_kill(void);
+
 #endif /* UFTRACE_MCOUNT_INTERNAL_H */
