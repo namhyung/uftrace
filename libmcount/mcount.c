@@ -74,20 +74,20 @@ bool kernel_pid_update;
 int page_size_in_kb;
 
 /* call depth to filter */
-static int __maybe_unused mcount_depth = MCOUNT_DEFAULT_DEPTH;
+int __maybe_unused mcount_depth = MCOUNT_DEFAULT_DEPTH;
 
 /* setting for all filter actions */
-static struct uftrace_filter_setting mcount_filter_setting = {
+struct uftrace_filter_setting mcount_filter_setting = {
 	.ptype = PATT_REGEX,
 	.auto_args = false,
 	.allow_kernel = false,
 };
 
 /* boolean flag to turn on/off recording */
-static bool __maybe_unused mcount_enabled = true;
+bool __maybe_unused mcount_enabled = true;
 
 /* triggers definition and counters */
-static struct uftrace_triggers_info __maybe_unused *mcount_triggers;
+struct uftrace_triggers_info __maybe_unused *mcount_triggers;
 
 /* bitmask of active watch points */
 static unsigned long __maybe_unused mcount_watchpoints;
