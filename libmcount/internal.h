@@ -186,11 +186,16 @@ extern unsigned mcount_minsize;
 extern pthread_key_t mtd_key;
 extern int shmem_bufsize;
 extern int pfd;
+extern int mcount_depth;
 extern char *mcount_exename;
 extern int page_size_in_kb;
 extern bool kernel_pid_update;
 extern bool mcount_auto_recover;
 extern bool mcount_estimate_return;
+extern bool mcount_enabled;
+extern struct uftrace_sym_info mcount_sym_info;
+extern struct uftrace_filter_setting mcount_filter_setting;
+extern struct uftrace_triggers_info *mcount_triggers;
 
 enum mcount_global_flag {
 	MCOUNT_GFL_SETUP = (1U << 0),
@@ -452,5 +457,8 @@ void release_pmu_event(struct mcount_thread_data *mtdp, enum uftrace_event_id id
 void finish_pmu_event(struct mcount_thread_data *mtdp);
 
 bool mcount_is_main_executable(const char *filename, const char *exename);
+
+int agent_spawn(void);
+int agent_kill(void);
 
 #endif /* UFTRACE_MCOUNT_INTERNAL_H */
