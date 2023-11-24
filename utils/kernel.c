@@ -615,10 +615,10 @@ retry:
 	if (n < 0) {
 		if (errno == EINTR)
 			goto retry;
-		if (errno == EAGAIN)
+		if (errno == EAGAIN || errno == ENODEV)
 			return 0;
-		else
-			return -errno;
+
+		return -errno;
 	}
 
 	if (n == 0)
