@@ -78,14 +78,14 @@ includes the API functions of standard (C language or system) libraries.
 This can be combined with `-P.` or `-l`:
 For example, `-la` traces nested library calls, even in stripped executables.
 
-In addition, `-a` implies `--srcline` so it records the source line location info and
-it can be shown by `uftrace replay --srcline` and in `uftrace tui`. Users can directly
+In addition, `-a` implies `--srcline`, so it records the source line location info, and
+this info can be shown by `uftrace replay --srcline` and in `uftrace tui`. Users can directly
 open the editor at the source location as shown in https://uftrace.github.io/slide/#120.
 
 If debug information for the program (`gcc -g`) is available, `--auto-args`
-works even on functions inside of the compiled the user programs.
+works even on functions inside the compiled the user programs.
 
-In case argument information is not available, argument specifiations like
+In case argument information is not available, argument specifications like
 (`-A udev_new@arg1/s`) can be passed on the command line or an options file.
 
 Example:
@@ -109,7 +109,7 @@ Furthermore, it can show detailed execution flow at function level, and report
 which functions had the longest execution time.  It also shows information about
 the execution environment.
 
-You can setup filters to exclude or include specific functions when tracing.
+You can set up filters to exclude or include specific functions when tracing.
 In addition, function arguments and return values can be saved and shown later.
 
 It supports multi-process and/or multi-threaded applications.  With root
@@ -181,7 +181,7 @@ For recording, the executable needs to be compiled with the `-pg`
 
 Note that, there's an experimental support for dynamic tracing on
 x86_64 and AArch64(ARM64) which doesn't require such (re-)compilations.
-Also recent compilers have some options to help uftrace
+Also, recent compilers have some options to help uftrace
 to reduce tracing overhead with similar way
 (although it still needs recompilation of your program).
 Please see [dynamic tracing](doc/uftrace-record.md#dynamic-tracing) section
@@ -211,7 +211,7 @@ Other analysis commands expect the directory exists in the current directory,
 but one can use another using `-d` option.
 
 The `replay` command shows execution information like above.  As you can see,
-the t-abc is a very simple program merely calls a, b and c functions.
+`t-abc` is a very simple program merely calls a, b and c functions.
 In the c function it called getpid() which is a library function implemented
 in the C library (glibc) on normal systems - the same goes to __cxa_atexit().
 
@@ -238,12 +238,12 @@ it invoke system call directly):
       20.103 us [21901] |   } /* fprintf */
       21.286 us [21901] | } /* main */
 
-You can see the page fault handler and the write syscall handler were called
+You can see the page fault handler and the system call handler for write() were called
 inside the fprintf() call.
 
-Also it can record and show function arguments and return value with `-A` and
+Also, it can record and show function arguments and return value with `-A` and
 `-R` options respectively.  The following example records first argument and
-return value of 'fib' (fibonacci number) function.
+return value of 'fib' (Fibonacci number) function.
 
     $ uftrace record -A fib@arg1 -R fib@retval tests/t-fibonacci 5
 
@@ -301,7 +301,7 @@ example, function graph of function 'main' looks like below:
 
 
 The `dump` command shows raw output of each trace record.  You can see the result
-in the chrome browser, once the data is processed with `uftrace dump --chrome`.
+in the Chrome browser, once the data is processed with `uftrace dump --chrome`.
 Below is a trace of clang (LLVM) compiling a small C++ template metaprogram.
 
 [![uftrace-chrome-dump](doc/uftrace-chrome.png)](https://uftrace.github.io/dump/clang.tmp.fib.html)
