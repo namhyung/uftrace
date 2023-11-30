@@ -27,9 +27,9 @@ It was heavily inspired by the ftrace framework of the Linux kernel and
 the name uftrace stems from the combination of user and ftrace.
 
 It can record data from:
-- User space C/C++/Rust functions (by dynamically patching functions at runtime,
-  or with code compiled with with `-pg`, `-finstrument-functions` or using
-  `-fpatchable-function-entry=N` for selective NOP patching)
+- User space C/C++/Rust functions, by either dynamically patching functions
+  using `-P.`, or else selective NOP patching using code compiled with `-pg`,
+  `-finstrument-functions` or `-fpatchable-function-entry=N`.
 - C/C++/Rust Library functions (through PLT hooking)
 - Python functions (using Python's trace/profile infrastructure)
 - Kernel functions (using the ftrace framework in Linux kernel)
