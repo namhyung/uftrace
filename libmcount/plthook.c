@@ -129,13 +129,13 @@ static void restore_plt_functions(struct plthook_data *pd)
 
 	for (i = 0; i < dsymtab->nr_sym; i++) {
 		/*
-		 * GOT[0], GOT[1], and GOT[2] are reserved.
+		 * Typically GOT[0], GOT[1], and GOT[2] are reserved.
 		 * GOT[2] initially points to the runtime resolver, but updated
 		 * to plt_hooker for library tracing by uftrace.
 		 * The addresses from GOT[3] are supposed to point the resolved
 		 * addresses for each library function.
 		 */
-		int got_idx = 3 + i;
+		int got_idx = ARCH_PLTGOT_OFFSET + i;
 		bool skipped = false;
 		unsigned long plthook_addr;
 		unsigned long resolved_addr;
@@ -149,8 +149,8 @@ static void restore_plt_functions(struct plthook_data *pd)
 				continue;
 
 			overwrite_pltgot(pd, got_idx, skip_sym->addr);
-			pr_dbg2("overwrite GOT[%d + 3] to %p (%s)\n", i, skip_sym->addr,
-				skip_sym->name);
+			pr_dbg2("overwrite GOT[%d + %d] to %p (%s)\n", i, ARCH_PLTGOT_OFFSET,
+				skip_sym->addr, skip_sym->name);
 
 			skipped = true;
 			break;
@@ -171,8 +171,9 @@ static void restore_plt_functions(struct plthook_data *pd)
 				continue;
 
 			symname = demangle(sym->name);
-			pr_dbg2("restore GOT[%d + 3] from \"%s\"(%#lx) to PLT(base + %#lx)\n", i,
-				symname, resolved_addr, plthook_addr - pd->base_addr);
+			pr_dbg2("restore GOT[%d + %d] from \"%s\"(%#lx) to PLT(base + %#lx)\n", i,
+				ARCH_PLTGOT_OFFSET, symname, resolved_addr,
+				plthook_addr - pd->base_addr);
 			free(symname);
 		}
 		else if (mcount_estimate_return) {
@@ -290,7 +291,7 @@ static int find_got(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter,
 	pd = xmalloc(sizeof(*pd));
 	pd->mod_name = xstrdup(modname);
 	pd->pltgot_ptr = (void *)pltgot_addr;
-	pd->module_id = pd->pltgot_ptr[1];
+	pd->module_id = pd->pltgot_ptr[ARCH_PLTGOT_MOD_ID];
 	pd->base_addr = offset;
 	pd->plt_addr = plt_addr;
 
@@ -308,7 +309,7 @@ static int find_got(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter,
 	list_add_tail(&pd->list, &plthook_modules);
 
 	if (plthook_resolver_addr == 0)
-		plthook_resolver_addr = pd->pltgot_ptr[2];
+		plthook_resolver_addr = pd->pltgot_ptr[ARCH_PLTGOT_RESOLVE];
 
 	/*
 	 * BIND_NOW (+ RELRO) makes module id not used and resets to 0.
@@ -316,7 +317,7 @@ static int find_got(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter,
 	 */
 	if (pd->module_id == 0) {
 		pr_dbg2("update module id to %p\n", pd);
-		overwrite_pltgot(pd, 1, pd);
+		overwrite_pltgot(pd, ARCH_PLTGOT_MOD_ID, pd);
 		pd->module_id = (unsigned long)pd;
 	}
 
@@ -326,7 +327,7 @@ static int find_got(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter,
 
 	restore_plt_functions(pd);
 
-	overwrite_pltgot(pd, 2, plt_hooker);
+	overwrite_pltgot(pd, ARCH_PLTGOT_RESOLVE, plt_hooker);
 
 	if (getenv("LD_BIND_NOT"))
 		plthook_no_pltbind = true;
