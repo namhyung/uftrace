@@ -34,6 +34,13 @@ struct mcount_arch_context {
 #define ARCH_PLT0_SIZE 32
 #define ARCH_PLTHOOK_ADDR_OFFSET 0
 
+/* index of module-ID in the PLTGOT table */
+#define ARCH_PLTGOT_MOD_ID 1
+/* index of resolver address in the PLTGOT table */
+#define ARCH_PLTGOT_RESOLVE 2
+/* number of reserved entries in the PLTGOT table */
+#define ARCH_PLTGOT_OFFSET 3
+
 struct mcount_disasm_engine;
 struct mcount_dynamic_info;
 struct mcount_disasm_info;
