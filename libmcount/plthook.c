@@ -762,7 +762,7 @@ static void update_pltgot(struct mcount_thread_data *mtdp, struct plthook_data *
 		pthread_mutex_lock(&resolver_mutex);
 #endif
 		if (!pd->resolved_addr[dyn_idx]) {
-			int got_idx = 3 + dyn_idx;
+			int got_idx = ARCH_PLTGOT_OFFSET + dyn_idx;
 			plthook_addr = mcount_arch_plthook_addr(pd, dyn_idx);
 			setup_pltgot(pd, got_idx, dyn_idx, (void *)plthook_addr);
 		}

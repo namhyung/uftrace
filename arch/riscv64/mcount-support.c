@@ -210,4 +210,8 @@ void mcount_restore_arch_context(struct mcount_arch_context *ctx)
 	asm volatile("fld fa6, %0\n" ::"m"(ctx->f[6]));
 	asm volatile("fld fa7, %0\n" ::"m"(ctx->f[7]));
 }
-/* TODO: not implemented yet (End) */
+
+unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx)
+{
+	return pd->plt_addr;
+}
