@@ -214,6 +214,7 @@ void __pr_err(const char *fmt, ...)
 
 	color(TERM_COLOR_RESET, logfp);
 
+	DTRAP();
 	exit(1);
 }
 
@@ -233,6 +234,7 @@ void __pr_err_s(const char *fmt, ...)
 
 	color(TERM_COLOR_RESET, logfp);
 
+	DTRAP();
 	exit(1);
 }
 

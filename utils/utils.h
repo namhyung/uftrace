@@ -417,6 +417,11 @@ void stacktrace(void);
 #define TRAP() raise(SIGTRAP)
 #endif
 
+#define DTRAP()                                                                                    \
+	if (DEBUG_MODE) {                                                                          \
+		TRAP();                                                                            \
+	}
+
 #define ASSERT(cond)                                                                               \
 	if (unlikely(!(cond))) {                                                                   \
 		pr_red("%s:%d: %s: ASSERT `%s' failed.\n", __FILE__, __LINE__, __func__, #cond);   \
