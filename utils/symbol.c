@@ -28,6 +28,9 @@
 #ifndef EM_AARCH64
 #define EM_AARCH64 183
 #endif
+#ifndef EM_RISCV
+#define EM_RISCV 243
+#endif
 
 /* (global) symbol for kernel */
 static struct uftrace_module kernel;
@@ -595,6 +598,9 @@ int load_elf_dynsymtab(struct uftrace_symtab *dsymtab, struct uftrace_elf_data *
 	}
 	else if (elf->ehdr.e_machine == EM_X86_64) {
 		plt_entsize = 16; /* lld (of LLVM) seems to miss setting it */
+	}
+	else if (elf->ehdr.e_machine == EM_RISCV) {
+		plt_addr += 16; /* RISCV64 PLT0 size is 32 */
 	}
 
 	prev_addr = plt_addr;

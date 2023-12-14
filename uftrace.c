@@ -1389,10 +1389,7 @@ int main(int argc, char *argv[])
 	struct uftrace_opts opts = {
 		.mode = UFTRACE_MODE_INVALID,
 		.dirname = UFTRACE_DIR_NAME,
-#if !defined(__riscv)
-		/* FIXME: disable libcall until PLT hooking is implemented in riscv64. */
 		.libcall = true,
-#endif
 		.bufsize = SHMEM_BUFFER_SIZE,
 		.max_stack = OPT_RSTACK_DEFAULT,
 		.port = UFTRACE_RECV_PORT,
