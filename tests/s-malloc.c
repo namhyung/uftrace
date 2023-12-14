@@ -10,7 +10,7 @@ int free_count;
 
 void *malloc(size_t size)
 {
-	static char buf[MALLOC_BUFSIZE];
+	static char buf[MALLOC_BUFSIZE] __attribute__((aligned(16)));
 	static unsigned alloc_size;
 	void *ptr;
 

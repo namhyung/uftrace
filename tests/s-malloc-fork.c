@@ -12,7 +12,7 @@ void (*real_free)(void *ptr);
 
 #define MALLOC_BUFSIZE (128 * 1024 * 1024)
 /* this is needed for optimized binaries */
-static char buf[MALLOC_BUFSIZE];
+static char buf[MALLOC_BUFSIZE] __attribute__((aligned(8)));
 
 void *malloc(size_t sz)
 {
