@@ -227,7 +227,6 @@ void record_perf_data(struct uftrace_perf_writer *perf, int cpu, int sock)
 
 	buf = &data[start & mask];
 	size = end - start;
-	start += size;
 
 	if (sock > 0)
 		send_trace_perf_data(sock, cpu, buf, size);

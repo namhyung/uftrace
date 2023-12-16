@@ -43,7 +43,6 @@ struct kfilter {
 static int set_filter_file(const char *filter_file, struct list_head *filters)
 {
 	struct kfilter *pos, *tmp;
-	int ret = -1;
 	int fd;
 
 	fd = open_tracing_file(filter_file, true);
@@ -64,10 +63,9 @@ static int set_filter_file(const char *filter_file, struct list_head *filters)
 		if (write(fd, " ", 1) != 1)
 			pr_dbg2("writing filter file failed, but ignoring...\n");
 	}
-	ret = 0;
 
 	close(fd);
-	return ret;
+	return 0;
 }
 
 static int set_tracing_filter(struct uftrace_kernel_writer *kernel)
