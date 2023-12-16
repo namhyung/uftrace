@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "kernel"
