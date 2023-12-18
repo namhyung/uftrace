@@ -1,3 +1,32 @@
+uftrace v0.15
+=============
+* New architecture support
+  Basic support for RISC-V (RV64G ABI) (#1815)
+  Arguments and return value recording (#1824)
+  PLT hooking for library call tracing (#1853)
+
+* Bug fixes
+  Support library call tracing with `-fno-plt` (#1777)
+  Reduce failures on `uftrace recv` test (#1767)
+  Fix tracefs check on qemu (#1753)
+  Skip offline CPUs for kernel tracing (#1849)
+  Ignore unpaired __cyg_profile_func_exit() to avoid crashes
+
+* other changes
+  Get rid of old copy of libtraceevent (#1728)
+  Use MAP_FIXED_NOREPLACE for dynamic tracing (#1798)
+  Many documentation updates (#1669, #1744, #1759, #1760, #1783, #1785, #1786, #1788, #1790, #1806)
+  Add misc/wget-pr.sh script to get patch files from github (#1808)
+  Add more unit test cases
+
+And many other fixes and improvements.  Thanks all contributors:
+  Bernhard Kaindl, ChoKyuWon, Chongyun Lee, Clément Guidi, Gichoel Choi,
+  Honggyu Kim, Jeonghwan In, Jin Jang, JungminKim, Kang Minchul,
+  Michelle Jin, Olivier Dion, Paran Lee, Robert Berger, SangGyuLee,
+  SeokMin Kwon, Seong Jin Kim, Soyeon Park, Stefan Hoffmeister,
+  Yoojung Nam, Yufeng Jin, kang-hyuck
+
+
 uftrace v0.14
 =============
 * new options
