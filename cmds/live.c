@@ -457,7 +457,7 @@ int command_live(int argc, char *argv[], struct uftrace_opts *opts)
 		if (geteuid() == 0)
 			list_kernel_events();
 
-		if (fork() == 0) {
+		if (opts->exename && fork() == 0) {
 			setup_child_environ(opts);
 			setenv("UFTRACE_LIST_EVENT", "1", 1);
 

@@ -1440,7 +1440,7 @@ int main(int argc, char *argv[])
 	if (opts.opt_file)
 		parse_opt_file(&argc, &argv, opts.opt_file, &opts);
 
-	if (opts.exename == NULL) {
+	if (opts.exename == NULL && !opts.list_event) {
 		switch (opts.mode) {
 		case UFTRACE_MODE_RECORD:
 		case UFTRACE_MODE_LIVE:
