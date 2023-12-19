@@ -639,7 +639,7 @@ void get_argspec_string(struct uftrace_task_reader *task, char *args, size_t len
 			}
 
 			dinfo = &map->mod->dinfo;
-			estr = get_enum_string(&dinfo->enums, spec->type_name, (int)val.i);
+			estr = get_enum_string(&dinfo->enums, spec->type_name, val.i);
 			if (strstr(estr, "|") && strcmp("|", color_enum_or)) {
 				struct strv enum_vals = STRV_INIT;
 

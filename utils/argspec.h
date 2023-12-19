@@ -80,7 +80,7 @@ char *get_auto_retspec_str(void);
 char *get_auto_enum_str(void);
 int extract_trigger_args(char **pargs, char **prets, char *trigger);
 int parse_enum_string(char *enum_str, struct rb_root *root);
-char *get_enum_string(struct rb_root *root, char *name, int val);
+char *get_enum_string(struct rb_root *root, char *name, long val);
 void save_enum_def(struct rb_root *root, FILE *fp);
 void release_enum_def(struct rb_root *root);
 
