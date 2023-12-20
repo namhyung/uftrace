@@ -10,9 +10,13 @@
 
 #include "utils/symbol.h"
 
+#ifndef PAGE_SIZE
 #define PAGE_SIZE 4096
+#endif
+
 #define PAGE_ADDR(a) ((void *)((a) & ~(PAGE_SIZE - 1)))
 #define PAGE_LEN(a, l) (a + l - (unsigned long)PAGE_ADDR(a))
+
 #define XRAY_SECT "xray_instr_map"
 #define MCOUNTLOC_SECT "__mcount_loc"
 #define PATCHABLE_SECT "__patchable_function_entries"
