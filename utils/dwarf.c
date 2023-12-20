@@ -240,6 +240,19 @@ static long int_attr(Dwarf_Die *die, int attr, bool follow)
 		return 0;
 
 	dwarf_formsdata(&da, &data);
+	switch (dwarf_whatform(&da)) {
+	case DW_FORM_data1:
+		data &= 0xff;
+		break;
+	case DW_FORM_data2:
+		data &= 0xffff;
+		break;
+	case DW_FORM_data4:
+		data &= 0xffffffff;
+		break;
+	default:
+		break;
+	}
 	return data;
 }
 
