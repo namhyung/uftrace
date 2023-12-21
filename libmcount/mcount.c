@@ -2071,17 +2071,25 @@ bool mcount_is_main_executable(const char *filename, const char *exename)
 }
 
 #ifndef UNIT_TEST
+/* a flag that detects if uftrace is attached */
+static bool uftrace_tracing_on;
+
 /*
  * Initializer and Finalizer
  */
 static void __attribute__((constructor)) mcount_init(void)
 {
-	mcount_startup();
+	char *tracing_on = getenv("UFTRACE_TRACING_ON");
+	if (tracing_on && !strcmp(tracing_on, "1")) {
+		uftrace_tracing_on = true;
+		mcount_startup();
+	}
 }
 
 static void __attribute__((destructor)) mcount_fini(void)
 {
-	mcount_cleanup();
+	if (uftrace_tracing_on)
+		mcount_cleanup();
 }
 #else /* UNIT_TEST */
 
