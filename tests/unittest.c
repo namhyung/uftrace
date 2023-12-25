@@ -160,6 +160,49 @@ static int sort_tests(const void *tc1, const void *tc2)
 	return strcmp(test1->name, test2->name);
 }
 
+static bool free_test_names;
+
+/*
+ * RISC-V GCC doesn't set uftrace_unit_test data in the uftrace.test section
+ * (#1833).  So it should read the unittest binary to find the symbol table
+ * and fill the data manually.
+ *
+ * Note that the unit test functions are global functions start with "func_"
+ * prefix.  Other (global) functions should not start with that.
+ */
+static void update_test_cases(struct uftrace_unit_test *tcases, int num,
+			      struct uftrace_elf_data *elf)
+{
+	struct uftrace_elf_iter iter;
+	int len = strlen(TEST_FUNC_PREFIX_STR);
+	int i = 0;
+
+	printf("update test cases from binary\n");
+	elf_for_each_shdr(elf, &iter) {
+		if (iter.shdr.sh_type != SHT_SYMTAB)
+			continue;
+		elf_for_each_symbol(elf, &iter) {
+			typeof(iter.sym) *sym = &iter.sym;
+			const char *name = elf_get_name(elf, &iter, sym->st_name);
+
+			if (elf_symbol_type(sym) != STT_FUNC || elf_symbol_bind(sym) != STB_GLOBAL)
+				continue;
+			if (strncmp(name, TEST_FUNC_PREFIX_STR, len))
+				continue;
+			tcases[i].func = (void *)sym->st_value + load_base;
+			tcases[i].name = strdup(name + len);
+			i++;
+		}
+		/*
+		 * It applied the base address already, make sure not to do it
+		 * twice.
+		 */
+		load_base = 0;
+		free_test_names = true;
+		break;
+	}
+}
+
 static int setup_unit_test(struct uftrace_unit_test **test_cases, size_t *test_num, char *filter)
 {
 	char *exename;
@@ -202,6 +245,14 @@ static int setup_unit_test(struct uftrace_unit_test **test_cases, size_t *test_n
 	elf_get_secdata(&elf, &iter);
 	elf_read_secdata(&elf, &iter, 0, tcases, sec_size);
 
+	/* check if test cases are set properly */
+	for (i = 0, actual = 0; i < num; i++) {
+		if (tcases[i].func && tcases[i].name)
+			actual++;
+	}
+	if (actual != num)
+		update_test_cases(tcases, num, &elf);
+
 	/* relocate section symbols in case of PIE */
 	for (i = 0, actual = 0; i < num && (load_base || filter); i++) {
 		struct uftrace_unit_test *tc = &tcases[i];
@@ -237,7 +288,7 @@ out:
 	return ret;
 }
 
-static int finish_unit_test(struct uftrace_unit_test *test_cases, int *test_stats)
+static int finish_unit_test(struct uftrace_unit_test *test_cases, int test_num, int *test_stats)
 {
 	int i;
 
@@ -247,6 +298,11 @@ static int finish_unit_test(struct uftrace_unit_test *test_cases, int *test_stat
 		printf("%3d %s\n", test_stats[i], messages[i]);
 
 	printf("\n");
+
+	if (free_test_names) {
+		for (i = 0; i < test_num; i++)
+			free((void *)test_cases[i].name);
+	}
 	free(test_cases);
 	return test_stats[TEST_NG] + test_stats[TEST_BAD] + test_stats[TEST_SIG] > 0 ?
 		       EXIT_FAILURE :
@@ -342,5 +398,5 @@ int main(int argc, char *argv[])
 	for (i = 0; i < test_num; i++)
 		run_unit_test(&test_cases[i], test_stats, filter);
 
-	return finish_unit_test(test_cases, test_stats);
+	return finish_unit_test(test_cases, test_num, test_stats);
 }

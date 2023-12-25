@@ -110,27 +110,34 @@ struct uftrace_unit_test {
 	int (*func)(void);
 };
 
+#define TEST_FUNC_PREFIX func_
+#define TEST_FUNC_PREFIX_STR stringify(TEST_FUNC_PREFIX)
+
+#define __concat(a, b) a##b
+#define concat(a, b) __concat(a, b)
+#define TEST_FUNC_NAME(t) concat(TEST_FUNC_PREFIX, t)
+
 #ifdef __clang__
 #define TEST_CASE(t)                                                                               \
-	extern int func_##t(void);                                                                 \
+	extern int TEST_FUNC_NAME(t)(void);                                                        \
                                                                                                    \
 	__attribute__((section(TEST_SECTION), used, no_sanitize("address")))                       \
 	const struct uftrace_unit_test test_##t = {                                                \
 		.name = stringify(t),                                                              \
-		.func = func_##t,                                                                  \
+		.func = TEST_FUNC_NAME(t),                                                         \
 	};                                                                                         \
                                                                                                    \
-	int func_##t(void)
+	int TEST_FUNC_NAME(t)(void)
 #else /* #ifdef __clang__ */
 #define TEST_CASE(t)                                                                               \
-	extern int func_##t(void);                                                                 \
+	extern int TEST_FUNC_NAME(t)(void);                                                        \
                                                                                                    \
 	__attribute__((section(TEST_SECTION), used)) const struct uftrace_unit_test test_##t = {   \
 		.name = stringify(t),                                                              \
-		.func = func_##t,                                                                  \
+		.func = TEST_FUNC_NAME(t),                                                         \
 	};                                                                                         \
                                                                                                    \
-	int func_##t(void)
+	int TEST_FUNC_NAME(t)(void)
 #endif /* #ifdef __clang__ */
 
 #define TERM_COLOR_NORMAL ""

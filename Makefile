@@ -101,6 +101,13 @@ BENCH_LDFLAGS      = -Wl,-z,noexecstack $(LDFLAGS_$@) $(LDFLAGS_bench)
 LIB_LDFLAGS        = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_lib) -Wl,--no-undefined
 TEST_LDFLAGS       = $(COMMON_LDFLAGS)
 
+_DEFAULT_SANITIZERS := address,leak
+ifeq ($(ARCH), riscv64)
+  DEFAULT_SANITIZERS = $(_DEFAULT_SANITIZERS)
+else
+  DEFAULT_SANITIZERS = $(_DEFAULT_SANITIZERS),undefined
+endif
+
 ifeq ($(DEBUG), 1)
   COMMON_CFLAGS += -O0 -g3 -DDEBUG_MODE=1 -Werror
 else
@@ -128,7 +135,7 @@ ifeq ($(COVERAGE), 1)
 endif
 
 ifeq ($(ASAN), 1)
-  ASAN_CFLAGS       := -O0 -g -fsanitize=address,leak,undefined
+  ASAN_CFLAGS       := -O0 -g -fsanitize=$(DEFAULT_SANITIZERS)
   UFTRACE_CFLAGS    += $(ASAN_CFLAGS)
   DEMANGLER_CFLAGS  += $(ASAN_CFLAGS)
   SYMBOLS_CFLAGS    += $(ASAN_CFLAGS)
@@ -139,7 +146,7 @@ endif
 
 ifneq ($(SAN),)
   ifeq ($(SAN), all)
-    SAN_CFLAGS := -O0 -g -fsanitize=address,leak,undefined
+    SAN_CFLAGS := -O0 -g -fsanitize=$(DEFAULT_SANITIZERS)
   else
     SAN_CFLAGS := -O0 -g -fsanitize=$(SAN)
   endif
