@@ -10,7 +10,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/epoll.h>
-#include <sys/eventfd.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/personality.h>
@@ -1835,7 +1834,7 @@ out:
 	wd->writers = xmalloc(opts->nr_thread * sizeof(*wd->writers));
 
 	if (pipe(thread_ctl) < 0)
-		pr_err("cannot create an eventfd for writer thread");
+		pr_err("cannot create a pipe for writer thread");
 }
 
 static void start_tracing(struct writer_data *wd, struct uftrace_opts *opts, int ready_fd)
@@ -2078,16 +2077,17 @@ after_save:
 		chown_directory(opts->dirname);
 }
 
-int do_main_loop(int ready, struct uftrace_opts *opts, int pid)
+static int do_main_loop(int ready[], struct uftrace_opts *opts, int pid)
 {
 	int ret;
 	struct writer_data wd;
 	char *channel = NULL;
 
+	close(ready[0]);
 	if (opts->nop) {
 		setup_writers(&wd, opts);
-		start_tracing(&wd, opts, ready);
-		close(ready);
+		start_tracing(&wd, opts, ready[1]);
+		close(ready[1]);
 
 		wait(NULL);
 		uftrace_done = true;
@@ -2110,8 +2110,8 @@ int do_main_loop(int ready, struct uftrace_opts *opts, int pid)
 		pr_out("uftrace: install signal handlers to task %d\n", pid);
 
 	setup_writers(&wd, opts);
-	start_tracing(&wd, opts, ready);
-	close(ready);
+	start_tracing(&wd, opts, ready[1]);
+	close(ready[1]);
 
 	while (!uftrace_done) {
 		struct pollfd pollfd = {
@@ -2139,7 +2139,7 @@ int do_main_loop(int ready, struct uftrace_opts *opts, int pid)
 	return ret;
 }
 
-int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
+static int do_child_exec(int ready[], struct uftrace_opts *opts, int argc, char *argv[])
 {
 	uint64_t dummy;
 	char *shebang = NULL;
@@ -2148,6 +2148,7 @@ int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
 	struct strv new_args = STRV_INIT;
 	bool is_python = false;
 
+	close(ready[1]);
 	if (opts->no_randomize_addr) {
 		/* disable ASLR (Address Space Layout Randomization) */
 		if (personality(ADDR_NO_RANDOMIZE) < 0)
@@ -2223,8 +2224,9 @@ int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
 	setup_child_environ(opts, argc, argv);
 
 	/* wait for parent ready */
-	if (read(ready, &dummy, sizeof(dummy)) != (ssize_t)sizeof(dummy))
+	if (read(ready[0], &dummy, sizeof(dummy)) != (ssize_t)sizeof(dummy))
 		pr_err("waiting for parent failed");
+	close(ready[0]);
 
 	if (is_python) {
 		char *python_path = NULL;
@@ -2257,7 +2259,7 @@ int do_child_exec(int ready, struct uftrace_opts *opts, int argc, char *argv[])
 int command_record(int argc, char *argv[], struct uftrace_opts *opts)
 {
 	int pid;
-	int ready;
+	int ready[2];
 	int ret = -1;
 	char *channel = NULL;
 
@@ -2279,9 +2281,8 @@ int command_record(int argc, char *argv[], struct uftrace_opts *opts)
 
 	fflush(stdout);
 
-	ready = eventfd(0, EFD_CLOEXEC | EFD_SEMAPHORE);
-	if (ready < 0)
-		pr_dbg("creating eventfd failed: %d\n", ready);
+	if (pipe(ready) < 0)
+		pr_err("creating pipe failed");
 
 	pid = fork();
 	if (pid < 0)
