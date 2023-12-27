@@ -241,10 +241,12 @@ unsigned long *mcount_arch_parent_location(struct uftrace_sym_info *symtabs,
 	uint64_t load_addr;
 
 	sym = find_symtabs(symtabs, child_ip);
-	if (sym == NULL)
-		pr_err_ns("cannot find symbol for %lx\n", child_ip);
+	if (sym == NULL) {
+		pr_dbg("cannot find a child symbol for %lx\n", child_ip);
+		return parent_loc;
+	}
 
-	// on ARM mode, return as is
+	/* on ARM mode, return as is */
 	if ((sym->addr & 1) == 0)
 		return parent_loc;
 
