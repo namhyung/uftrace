@@ -1804,7 +1804,7 @@ static void mcount_script_init(enum uftrace_pattern_type patt_type)
 
 static __used void mcount_startup(void)
 {
-	char *pipefd_str;
+	char *channel = NULL;
 	char *logfd_str;
 	char *debug_str;
 	char *bufsize_str;
@@ -1834,7 +1834,6 @@ static __used void mcount_startup(void)
 	if (pthread_key_create(&mtd_key, mtd_dtor))
 		pr_err("cannot create mtd key");
 
-	pipefd_str = getenv("UFTRACE_PIPE");
 	logfd_str = getenv("UFTRACE_LOGFD");
 	debug_str = getenv("UFTRACE_DEBUG");
 	bufsize_str = getenv("UFTRACE_BUFFER");
@@ -1886,22 +1885,9 @@ static __used void mcount_startup(void)
 	if (dirname == NULL)
 		dirname = UFTRACE_DIR_NAME;
 
-	if (pipefd_str) {
-		pfd = strtol(pipefd_str, NULL, 0);
-
-		/* minimal sanity check */
-		if (fstat(pfd, &statbuf) < 0 || !S_ISFIFO(statbuf.st_mode)) {
-			pr_dbg("ignore invalid pipe fd: %d\n", pfd);
-			pfd = -1;
-		}
-	}
-	else {
-		char *channel = NULL;
-
-		xasprintf(&channel, "%s/%s", dirname, ".channel");
-		pfd = open(channel, O_WRONLY);
-		free(channel);
-	}
+	xasprintf(&channel, "%s/%s", dirname, ".channel");
+	pfd = open(channel, O_WRONLY);
+	free(channel);
 
 	if (getenv("UFTRACE_LIST_EVENT")) {
 		mcount_list_events();
