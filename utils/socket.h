@@ -5,6 +5,8 @@
 
 #define MCOUNT_AGENT_SOCKET_DIR "/tmp/uftrace"
 
+struct uftrace_msg;
+
 void socket_unlink(struct sockaddr_un *addr);
 int agent_socket_create(struct sockaddr_un *addr, pid_t pid);
 int agent_listen(int fd, struct sockaddr_un *addr);
