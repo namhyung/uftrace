@@ -182,9 +182,9 @@ static void find_cygprof_funcs(const char *filename, unsigned long base_addr)
 		char *name = elf_get_name(&elf, &iter, iter.sym.st_name);
 
 		if (!strcmp(name, "__cyg_profile_func_enter"))
-			cygprof_enter = (void *)(iter.sym.st_value + base_addr);
+			cygprof_enter = (void *)(intptr_t)(iter.sym.st_value + base_addr);
 		if (!strcmp(name, "__cyg_profile_func_exit"))
-			cygprof_exit = (void *)(iter.sym.st_value + base_addr);
+			cygprof_exit = (void *)(intptr_t)(iter.sym.st_value + base_addr);
 	}
 
 	elf_finish(&elf);
