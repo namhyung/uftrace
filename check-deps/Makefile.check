@@ -12,7 +12,7 @@ ifneq ($(wildcard $(objdir)/check-deps/cxa_demangle),)
 endif
 
 ifneq ($(wildcard $(objdir)/check-deps/cc_has_mno_sse2),)
-  LIB_CFLAGS += -mno-sse2
+  LIB_CFLAGS += -mno-sse -mno-sse2
 endif
 
 ifneq ($(wildcard $(objdir)/check-deps/have_libpython3),)
