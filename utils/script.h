@@ -52,9 +52,12 @@ union script_arg_val {
 	int i;
 	long l;
 	long long L;
+/* libmcount should not access floating-point types. */
+#ifndef LIBMCOUNT
 	float f;
 	double d;
 	long double D;
+#endif
 	unsigned char v[16];
 };
 

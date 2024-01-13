@@ -97,7 +97,7 @@ static void setup_argument_context(bool is_retval, struct script_context *sc_ctx
 		unsigned short slen;
 		char ch_str[2];
 		char *str;
-		double dval;
+		double dval __maybe_unused;
 
 		/* skip unwanted arguments or retval */
 		if (is_retval != (spec->idx == RETVAL_IDX))
@@ -143,6 +143,7 @@ static void setup_argument_context(bool is_retval, struct script_context *sc_ctx
 			break;
 		case ARG_FMT_FLOAT:
 			memcpy(val.v, data, spec->size);
+#ifndef LIBMCOUNT
 			switch (spec->size) {
 			case 4:
 				dval = val.f;
@@ -161,6 +162,7 @@ static void setup_argument_context(bool is_retval, struct script_context *sc_ctx
 			dllua_pushinteger(L, ++count);
 			dllua_pushnumber(L, dval);
 			dllua_settable(L, -3);
+#endif
 			data += ALIGN(spec->size, 4);
 			break;
 
