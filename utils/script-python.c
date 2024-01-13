@@ -349,7 +349,7 @@ static void insert_tuple_string(PyObject *tuple, int idx, char *v)
 	python_insert_tuple(tuple, 's', idx, val);
 }
 
-static void insert_tuple_double(PyObject *tuple, int idx, double v)
+static void __maybe_unused insert_tuple_double(PyObject *tuple, int idx, double v)
 {
 	union python_val val = {
 		.f = v,
@@ -429,7 +429,7 @@ static void setup_argument_context(PyObject **pDict, bool is_retval, struct scri
 		unsigned short slen;
 		char ch_str[2];
 		char *str;
-		double dval;
+		double dval __maybe_unused;
 
 		/* skip unwanted arguments or retval */
 		if (is_retval != (spec->idx == RETVAL_IDX))
@@ -468,6 +468,7 @@ static void setup_argument_context(PyObject **pDict, bool is_retval, struct scri
 
 		case ARG_FMT_FLOAT:
 			memcpy(val.v, data, spec->size);
+#ifndef LIBMCOUNT
 			switch (spec->size) {
 			case 4:
 				dval = val.f;
@@ -484,6 +485,7 @@ static void setup_argument_context(PyObject **pDict, bool is_retval, struct scri
 				break;
 			}
 			insert_tuple_double(args, count++, dval);
+#endif
 			data += ALIGN(spec->size, 4);
 			break;
 
