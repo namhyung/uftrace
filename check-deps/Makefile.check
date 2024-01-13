@@ -11,7 +11,9 @@ ifneq ($(wildcard $(objdir)/check-deps/cxa_demangle),)
   COMMON_LDFLAGS += -lstdc++
 endif
 
-ifneq ($(wildcard $(objdir)/check-deps/cc_has_mno_sse2),)
+ifneq ($(wildcard $(objdir)/check-deps/cc_has_mgeneral_regs_only),)
+  LIB_CFLAGS += -mgeneral-regs-only
+else ifneq ($(wildcard $(objdir)/check-deps/cc_has_mno_sse2),)
   LIB_CFLAGS += -mno-sse -mno-sse2
 endif
 

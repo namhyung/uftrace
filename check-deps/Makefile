@@ -15,6 +15,7 @@ CHECK_LIST += have_libunwind
 CHECK_LIST += have_libcapstone
 CHECK_LIST += cc_has_minline_all_stringops
 CHECK_LIST += have_libtraceevent
+CHECK_LIST += cc_has_mgeneral_regs_only
 
 #
 # This is needed for checking build dependency
@@ -54,6 +55,7 @@ LDFLAGS_have_libunwind = $(shell pkg-config --libs   libunwind 2> /dev/null)
 CFLAGS_cc_has_minline_all_stringops = -minline-all-stringops
 CFLAGS_have_libtraceevent = $(shell pkg-config --cflags libtraceevent 2> /dev/null)
 LDFLAGS_have_libtraceevent = $(shell pkg-config --libs  libtraceevent 2> /dev/null)
+CFLAGS_cc_has_mgeneral_regs_only = -mgeneral-regs-only
 
 check-build: $(CHECK_LIST)
 
