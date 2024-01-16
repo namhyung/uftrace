@@ -37,7 +37,7 @@ endif
 CFLAGS_cc_has_mfentry = -mfentry
 LDFLAGS_cxa_demangle = -lstdc++
 LDFLAGS_have_libelf = -lelf
-CFLAGS_cc_has_mno_sse2 = -mno-sse2
+CFLAGS_cc_has_mno_sse2 = -mno-sse -mno-sse2
 LDFLAGS_have_libpython2.7 = -lpython2.7
 CFLAGS_have_libpython3 = $(shell pkg-config python3$(EMBED) --cflags 2> /dev/null)
 LDFLAGS_have_libpython3 = $(shell pkg-config python3$(EMBED) --libs 2> /dev/null)
