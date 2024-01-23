@@ -275,6 +275,7 @@ void __pr_color(char code, const char *fmt, ...)
 	color(ec, outfp);
 }
 
+#ifndef LIBMCOUNT
 static void __print_time_unit(int64_t delta_nsec, bool needs_sign)
 {
 	uint64_t delta = llabs(delta_nsec);
@@ -441,3 +442,4 @@ void print_diff_count(uint64_t base, uint64_t pair)
 	else
 		pr_out("%9s", "+0");
 }
+#endif

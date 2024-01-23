@@ -15,12 +15,13 @@ CHECK_LIST += have_libunwind
 CHECK_LIST += have_libcapstone
 CHECK_LIST += cc_has_minline_all_stringops
 CHECK_LIST += have_libtraceevent
+CHECK_LIST += cc_has_mgeneral_regs_only
 
 #
 # This is needed for checking build dependency
 #
 
-CHECK_CFLAGS  = $(CFLAGS)  $(CFLAGS_$@) -Werror
+CHECK_CFLAGS  = $(CFLAGS)  $(CFLAGS_$@) -O2 -Werror
 CHECK_LDFLAGS = $(LDFLAGS) $(LDFLAGS_$@)
 
 # libpython3 provides an embed version of pkg-config file since python3.8
@@ -37,7 +38,7 @@ endif
 CFLAGS_cc_has_mfentry = -mfentry
 LDFLAGS_cxa_demangle = -lstdc++
 LDFLAGS_have_libelf = -lelf
-CFLAGS_cc_has_mno_sse2 = -O2 -mno-sse -mno-sse2
+CFLAGS_cc_has_mno_sse2 = -mno-sse -mno-sse2
 LDFLAGS_have_libpython2.7 = -lpython2.7
 CFLAGS_have_libpython3 = $(shell pkg-config python3$(EMBED) --cflags 2> /dev/null)
 LDFLAGS_have_libpython3 = $(shell pkg-config python3$(EMBED) --libs 2> /dev/null)
@@ -54,6 +55,7 @@ LDFLAGS_have_libunwind = $(shell pkg-config --libs   libunwind 2> /dev/null)
 CFLAGS_cc_has_minline_all_stringops = -minline-all-stringops
 CFLAGS_have_libtraceevent = $(shell pkg-config --cflags libtraceevent 2> /dev/null)
 LDFLAGS_have_libtraceevent = $(shell pkg-config --libs  libtraceevent 2> /dev/null)
+CFLAGS_cc_has_mgeneral_regs_only = -mgeneral-regs-only
 
 check-build: $(CHECK_LIST)
 
