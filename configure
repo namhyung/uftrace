@@ -116,17 +116,20 @@ fi
 # Support --arch, --cross-compile, --cflags and --ldflags options
 #
 if [ ! -z "$arch" ]; then
-    export ARCH=$arch
-    if [ "$arch" = "x86_64" ] || [ "$arch" = "arm" ] || [ "$arch" = "aarch64" ]; then
+    case $arch in
+    x86_64 | arm | aarch64 | riscv64)
         export ARCH=$arch
-    elif [ "$arch" = "i386" ]; then
+	;;
+    i*86)
         export ARCH="i386"
         export CFLAGS="-m32 $CFLAGS"
         export LDFLAGS="-m32 $LDFLAGS"
-    else
+	;;
+    *)
         echo "Error: '$arch' is not a supported architecture" >&2
         exit 1
-    fi
+	;;
+    esac
 fi
 if [ ! -z "$cross_compile" ]; then
     export CROSS_COMPILE=$cross_compile
