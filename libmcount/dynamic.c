@@ -40,7 +40,6 @@ static struct mcount_dynamic_stats {
 	int unpatch;
 } stats;
 
-#define PAGE_SIZE 4096
 #define CODE_CHUNK (PAGE_SIZE * 8)
 
 struct code_page {
