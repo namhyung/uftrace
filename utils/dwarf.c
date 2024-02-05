@@ -886,6 +886,9 @@ static bool resolve_type_info(Dwarf_Die *die, struct arg_data *ad, struct type_d
 
 		switch (dwarf_tag(die)) {
 		case DW_TAG_enumeration_type:
+			if (td->pointer)
+				break;
+
 			enum_str = fill_enum_str(die);
 			if (enum_str == NULL)
 				return false; /* use default format */
