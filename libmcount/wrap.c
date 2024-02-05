@@ -62,6 +62,7 @@ static void send_dlopen_msg(struct mcount_thread_data *mtdp, const char *sess_id
 		},
 	};
 	int len = sizeof(msg) + msg.len;
+	int pfd = mcount_get_pfd();
 
 	if (pfd < 0)
 		return;
@@ -72,6 +73,8 @@ static void send_dlopen_msg(struct mcount_thread_data *mtdp, const char *sess_id
 		if (!mcount_should_stop())
 			pr_err("write tid info failed");
 	}
+
+	close(pfd);
 }
 
 static int dlopen_base_callback(struct dl_phdr_info *info, size_t size, void *arg)
