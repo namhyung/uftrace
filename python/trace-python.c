@@ -382,7 +382,7 @@ static void update_dbg_info(const char *name, uint64_t addr, const char *file, i
 		old_hdr.val = tmp_hdr.val;
 	}
 
-	if (new_hdr.offset >= uftrace_symtab_size) {
+	if (new_hdr.offset >= uftrace_dbginfo_size) {
 		unsigned new_dbginfo_size = uftrace_dbginfo_size + UFTRACE_PYTHON_SYMTAB_SIZE;
 
 		pr_dbg("try to increase the shared memory for %s (new size=%uMB)\n",
