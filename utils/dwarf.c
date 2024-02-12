@@ -1755,16 +1755,10 @@ static void release_dwarf_info(struct uftrace_dbg_info *dinfo)
 
 #endif /* !HAVE_LIBDW */
 
-int setup_debug_info(const char *filename, struct uftrace_dbg_info *dinfo, unsigned long offset,
-		     bool force)
+static void setup_debug_info(struct uftrace_dbg_info *dinfo)
 {
-	dinfo->args = RB_ROOT;
-	dinfo->rets = RB_ROOT;
-	dinfo->enums = RB_ROOT;
-	dinfo->files = RB_ROOT;
+	memset(dinfo, 0, sizeof(*dinfo));
 	dinfo->loaded = true;
-
-	return setup_dwarf_info(filename, dinfo, offset, force);
 }
 
 static void release_debug_info(struct uftrace_dbg_info *dinfo)
@@ -1778,8 +1772,8 @@ static void release_debug_info(struct uftrace_dbg_info *dinfo)
 	dinfo->locs = NULL;
 
 	free(dinfo->base_dir);
+	dinfo->base_dir = NULL;
 
-	release_dwarf_info(dinfo);
 	dinfo->loaded = false;
 }
 
@@ -1852,8 +1846,11 @@ void prepare_debug_info(struct uftrace_sym_info *sinfo, enum uftrace_pattern_typ
 		if (map->mod == NULL || map->mod->dinfo.loaded)
 			continue;
 
-		setup_debug_info(map->libname, dinfo, map->start, force);
+		setup_debug_info(dinfo);
+
+		setup_dwarf_info(map->libname, dinfo, map->start, force);
 		build_dwarf_info(dinfo, stab, ptype, &dwarf_args, &dwarf_rets);
+		release_dwarf_info(dinfo);
 	}
 
 	strv_free(&dwarf_args);
