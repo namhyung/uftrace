@@ -504,7 +504,6 @@ static size_t type_size(Dwarf_Die *die, size_t default_size)
 {
 	Dwarf_Word size;
 
-	/* require >= elfutils 0.144 */
 	if (dwarf_aggregate_size(die, &size) >= 0)
 		return size * 8;
 
