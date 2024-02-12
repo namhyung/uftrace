@@ -161,6 +161,13 @@
       }
       x-tui-blue-line  { background-color: blue; }
       x-tui-white-line { background-color: white; color: black; }
+      .tui2 .remark-code-line {
+          font-family: 'Courier New';
+          font-size: 12px;
+          min-height: 14px;
+      }
+      x-tui-blue-line2  { background-color: blue; }
+      x-tui-white-line2 { background-color: white; color: black; }
     </style>
   </head>
   <body>
@@ -4227,6 +4234,147 @@ class: code-19px
                  :  |
         6.396 us :  +-(1) builtins.print
 ```
+---
+class: code-14px
+### Python Function Tracing for tensorflow and keras
+- More compilicated python program can be traced as follows.
+  - [mnist_convnet.py](https://github.com/keras-team/keras-io/blob/ebe14fb985afd908e10dba8cbca179e5491e6d58/examples/vision/mnist_convnet.py)
+---
+class: code-14px
+### Python Function Tracing for tensorflow and keras
+- More compilicated python program can be traced as follows.
+  - [mnist_convnet.py](https://github.com/keras-team/keras-io/blob/ebe14fb985afd908e10dba8cbca179e5491e6d58/examples/vision/mnist_convnet.py)
+
+```
+  $ uftrace `record` `--nest-libcall` mnist_convnet.py
+      ...
+  Total params: 34826 (136.04 KB)
+  Trainable params: 34826 (136.04 KB)
+  Non-trainable params: 0 (0.00 Byte)
+      ...
+  Epoch 15/15
+  422/422 [============] - 8s 19ms/step - loss: 0.0322 - accuracy: 0.9900 - val_loss: 0.0295 - val_accuracy: 0.9918
+  Test loss: 0.026609841734170914
+  Test accuracy: 0.9916999936103821
+```
+---
+class: code-14px
+### Python Function Tracing for tensorflow and keras
+- More compilicated python program can be traced as follows.
+  - [mnist_convnet.py](https://github.com/keras-team/keras-io/blob/ebe14fb985afd908e10dba8cbca179e5491e6d58/examples/vision/mnist_convnet.py)
+
+```
+  $ uftrace `record` `--nest-libcall` mnist_convnet.py
+      ...
+  Total params: 34826 (136.04 KB)
+  Trainable params: 34826 (136.04 KB)
+  Non-trainable params: 0 (0.00 Byte)
+      ...
+  Epoch 15/15
+  422/422 [============] - 8s 19ms/step - loss: 0.0322 - accuracy: 0.9900 - val_loss: 0.0295 - val_accuracy: 0.9918
+  Test loss: 0.026609841734170914
+  Test accuracy: 0.9916999936103821
+
+  $ uftrace `replay` -N importlib._bootstrap._find_and_load `-t 1s`
+  # DURATION     TID     FUNCTION
+              [  6169] | __main__.<module>() {
+              [  6169] |   keras.src.utils.traceback_utils.error_handler() {
+              [  6169] |     keras.src.engine.training.fit() {
+              [  6169] |       tensorflow.python.util.traceback_utils.error_handler() {
+              [  6169] |         tensorflow.python.eager.polymorphic_function.polymorphic_function.__call__() {
+     1.503  s [  6169] |           tensorflow.python.eager.polymorphic_function.polymorphic_function._call();
+     1.503  s [  6169] |         } /* tensorflow.python.eager.polymorphic_function.polymorphic_function.__call__ */
+     1.503  s [  6169] |       } /* tensorflow.python.util.traceback_utils.error_handler */
+     2.001  `m` [  6169] |     } /* keras.src.engine.training.fit */
+     2.001  `m` [  6169] |   } /* keras.src.utils.traceback_utils.error_handler */
+              [  6169] |   keras.src.utils.traceback_utils.error_handler() {
+     1.098  s [  6169] |     keras.src.engine.training.evaluate();
+     1.098  s [  6169] |   } /* keras.src.utils.traceback_utils.error_handler */
+     5.010  `m` [  6169] | } /* __main__.<module> */
+```
+---
+class: code-14px
+### Python Function Tracing for tensorflow and keras
+- More compilicated python program can be traced as follows.
+  - [mnist_convnet.py](https://github.com/keras-team/keras-io/blob/ebe14fb985afd908e10dba8cbca179e5491e6d58/examples/vision/mnist_convnet.py)
+
+```
+  $ uftrace `record` `--nest-libcall` mnist_convnet.py
+      ...
+  Total params: 34826 (136.04 KB)
+  Trainable params: 34826 (136.04 KB)
+  Non-trainable params: 0 (0.00 Byte)
+      ...
+  Epoch 15/15
+  422/422 [============] - 8s 19ms/step - loss: 0.0322 - accuracy: 0.9900 - val_loss: 0.0295 - val_accuracy: 0.9918
+  Test loss: 0.026609841734170914
+  Test accuracy: 0.9916999936103821
+
+  $ uftrace `replay` -N importlib._bootstrap._find_and_load `-t 1s`
+  # DURATION     TID     FUNCTION
+              [  6169] | __main__.<module>() {
+              [  6169] |   keras.src.utils.traceback_utils.error_handler() {
+              [  6169] |     keras.src.engine.training.fit() {
+              [  6169] |       tensorflow.python.util.traceback_utils.error_handler() {
+              [  6169] |         tensorflow.python.eager.polymorphic_function.polymorphic_function.__call__() {
+     1.503  s [  6169] |           tensorflow.python.eager.polymorphic_function.polymorphic_function._call();
+     1.503  s [  6169] |         } /* tensorflow.python.eager.polymorphic_function.polymorphic_function.__call__ */
+     1.503  s [  6169] |       } /* tensorflow.python.util.traceback_utils.error_handler */
+     2.001  `m` [  6169] |     } /* keras.src.engine.training.fit */
+     2.001  `m` [  6169] |   } /* keras.src.utils.traceback_utils.error_handler */
+              [  6169] |   keras.src.utils.traceback_utils.error_handler() {
+     1.098  s [  6169] |     keras.src.engine.training.evaluate();
+     1.098  s [  6169] |   } /* keras.src.utils.traceback_utils.error_handler */
+     5.010  `m` [  6169] | } /* __main__.<module> */
+
+  $ uftrace `tui` `-t 10ms`
+```
+---
+class: tui2
+<pre>
+<code class="plain">  <x-tui-blue-line2>  TOTAL TIME : FUNCTION</x-tui-blue-line2>
+      2.010  <x-red>m</x-red> : (1) python3.10</x-tui-white-line2>
+      2.010  <x-red>m</x-red> : (1) __main__.<module>
+      7.556  <x-yellow>s</x-yellow> :  ├▶(2) importlib._bootstrap._find_and_load
+               :  │
+    215.860 <x-green>ms</x-green> :  ├▶(1) keras.src.datasets.mnist.load_data
+               :  │
+     20.716 <x-green>ms</x-green> :  ├─(1) ndarray.astype
+               :  │
+      2.002  <x-red>m</x-red> :  ├─(4) keras.src.utils.traceback_utils.error_handler
+     13.893 <x-green>ms</x-green> :  │  ├─(1) keras.src.engine.input_layer.Input
+               :  │  │
+     19.355 <x-green>ms</x-green> :  │  ├─(1) keras.src.engine.training.compile
+               :  │  │
+      2.001  <x-red>m</x-red> :  │  ├─(1) keras.src.engine.training.fit
+    278.522 <x-green>ms</x-green> :  │  │  ├▶(2) keras.src.engine.data_adapter.get_data_handler
+               :  │  │  │
+     13.048 <x-green>ms</x-green> :  │  │  ├▶(1) keras.src.engine.data_adapter.enumerate_epochs
+               :  │  │  │
+      1.050  <x-red>m</x-red> :  │  │  ├─(6330) tensorflow.python.util.traceback_utils.error_handler
+      1.050  <x-red>m</x-red> :  │  │  │ (6330) tensorflow.python.eager.polymorphic_function.polymorphic_function.__call__
+      1.049  <x-red>m</x-red> :  │  │  │ (6330) tensorflow.python.eager.polymorphic_function.polymorphic_function._call
+    778.787 <x-green>ms</x-green> :  │  │  │  ├▶(1) tensorflow.python.eager.polymorphic_function.polymorphic_function._initialize
+               :  │  │  │  │
+      1.047  <x-red>m</x-red> :  │  │  │  └─(6330) tensorflow.python.eager.polymorphic_function.tracing_compilation.call_function
+      1.613  <x-yellow>s</x-yellow> :  │  │  │     ├▶(5) tensorflow.python.eager.polymorphic_function.tracing_compilation.trace_function
+               :  │  │  │     │
+      1.037  <x-red>m</x-red> :  │  │  │     └─(6330) tensorflow.python.eager.polymorphic_function.concrete_function._call_flat
+      1.037  <x-red>m</x-red> :  │  │  │       (6330) tensorflow.python.eager.polymorphic_function.atomic_function.call_preflattened
+      1.037  <x-red>m</x-red> :  │  │  │       (6330) tensorflow.python.eager.polymorphic_function.atomic_function.call_flat
+      1.036  <x-red>m</x-red> :  │  │  │       (6330) tensorflow.python.eager.context.call_function
+   <x-tui-white-line2>   1.036  <x-red>m</x-red> :  │  │  │       (6330) tensorflow.python.eager.execute.quick_execute</x-tui-white-line2>
+      1.036  <x-red>m</x-red> :  │  │  │       (6330) tensorflow.python._pywrap_tfe.PyCapsule.TFE_Py_Execute
+               :  │  │  │
+      4.691  <x-yellow>s</x-yellow> :  │  │  └▶(15) keras.src.utils.traceback_utils.error_handler
+               :  │  │
+      1.098  <x-yellow>s</x-yellow> :  │  └▶(1) keras.src.engine.training.evaluate
+               :  │
+    154.935 <x-green>ms</x-green> :  └▶(1) tensorflow.python.trackable.base._method_wrapper
+
+  <x-tui-blue-line2>uftrace graph: /home/honggyu/.local/lib/python3.10/site-packages/tensorflow/python/eager/execute.py [line:28]</x-tui-blue-line2>
+</code>
+</pre>
 
 ---
 template: title-layout
@@ -4307,6 +4455,16 @@ template: title-layout
       for (var i = 0; i < tui_white_lines.length; i++) {
           var elem = tui_white_lines[i];
           elem.innerHTML = rightPad(elem.innerHTML, ' ', 101);
+      }
+      var tui_blue_lines2 = document.getElementsByTagName('x-tui-blue-line2');
+      for (var i = 0; i < tui_blue_lines2.length; i++) {
+          var elem = tui_blue_lines2[i];
+          elem.innerHTML = rightPad(elem.innerHTML, ' ', 118);
+      }
+      var tui_white_lines2 = document.getElementsByTagName('x-tui-white-line2');
+      for (var i = 0; i < tui_white_lines2.length; i++) {
+          var elem = tui_white_lines2[i];
+          elem.innerHTML = rightPad(elem.innerHTML, ' ', 118);
       }
     </script>
     <!-- Global site tag (gtag.js) - Google Analytics -->
