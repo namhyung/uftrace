@@ -823,7 +823,7 @@ static void load_python_symtab(struct uftrace_sym_info *sinfo)
 	map->start = 0;
 	map->end = ALIGN(map->mod->symtab.nr_sym, 4096);
 
-	setup_debug_info(symfile, &map->mod->dinfo, 0, false);
+	memset(&map->mod->dinfo, 0, sizeof(map->mod->dinfo));
 
 	/* add new map to symtabs */
 	map->next = sinfo->maps;
