@@ -102,7 +102,6 @@ static union uftrace_python_symtab *dbg_info;
 /* symbol table entry to maintain mappings from code to addr */
 struct uftrace_python_symbol {
 	struct rb_node node;
-	PyObject *code;
 	char *name;
 	uint32_t addr;
 	uint32_t flag;
@@ -653,42 +652,14 @@ static void init_uftrace(void)
 /* this is called during GC traversal */
 static int uftrace_py_traverse(PyObject *m, visitproc visit, void *arg)
 {
-	struct uftrace_py_state *state;
-	struct rb_node *node;
-	struct uftrace_python_symbol *sym;
-
-	state = PyModule_GetState(m);
-
-	Py_VISIT(state->trace_func);
-
-	node = rb_first(&code_tree);
-	while (node) {
-		sym = rb_entry(node, struct uftrace_python_symbol, node);
-		Py_VISIT(sym->code);
-
-		node = rb_next(node);
-	}
+	/* do nothing for now */
 	return 0;
 }
 
 /* this is called before the module is deallocated */
 static int uftrace_py_clear(PyObject *m)
 {
-	struct uftrace_py_state *state;
-	struct rb_node *node;
-	struct uftrace_python_symbol *sym;
-
-	state = PyModule_GetState(m);
-
-	Py_CLEAR(state->trace_func);
-
-	node = rb_first(&code_tree);
-	while (node) {
-		sym = rb_entry(node, struct uftrace_python_symbol, node);
-		Py_CLEAR(sym->code);
-
-		node = rb_next(node);
-	}
+	/* do nothing for now */
 	return 0;
 }
 
@@ -878,6 +849,7 @@ static struct uftrace_python_symbol *convert_function_addr(PyObject *frame, PyOb
 	const char *file_name = NULL;
 	char *func_name;
 	bool is_main = false;
+	int cmp;
 
 	if (is_pyfunc) {
 		code = PyObject_GetAttrString(frame, "f_code");
@@ -889,29 +861,32 @@ static struct uftrace_python_symbol *convert_function_addr(PyObject *frame, PyOb
 		Py_INCREF(code);
 	}
 
-	while (*p) {
-		parent = *p;
-		iter = rb_entry(parent, struct uftrace_python_symbol, node);
-
-		/* just compare pointers of the code object */
-		if (iter->code == code) {
-			Py_DECREF(code);
-			return iter;
-		}
-
-		if (iter->code < code)
-			p = &parent->rb_left;
-		else
-			p = &parent->rb_right;
-	}
-
 	if (is_pyfunc)
 		func_name = get_python_funcname(frame, code, &is_main);
 	else
 		func_name = get_c_funcname(frame, code);
 
+	/* code is not used anymore */
+	Py_DECREF(code);
+
 	if (func_name == NULL)
 		return NULL;
+
+	while (*p) {
+		parent = *p;
+		iter = rb_entry(parent, struct uftrace_python_symbol, node);
+
+		/* compare func_name */
+		cmp = strcmp(iter->name, func_name);
+		if (cmp == 0) {
+			free(func_name);
+			return iter;
+		}
+		if (cmp < 0)
+			p = &parent->rb_left;
+		else
+			p = &parent->rb_right;
+	}
 
 	if (main_dir && PyObject_HasAttrString(code, "co_filename")) {
 		PyObject *obj;
@@ -926,7 +901,6 @@ static struct uftrace_python_symbol *convert_function_addr(PyObject *frame, PyOb
 	}
 
 	new_sym = xmalloc(sizeof(*new_sym));
-	new_sym->code = code;
 	new_sym->addr = get_new_sym_addr(func_name, !is_main);
 	new_sym->name = func_name;
 	new_sym->flag = is_main ? 0 : UFT_PYSYM_F_LIBCALL;
