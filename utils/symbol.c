@@ -383,9 +383,16 @@ static int load_symtab(struct uftrace_symtab *symtab, const char *filename,
 		}
 	}
 
+again:
 	elf_for_each_shdr(&elf, &iter) {
 		if (iter.shdr.sh_type == SHT_SYMTAB)
 			break;
+	}
+
+	if (iter.shdr.sh_type != SHT_SYMTAB) {
+		/* no symbol table, but it might have separate debug file */
+		if (elf_retry(filename, &elf))
+			goto again;
 	}
 
 	if (iter.shdr.sh_type != SHT_SYMTAB) {

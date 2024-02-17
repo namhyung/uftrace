@@ -6,6 +6,7 @@
 struct uftrace_elf_data {
 	int fd;
 	Elf *handle;
+	void *dwfl;
 	GElf_Ehdr ehdr;
 };
 
@@ -112,6 +113,7 @@ struct uftrace_elf_iter {
 
 int elf_init(const char *filename, struct uftrace_elf_data *elf);
 void elf_finish(struct uftrace_elf_data *elf);
+int elf_retry(const char *filename, struct uftrace_elf_data *elf);
 
 void elf_get_secdata(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter);
 void elf_read_secdata(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter, unsigned offset,
