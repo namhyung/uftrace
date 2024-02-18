@@ -24,6 +24,7 @@
 #include "utils/kernel.h"
 #include "utils/list.h"
 #include "utils/perf.h"
+#include "utils/script.h"
 #include "utils/shmem.h"
 #include "utils/symbol.h"
 #include "utils/utils.h"
@@ -1590,13 +1591,17 @@ static void check_binary(struct uftrace_opts *opts)
 	size_t i;
 	char elf_ident[EI_NIDENT];
 	static char altname[PATH_MAX]; // for opts->exename to be persistent
+	bool is_python_exe;
 	uint16_t e_type;
 	uint16_t e_machine;
 	uint16_t supported_machines[] = { EM_X86_64, EM_ARM, EM_AARCH64, EM_386, EM_RISCV };
 
 again:
+
+	if (get_script_type(opts->exename) == SCRIPT_PYTHON)
+		is_python_exe = true;
 	/* if it cannot be found in PATH, then fails inside */
-	if (!is_regular_executable(opts->exename)) {
+	if (!is_python_exe && !is_regular_executable(opts->exename)) {
 		find_in_path(opts->exename, altname, sizeof(altname));
 		opts->exename = altname;
 	}
@@ -1614,11 +1619,11 @@ again:
 		char *script = altname;
 		char *p;
 
-		if (!check_script_file(opts->exename, altname, sizeof(altname)))
+		if (!is_python_exe && !check_script_file(opts->exename, altname, sizeof(altname)))
 			pr_err_ns(UFTRACE_ELF_MSG, opts->exename);
 
 #if defined(HAVE_LIBPYTHON2) || defined(HAVE_LIBPYTHON3)
-		if (strstr(script, "python")) {
+		if (is_python_exe || strstr(script, "python")) {
 			opts->force = true;
 			/* TODO: disable sched event until it can merge subsequent events */
 			opts->no_sched = true;
@@ -1635,7 +1640,8 @@ again:
 		if (p)
 			*p = '\0';
 
-		opts->exename = script;
+		if (is_python_exe)
+			opts->exename = "/usr/bin/env";
 		close(fd);
 		goto again;
 	}
@@ -2163,8 +2169,10 @@ static int do_child_exec(int ready[], struct uftrace_opts *opts, int argc, char 
 		opts->dirname = dirpath;
 
 	if (access(argv[0], F_OK) == 0) {
+		if (get_script_type(argv[0]) == SCRIPT_PYTHON)
+			shebang = "/usr/bin/env python3";
 		/* prefer current directory over PATH */
-		if (check_script_file(argv[0], exepath, sizeof(exepath)))
+		else if (check_script_file(argv[0], exepath, sizeof(exepath)))
 			shebang = exepath;
 	}
 	else {
@@ -2176,7 +2184,9 @@ static int do_child_exec(int ready[], struct uftrace_opts *opts, int argc, char 
 		strv_for_each(&path_names, dir, i) {
 			xasprintf(&path, "%s/%s", dir, argv[0]);
 			ret = access(path, F_OK);
-			if (ret == 0 && check_script_file(path, exepath, sizeof(exepath)))
+			if (ret == 0 && get_script_type(path) == SCRIPT_PYTHON)
+				shebang = "/usr/bin/env python3";
+			else if (ret == 0 && check_script_file(path, exepath, sizeof(exepath)))
 				shebang = exepath;
 			free(path);
 			if (ret == 0)
@@ -2193,7 +2203,7 @@ static int do_child_exec(int ready[], struct uftrace_opts *opts, int argc, char 
 		if (strstr(shebang, "python"))
 			is_python = true;
 #endif
-		s = str_ltrim(shebang);
+		s = strdup(str_ltrim(shebang));
 
 		p = strchr(s, ' ');
 		if (p != NULL)
