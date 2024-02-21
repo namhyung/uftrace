@@ -851,6 +851,87 @@ static int read_uftrace_version(void *arg)
 	return 0;
 }
 
+void write_header(int fd, struct uftrace_file_header *hdr)
+{
+	dprintf(fd, "magic:%s\n", hdr->magic);
+	dprintf(fd, "version:%u\n", hdr->version);
+	dprintf(fd, "header_size:%u\n", hdr->header_size);
+	dprintf(fd, "endian:%u\n", hdr->endian);
+	dprintf(fd, "elf_class:%u\n", hdr->elf_class);
+	dprintf(fd, "feat_mask:%" PRIu64 "\n", hdr->feat_mask);
+	dprintf(fd, "info_mask:%" PRIu64 "\n", hdr->info_mask);
+	dprintf(fd, "max_stack:%u\n", hdr->max_stack);
+}
+
+static char *read_header_field(FILE *fp, struct uftrace_file_header *hdr, const char *field,
+			       char *buf)
+{
+	int len = strlen(field);
+
+	if (fgets(buf, PATH_MAX, fp) == NULL)
+		return NULL;
+	if (strncmp(buf, field, len))
+		return NULL;
+	return &buf[len];
+}
+
+int read_header(struct uftrace_file_header *hdr, FILE *fp, bool is_info_txt)
+{
+	char buf[PATH_MAX];
+	char *data;
+	char *copied_magic;
+
+	if (!is_info_txt) {
+		if (fread(hdr, sizeof(*hdr), 1, fp) != 1)
+			return -1;
+		return 0;
+	}
+
+	data = read_header_field(fp, hdr, "magic:", buf);
+	if (!data)
+		return -1;
+	copied_magic = copy_info_str(data);
+	memcpy(hdr->magic, copied_magic, UFTRACE_MAGIC_LEN);
+	free(copied_magic);
+
+	data = read_header_field(fp, hdr, "version:", buf);
+	if (!data)
+		return -1;
+	sscanf(data, "%u", &hdr->version);
+
+	data = read_header_field(fp, hdr, "header_size:", buf);
+	if (!data)
+		return -1;
+	sscanf(data, "%hu", &hdr->header_size);
+
+	data = read_header_field(fp, hdr, "endian:", buf);
+	if (!data)
+		return -1;
+	sscanf(data, "%hhu", &hdr->endian);
+
+	data = read_header_field(fp, hdr, "elf_class:", buf);
+	if (!data)
+		return -1;
+	sscanf(data, "%hhu", &hdr->elf_class);
+
+	data = read_header_field(fp, hdr, "feat_mask:", buf);
+	if (!data)
+		return -1;
+	sscanf(data, "%" PRIu64, &hdr->feat_mask);
+
+	data = read_header_field(fp, hdr, "info_mask:", buf);
+	if (!data)
+		return -1;
+	sscanf(data, "%" PRIu64, &hdr->info_mask);
+
+	data = read_header_field(fp, hdr, "max_stack:", buf);
+	if (!data)
+		return -1;
+	sscanf(data, "%hu", &hdr->max_stack);
+
+	return 0;
+}
+
 struct uftrace_info_handler {
 	enum uftrace_info_bits bit;
 	int (*handler)(void *arg);
@@ -983,10 +1064,12 @@ void process_uftrace_info(struct uftrace_data *handle, struct uftrace_opts *opts
 	if (info_mask == 0)
 		return;
 
-	snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
-
-	if (stat(buf, &statbuf) < 0)
-		return;
+	snprintf(buf, sizeof(buf), "%s/info.txt", opts->dirname);
+	if (stat(buf, &statbuf) < 0) {
+		snprintf(buf, sizeof(buf), "%s/info", opts->dirname);
+		if (stat(buf, &statbuf) < 0)
+			return;
+	}
 
 	process(data, "# system information\n");
 	process(data, "# ==================\n");

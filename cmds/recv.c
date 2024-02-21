@@ -550,7 +550,7 @@ static void recv_trace_info(int sock, int len)
 	if (read_all(sock, info, len) < 0)
 		pr_err("recv info failed");
 
-	write_client_file(client, "info", 2, &hdr, sizeof(hdr), info, len);
+	write_client_file(client, "info.txt", 2, &hdr, sizeof(hdr), info, len);
 
 	free(info);
 }
