@@ -212,7 +212,7 @@ BENCH_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(BENCH_SRCS))
 PYTHON_SRCS := $(srcdir)/python/trace-python.c $(srcdir)/utils/debug.c
 PYTHON_SRCS += $(srcdir)/utils/utils.c $(srcdir)/utils/rbtree.c $(srcdir)/utils/shmem.c
 PYTHON_SRCS += $(wildcard $(srcdir)/utils/symbol-*.c)
-PYTHON_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.op,$(PYTHON_SRCS))
+PYTHON_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.oy,$(PYTHON_SRCS))
 
 UFTRACE_ARCH_OBJS := $(objdir)/arch/$(ARCH)/uftrace.o
 
@@ -351,7 +351,10 @@ $(objdir)/misc/bench: $(BENCH_OBJS)
 	$(QUIET_LINK)$(CC) $(BENCH_CFLAGS) -o $@ $(BENCH_OBJS) $(BENCH_LDFLAGS)
 
 ifneq ($(findstring HAVE_LIBPYTHON, $(COMMON_CFLAGS)), )
-$(PYTHON_OBJS): $(objdir)/%.op: $(srcdir)/%.c $(COMMON_DEPS)
+# Remove libelf/libdw dependency for the python extension
+PYTHON_CFLAGS := $(filter-out -DHAVE_LIBELF,$(PYTHON_CFLAGS))
+
+$(PYTHON_OBJS): $(objdir)/%.oy: $(srcdir)/%.c $(COMMON_DEPS)
 	$(QUIET_CC_FPIC)$(CC) $(PYTHON_CFLAGS) -c -o $@ $<
 
 $(objdir)/python/uftrace_python.so: $(PYTHON_OBJS)
@@ -438,7 +441,8 @@ clean:
 	$(call QUIET_CLEAN, uftrace)
 	$(Q)$(RM) $(objdir)/*.o $(objdir)/*.op $(objdir)/*.so $(objdir)/*.a
 	$(Q)$(RM) $(objdir)/cmds/*.o $(objdir)/utils/*.o $(objdir)/misc/*.o
-	$(Q)$(RM) $(objdir)/utils/*.op $(objdir)/libmcount/*.op $(objdir)/python/*.op
+	$(Q)$(RM) $(objdir)/utils/*.op $(objdir)/libmcount/*.op
+	$(Q)$(RM) $(objdir)/utils/*.oy $(objdir)/python/*.oy
 	$(Q)$(RM) $(objdir)/gmon.out $(srcdir)/scripts/*.pyc $(TARGETS)
 	$(Q)$(RM) $(objdir)/uftrace-*.tar.gz $(objdir)/version.h
 	$(Q)find -name "*\.gcda" -o -name "*\.gcno" | xargs $(RM)
