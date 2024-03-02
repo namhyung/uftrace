@@ -15,9 +15,9 @@ class TestCase(TestBase):
 
     def prepare(self):
         self.subcmd = 'record'
-        self.option = '-t 2ms'
+        self.option = '-t 20ms'
         return self.runcmd()
 
     def setup(self):
         self.subcmd = 'replay'
-        self.option = '-t 4ms'
+        self.option = '-t 40ms'

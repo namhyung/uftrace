@@ -3,18 +3,18 @@
 
 void bar(void)
 {
-	usleep(3000);
+	usleep(30000);
 }
 
 void foo(void)
 {
-	usleep(5000);
+	usleep(50000);
 	bar();
 }
 
 int main(void)
 {
-	usleep(1000);
+	usleep(10000);
 
 	foo();
 	return 0;
