@@ -14,7 +14,7 @@ int Child::func(int n)
 	return 100;
 }
 
-extern "C" Parent *creat()
+extern "C" Parent *create()
 {
 	return new Child;
 }

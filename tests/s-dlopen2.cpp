@@ -11,7 +11,7 @@ class Parent {
 int main(int argc, char *argv[])
 {
 	void *handle;
-	Parent *(*creat)();
+	Parent *(*create)();
 	Parent *p;
 	int n = 1;
 
@@ -23,9 +23,9 @@ int main(int argc, char *argv[])
 	if (!handle)
 		return -1;
 
-	creat = (Parent * (*)()) dlsym(handle, "creat");
-	p = creat();
-	p->bar(n);
+	create = (Parent * (*)()) dlsym(handle, "create");
+	p = create();
+	p->bar(n); // calls func() which is defined in Child
 	dlclose(handle);
 
 	return 0;

@@ -13,11 +13,11 @@ class TestCase(TestBase):
             [ 29510] | main() {
  398.509 us [ 29510] |   dlopen();
    2.324 us [ 29510] |   dlsym();
-            [ 29510] |   creat() {
+            [ 29510] |   create() {
             [ 29510] |     Child::Child() {
    0.290 us [ 29510] |       Parent::Parent();
    1.703 us [ 29510] |     } /* Child::Child */
-   6.090 us [ 29510] |   } /* creat */
+   6.090 us [ 29510] |   } /* create */
    0.133 us [ 29510] |   Child::func();
   48.519 us [ 29510] |   dlclose();
  465.432 us [ 29510] | } /* main */
@@ -33,7 +33,12 @@ class TestCase(TestBase):
                                       cflags, ldflags)
 
     def setup(self):
-        self.option = '-F a'
+        self.option = '-F main'
 
     def fixup(self, cflags, result):
-        return result.replace('creat', 'creat64')
+        # GCC seems to optimize out the empty Parent::Parent().
+        return result.replace("""
+            [ 29510] |     Child::Child() {
+   0.290 us [ 29510] |       Parent::Parent();
+   1.703 us [ 29510] |     } /* Child::Child */""", """
+   1.703 us [ 29510] |     Child::Child();""")
