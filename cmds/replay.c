@@ -490,6 +490,7 @@ void get_argspec_string(struct uftrace_task_reader *task, char *args, size_t len
 			/* fall through */
 		case ARG_FMT_SINT:
 		case ARG_FMT_HEX:
+		case ARG_FMT_OCT:
 			idx = ffs(spec->size) - 1;
 			break;
 		case ARG_FMT_UINT:

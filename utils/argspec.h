@@ -11,6 +11,7 @@ enum uftrace_arg_format {
 	ARG_FMT_SINT,
 	ARG_FMT_UINT,
 	ARG_FMT_HEX,
+	ARG_FMT_OCT,
 	ARG_FMT_STR,
 	ARG_FMT_CHAR,
 	ARG_FMT_FLOAT,
@@ -26,7 +27,7 @@ enum uftrace_arg_format {
 #define ARG_TYPE_STACK 3
 
 /* should match with uftrace_arg_format above */
-#define ARG_SPEC_CHARS "diuxscfSpet"
+#define ARG_SPEC_CHARS "diuxoscfSpet"
 
 /**
  * uftrace_arg_spec contains arguments and return value info.
