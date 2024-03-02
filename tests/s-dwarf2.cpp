@@ -15,6 +15,9 @@ class A {
 		, I(i)
 		, S(s)
 	{
+		volatile int dummy; // just not to be optimized
+
+		dummy++;
 	}
 
     private:

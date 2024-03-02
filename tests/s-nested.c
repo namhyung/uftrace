@@ -2,7 +2,7 @@
 
 int foo(void)
 {
-	int count = 0;
+	volatile int count = 0;
 
 	__attribute__((noinline)) int foo_internal(void)
 	{
