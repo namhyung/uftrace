@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os.path
 import subprocess as sp
 from time import sleep
 
@@ -64,7 +65,8 @@ class TestCase(TestBase):
         # bufsize=0 to write characters one by one
         record_p = sp.Popen(record_cmd.split(), stdin=sp.PIPE, stderr=sp.PIPE, bufsize=0)
 
-        sleep(.05)              # time for the agent to start
+        while not os.path.exists("/tmp/uftrace/%d.socket" % record_p.pid):
+            sleep(.01)
 
         if self.client_send_command(record_p.pid, '-C c') != 0:
             return TestBase.TEST_NONZERO_RETURN

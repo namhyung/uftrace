@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os.path
 import subprocess as sp
 from time import sleep
 
@@ -52,7 +53,9 @@ class TestCase(TestBase):
         self.pr_debug("prerun command: " + record_cmd)
         record_p = sp.Popen(record_cmd.split(), stdin=sp.PIPE, stderr=sp.PIPE, bufsize=0)
 
-        sleep(.05)              # time for the agent to start
+        while not os.path.exists("/tmp/uftrace/%d.socket" % record_p.pid):
+            sleep(.01)
+
         if self.client_send_command(record_p.pid, '--trace=off') != 0:
             return TestBase.TEST_NONZERO_RETURN
         record_p.stdin.write(b'0')

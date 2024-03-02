@@ -27,4 +27,4 @@ class TestCase(TestBase):
 """)
 
     def setup(self):
-        self.option = '--no-merge'
+        self.option = '--no-merge -F main'
