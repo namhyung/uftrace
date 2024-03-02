@@ -23,5 +23,5 @@ main;foo;bar;usleep 1
         for ln in output.split('\n'):
             if ln.strip() == '':
                 continue
-            result.append(ln)
+            result.append(ln.split(' ')[0])
         return '\n'.join(result)

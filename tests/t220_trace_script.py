@@ -11,8 +11,6 @@ class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'abc', """
 # DURATION    TID     FUNCTION
- 133.697 us [28137] | fork();
-            [28141] | } /* fork */
             [28141] | main() {
             [28141] |   a() {
             [28141] |     b() {
@@ -31,11 +29,17 @@ class TestCase(TestBase):
         f.close()
         os.chmod(TEST_SCRIPT, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
 
-    def setup(self):
-        self.option = "--force -F fork -F main"
-        self.exearg = TEST_SCRIPT
+    def build(self, name, cflags='', ldflags=''):
+        if cflags.find('-fpatchable-function-entry') >= 0:
+            self.patchable = True
+        else:
+            self.patchable = False
 
-    def fixup(self, cflags, result):
-        result = result.replace(' 133.697 us [28137] | fork();\n', '')
-        result = result.replace('            [28141] | } /* fork */\n', '')
-        return result
+        return TestBase.build(self, name, cflags, ldflags)
+
+    def setup(self):
+        self.option = "--force -F main"
+        if self.patchable:
+            self.option += " -P .@t-abc"
+
+        self.exearg = TEST_SCRIPT

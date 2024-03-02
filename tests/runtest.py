@@ -656,7 +656,8 @@ class TestBase:
             if ret == 2:
                 return TestBase.TEST_ABNORMAL_EXIT, ''
             if diff:
-                dif = "%s: %s returns %d\n" % (name, cflags, ret)
+                compiler = self.supported_lang[self.lang]['cc']
+                dif = "%s: %s %s returns %d\n" % (name, compiler, cflags, ret)
             return TestBase.TEST_NONZERO_RETURN, dif
 
         self.pr_debug("=========== %s ===========\n%s" % ("original", result_origin))
@@ -684,7 +685,7 @@ class TestBase:
                 f.write(result_tested + '\n')
                 f.close()
 
-                compiler = self.supported_lang['C']['cc']
+                compiler = self.supported_lang[self.lang]['cc']
                 dif = "%s: diff result of %s %s\n" % (name, compiler, cflags)
                 try:
                     p = sp.Popen(['colordiff', '-U1', 'expect', 'result'], stdout=sp.PIPE)
@@ -802,7 +803,7 @@ def run_single_case(case, flags, opts, arg, compilers):
                 tc.set_keep(arg.keep)
                 tc.set_compiler(compiler)
 
-                cflags = ' '.join(["-" + flag, "-" + opt])
+                cflags = ' '.join(["-" + flag, "-" + opt, tc.cflags])
                 # add -fno-ipa-sra to prevent function renames like foo.isra.0
                 # this is available on GCC only
                 if compiler == 'gcc':

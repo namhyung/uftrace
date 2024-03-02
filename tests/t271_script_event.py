@@ -27,6 +27,9 @@ read:proc/statm vmsize vmrss shared
 diff:proc/statm vmsize vmrss shared
 """)
 
+    def runcmd(self):
+        return TestBase.runcmd(self).replace('--no-event', '')
+
     def prerun(self, timeout):
         script_cmd = '%s script' % (TestBase.uftrace_cmd)
         p = sp.Popen(script_cmd.split(), stdout=sp.PIPE, stderr=sp.PIPE)
@@ -37,10 +40,9 @@ diff:proc/statm vmsize vmrss shared
         f.write(script)
         f.close()
 
-        TestBase.default_opt = TestBase.default_opt.replace('--no-event', '')
-
         self.subcmd = 'record'
-        self.option = '-T a@read=proc/statm'
+        self.option = '-T a@read=proc/statm --no-sched'
+
         record_cmd = self.runcmd()
 
         self.pr_debug("prerun command: " + record_cmd)
