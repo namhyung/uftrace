@@ -557,7 +557,7 @@ uftrace 는 함수의 인자와 반환값을 각각 `-A`/`\--argument` 와 `-R`/
     <int_spec>    :=  "arg" N [ "/" <format> [ <size> ] ] [ "%" ( <reg> | <stack> ) ]
     <float_spec>  :=  "fparg" N [ "/" ( <size> | "80" ) ] [ "%" ( <reg> | <stack> ) ]
     <ret_spec>    :=  "retval" [ "/" <format> [ <size> ] ]
-    <format>      :=  "d" | "i" | "u" | "x" | "s" | "c" | "f" | "S" | "p"
+    <format>      :=  "d" | "i" | "u" | "x" | "o" | "s" | "c" | "f" | "S" | "p"
     <size>        :=  "8" | "16" | "32" | "64"
     <reg>         :=  <arch-specific register name>  # "rdi", "xmm0", "r0", ...
     <stack>       :=  "stack" [ "+" ] <offset>
@@ -573,7 +573,8 @@ argN 은 정수형 인자를, fpargN 은 부동소수점형 인자를 위한 표
 간주하고 소수점형에 대해서는 'double'형으로 간주한다.
 
 "i" 형식은 signed 정수형으로, "u" 형식은 unsigned 으로 출력한다.
-두 형식 모두 10 진수가 출력되는 한편 "x" 형식은 16 진수로 출력되게 한다.
+두 형식 모두 10 진수가 출력되는 한편 "x" 형식은 16 진수로, "o" 형식은 8진수로
+출력되게 한다.
 "s" 는 null 을 제외한 문자열 출력을 위한 형식이고, "c" 는 단일 문자를 위한
 형식이다.  "f" 형식은 부동 소수점을 출력하는데, (일반적으로) 반환값에서만 의미를
 가진다.
