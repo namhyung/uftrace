@@ -36,7 +36,7 @@ typedef_name = [
         "Lmid_t", "FILE", "in_addr_t",
     ]
 
-artifitial_type = [ "funcptr_t" ]
+artifitial_type = [ "funcptr_t", "oct_mode_t" ]
 
 pointer = "*"
 reference = "&"
@@ -192,6 +192,8 @@ def make_uftrace_retval_format(ctype, funcname):
         retval_format += "retval/u"
     elif ctype == "funcptr_t":
         retval_format += "retval/p"
+    elif ctype == "oct_mode_t":
+        retval_format += "retval/o"
     elif ctype == "off64_t":
         retval_format += "retval/d64"
     elif ctype.startswith('enum'):
@@ -240,6 +242,8 @@ def make_uftrace_args_format(args, funcname):
             args_format += "arg%d/u" % i
         elif arg == "funcptr_t":
             args_format += "arg%d/p" % i
+        elif arg == "oct_mode_t":
+            args_format += "arg%d/o" % i
         elif arg == "off64_t":
             args_format += "arg%d/d64" % i
         elif arg.startswith('enum'):
