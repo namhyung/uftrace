@@ -383,9 +383,16 @@ static int load_symtab(struct uftrace_symtab *symtab, const char *filename,
 		}
 	}
 
+again:
 	elf_for_each_shdr(&elf, &iter) {
 		if (iter.shdr.sh_type == SHT_SYMTAB)
 			break;
+	}
+
+	if (iter.shdr.sh_type != SHT_SYMTAB) {
+		/* no symbol table, but it might have separate debug file */
+		if (elf_retry(filename, &elf))
+			goto again;
 	}
 
 	if (iter.shdr.sh_type != SHT_SYMTAB) {
@@ -823,7 +830,7 @@ static void load_python_symtab(struct uftrace_sym_info *sinfo)
 	map->start = 0;
 	map->end = ALIGN(map->mod->symtab.nr_sym, 4096);
 
-	setup_debug_info(symfile, &map->mod->dinfo, 0, false);
+	memset(&map->mod->dinfo, 0, sizeof(map->mod->dinfo));
 
 	/* add new map to symtabs */
 	map->next = sinfo->maps;

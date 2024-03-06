@@ -26,4 +26,4 @@ class TestCase(TestBase):
                                       cflags, ldflags)
 
     def setup(self):
-        self.option = '-D3 --nest-libcall'
+        self.option = '-D3 --nest-libcall -F main'

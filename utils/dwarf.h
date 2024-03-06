@@ -11,9 +11,8 @@
 struct uftrace_sym_info;
 
 #ifdef HAVE_LIBDW
-#include <elfutils/libdw.h>
-#else
-#define Dwarf void
+#include <elfutils/libdwfl.h>
+extern Dwfl_Callbacks dwfl_callbacks;
 #endif
 
 struct uftrace_dbg_file {
@@ -35,7 +34,9 @@ struct uftrace_dbg_loc {
 
 struct uftrace_dbg_info {
 	/* opaque DWARF info pointer */
-	Dwarf *dw;
+	void *dw;
+	/* opaque pointer for DWARF frontend library */
+	void *dwfl;
 	/* start address in memory for this module */
 	uint64_t offset;
 	/* rb tree of arguments */
@@ -73,8 +74,5 @@ struct uftrace_dbg_loc *find_file_line(struct uftrace_sym_info *sinfo, uint64_t 
 extern void save_debug_info(struct uftrace_sym_info *sinfo, const char *dirname);
 extern void load_debug_info(struct uftrace_sym_info *sinfo, bool needs_srcline);
 extern void save_debug_file(FILE *fp, char code, char *str, unsigned long val);
-/* only for dummy python module */
-extern int setup_debug_info(const char *filename, struct uftrace_dbg_info *dinfo,
-			    unsigned long offset, bool force);
 
 #endif /* UFTRACE_DWARF_H */

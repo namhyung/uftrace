@@ -26,7 +26,7 @@ class TestCase(TestBase):
                                       cflags, ldflags)
 
     def setup(self):
-        self.option = "--nest-libcall --libname -f +module"
+        self.option = "--nest-libcall --libname -f +module -F main"
 
     def fixup(self, cflags, result):
         import re
