@@ -1438,7 +1438,7 @@ class: code-18px
     <int_spec>    :=  "arg" N [ "/" <format> [ <size> ] ] [ "%" ( <reg> | <stack> ) ]
     <float_spec>  :=  "fparg" N [ "/" ( <size> | "80" ) ] [ "%" ( <reg> | <stack> ) ]
     <ret_spec>    :=  "retval" [ "/" <format> [ <size> ] ]
-    <format>      :=  "d" | "i" | "u" | "x" | "s" | "c" | "f" | "S" | "p"
+    <format>      :=  "d" | "i" | "u" | "x" | "o" | "s" | "c" | "f" | "S" | "p"
     <size>        :=  "8" | "16" | "32" | "64"
     <reg>         :=  <arch-specific register name>  # "rdi", "xmm0", "r0", ...
     <stack>       :=  "stack" [ "+" ] <offset>

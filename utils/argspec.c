@@ -98,6 +98,9 @@ struct uftrace_arg_spec *parse_argspec(char *str, struct uftrace_filter_setting 
 	case 'x':
 		fmt = ARG_FMT_HEX;
 		break;
+	case 'o':
+		fmt = ARG_FMT_OCT;
+		break;
 	case 's':
 		fmt = ARG_FMT_STR;
 		break;

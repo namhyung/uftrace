@@ -499,18 +499,12 @@ int stat(const char *pathname, void *statbuf);
 int fstat(int fd, void *statbuf);
 int lstat(const char *pathname, void *statbuf);
 
-enum uft_mode {
-	mod_777 = 0777, mod_755 = 0755, mod_666 = 0666, mod_644 = 0644,
-	mod_400 = 0400, mod_600 = 0600, mod_660 = 0660, mod_640 = 0640,
-	mod_444 = 0444, mod_022 = 0022, mod_440 = 0440, mod_222 = 0222,
-	mod_111 = 0111, mod_011 = 0011, mod_033 = 0033, mod_077 = 0077,
-};
-int chmod(const char *pathname, enum uft_mode mode);
-int fchmod(int fd, enum uft_mode mode);
-void umask(enum uft_mode mask);
+int chmod(const char *pathname, oct_mode_t mode);
+int fchmod(int fd, oct_mode_t mode);
+void umask(oct_mode_t mask);
 
-int creat(const char *file, enum uft_mode mode);
-int creat64(const char *file, enum uft_mode mode);
+int creat(const char *file, oct_mode_t mode);
+int creat64(const char *file, oct_mode_t mode);
 
 #include <unistd.h>
 int isatty(int fd);

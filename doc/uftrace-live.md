@@ -613,7 +613,7 @@ The syntax is very similar to that of triggers:
     <int_spec>    :=  "arg" N [ "/" <format> [ <size> ] ] [ "%" ( <reg> | <stack> ) ]
     <float_spec>  :=  "fparg" N [ "/" ( <size> | "80" ) ] [ "%" ( <reg> | <stack> ) ]
     <ret_spec>    :=  "retval" [ "/" <format> [ <size> ] ]
-    <format>      :=  "d" | "i" | "u" | "x" | "s" | "c" | "f" | "S" | "p"
+    <format>      :=  "d" | "i" | "u" | "x" | "o" | "s" | "c" | "f" | "S" | "p"
     <size>        :=  "8" | "16" | "32" | "64"
     <reg>         :=  <arch-specific register name>  # "rdi", "xmm0", "r0", ...
     <stack>       :=  "stack" [ "+" ] <offset>
@@ -631,8 +631,9 @@ values.  The "d" format or without format field, uftrace treats them as
 'long int' type for integers and 'double' for floating-point numbers.
 The "i" format makes it signed integer type and "u" format is for unsigned
 type.  Both are printed as decimal while "x" format makes it printed as
-hexadecimal.  The "s" format is for null-terminated string type and "c" format
-is for character type.  The "f" format is for floating-point type and is
+hexadecimal, and "o" format makes it printed as octal.  The "s" format is for
+null-terminated string type and "c" format is for character type.
+The "f" format is for floating-point type and is
 meaningful only for return value (generally).  Note that fpargN doesn't take
 the format field since it's always floating-point.  The "S" format is for
 std::string, but it only supports libstdc++ library as of yet.  Finally,
