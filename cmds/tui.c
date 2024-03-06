@@ -182,11 +182,11 @@ static const char *graph_field_names[NUM_GRAPH_FIELD] = {
 	"ADDRESS",
 };
 
-#define NUM_REPORT_FIELD 10
+#define NUM_REPORT_FIELD 14
 
 static const char *report_field_names[NUM_REPORT_FIELD] = {
-	"TOTAL TIME", "TOTAL AVG", "TOTAL MIN", "TOTAL MAX", "SELF TIME",
-	"SELF AVG",   "SELF MIN",  "SELF MAX",	"CALL",	     "SIZE",
+	"TOTAL TIME", "TOTAL AVG", "TOTAL MIN", "TOTAL MAX", "SELF TIME", "SELF AVG",  "SELF MIN",
+	"SELF MAX",   "CALL",	   "CALLER",	"CALLEE",    "DEPTH MIN", "DEPTH MAX", "SIZE",
 };
 
 static const char *field_help[] = {
@@ -204,8 +204,8 @@ enum tui_mode {
 };
 
 static char *report_sort_key[] = {
-	OPT_SORT_KEYS, "total_avg", "total_min", "total_max", "self",
-	"self_avg",    "self_min",  "self_max",	 "call",      "size",
+	OPT_SORT_KEYS, "total_avg", "total_min", "total_max", "self",	   "self_avg",	"self_min",
+	"self_max",    "call",	    "caller",	 "callee",    "depth_min", "depth_max", "size",
 };
 
 static char *selected_report_sort_key[NUM_REPORT_FIELD];
@@ -374,6 +374,10 @@ REPORT_FIELD_TIME(REPORT_F_SELF_TIME_AVG, self-avg, self.avg, self_avg, "SELF AV
 REPORT_FIELD_TIME(REPORT_F_SELF_TIME_MIN, self-min, self.min, self_min, "SELF MIN");
 REPORT_FIELD_TIME(REPORT_F_SELF_TIME_MAX, self-max, self.max, self_max, "SELF MAX");
 REPORT_FIELD_UINT(REPORT_F_CALL, call, call, call, "CALL");
+REPORT_FIELD_UINT(REPORT_F_NR_CALLER, caller, caller, caller, "CALLER");
+REPORT_FIELD_UINT(REPORT_F_NR_CALLEE, callee, callee, callee, "CALLEE");
+REPORT_FIELD_UINT(REPORT_F_DEPTH_MIN, depth-min, depth.min, depth_min, "DEPTH MIN");
+REPORT_FIELD_UINT(REPORT_F_DEPTH_MAX, depth-max, depth.max, depth_max, "DEPTH MAX");
 REPORT_FIELD_UINT(REPORT_F_SIZE, size, size, size, "SIZE");
 
 /* clang-format on */
@@ -382,7 +386,8 @@ static struct display_field *report_field_table[] = {
 	&report_field_total,	 &report_field_total_avg, &report_field_total_min,
 	&report_field_total_max, &report_field_self,	  &report_field_self_avg,
 	&report_field_self_min,	 &report_field_self_max,  &report_field_call,
-	&report_field_size,
+	&report_field_caller,	 &report_field_callee,	  &report_field_depth_min,
+	&report_field_depth_max, &report_field_size,
 };
 
 static void setup_default_graph_field(struct list_head *fields, struct uftrace_opts *opts,

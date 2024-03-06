@@ -24,17 +24,19 @@ REPORT 옵션
 ===========
 -f *FIELD*, \--output-fields=*FIELD*
 :   결과로 보여지는 필드를 사용자가 지정한다.  가능한 값들로는 `total`, `total-avg`,
-    `total-min`, `total-max`, `self`, `self-avg`, `self-min`, `self-max`, `size` 그리고
-    `call`이 있다.  여러 필드를 갖는 경우 콤마로 구분된다.
+    `total-min`, `total-max`, `self`, `self-avg`, `self-min`, `self-max`, `call`,
+    `caller`, `callee', `depth-min`, `depth-max`, `size`, `all`이 있다.
+    여러 필드를 갖는 경우 콤마로 구분된다.
     모든 필드를 감추기 위한 (단일하게 사용되는) 'none' 특수 필드가 있으며
     기본적으로 'total,self,call' 이 사용된다.  상세한 설명은 *FIELDS* 를 참고한다.
 
 -s *KEYS*[,*KEYS*,...], \--sort=*KEYS*[,*KEYS*,...]
 :   주어진 키를 기반으로 함수들을 정렬한다. 여러 키들을 적용할 경우, 키들을 쉼표(,)로 나누어 표현한다.
     `total` (time), `total-avg`, `total-min`, `total-max`, `self` (time), `self-avg`, `self-min`,
-    `self-max`, `size`, `call`, `func`를 키로 이용할 수 있다. 그러나 `--avg-total` 또는 `--avg-self`
-    옵션이 사용된 경우, 총 시간(total time) 또는 자체 시간(self time에)에 적용되는
-    `avg`, `min`, `max`를 키로 이용할 수 있다.
+    `self-max`, `call`, `caller`, `callee`, `depth-min`, `depth-max`, `size`, `func`를
+    키로 이용할 수 있다.
+    그러나 `--avg-total` 또는 `--avg-self` 옵션이 사용된 경우, 총 시간(total time) 또는
+    자체 시간(self time에)에 적용되는 `avg`, `min`, `max`를 키로 이용할 수 있다.
 
 \--avg-total
 :   각 함수의 총 시간(total time)의 평균, 최소, 최대 시간을 보여준다.
@@ -353,6 +355,11 @@ uftrace 사용자는 report 결과를 몇몇의 필드로 원하는 방식대로
  * self-min: 각 함수별 소요 시간의 최소값.
  * self-max: 각 함수별 소요 시간의 최대값.
  * call: 각 함수들이 호출된 횟수.
+ * caller: 현재 함수를 호출한 서로 다른 함수들의 개수.
+ * callee: 현재 함수가 호출한 서로 다른 함수들의 개수.
+ * depth-min: 각 함수별 호출 깊이의 최대값.
+ * depth-max: 각 함수별 호출 깊이의 최대값.
+ * size: 각 함수별 크기.
 
 기본적으로 설정된 필드값은 'total,self,call'이다.  만약 주어진 필드의 이름이 "+"로
 시작된다면, 그 필드는 기본 필드값에 추가될 것이다.  즉, "-f +total-avg" 는

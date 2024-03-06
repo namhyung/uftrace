@@ -275,6 +275,7 @@ static void report_functions(struct uftrace_data *handle, struct uftrace_opts *o
 
 	print_line(&output_fields, field_space);
 	print_and_delete(&sort_root, true, NULL, print_function, field_space);
+	clear_call_stat();
 }
 
 static void add_remaining_task_fstack(struct uftrace_data *handle, struct rb_root *root)
