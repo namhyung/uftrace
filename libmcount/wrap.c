@@ -258,6 +258,7 @@ static void (*real_cxa_throw)(void *exc, void *type, void *dest);
 static void (*real_cxa_rethrow)(void);
 static void *(*real_cxa_begin_catch)(void *exc);
 static void (*real_cxa_end_catch)(void);
+static void (*real_cxa_guard_abort)(void *guard_obj);
 static void *(*real_dlopen)(const char *filename, int flags);
 static __noreturn void (*real_pthread_exit)(void *retval);
 static void (*real_unwind_resume)(void *exc);
@@ -281,6 +282,7 @@ void mcount_hook_functions(void)
 	real_cxa_rethrow = dlsym(RTLD_NEXT, "__cxa_rethrow");
 	real_cxa_begin_catch = dlsym(RTLD_NEXT, "__cxa_begin_catch");
 	real_cxa_end_catch = dlsym(RTLD_NEXT, "__cxa_end_catch");
+	real_cxa_guard_abort = dlsym(RTLD_NEXT, "__cxa_guard_abort");
 	real_dlopen = dlsym(RTLD_NEXT, "dlopen");
 	real_pthread_exit = dlsym(RTLD_NEXT, "pthread_exit");
 	real_unwind_resume = dlsym(RTLD_NEXT, "_Unwind_Resume");
@@ -422,6 +424,45 @@ __visible_default void __cxa_end_catch(void)
 
 	pr_dbg2("%s: exception caught end\n", __func__);
 	real_cxa_end_catch();
+}
+
+__visible_default void __cxa_guard_abort(void *guard_obj)
+{
+	struct mcount_thread_data *mtdp;
+
+	if (unlikely(real_cxa_guard_abort == NULL))
+		mcount_hook_functions();
+
+	real_cxa_guard_abort(guard_obj);
+
+	mtdp = get_thread_data();
+	if (!check_thread_data(mtdp) && unlikely(mtdp->in_exception)) {
+		unsigned long *frame_ptr;
+		unsigned long frame_addr;
+		struct mcount_ret_stack *rstack;
+
+		frame_ptr = __builtin_frame_address(0);
+		frame_addr = *frame_ptr; /* XXX: probably dangerous */
+
+		/* basic sanity check */
+		if (frame_addr < (unsigned long)frame_ptr)
+			frame_addr = (unsigned long)frame_ptr;
+
+		mcount_rstack_reset_exception(mtdp, frame_addr);
+		mtdp->in_exception = false;
+
+		/*
+		 * It seems __cxa_guard_abort() is called after the
+		 * exception is thrown, so the return address was
+		 * not restored, let's do that right here.
+		 *
+		 * The mtdp->idx should pointer the first function
+		 * right after the exception frame, so it won't
+		 * have tailcalls (i.e. not pointer libmcount hook).
+		 */
+		rstack = &mtdp->rstack[mtdp->idx];
+		*rstack->parent_loc = rstack->parent_ip;
+	}
 }
 
 __visible_default void *dlopen(const char *filename, int flags)
