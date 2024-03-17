@@ -14,6 +14,8 @@ struct script_info;
 
 #if defined(HAVE_LIBPYTHON2) || defined(HAVE_LIBPYTHON3)
 
+#undef _XOPEN_SOURCE
+#undef _POSIX_C_SOURCE
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
