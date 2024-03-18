@@ -443,9 +443,16 @@ static void skip_kernel_functions(struct uftrace_kernel_writer *kernel)
 		 * messes up the trace output so it'd be better hiding them.
 		 */
 		"smp_irq_work_interrupt",
-		/* Disable syscall tracing in the kernel */
-		"syscall_trace_enter_phase1",
-		"syscall_slow_exit_work",
+		/*
+		 * Disable syscall tracing in the kernel.  Note that the
+		 * kernel uses glob patterns internally, so it can use
+		 * the following regardless of the uftrace --match value.
+		 */
+		"syscall_*",
+		/*
+		 * This function is called whenever it returns to userspace
+		 * in order to process things like signal handling.
+		 */
 		"exit_to_user_mode_prepare",
 #ifdef __aarch64__
 		/*
