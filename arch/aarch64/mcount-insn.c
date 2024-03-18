@@ -8,10 +8,19 @@
 #include <capstone/capstone.h>
 #include <capstone/platform.h>
 
+/**
+ * mcount_disasm_init - initialize the capstone engine once
+ * @disasm - mcount disassembly engine
+ */
 void mcount_disasm_init(struct mcount_disasm_engine *disasm)
 {
+	if (disasm->engine)
+		return;
+
+	pr_dbg2("initialize disassembly engine\n");
+
 	if (cs_open(CS_ARCH_ARM64, CS_MODE_ARM, &disasm->engine) != CS_ERR_OK) {
-		pr_dbg("failed to init Capstone disasm engine\n");
+		pr_dbg("failed to init capstone disasm engine\n");
 		return;
 	}
 
