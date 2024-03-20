@@ -239,6 +239,64 @@ __used static const char uftrace_help[] =
 " Try `man uftrace [COMMAND]' for more information.\n"
 "\n";
 
+__used static const char uftrace_record_usage[] =
+" COMMAND:\n"
+"   record          Run a program and saves the trace data\n"
+"\n";
+
+__used static const char uftrace_replay_usage[] =
+" COMMAND:\n"
+"   replay          Show program execution in the trace data\n"
+"\n";
+
+
+__used static const char uftrace_report_usage[] =
+" COMMAND:\n"
+"   report          Show performance statistics in the trace data\n"
+"\n";
+
+
+__used static const char uftrace_live_usage[] =
+" COMMAND:\n"
+"   live            Do record and replay in a row (default)\n"
+"\n";
+
+
+__used static const char uftrace_info_usage[] =
+" COMMAND:\n"
+"   info            Show system and program info in the trace data\n"
+"\n";
+
+
+__used static const char uftrace_dump_usage[] =
+" COMMAND:\n"
+"   dump            Show low-level trace data\n"
+"\n";
+
+
+__used static const char uftrace_recv_usage[] =
+" COMMAND:\n"
+"   recv            Save the trace data from network\n"
+"\n";
+
+
+__used static const char uftrace_graph_usage[] =
+" COMMAND:\n"
+"   graph           Show function call graph in the trace data\n"
+"\n";
+
+
+__used static const char uftrace_script_usage[] =
+" COMMAND:\n"
+"   script          Run a script for recorded trace data\n"
+"\n";
+
+
+__used static const char uftrace_tui_usage[] =
+" COMMAND:\n"
+"   tui             Show text user interface for graph and report\n"
+"\n";
+
 __used static const char uftrace_footer[] =
 " Try `uftrace --help' or `man uftrace [COMMAND]' for more information.\n"
 "\n";
@@ -1130,6 +1188,49 @@ static void update_subcmd(struct uftrace_opts *opts, char *cmd)
 		opts->mode = UFTRACE_MODE_INVALID;
 }
 
+static int print_subhelp(int beforekey)
+{
+	int retval = -1;
+	switch (beforekey) {
+	case UFTRACE_MODE_RECORD:
+		pr_out(uftrace_record_usage);
+		break;
+	case UFTRACE_MODE_REPLAY:
+		pr_out(uftrace_replay_usage);
+		break;
+	case UFTRACE_MODE_REPORT:
+		pr_out(uftrace_report_usage);
+		break;
+	case UFTRACE_MODE_LIVE:
+		pr_out(uftrace_live_usage);
+		break;
+	case UFTRACE_MODE_GRAPH:
+		pr_out(uftrace_graph_usage);
+		break;
+	case UFTRACE_MODE_INFO:
+		pr_out(uftrace_info_usage);
+		break;
+	case UFTRACE_MODE_DUMP:
+		pr_out(uftrace_dump_usage);
+		break;
+	case UFTRACE_MODE_RECV:
+		pr_out(uftrace_recv_usage);
+		break;
+	case UFTRACE_MODE_SCRIPT:
+		pr_out(uftrace_script_usage);
+		break;
+	case UFTRACE_MODE_TUI:
+		pr_out(uftrace_tui_usage);
+		break;
+	case UFTRACE_MODE_INVALID:
+	default:
+		retval = -3;
+		break;
+	}
+
+	return (retval);
+}
+
 static void parse_opt_file(int *argc, char ***argv, char *filename, struct uftrace_opts *opts)
 {
 	int file_argc;
@@ -1324,6 +1425,7 @@ static void free_opts(struct uftrace_opts *opts)
 static int parse_options(int argc, char **argv, struct uftrace_opts *opts)
 {
 	/* initial option parsing index */
+	int beforekey = 0;
 	optind = 1;
 
 	while (true) {
@@ -1335,11 +1437,15 @@ static int parse_options(int argc, char **argv, struct uftrace_opts *opts)
 				update_subcmd(opts, argv[optind]);
 
 				if (opts->mode != UFTRACE_MODE_INVALID) {
+					beforekey = opts->mode;
 					optind++;
 					continue;
 				}
 			}
 			break;
+		}
+		else if ('h' == (char)key) {
+			return (print_subhelp(beforekey));
 		}
 
 		tmp = parse_option(opts, key, optarg);
