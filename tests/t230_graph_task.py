@@ -36,7 +36,7 @@ class TestCase(TestBase):
 
             if " : " in ln:
                 line = ln.split(':')[1]  # remove time part
-                line = re.sub('\[\d+\]', 'TID', line)
+                line = re.sub(r'\[\d+\]', 'TID', line)
                 result.append(line)
             else:
                 result.append(ln)

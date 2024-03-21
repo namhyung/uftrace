@@ -325,7 +325,7 @@ class TestBase:
             # ignore result of remaining functions which follows a blank line
             if ln.strip() == '':
                 break
-            pid_patt = re.compile('[^[]+\[ *(\d+)\] |')
+            pid_patt = re.compile(r'[^[]+\[ *(\d+)\] |')
             m = pid_patt.match(ln)
             try:
                 pid = int(m.group(1))
@@ -493,7 +493,7 @@ class TestBase:
                 break
 
             m = re.match( r'\s+(?P<start_depth>\d+)_(?P<start_id>\d+)\[\"(?P<start_name>\S+)\"\]\s+'
-                + '-->\|(?P<call_num>\d+)\|\s+(?P<end_depth>\d+)_(?P<end_id>\d+)\[\"(?P<end_name>\S+)\"\];', ln)
+                + r'-->\|(?P<call_num>\d+)\|\s+(?P<end_depth>\d+)_(?P<end_id>\d+)\[\"(?P<end_name>\S+)\"\];', ln)
             if m:
                 result.append("%s_%s_%s %s> %s_%s_%s" % (m.group('start_depth'), m.group('start_id'), m.group('start_name'),
                 m.group('call_num'), m.group('end_depth'), m.group('end_id'), m.group('end_name')))
