@@ -759,7 +759,7 @@ static int save_event_files(struct uftrace_kernel_writer *kernel, FILE *fp)
 	DIR *event = NULL;
 	struct dirent *sys, *name;
 
-	if (read_tracing_file("events/enable", buf, sizeof(buf)))
+	if (read_tracing_file("events/enable", buf, sizeof(buf)) < 0)
 		goto out;
 
 	/* no events enabled: exit */
@@ -793,9 +793,13 @@ static int save_event_files(struct uftrace_kernel_writer *kernel, FILE *fp)
 		if (buf[0] == '0')
 			continue;
 
+		put_tracing_file(filename);
 		snprintf(buf, sizeof(buf), "events/%s", sys->d_name);
+		filename = get_tracing_file(buf);
+		if (filename == NULL)
+			goto out;
 
-		event = opendir(buf);
+		event = opendir(filename);
 		if (event == NULL)
 			goto out;
 
