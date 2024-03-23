@@ -463,8 +463,6 @@ class TestBase:
         except Exception:
             return ''
         for ln in o['traceEvents']:
-            if ln['name'].startswith('__'):
-                continue
             if ln['ph'] == "M":
                 if ln['name'] == "process_name" or ln['name'] == "thread_name":
                     args = ln['args']
