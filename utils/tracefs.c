@@ -5,6 +5,10 @@
 #include <string.h>
 #include <sys/vfs.h>
 
+/* This should be defined before #include "utils.h" */
+#define PR_FMT "kernel"
+#define PR_DOMAIN DBG_KERNEL
+
 #include "utils/tracefs.h"
 #include "utils/utils.h"
 

@@ -9,8 +9,8 @@ class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'getids', serial=True, result="""
 {"traceEvents":[
-{"ts":14510734170,"ph":"M","pid":32687,"name":"process_name","args":{'name': 't-getids'}},
-{"ts":14510734170,"ph":"M","pid":32687,"name":"thread_name","args":{'name': 't-getids'}},
+{"ts":14510734170,"ph":"M","pid":32687,"name":"process_name","args":{"name": "[32687] t-getids"}},
+{"ts":14510734170,"ph":"M","pid":32687,"name":"thread_name","args":{"name": "[32687] t-getids"}},
 {"ts":14510734172,"ph":"B","pid":32687,"name":"main"},
 {"ts":14510734172,"ph":"B","pid":32687,"name":"getpid"},
 {"ts":14510734173,"ph":"E","pid":32687,"name":"getpid"},
@@ -56,7 +56,7 @@ class TestCase(TestBase):
             return TestBase.TEST_SKIP
 
         self.subcmd = 'record'
-        self.option = '-k'
+        self.option = '-k -F main'
         record_cmd = self.runcmd()
         sp.call(record_cmd.split())
         return TestBase.TEST_SUCCESS
