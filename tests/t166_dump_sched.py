@@ -10,10 +10,6 @@ class TestCase(TestBase):
 {"traceEvents":[
 {"ts":0,"ph":"M","pid":306,"name":"process_name","args":{"name":"[306] t-sleep"}},
 {"ts":0,"ph":"M","pid":306,"name":"thread_name","args":{"name":"[306] t-sleep"}},
-{"ts":112150305218.363,"ph":"B","pid":306,"name":"__monstartup"},
-{"ts":112150305220.090,"ph":"E","pid":306,"name":"__monstartup"},
-{"ts":112150305224.313,"ph":"B","pid":306,"name":"__cxa_atexit"},
-{"ts":112150305225.219,"ph":"E","pid":306,"name":"__cxa_atexit"},
 {"ts":112150305226.496,"ph":"B","pid":306,"name":"main"},
 {"ts":112150305226.752,"ph":"B","pid":306,"name":"foo"},
 {"ts":112150305226.825,"ph":"B","pid":306,"name":"mem_alloc"},
