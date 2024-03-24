@@ -246,8 +246,22 @@ static int find_got(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter,
 	}
 
 	if (jmprel_ent_size == 0) {
-		pr_dbg("cannot find REL(A)ENT size\n");
-		return 0;
+		/*
+		 * Some compilers don't generate DT_REL(A)ENT entry.
+		 * Check the section header for the entry size then.
+		 */
+		elf_for_each_shdr(elf, &sec_iter) {
+			if (sec_iter.shdr.sh_type == SHT_REL ||
+			    sec_iter.shdr.sh_type == SHT_RELA) {
+				jmprel_ent_size = sec_iter.shdr.sh_entsize;
+				break;
+			}
+		}
+
+		if (jmprel_ent_size == 0) {
+			pr_dbg("cannot find REL(A)ENT size\n");
+			return 0;
+		}
 	}
 
 	elf_for_each_shdr(elf, &sec_iter) {

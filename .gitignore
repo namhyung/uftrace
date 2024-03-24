@@ -1,6 +1,7 @@
 *.o
 *.op
 *.ot
+*.oy
 a.out
 ftrace
 uftrace
