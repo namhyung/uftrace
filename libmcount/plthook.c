@@ -251,8 +251,7 @@ static int find_got(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter,
 		 * Check the section header for the entry size then.
 		 */
 		elf_for_each_shdr(elf, &sec_iter) {
-			if (sec_iter.shdr.sh_type == SHT_REL ||
-			    sec_iter.shdr.sh_type == SHT_RELA) {
+			if (sec_iter.shdr.sh_type == SHT_REL || sec_iter.shdr.sh_type == SHT_RELA) {
 				jmprel_ent_size = sec_iter.shdr.sh_entsize;
 				break;
 			}
