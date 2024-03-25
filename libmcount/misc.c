@@ -75,6 +75,7 @@ void uftrace_send_message(int type, void *data, size_t len)
 			.iov_len = len,
 		},
 	};
+	int pfd = mcount_get_pfd();
 
 	if (pfd < 0)
 		return;
@@ -84,6 +85,7 @@ void uftrace_send_message(int type, void *data, size_t len)
 		if (!mcount_should_stop())
 			pr_err("writing shmem name to pipe");
 	}
+	close(pfd);
 }
 
 void build_debug_domain(char *dbg_domain_str)
@@ -270,6 +272,23 @@ void mcount_auto_reset(struct mcount_thread_data *mtdp)
 		*prev_rstack->parent_loc = mcount_return_fn;
 	else
 		*prev_rstack->parent_loc = (unsigned long)plthook_return;
+}
+
+int mcount_get_pfd(void)
+{
+	char *dirname;
+	char *channel = NULL;
+	int pfd;
+
+	dirname = getenv("UFTRACE_DIR");
+	if (dirname == NULL)
+		dirname = UFTRACE_DIR_NAME;
+
+	xasprintf(&channel, "%s/%s", dirname, ".channel");
+	pfd = open(channel, O_WRONLY);
+	free(channel);
+
+	return pfd;
 }
 
 #ifdef UNIT_TEST

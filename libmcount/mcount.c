@@ -58,9 +58,6 @@ pthread_key_t mtd_key = (pthread_key_t)-1;
 /* thread local data to trace function execution */
 TLS struct mcount_thread_data mtd;
 
-/* pipe file descriptor to communite to uftrace */
-int pfd = -1;
-
 /* maximum depth of mcount rstack */
 static int mcount_rstack_max = MCOUNT_RSTACK_MAX;
 
@@ -518,6 +515,7 @@ static void send_session_msg(struct mcount_thread_data *mtdp, const char *sess_i
 		},
 	};
 	int len = sizeof(msg) + msg.len;
+	int pfd = mcount_get_pfd();
 
 	if (pfd < 0)
 		return;
@@ -528,6 +526,8 @@ static void send_session_msg(struct mcount_thread_data *mtdp, const char *sess_i
 		if (!mcount_should_stop())
 			pr_err("write tid info failed");
 	}
+
+	close(pfd);
 }
 
 static void mcount_trace_finish(bool send_msg)
@@ -546,11 +546,6 @@ static void mcount_trace_finish(bool send_msg)
 	/* notify to uftrace that we're finished */
 	if (send_msg)
 		uftrace_send_message(UFTRACE_MSG_FINISH, NULL, 0);
-
-	if (pfd != -1) {
-		close(pfd);
-		pfd = -1;
-	}
 
 	trace_finished = true;
 	pr_dbg("mcount trace finished\n");
@@ -1804,7 +1799,6 @@ static void mcount_script_init(enum uftrace_pattern_type patt_type)
 
 static __used void mcount_startup(void)
 {
-	char *channel = NULL;
 	char *logfd_str;
 	char *debug_str;
 	char *bufsize_str;
@@ -1884,10 +1878,6 @@ static __used void mcount_startup(void)
 	dirname = getenv("UFTRACE_DIR");
 	if (dirname == NULL)
 		dirname = UFTRACE_DIR_NAME;
-
-	xasprintf(&channel, "%s/%s", dirname, ".channel");
-	pfd = open(channel, O_WRONLY);
-	free(channel);
 
 	if (getenv("UFTRACE_LIST_EVENT")) {
 		mcount_list_events();

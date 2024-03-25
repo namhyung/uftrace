@@ -185,7 +185,6 @@ extern uint64_t mcount_threshold; /* nsec */
 extern unsigned mcount_minsize;
 extern pthread_key_t mtd_key;
 extern int shmem_bufsize;
-extern int pfd;
 extern int mcount_depth;
 extern char *mcount_exename;
 extern int page_size_in_kb;
@@ -292,6 +291,7 @@ static inline void mcount_memcpy4(void *restrict dst, const void *restrict src, 
 		*p++ = *q++;
 }
 
+extern int mcount_get_pfd(void);
 extern void mcount_return(void);
 extern void dynamic_return(void);
 extern unsigned long plthook_return(void);
