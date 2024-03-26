@@ -11,6 +11,9 @@
 
 #include <ctype.h>
 #include <endian.h>
+#ifndef __GLIBC__
+#include <libgen.h>
+#endif
 #include <limits.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -21,6 +24,7 @@
 #include <time.h>
 
 #include "compiler.h"
+
 
 #ifndef container_of
 #define container_of(ptr, type, member)                                                            \
