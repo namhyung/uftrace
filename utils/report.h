@@ -22,12 +22,20 @@ struct report_time_stat {
 	uint64_t max;
 };
 
+struct report_depth_stat {
+	uint32_t min;
+	uint32_t max;
+};
+
 struct uftrace_report_node {
 	char *name;
 	struct report_time_stat total;
 	struct report_time_stat self;
 	struct uftrace_dbg_loc *loc;
 	uint64_t call;
+	uint64_t caller;
+	uint64_t callee;
+	struct report_depth_stat depth;
 	struct rb_node name_link;
 	struct rb_node sort_link;
 	unsigned size;
@@ -55,6 +63,7 @@ void report_update_node(struct uftrace_report_node *node, struct uftrace_task_re
 			struct uftrace_dbg_loc *loc);
 void report_calc_avg(struct rb_root *root);
 void report_delete_node(struct rb_root *root, struct uftrace_report_node *node);
+void clear_call_stat(void);
 
 char *convert_sort_keys(char *sort_keys, enum avg_mode avg_mode);
 int report_setup_sort(const char *sort_keys);

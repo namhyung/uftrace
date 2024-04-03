@@ -27,7 +27,8 @@ TUI OPTIONS
     Possible values are total, self and addr.  The default value is 'total'.
     But if this option is used with --report option,
     this option indicates report fields.  Possible values are total, total-avg,
-    total-min, total-max, self, self-avg, self-min, self-max, call and size.
+    total-min, total-max, self, self-avg, self-min, self-max, call, caller, callee,
+    depth-min, depth-max and size.
     The default value is 'total,self,call'.
     Multiple fields can be set by using comma.
     If given field name starts with "+", then it'll be appended to the default fields.
@@ -37,7 +38,7 @@ TUI OPTIONS
 -s *KEYS*[,*KEYS*,...], \--sort=*KEYS*[,*KEYS*,...]
 :   Sort functions by given KEYS. Multiple KEYS can be given, separated by comma (,).
     Possible keys are total (time), total-avg, total-min, total-max, self (time), self-avg,
-    self-min, self-max, call, func and size.
+    self-min, self-max, call, caller, callee, depth-min, depth-max, size and func.
     This option must be used with --report option.
 
 COMMON OPTIONS
