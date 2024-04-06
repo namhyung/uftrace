@@ -95,7 +95,7 @@ int elf_retry(const char *filename, struct uftrace_elf_data *elf)
 
 	dw = dwfl_module_getdwarf(mod, &bias);
 	if (dw == NULL) {
-		pr_dbg("cannot find debug file: %s\n", dwfl_errmsg(dwfl_errno()));
+		pr_dbg2("cannot find debug file: %s\n", dwfl_errmsg(dwfl_errno()));
 		goto out;
 	}
 
