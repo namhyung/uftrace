@@ -482,11 +482,11 @@ __visible_default void *dlopen(const char *filename, int flags)
 	if (unlikely(real_dlopen == NULL))
 		mcount_hook_functions();
 
-	pr_dbg("%s is called for '%s'\n", __func__, filename);
 	ret = real_dlopen(filename, flags);
 
 	if (filename == NULL)
 		return ret;
+	pr_dbg("%s is called for '%s'\n", __func__, filename);
 
 	mtdp = get_thread_data();
 	if (unlikely(check_thread_data(mtdp))) {
