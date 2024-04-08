@@ -488,7 +488,10 @@ help:
 	@echo "  make O=dir [targets]        - Set directory as objdir (default: $(srcdir))"
 	@echo ""
 
+check-syntax:
+	@$(CC) -I $(srcdir) -I $(srcdir)/arch/$(ARCH) -o /dev/null -S ${CHK_SOURCES} || true
+
 $(C_STR_OBJS): $(objdir)/%.$(C_STR_EXTENSION): $(srcdir)/%
 	$(QUIET_GEN)sed -e 's#\\#\\\\#g;s#\"#\\"#g;s#$$#\\n\"#;s#^#\"#' $< > $@
 
-.PHONY: all config clean test dist doc ctags help PHONY
+.PHONY: all config clean test dist doc ctags help check-syntax PHONY
