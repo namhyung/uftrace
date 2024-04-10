@@ -2008,7 +2008,8 @@ static void copy_data_files(struct uftrace_opts *opts, const char *ext)
 	glob(path, GLOB_NOSORT, NULL, &g);
 
 	for (i = 0; i < g.gl_pathc; i++) {
-		snprintf(path, sizeof(path), "%s/%s", opts->dirname, basename(g.gl_pathv[i]));
+		snprintf(path, sizeof(path), "%s/%s", opts->dirname,
+			 uftrace_basename(g.gl_pathv[i]));
 		copy_file(g.gl_pathv[i], path);
 	}
 

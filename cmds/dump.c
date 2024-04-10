@@ -1178,7 +1178,8 @@ static struct uftrace_graph graphviz_graph = {
 static void dump_graphviz_header(struct uftrace_dump_ops *ops, struct uftrace_data *handle,
 				 struct uftrace_opts *opts)
 {
-	char *exename = basename(handle->info.exename);
+	char *exename = (char *)uftrace_basename(handle->info.exename);
+
 	graphviz_graph.root.name = exename;
 	pr_out("# version\":\"uftrace %s\"\n", UFTRACE_VERSION);
 
@@ -1310,7 +1311,7 @@ static void dump_mermaid_header(struct uftrace_dump_ops *ops, struct uftrace_dat
 				struct uftrace_opts *opts)
 {
 	graph_init_callbacks(NULL, NULL, NULL, ops);
-	mermaid_graph.root.name = basename(handle->info.exename);
+	mermaid_graph.root.name = (char *)uftrace_basename(handle->info.exename);
 
 	pr_out("<html>\n");
 	pr_out("<body>\n");

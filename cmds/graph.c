@@ -214,7 +214,7 @@ static int create_graph(struct uftrace_session *sess, void *func)
 
 	pr_dbg("create graph for session %.*s (%s)\n", SESSION_ID_LEN, sess->sid, sess->exename);
 
-	graph->func = xstrdup(full_graph ? basename(sess->exename) : func);
+	graph->func = xstrdup(full_graph ? uftrace_basename(sess->exename) : func);
 	INIT_LIST_HEAD(&graph->bt_list);
 
 	graph_init(&graph->ug, sess);
