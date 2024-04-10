@@ -31,6 +31,8 @@
 #include "utils/symbol.h"
 #include "utils/utils.h"
 
+static bool main_loaded;
+static bool modules_loaded;
 static struct mcount_dynamic_info *mdinfo;
 static struct mcount_dynamic_stats {
 	int total;
@@ -58,6 +60,8 @@ static unsigned min_size;
 
 /* disassembly engine for dynamic code patch (for capstone) */
 static struct mcount_disasm_engine disasm;
+
+static bool mcount_dynamic_is_initialized;
 
 static struct mcount_orig_insn *create_code(struct Hashmap *map, unsigned long addr)
 {
@@ -99,6 +103,9 @@ void mcount_save_code(struct mcount_disasm_info *info, unsigned call_size, void 
 	struct code_page *cp = NULL;
 	struct mcount_orig_insn *orig;
 	int patch_size;
+
+	if (hashmap_get(code_hmap, (void *)info->addr + call_size))
+		return;
 
 	if (unlikely(info->modified)) {
 		/* it needs to save original instructions as well */
@@ -246,6 +253,11 @@ __weak void mcount_disasm_finish(struct mcount_disasm_engine *disasm)
 {
 }
 
+__weak int mcount_arch_dynamic_init(void)
+{
+	return -1;
+}
+
 __weak int mcount_arch_branch_table_size(struct mcount_disasm_info *info)
 {
 	return 0;
@@ -292,14 +304,30 @@ static struct mcount_dynamic_info *create_mdi(struct dl_phdr_info *info)
 	return mdi;
 }
 
-/* callback for dl_iterate_phdr() */
-static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
+/**
+ * prepare_dynamic_module - store dynamic module info and install trampoline;
+ * callback for dl_iterate_phdr()
+ * @info   - module info
+ * @sz     - data size (unused)
+ * @data   - callback data: symbol info and module parsing flag
+ * @return - stop iteration on non-zero value
+ */
+static int prepare_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 {
 	struct mcount_dynamic_info *mdi;
 	struct find_module_data *fmd = data;
 	struct uftrace_sym_info *sym_info = fmd->sinfo;
 	struct uftrace_mmap *map;
 	bool is_executable = mcount_is_main_executable(info->dlpi_name, sym_info->filename);
+
+	if (is_executable) {
+		if (main_loaded)
+			return !fmd->needs_modules;
+	}
+	else if (!fmd->needs_modules)
+		return main_loaded;
+	else if (modules_loaded)
+		return 0;
 
 	mdi = create_mdi(info);
 
@@ -308,8 +336,14 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 		mdi->map = map;
 		mcount_arch_find_module(mdi, &map->mod->symtab);
 
+		if (mcount_setup_trampoline(mdi) < 0)
+			mdi->trampoline = 0;
+
 		mdi->next = mdinfo;
 		mdinfo = mdi;
+		if (is_executable)
+			main_loaded = true;
+		pr_dbg3("load dynamic info for '%s'\n", mdi->map->libname);
 	}
 	else {
 		free(mdi);
@@ -318,20 +352,51 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 	return !fmd->needs_modules && is_executable;
 }
 
+/**
+ * prepare_dynamic_update - create dynamic data structures and load dynamic
+ * modules info
+ * @sinfo         - dynamic symbol info
+ * @needs_modules - whether to prepare dynamic modules or only the main binary
+ */
 static void prepare_dynamic_update(struct uftrace_sym_info *sinfo, bool needs_modules)
 {
+	int rc = 0;
 	struct find_module_data fmd = {
 		.sinfo = sinfo,
 		.needs_modules = needs_modules,
 	};
 	int hash_size = sinfo->exec_map->mod->symtab.nr_sym * 3 / 4;
 
-	if (needs_modules)
-		hash_size *= 2;
+	if (code_hmap) {
+		/* main executable already loaded */
+		if (!needs_modules || modules_loaded)
+			return;
+	}
+	else { /* nothing loaded */
+		if (needs_modules)
+			hash_size *= 2;
+		code_hmap = hashmap_create(hash_size, hashmap_ptr_hash, hashmap_ptr_equals);
+	}
 
-	code_hmap = hashmap_create(hash_size, hashmap_ptr_hash, hashmap_ptr_equals);
+	rc = dl_iterate_phdr(prepare_dynamic_module, &fmd);
 
-	dl_iterate_phdr(find_dynamic_module, &fmd);
+	if (needs_modules && rc == 0)
+		modules_loaded = true;
+}
+
+/**
+ * setup_size_filter - initialize size filter if not set
+ */
+void setup_size_filter(void)
+{
+	char *size_filter;
+
+	if (min_size)
+		return;
+
+	size_filter = getenv("UFTRACE_MIN_SIZE");
+	if (size_filter)
+		min_size = strtoul(size_filter, NULL, 0);
 }
 
 struct mcount_dynamic_info *setup_trampoline(struct uftrace_mmap *map)
@@ -383,17 +448,10 @@ static bool match_pattern_module(char *pathname)
 	return ret;
 }
 
-/**
- * match_pattern_list - match a symbol name against a pattern list
- * @map - memory map of the symbol
- * @soname - name of the module
- * @sym_name - name of the symbol
- * @return - -1 if match negative, 1 if match positive, 0 if no match
- */
-static int match_pattern_list(struct uftrace_mmap *map, char *soname, char *sym_name)
+static bool match_pattern_list(struct uftrace_mmap *map, char *soname, char *sym_name)
 {
 	struct patt_list *pl;
-	int ret = 0;
+	bool ret = false;
 	char *libname = basename(map->libname);
 
 	list_for_each_entry(pl, &patterns, list) {
@@ -404,7 +462,7 @@ static int match_pattern_list(struct uftrace_mmap *map, char *soname, char *sym_
 			continue;
 
 		if (match_filter_pattern(&pl->patt, sym_name))
-			ret = pl->positive ? 1 : -1;
+			ret = pl->positive;
 	}
 
 	return ret;
@@ -416,6 +474,7 @@ static void parse_pattern_list(char *patch_funcs, char *def_mod, enum uftrace_pa
 	char *name;
 	int j;
 	struct patt_list *pl;
+	bool all_negative = true;
 
 	strv_split(&funcs, patch_funcs, ";");
 
@@ -426,8 +485,10 @@ static void parse_pattern_list(char *patch_funcs, char *def_mod, enum uftrace_pa
 
 		if (name[0] == '!')
 			name++;
-		else
+		else {
 			pl->positive = true;
+			all_negative = false;
+		}
 
 		delim = strchr(name, '@');
 		if (delim == NULL) {
@@ -440,6 +501,20 @@ static void parse_pattern_list(char *patch_funcs, char *def_mod, enum uftrace_pa
 
 		init_filter_pattern(ptype, &pl->patt, name);
 		list_add_tail(&pl->list, &patterns);
+	}
+
+	/* prepend match-all pattern, if all patterns are negative */
+	if (all_negative) {
+		pl = xzalloc(sizeof(*pl));
+		pl->positive = true;
+		pl->module = xstrdup(def_mod);
+
+		if (ptype == PATT_REGEX)
+			init_filter_pattern(ptype, &pl->patt, ".");
+		else
+			init_filter_pattern(PATT_GLOB, &pl->patt, "*");
+
+		list_add(&pl->list, &patterns);
 	}
 
 	strv_free(&funcs);
@@ -475,6 +550,12 @@ static bool skip_sym(struct uftrace_symbol *sym, struct mcount_dynamic_info *mdi
 
 	if (sym->type != ST_LOCAL_FUNC && sym->type != ST_GLOBAL_FUNC && sym->type != ST_WEAK_FUNC)
 		return true;
+
+	if (!match_pattern_list(map, soname, sym->name)) {
+		if (mcount_unpatch_func(mdi, sym, &disasm) == 0)
+			stats.unpatch++;
+		return true;
+	}
 
 	return false;
 }
@@ -554,7 +635,6 @@ static void patch_normal_func_matched(struct mcount_dynamic_info *mdi, struct uf
 	unsigned i;
 	struct uftrace_symbol *sym;
 	bool found = false;
-	int match;
 	char *soname = get_soname(map->libname);
 
 	symtab = &map->mod->symtab;
@@ -564,15 +644,9 @@ static void patch_normal_func_matched(struct mcount_dynamic_info *mdi, struct uf
 
 		if (skip_sym(sym, mdi, map, soname))
 			continue;
-		found = true;
 
-		match = match_pattern_list(map, soname, sym->name);
-		if (!match)
-			continue;
-		else if (match == 1)
-			mcount_patch_func_with_stats(mdi, sym);
-		else
-			mcount_unpatch_func(mdi, sym, NULL);
+		found = true;
+		mcount_patch_func_with_stats(mdi, sym);
 	}
 
 	if (!found)
@@ -596,10 +670,18 @@ static void patch_func_matched(struct mcount_dynamic_info *mdi, struct uftrace_m
 		patch_normal_func_matched(mdi, map);
 }
 
+/**
+ * do_dynamic_update - apply (un)patching across loaded modules' maps
+ * @sinfo       - dynamic symbol info
+ * @patch_funcs - spec of symbols to (un)patch
+ * @ptype       - matching pattern type
+ * @return      - 0 (unused)
+ */
 static int do_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 			     enum uftrace_pattern_type ptype)
 {
 	struct uftrace_mmap *map;
+	struct mcount_dynamic_info *mdi;
 	char *def_mod;
 
 	if (patch_funcs == NULL)
@@ -608,16 +690,21 @@ static int do_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 	def_mod = basename(sinfo->exec_map->libname);
 	parse_pattern_list(patch_funcs, def_mod, ptype);
 
-	for_each_map(sinfo, map) {
-		struct mcount_dynamic_info *mdi;
+	/* TODO: filter out unsupported libs */
+	for (mdi = mdinfo; mdi != NULL; mdi = mdi->next) {
+		if (mdi->type == DYNAMIC_NONE && !mcount_dynamic_is_initialized) {
+			if (mcount_arch_dynamic_init() >= 0)
+				mcount_dynamic_is_initialized = true;
+			else
+				continue;
+		}
 
-		/* TODO: filter out unsuppported libs */
-		mdi = setup_trampoline(map);
-		if (mdi == NULL)
-			continue;
-
-		patch_func_matched(mdi, map);
+		map = mdi->map;
+		if (mdi->trampoline)
+			patch_func_matched(mdi, map);
 	}
+
+	release_pattern_list();
 
 	if (stats.failed + stats.skipped + stats.nomatch == 0) {
 		pr_dbg("patched all (%d) functions in '%s'\n", stats.total,
@@ -625,24 +712,6 @@ static int do_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 	}
 
 	return 0;
-}
-
-static void freeze_dynamic_update(void)
-{
-	struct mcount_dynamic_info *mdi, *tmp;
-
-	mdi = mdinfo;
-	while (mdi) {
-		tmp = mdi->next;
-
-		mcount_arch_dynamic_recover(mdi, &disasm);
-		mcount_cleanup_trampoline(mdi);
-		free(mdi);
-
-		mdi = tmp;
-	}
-
-	mcount_freeze_code();
 }
 
 /* do not use floating-point in libmcount */
@@ -654,20 +723,23 @@ static int calc_percent(int n, int total, int *rem)
 	return quot;
 }
 
+/**
+ * mcount_dynamic_update - prepare and perform dynamic patching or unpatching,
+ * then display statistics
+ * @sinfo       - dynamic symbol info
+ * @patch_funcs - spec of symbols to patch or unpatch
+ * @ptype       - matching pattern type
+ * @return      - 0 (unused)
+ */
 int mcount_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 			  enum uftrace_pattern_type ptype)
 {
 	int ret = 0;
-	char *size_filter;
 	bool needs_modules = !!strchr(patch_funcs, '@');
 
 	mcount_disasm_init(&disasm);
-
 	prepare_dynamic_update(sinfo, needs_modules);
-
-	size_filter = getenv("UFTRACE_MIN_SIZE");
-	if (size_filter != NULL)
-		min_size = strtoul(size_filter, NULL, 0);
+	setup_size_filter();
 
 	ret = do_dynamic_update(sinfo, patch_funcs, ptype);
 
@@ -686,7 +758,7 @@ int mcount_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 		pr_dbg("no match: %8d\n", stats.nomatch);
 	}
 
-	freeze_dynamic_update();
+	mcount_freeze_code();
 	return ret;
 }
 
@@ -732,9 +804,29 @@ void mcount_dynamic_dlopen(struct uftrace_sym_info *sinfo, struct dl_phdr_info *
 	mcount_freeze_code();
 }
 
+/**
+ * mcount_free_mdinfo - free all dynamic info structures
+ */
+static void mcount_free_mdinfo(void)
+{
+	struct mcount_dynamic_info *mdi, *tmp;
+
+	mdi = mdinfo;
+	while (mdi) {
+		tmp = mdi->next;
+
+		mcount_arch_dynamic_recover(mdi, &disasm);
+		mcount_cleanup_trampoline(mdi);
+		free(mdi);
+
+		mdi = tmp;
+	}
+}
+
 void mcount_dynamic_finish(void)
 {
 	release_pattern_list();
+	mcount_free_mdinfo();
 	mcount_disasm_finish(&disasm);
 }
 
@@ -848,27 +940,27 @@ TEST_CASE(dynamic_pattern_list)
 	pr_dbg("check simple match with default module\n");
 	parse_pattern_list("abc;!def", "main", PATT_SIMPLE);
 
-	TEST_EQ(match_pattern_list(main_map, NULL, "abc"), 1);
-	TEST_EQ(match_pattern_list(main_map, NULL, "def"), -1);
-	TEST_EQ(match_pattern_list(other_map, NULL, "xyz"), 0);
+	TEST_EQ(match_pattern_list(main_map, NULL, "abc"), true);
+	TEST_EQ(match_pattern_list(main_map, NULL, "def"), false);
+	TEST_EQ(match_pattern_list(other_map, NULL, "xyz"), false);
 
 	release_pattern_list();
 
 	pr_dbg("check negative regex match with default module\n");
 	parse_pattern_list("!^a", "main", PATT_REGEX);
 
-	TEST_EQ(match_pattern_list(main_map, NULL, "abc"), -1);
-	TEST_EQ(match_pattern_list(main_map, NULL, "def"), 0);
-	TEST_EQ(match_pattern_list(other_map, NULL, "xyz"), 0);
+	TEST_EQ(match_pattern_list(main_map, NULL, "abc"), false);
+	TEST_EQ(match_pattern_list(main_map, NULL, "def"), true);
+	TEST_EQ(match_pattern_list(other_map, NULL, "xyz"), false);
 
 	release_pattern_list();
 
 	pr_dbg("check wildcard match with other module\n");
 	parse_pattern_list("*@other", "main", PATT_GLOB);
 
-	TEST_EQ(match_pattern_list(main_map, NULL, "abc"), 0);
-	TEST_EQ(match_pattern_list(main_map, NULL, "def"), 0);
-	TEST_EQ(match_pattern_list(other_map, NULL, "xyz"), 1);
+	TEST_EQ(match_pattern_list(main_map, NULL, "abc"), false);
+	TEST_EQ(match_pattern_list(main_map, NULL, "def"), false);
+	TEST_EQ(match_pattern_list(other_map, NULL, "xyz"), true);
 
 	release_pattern_list();
 
