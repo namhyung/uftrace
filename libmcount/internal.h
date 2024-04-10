@@ -416,7 +416,6 @@ extern struct uftrace_mmap *new_map(const char *path, uint64_t start, uint64_t e
 extern void record_proc_maps(char *dirname, const char *sess_id, struct uftrace_sym_info *sinfo);
 extern void mcount_rstack_inject_return(struct mcount_thread_data *mtdp,
 					unsigned long *frame_pointer, unsigned long addr);
-extern const char *uftrace_basename(const char *pathname);
 
 #ifndef DISABLE_MCOUNT_FILTER
 extern void save_argument(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,

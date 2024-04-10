@@ -23,13 +23,6 @@ struct dlopen_base_data {
 	uint64_t timestamp;
 };
 
-const char *uftrace_basename(const char *pathname)
-{
-	const char *p = strrchr(pathname, '/');
-
-	return p ? p + 1 : pathname;
-}
-
 static void send_dlopen_msg(struct mcount_thread_data *mtdp, const char *sess_id,
 			    uint64_t timestamp, uint64_t base_addr, const char *libname)
 {

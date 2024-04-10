@@ -403,9 +403,15 @@ char *str_rtrim(char *str);
 char **parse_cmdline(char *cmd, int *argc);
 void free_parsed_cmdline(char **argv);
 
-struct uftrace_data;
-
 char *absolute_dirname(const char *path, char *resolved_path);
+
+/* Do not modify the input path (unlike in POSIX version) */
+static inline const char *uftrace_basename(const char *pathname)
+{
+	const char *p = strrchr(pathname, '/');
+
+	return p ? p + 1 : pathname;
+}
 
 char *uftrace_strerror(int errnum, char *buf, size_t buflen);
 
