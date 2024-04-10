@@ -518,7 +518,7 @@ static char *make_enum_name(Dwarf_Die *die)
 
 	off = dwarf_cuoffset(die);
 
-	xasprintf(&enum_name, "_%s_%lx", basename(cu_name), off);
+	xasprintf(&enum_name, "_%s_%lx", uftrace_basename(cu_name), off);
 
 	/* replace forbidden characters */
 	tmp = enum_name;
@@ -1934,7 +1934,7 @@ static FILE *create_debug_file(const char *dirname, const char *filename, char *
 	FILE *fp;
 	char *tmp;
 
-	xasprintf(&tmp, "%s/%s.dbg", dirname, basename(filename));
+	xasprintf(&tmp, "%s/%s.dbg", dirname, uftrace_basename(filename));
 	if (match_debug_file(tmp, filename, build_id)) {
 		free(tmp);
 		return NULL;
@@ -2077,7 +2077,7 @@ static void save_debug_entries(struct uftrace_dbg_info *dinfo, const char *dirna
 			save_debug_file(fp, 'R', entry->spec, 0);
 	}
 
-	close_debug_file(fp, dirname, basename(filename), build_id);
+	close_debug_file(fp, dirname, uftrace_basename(filename), build_id);
 }
 
 void save_debug_info(struct uftrace_sym_info *sinfo, const char *dirname)
@@ -2104,7 +2104,7 @@ static int load_debug_file(struct uftrace_dbg_info *dinfo, struct uftrace_symtab
 	char *func = NULL;
 	uint64_t offset = 0;
 
-	xasprintf(&pathname, "%s/%s.dbg", dirname, basename(filename));
+	xasprintf(&pathname, "%s/%s.dbg", dirname, uftrace_basename(filename));
 
 	if (!match_debug_file(pathname, filename, build_id)) {
 		char *newfile;

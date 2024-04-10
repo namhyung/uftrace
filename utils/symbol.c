@@ -1080,7 +1080,7 @@ static void load_module_symbol(struct uftrace_sym_info *sinfo, struct uftrace_mo
 		char buf[PATH_MAX];
 		char build_id[BUILD_ID_STR_SIZE];
 
-		xasprintf(&symfile, "%s/%s.sym", sinfo->symdir, basename(m->name));
+		xasprintf(&symfile, "%s/%s.sym", sinfo->symdir, uftrace_basename(m->name));
 		if (access(symfile, F_OK) == 0) {
 			if (check_symbol_file(symfile, buf, sizeof(buf), build_id,
 					      sizeof(build_id)) > 0 &&
@@ -1188,7 +1188,7 @@ void load_module_symtabs(struct uftrace_sym_info *sinfo)
 	}
 
 	for_each_map(sinfo, map) {
-		const char *libname = basename(map->libname);
+		const char *libname = uftrace_basename(map->libname);
 		bool skip = false;
 
 		for (k = 0; k < ARRAY_SIZE(skip_libs); k++) {
@@ -1352,7 +1352,7 @@ void save_module_symtabs(const char *dirname)
 	while (n != NULL) {
 		mod = rb_entry(n, typeof(*mod), node);
 
-		xasprintf(&symfile, "%s/%s.sym", dirname, basename(mod->name));
+		xasprintf(&symfile, "%s/%s.sym", dirname, uftrace_basename(mod->name));
 
 		read_build_id(mod->name, build_id, sizeof(build_id));
 		save_module_symbol_file(&mod->symtab, mod->name, build_id, symfile, 0);
