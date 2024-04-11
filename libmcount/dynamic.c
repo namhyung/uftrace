@@ -364,7 +364,7 @@ static bool match_pattern_module(char *pathname)
 {
 	struct patt_list *pl;
 	bool ret = false;
-	char *libname = basename(pathname);
+	const char *libname = uftrace_basename(pathname);
 	char *soname = get_soname(pathname);
 
 	list_for_each_entry(pl, &patterns, list) {
@@ -394,7 +394,7 @@ static int match_pattern_list(struct uftrace_mmap *map, char *soname, char *sym_
 {
 	struct patt_list *pl;
 	int ret = 0;
-	char *libname = basename(map->libname);
+	const char *libname = uftrace_basename(map->libname);
 
 	list_for_each_entry(pl, &patterns, list) {
 		int len = strlen(pl->module);
@@ -410,7 +410,8 @@ static int match_pattern_list(struct uftrace_mmap *map, char *soname, char *sym_
 	return ret;
 }
 
-static void parse_pattern_list(char *patch_funcs, char *def_mod, enum uftrace_pattern_type ptype)
+static void parse_pattern_list(char *patch_funcs, const char *def_mod,
+			       enum uftrace_pattern_type ptype)
 {
 	struct strv funcs = STRV_INIT;
 	char *name;
@@ -600,12 +601,12 @@ static int do_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 			     enum uftrace_pattern_type ptype)
 {
 	struct uftrace_mmap *map;
-	char *def_mod;
+	const char *def_mod;
 
 	if (patch_funcs == NULL)
 		return 0;
 
-	def_mod = basename(sinfo->exec_map->libname);
+	def_mod = uftrace_basename(sinfo->exec_map->libname);
 	parse_pattern_list(patch_funcs, def_mod, ptype);
 
 	for_each_map(sinfo, map) {
@@ -621,7 +622,7 @@ static int do_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 
 	if (stats.failed + stats.skipped + stats.nomatch == 0) {
 		pr_dbg("patched all (%d) functions in '%s'\n", stats.total,
-		       basename(sinfo->filename));
+		       uftrace_basename(sinfo->filename));
 	}
 
 	return 0;
@@ -675,7 +676,7 @@ int mcount_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 		int success = stats.total - stats.failed - stats.skipped;
 		int r, q;
 
-		pr_dbg("dynamic patch stats for '%s'\n", basename(sinfo->filename));
+		pr_dbg("dynamic patch stats for '%s'\n", uftrace_basename(sinfo->filename));
 		pr_dbg("   total: %8d\n", stats.total);
 		q = calc_percent(success, stats.total, &r);
 		pr_dbg(" patched: %8d (%2d.%02d%%)\n", success, q, r);

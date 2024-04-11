@@ -173,7 +173,7 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi, struct uftrace_sym
 	}
 
 out:
-	pr_dbg("dynamic patch type: %s: %d (%s)\n", basename(mdi->map->libname), mdi->type,
+	pr_dbg("dynamic patch type: %s: %d (%s)\n", uftrace_basename(mdi->map->libname), mdi->type,
 	       mdi_type_names[mdi->type]);
 
 	elf_finish(&elf);

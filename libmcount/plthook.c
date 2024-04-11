@@ -324,7 +324,7 @@ static int find_got(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter,
 	pd->base_addr = offset;
 	pd->plt_addr = plt_addr;
 
-	pr_dbg2("\"%s\" is loaded at %#lx\n", basename(pd->mod_name), pd->base_addr);
+	pr_dbg2("\"%s\" is loaded at %#lx\n", uftrace_basename(pd->mod_name), pd->base_addr);
 
 	memset(&pd->dsymtab, 0, sizeof(pd->dsymtab));
 	/* do not demangle symbol names since it might call dlsym() */
@@ -582,7 +582,7 @@ static int setup_mod_plthook_data(struct dl_phdr_info *info, size_t sz, void *ar
 	}
 
 	for (k = 0; k < ARRAY_SIZE(skip_libs); k++) {
-		if (!fnmatch(skip_libs[k], basename(exename), 0))
+		if (!fnmatch(skip_libs[k], uftrace_basename(exename), 0))
 			return 0;
 	}
 

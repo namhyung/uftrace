@@ -732,7 +732,7 @@ static struct tui_graph *tui_graph_init(struct uftrace_opts *opts)
 	list_for_each_entry(graph, &tui_graph_list, list) {
 		/* top (root) is an artificial node, fill the info */
 		top = &graph->ug.root;
-		top->name = basename(graph->ug.sess->exename);
+		top->name = (char *)uftrace_basename(graph->ug.sess->exename);
 		top->nr_calls = 1;
 
 		list_for_each_entry(node, &graph->ug.root.head, list) {
@@ -1871,7 +1871,7 @@ static void win_display_session(struct tui_window *win, void *node)
 		curr_sess = partial_graph.ug.sess;
 		get_current_graph(node, &count);
 		print_buf(" %c  %s #%d: %s", s == curr_sess ? 'G' : ' ', "call Graph for session",
-			  count, basename(s->exename));
+			  count, uftrace_basename(s->exename));
 		break;
 	}
 

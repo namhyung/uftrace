@@ -118,7 +118,7 @@ static bool check_busybox(const char *pager)
 check:
 	path = realpath(pager, NULL);
 	if (path) {
-		ret = !strncmp("busybox", basename(path), 7);
+		ret = !strncmp("busybox", uftrace_basename(path), 7);
 		free(path);
 	}
 

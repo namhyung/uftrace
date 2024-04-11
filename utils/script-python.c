@@ -231,7 +231,7 @@ static int set_python_path(char *py_pathname)
 static int import_python_module(char *py_pathname)
 {
 	PyObject *pName;
-	char *py_basename = xstrdup(basename(py_pathname));
+	char *py_basename = xstrdup(uftrace_basename(py_pathname));
 
 	remove_py_suffix(py_basename);
 

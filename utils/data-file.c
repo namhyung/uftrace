@@ -838,7 +838,7 @@ TEST_CASE(data_basic)
 
 	TEST_EQ(t->tid, 10);
 	TEST_EQ(t->tid, t->pid);
-	TEST_STREQ(t->comm, basename(opts.exename));
+	TEST_STREQ(t->comm, uftrace_basename(opts.exename));
 
 	close_data_file(&opts, &handle);
 

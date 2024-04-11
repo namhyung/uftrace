@@ -251,7 +251,7 @@ void create_session(struct uftrace_session_link *sessions, struct uftrace_msg_se
 
 	t = find_task(sessions, s->tid);
 	if (t) {
-		strncpy(t->comm, basename(exename), sizeof(t->comm));
+		strncpy(t->comm, uftrace_basename(exename), sizeof(t->comm));
 		t->comm[sizeof(t->comm) - 1] = '\0';
 	}
 
@@ -555,7 +555,7 @@ void create_task(struct uftrace_session_link *sessions, struct uftrace_msg_task 
 
 	if (s != NULL) {
 		add_session_ref(t, s, msg->time);
-		strncpy(t->comm, basename(s->exename), sizeof(t->comm));
+		strncpy(t->comm, uftrace_basename(s->exename), sizeof(t->comm));
 		t->comm[sizeof(t->comm) - 1] = '\0';
 	}
 

@@ -97,7 +97,7 @@ static void print_module(struct field_data *fd)
 	uint64_t timestamp = task->timestamp;
 	struct uftrace_session *s;
 	struct uftrace_mmap *map;
-	char *modname = "[unknown]";
+	const char *modname = "[unknown]";
 
 	/* for EVENT or LOST record */
 	if (fstack == NULL) {
@@ -111,7 +111,7 @@ static void print_module(struct field_data *fd)
 		if (map == MAP_KERNEL)
 			modname = "[kernel]";
 		else if (map)
-			modname = basename(map->libname);
+			modname = uftrace_basename(map->libname);
 		else if (is_sched_event(fstack->addr))
 			modname = "[event]";
 	}
@@ -719,7 +719,7 @@ static int print_graph_rstack(struct uftrace_data *handle, struct uftrace_task_r
 	enum uftrace_argspec_string_bits str_mode = 0;
 	char *symname = NULL;
 	char args[1024];
-	char *libname = "";
+	const char *libname = "";
 	struct uftrace_mmap *map = NULL;
 	struct uftrace_dbg_loc *loc = NULL;
 	char *str_loc = NULL;
@@ -756,7 +756,7 @@ static int print_graph_rstack(struct uftrace_data *handle, struct uftrace_task_r
 		if (s != NULL) {
 			map = find_symbol_map(&s->sym_info, symname);
 			if (map != NULL)
-				libname = basename(map->libname);
+				libname = uftrace_basename(map->libname);
 		}
 	}
 

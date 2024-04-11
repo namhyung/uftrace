@@ -23,7 +23,7 @@ static int check_so_cb(struct dl_phdr_info *info, size_t size, void *data)
 	const char *soname = data;
 	int so_used = 0;
 
-	if (!strncmp(basename(info->dlpi_name), soname, strlen(soname)))
+	if (!strncmp(uftrace_basename(info->dlpi_name), soname, strlen(soname)))
 		so_used = 1;
 
 	return so_used;
