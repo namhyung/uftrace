@@ -274,6 +274,7 @@ static int (*real_posix_spawnp)(pid_t *pid, const char *file,
 static int (*real_execve)(const char *path, char *const argv[], char *const envp[]);
 static int (*real_execvpe)(const char *file, char *const argv[], char *const envp[]);
 static int (*real_fexecve)(int fd, char *const argv[], char *const envp[]);
+static int (*real_close)(int fd);
 
 void mcount_hook_functions(void)
 {
@@ -291,6 +292,7 @@ void mcount_hook_functions(void)
 	real_execve = dlsym(RTLD_NEXT, "execve");
 	real_execvpe = dlsym(RTLD_NEXT, "execvpe");
 	real_fexecve = dlsym(RTLD_NEXT, "fexecve");
+	real_close = dlsym(RTLD_NEXT, "close");
 }
 
 __visible_default int backtrace(void **buffer, int sz)
@@ -613,6 +615,18 @@ __visible_default int fexecve(int fd, char *const argv[], char *const envp[])
 
 	pr_dbg("%s is called for fd %d\n", __func__, fd);
 	return real_fexecve(fd, argv, new_envp);
+}
+
+__visible_default int close(int fd)
+{
+	if (unlikely(real_close == NULL))
+		mcount_hook_functions();
+
+	if (unlikely(fd == pfd)) {
+		return 0;
+	}
+
+	return real_close(fd);
 }
 
 #ifdef UNIT_TEST
