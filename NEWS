@@ -1,3 +1,22 @@
+uftrace v0.16
+=============
+* New features
+  Support for the separate debug file (#1144, #1880)
+  Add 'o' for octal integer argument format (#1892)
+  Add stdv (relative standard deviation) fields to report (#1897)
+
+* Bug fixes
+  Fix wrong debug info creation in Python tracing (#1858)
+  Do not hold a refcount for the Python code object (#1886)
+  Exception handling with static local variable (#1902)
+  Fix libcall tracing when DT_RELAENT is missing (#1903)
+
+And many other fixes and improvements.  Thanks all contributors:
+  Ameya Vikram Singh, Bernhard Kaindl, Dongjin Na, Honggyu Kim,
+  Kevin Williams, Michelle Jin, Paran Lee, Rongsong Shen, Yi Hong,
+  Ziming Zhou
+
+
 uftrace v0.15
 =============
 * New architecture support
