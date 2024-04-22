@@ -204,8 +204,8 @@ enum tui_mode {
 };
 
 static char *report_sort_key[] = {
-	OPT_SORT_KEYS, "total_avg", "total_min", "total_max", "self",	   "self_avg",
-	"self_min",    "self_max",  "call",	 "size",      "total_std", "self_std",
+	OPT_SORT_KEYS, "total_avg", "total_min", "total_max", "self",	    "self_avg",
+	"self_min",    "self_max",  "call",	 "size",      "total_stdv", "self_stdv",
 };
 
 static char *selected_report_sort_key[NUM_REPORT_FIELD];
@@ -350,17 +350,16 @@ static void print_report_##_func(struct field_data *fd)                         
 {                                                                                                  \
 	struct uftrace_report_node *node = fd->arg;                                                \
 	uint64_t d = node->_field;                                                                 \
-	printw("  ");                                                                              \
 	print_time(d);                                                                             \
 }                                                                                                  \
-REPORT_FIELD_STRUCT(_id, _name, _func, _header, 11)
+REPORT_FIELD_STRUCT(_id, _name, _func, _header, 10)
 
-#define REPORT_FIELD_PERCENTAGE(_id, _name, _field, _func, _header)                                 \
-static void print_report_##_func(struct field_data *fd)                                           \
-{                                                                                          \
-	struct uftrace_report_node *node = fd->arg;                                        \
-	printw("%9.2f%% ", node->_field);                                                  \
-}                                                                                          \
+#define REPORT_FIELD_PERCENTAGE(_id, _name, _field, _func, _header)                                \
+static void print_report_##_func(struct field_data *fd)                                            \
+{                                                                                                  \
+	struct uftrace_report_node *node = fd->arg;                                                \
+	printw("%9.2f%%", node->_field);                                                           \
+}                                                                                                  \
 REPORT_FIELD_STRUCT(_id, _name, _func, _header, 10)
 
 #define REPORT_FIELD_UINT(_id, _name, _field, _func, _header)                                      \
@@ -368,10 +367,9 @@ static void print_report_##_func(struct field_data *fd)                         
 {                                                                                                  \
 	struct uftrace_report_node *node = fd->arg;                                                \
 	uint64_t d = node->_field;                                                                 \
-	printw("  ");                                                                              \
 	printw("%10"PRIu64 "", d);                                                                 \
 }                                                                                                  \
-REPORT_FIELD_STRUCT(_id, _name, _func, _header, 11)
+REPORT_FIELD_STRUCT(_id, _name, _func, _header, 10)
 
 REPORT_FIELD_TIME(REPORT_F_TOTAL_TIME, total, total.sum, total, "TOTAL TIME");
 REPORT_FIELD_TIME(REPORT_F_TOTAL_TIME_AVG, total-avg, total.avg, total_avg, "TOTAL AVG");
@@ -1555,13 +1553,13 @@ static void win_header_report(struct tui_window *win, struct uftrace_data *handl
 	buf = p = xmalloc(w + 1);
 
 	list_for_each_entry(field, &report_output_fields, list) {
-		char header[field->length + 1];
+		char header[field->length + 2];
 
 		header[0] = '\0';
 		if (i == curr_sort_key)
 			strcpy(header, "*");
 		strcat(header, field->header);
-		c = snprintf(p, w, " %*s", field->length, header);
+		c = snprintf(p, w, " %*s", field->length + 1, header);
 		p += c;
 		w -= c;
 		i++;
@@ -1614,8 +1612,9 @@ static void win_display_report(struct tui_window *win, void *node)
 	int w = 2;
 
 	list_for_each_entry(field, &report_output_fields, list) {
+		printw("  ");
 		field->print(&fd);
-		w += field->length + 1;
+		w += field->length + 2;
 	}
 
 	printw("  ");
