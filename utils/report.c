@@ -166,10 +166,12 @@ SORT_KEY(total, total.sum);
 SORT_KEY(total_avg, total.avg);
 SORT_KEY(total_min, total.min);
 SORT_KEY(total_max, total.max);
+SORT_KEY(total_stdv, total.stdv);
 SORT_KEY(self, self.sum);
 SORT_KEY(self_avg, self.avg);
 SORT_KEY(self_min, self.min);
 SORT_KEY(self_max, self.max);
+SORT_KEY(self_stdv, self.stdv);
 SORT_KEY(call, call);
 SORT_KEY(size, size);
 
@@ -185,9 +187,9 @@ static struct sort_key sort_func = {
 };
 
 static struct sort_key *all_sort_keys[] = {
-	&sort_total, &sort_total_avg, &sort_total_min, &sort_total_max,
-	&sort_self,  &sort_self_avg,  &sort_self_min,  &sort_self_max,
-	&sort_call,  &sort_func,      &sort_size,
+	&sort_total,	&sort_total_avg,  &sort_total_min, &sort_total_max, &sort_self,
+	&sort_self_avg, &sort_self_min,	  &sort_self_max,  &sort_call,	    &sort_func,
+	&sort_size,	&sort_total_stdv, &sort_self_stdv,
 };
 
 /* list of used sort keys */
@@ -228,6 +230,9 @@ char *convert_sort_keys(char *sort_keys, enum avg_mode avg_mode)
 		}
 		else if (!strcmp(k, "max")) {
 			strv_replace(&keys, i, avg_mode == AVG_TOTAL ? "total_max" : "self_max");
+		}
+		else if (!strcmp(k, "stdv")) {
+			strv_replace(&keys, i, avg_mode == AVG_TOTAL ? "total_stdv" : "self_stdv");
 		}
 	}
 
