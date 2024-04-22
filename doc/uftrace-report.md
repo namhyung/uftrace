@@ -24,25 +24,34 @@ REPORT OPTIONS
 ==============
 -f *FIELD*, \--output-fields=*FIELD*
 :   Customize field in the output.  Possible values are: `total`, `total-avg`,
-    `total-min`, `total-max`, `self`, `self-avg`, `self-min`, `self-max`, `size`,
-    `call` and `all`.  Multiple fields can be set by using comma.  Special field
-    of 'none' can be used (solely) to hide all fields and 'all' can be used to
-    show all fields.
-    Default is 'total,self,call'.  See *FIELDS*.
+    `total-min`, `total-max`, `total-stdv`, `self`, `self-avg`, `self-min`, `self-max`,
+    `self-stdv`, `size`, `call` and `all`.  Multiple fields can be set by using comma.
+    Special field of 'none' can be used (solely) to hide all fields and 'all' can be used
+    to show all fields.
+    Default is 'total,self,call'. See *FIELDS*.
+    `stdv` stands for the relative standard deviation (RSD),
+    which is the standard deviation expressed as a percentage of the mean.
+    The relative standard deviation is calculated using the formula:
+
+    \[ RSD = \left( \frac{\sigma}{\mu} \right) \times 100\% \]
+
+    where:
+    - \( \sigma \) represents the standard deviation.
+    - \( \mu \) represents the mean of the function's time.
 
 -s *KEYS*[,*KEYS*,...], \--sort=*KEYS*[,*KEYS*,...]
 :   Sort functions by given KEYS.  Multiple KEYS can be given, separated by
     comma (,).  Possible keys are `total` (time), `total-avg`, `total-min`,
-    `total-max`, `self` (time), `self-avg`, `self-min`, `self-max`, `size`,
-    `call` and `func`.  But if either `--avg-total` or `--avg-self` is used,
-    the possible keys can be `avg`, `min` and `max` that apply to total or self
-    time respectively.
+    `total-max`, `total-stdv`, `self` (time), `self-avg`, `self-min`, `self-max`,
+    `self-stdv`, `size`, `call` and `func`.  But if either `--avg-total` or
+    `--avg-self` is used, the possible keys can be `avg`, `min` and `max`
+    that apply to total or self time respectively.
 
 \--avg-total
-:   Show average, min, max of each function's total time.
+:   Show average, min, max, relative standard deviation of each function's total time.
 
 \--avg-self
-:   Show average, min, max of each function's self time.
+:   Show average, min, max, relative standard deviation of each function's self time.
 
 \--task
 :   Report task summary information rather than function statistics.
@@ -177,41 +186,35 @@ EXAMPLE
 =======
 This command shows information like the following:
 
-    $ uftrace record abc
+    $ uftrace record fibonacci
     $ uftrace report
       Total time   Self time       Calls  Function
       ==========  ==========  ==========  ====================
-      150.829 us  150.829 us           1  __cxa_atexit
-       27.289 us    1.243 us           1  main
-       26.046 us    0.939 us           1  a
-       25.107 us    0.934 us           1  b
-       24.173 us    1.715 us           1  c
-       22.458 us   22.458 us           1  getpid
+        3.781 us    0.124 us           1  main
+        3.657 us    3.657 us          41  fib
+        0.345 us    0.345 us           1  __monstartup
+        0.269 us    0.269 us           1  __cxa_atexit
 
     $ uftrace report -s call,self
       Total time   Self time       Calls  Function
       ==========  ==========  ==========  ====================
-      150.829 us  150.829 us           1  __cxa_atexit
-       22.458 us   22.458 us           1  getpid
-       24.173 us    1.715 us           1  c
-       27.289 us    1.243 us           1  main
-       26.046 us    0.939 us           1  a
-       25.107 us    0.934 us           1  b
+        3.657 us    3.657 us          41  fib
+        0.345 us    0.345 us           1  __monstartup
+        0.269 us    0.269 us           1  __cxa_atexit
+        3.781 us    0.124 us           1  main
 
     $ uftrace report --avg-self
-        Avg self    Min self    Max self  Function
-      ==========  ==========  ==========  ====================
-      150.829 us  150.829 us  150.829 us  __cxa_atexit
-       22.458 us   22.458 us   22.458 us  getpid
-        1.715 us    1.715 us    1.715 us  c
-        1.243 us    1.243 us    1.243 us  main
-        0.939 us    0.939 us    0.939 us  a
-        0.934 us    0.934 us    0.934 us  b
+        Self avg    Self min    Self max   Self stdv  Function
+      ==========  ==========  ==========  ==========  ====================
+        0.414 us    0.414 us    0.414 us       0.00%   __monstartup
+        0.356 us    0.356 us    0.356 us       0.00%   __cxa_atexit
+        0.113 us    0.113 us    0.113 us       0.00%   main
+        0.087 us    0.032 us    0.369 us      78.13%   fib
 
     $ uftrace report --task
-      Total time   Self time   Num funcs     TID  Task name
-      ==========  ==========  ==========  ======  ================
-       22.178 us   22.178 us           7   29955  t-abc
+      Total time   Self time     TID   Num funcs  Task name
+      ==========  ==========  ======  ==========  ====================
+        4.395 us    4.395 us   28662          44  fibonacci
 
     $ uftrace record --srcline abc
     $ uftrace report --srcline

@@ -17,7 +17,10 @@ enum avg_mode {
 struct report_time_stat {
 	uint64_t sum;
 	uint64_t rec; /* time in recursive call */
+	uint64_t sum_sq;
+	uint64_t rec_sq;
 	uint64_t avg;
+	double stdv;
 	uint64_t min;
 	uint64_t max;
 };

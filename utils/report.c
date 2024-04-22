@@ -1,4 +1,5 @@
 #include <inttypes.h>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -15,10 +16,14 @@ static void init_time_stat(struct report_time_stat *ts)
 
 static void update_time_stat(struct report_time_stat *ts, uint64_t time_ns, bool recursive)
 {
-	if (recursive)
+	if (recursive) {
 		ts->rec += time_ns;
-	else
+		ts->rec_sq += time_ns * time_ns;
+	}
+	else {
 		ts->sum += time_ns;
+		ts->sum_sq += time_ns * time_ns;
+	}
 
 	if (ts->min > time_ns)
 		ts->min = time_ns;
@@ -29,6 +34,7 @@ static void update_time_stat(struct report_time_stat *ts, uint64_t time_ns, bool
 static void finish_time_stat(struct report_time_stat *ts, unsigned long call)
 {
 	ts->avg = (ts->sum + ts->rec) / call;
+	ts->stdv = sqrt((ts->sum_sq + ts->rec_sq) / call - ts->avg * ts->avg) * 100 / ts->avg;
 }
 
 static struct uftrace_report_node *find_or_create_node(struct rb_root *root, const char *name,
@@ -766,6 +772,14 @@ void report_sort_tasks(struct uftrace_data *handle, struct rb_root *name_root,
 	}                                                                                          \
 	FIELD_STRUCT(_id, _name, _func, _header, 10)
 
+#define FIELD_PERCENTAGE(_id, _name, _field, _func, _header)                                       \
+	static void print_##_func(struct field_data *fd)                                           \
+	{                                                                                          \
+		struct uftrace_report_node *node = fd->arg;                                        \
+		pr_out("%9.2f%% ", node->_field);                                                  \
+	}                                                                                          \
+	FIELD_STRUCT(_id, _name, _func, _header, 10)
+
 #define FIELD_TIME_DIFF(_id, _name, _field, _func, _header)                                        \
 	static void print_##_func##_diff(struct field_data *fd)                                    \
 	{                                                                                          \
@@ -856,6 +870,8 @@ FIELD_TIME(REPORT_F_SELF_TIME_MIN, self-min, self.min, self_min, "Self min");
 FIELD_TIME(REPORT_F_SELF_TIME_MAX, self-max, self.max, self_max, "Self max");
 FIELD_UINT(REPORT_F_CALL, call, call, call, "Calls");
 FIELD_UINT(REPORT_F_SIZE, size, size, size, "Size");
+FIELD_PERCENTAGE(REPORT_F_TOTAL_TIME_STDV, total-stdv, total.stdv, total_stdv, "Total stdv");
+FIELD_PERCENTAGE(REPORT_F_SELF_TIME_STDV, self-stdv, self.stdv, self_stdv, "Self stdv");
 
 FIELD_TIME_DIFF(REPORT_F_TOTAL_TIME, total, total.sum, total, "Total time");
 FIELD_TIME_DIFF(REPORT_F_TOTAL_TIME_AVG, total-avg, total.avg, total_avg, "Total avg");
@@ -898,8 +914,9 @@ FIELD_UINT(REPORT_F_TASK_NR_FUNC, func, call, task_nr_func, "Num funcs");
 
 /* index of this table should be matched to display_field_id */
 static struct display_field *field_table[] = {
-	&field_total,	 &field_total_avg, &field_total_min, &field_total_max, &field_self,
-	&field_self_avg, &field_self_min,  &field_self_max,  &field_call,      &field_size,
+	&field_total, &field_total_avg, &field_total_min,  &field_total_max,
+	&field_self,  &field_self_avg,	&field_self_min,   &field_self_max,
+	&field_call,  &field_size,	&field_total_stdv, &field_self_stdv,
 };
 
 /* index of this table should be matched to display_field_id */
@@ -948,6 +965,7 @@ static void setup_avg_total_field(struct list_head *fields, struct uftrace_opts 
 	add_field(fields, p_field_table[REPORT_F_TOTAL_TIME_AVG]);
 	add_field(fields, p_field_table[REPORT_F_TOTAL_TIME_MIN]);
 	add_field(fields, p_field_table[REPORT_F_TOTAL_TIME_MAX]);
+	add_field(fields, p_field_table[REPORT_F_TOTAL_TIME_STDV]);
 }
 
 static void setup_avg_self_field(struct list_head *fields, struct uftrace_opts *opts,
@@ -956,6 +974,7 @@ static void setup_avg_self_field(struct list_head *fields, struct uftrace_opts *
 	add_field(fields, p_field_table[REPORT_F_SELF_TIME_AVG]);
 	add_field(fields, p_field_table[REPORT_F_SELF_TIME_MIN]);
 	add_field(fields, p_field_table[REPORT_F_SELF_TIME_MAX]);
+	add_field(fields, p_field_table[REPORT_F_SELF_TIME_STDV]);
 }
 
 static void setup_default_task_field(struct list_head *fields, struct uftrace_opts *opts,
