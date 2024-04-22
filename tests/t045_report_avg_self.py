@@ -5,16 +5,16 @@ from runtest import TestBase
 class TestCase(TestBase):
     def __init__(self):
         TestBase.__init__(self, 'sort', """
-    Self avg    Self min    Self max  Function
-  ==========  ==========  ==========  ====================
-   10.288 ms   10.288 ms   10.288 ms  usleep
-  598.518 us  598.518 us  598.518 us  main
-  249.854 us  249.854 us  249.854 us  bar
-   39.967 us   39.801 us   40.275 us  loop
-    1.044 us    0.884 us    1.205 us  foo
-    0.701 us    0.701 us    0.701 us  __monstartup
-    0.270 us    0.270 us    0.270 us  __cxa_atexit
-""")
+        Self avg    Self min    Self max   Self stdv  Function
+      ==========  ==========  ==========  ==========  ====================
+       10.128 ms   10.128 ms   10.128 ms       0.00%   usleep
+       37.113 us   37.113 us   37.113 us       0.00%   main
+       13.597 us   13.597 us   13.597 us       0.00%   bar
+        2.495 us    2.479 us    2.535 us       2.70%   loop
+        1.066 us    1.066 us    1.066 us       0.00%   __monstartup
+        0.569 us    0.569 us    0.569 us       0.00%   __cxa_atexit
+        0.372 us    0.292 us    0.452 us      21.51%   foo
+    """)
 
     def prepare(self):
         self.subcmd = 'record'

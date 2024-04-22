@@ -93,13 +93,13 @@ LIB_CFLAGS        += -fno-builtin -fno-tree-vectorize -DLIBMCOUNT
 TEST_CFLAGS        = $(COMMON_CFLAGS) -DUNIT_TEST
 PYTHON_CFLAGS      = $(COMMON_CFLAGS) -fPIC
 
-UFTRACE_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_uftrace)
+UFTRACE_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_uftrace) -lm
 DEMANGLER_LDFLAGS  = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_demangler)
 SYMBOLS_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_symbols)
 DBGINFO_LDFLAGS    = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_dbginfo)
 BENCH_LDFLAGS      = -Wl,-z,noexecstack $(LDFLAGS_$@) $(LDFLAGS_bench)
 LIB_LDFLAGS        = $(COMMON_LDFLAGS) $(LDFLAGS_$@) $(LDFLAGS_lib) -Wl,--no-undefined
-TEST_LDFLAGS       = $(COMMON_LDFLAGS)
+TEST_LDFLAGS       = $(COMMON_LDFLAGS) -lm
 
 _DEFAULT_SANITIZERS := address,leak
 ifeq ($(ARCH), riscv64)

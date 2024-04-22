@@ -27,12 +27,15 @@ TUI OPTIONS
     Possible values are total, self and addr.  The default value is 'total'.
     But if this option is used with --report option,
     this option indicates report fields.  Possible values are total, total-avg,
-    total-min, total-max, self, self-avg, self-min, self-max, call and size.
+    total-min, total-max, total-stdv, self, self-avg, self-min, self-max,
+    self-stdv, call and size.
     The default value is 'total,self,call'.
     Multiple fields can be set by using comma.
     If given field name starts with "+", then it'll be appended to the default fields.
     The special field 'none' can be used (solely) to hide all fields.
     See `uftrace-graph`(1) or `uftrace-report`(1) for an explanation of fields.
+    The `stdv` in total-stdv and self-stdv stands for relative standard deviation (RSD),
+    it would only contain value if the function is invoked multiple times.
 
 -s *KEYS*[,*KEYS*,...], \--sort=*KEYS*[,*KEYS*,...]
 :   Sort functions by given KEYS. Multiple KEYS can be given, separated by comma (,).

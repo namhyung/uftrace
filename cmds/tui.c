@@ -182,11 +182,11 @@ static const char *graph_field_names[NUM_GRAPH_FIELD] = {
 	"ADDRESS",
 };
 
-#define NUM_REPORT_FIELD 10
+#define NUM_REPORT_FIELD 12
 
 static const char *report_field_names[NUM_REPORT_FIELD] = {
-	"TOTAL TIME", "TOTAL AVG", "TOTAL MIN", "TOTAL MAX", "SELF TIME",
-	"SELF AVG",   "SELF MIN",  "SELF MAX",	"CALL",	     "SIZE",
+	"TOTAL TIME", "TOTAL AVG", "TOTAL MIN", "TOTAL MAX", "SELF TIME",  "SELF AVG",
+	"SELF MIN",   "SELF MAX",  "CALL",	"SIZE",	     "TOTAL STDV", "SELF STDV",
 };
 
 static const char *field_help[] = {
@@ -204,8 +204,8 @@ enum tui_mode {
 };
 
 static char *report_sort_key[] = {
-	OPT_SORT_KEYS, "total_avg", "total_min", "total_max", "self",
-	"self_avg",    "self_min",  "self_max",	 "call",      "size",
+	OPT_SORT_KEYS, "total_avg", "total_min", "total_max", "self",	   "self_avg",
+	"self_min",    "self_max",  "call",	 "size",      "total_std", "self_std",
 };
 
 static char *selected_report_sort_key[NUM_REPORT_FIELD];
@@ -355,6 +355,14 @@ static void print_report_##_func(struct field_data *fd)                         
 }                                                                                                  \
 REPORT_FIELD_STRUCT(_id, _name, _func, _header, 11)
 
+#define REPORT_FIELD_PERCENTAGE(_id, _name, _field, _func, _header)                                 \
+static void print_report_##_func(struct field_data *fd)                                           \
+{                                                                                          \
+	struct uftrace_report_node *node = fd->arg;                                        \
+	printw("%9.2f%% ", node->_field);                                                  \
+}                                                                                          \
+REPORT_FIELD_STRUCT(_id, _name, _func, _header, 10)
+
 #define REPORT_FIELD_UINT(_id, _name, _field, _func, _header)                                      \
 static void print_report_##_func(struct field_data *fd)                                            \
 {                                                                                                  \
@@ -375,14 +383,16 @@ REPORT_FIELD_TIME(REPORT_F_SELF_TIME_MIN, self-min, self.min, self_min, "SELF MI
 REPORT_FIELD_TIME(REPORT_F_SELF_TIME_MAX, self-max, self.max, self_max, "SELF MAX");
 REPORT_FIELD_UINT(REPORT_F_CALL, call, call, call, "CALL");
 REPORT_FIELD_UINT(REPORT_F_SIZE, size, size, size, "SIZE");
+REPORT_FIELD_PERCENTAGE(REPORT_F_TOTAL_TIME_STDV, total-stdv, total.stdv, total_stdv, "TOTAL STDV");
+REPORT_FIELD_PERCENTAGE(REPORT_F_SELF_TIME_STDV, self-stdv, self.stdv, self_stdv, "SELF STDV");
 
 /* clang-format on */
 
 static struct display_field *report_field_table[] = {
-	&report_field_total,	 &report_field_total_avg, &report_field_total_min,
-	&report_field_total_max, &report_field_self,	  &report_field_self_avg,
-	&report_field_self_min,	 &report_field_self_max,  &report_field_call,
-	&report_field_size,
+	&report_field_total,	 &report_field_total_avg,  &report_field_total_min,
+	&report_field_total_max, &report_field_self,	   &report_field_self_avg,
+	&report_field_self_min,	 &report_field_self_max,   &report_field_call,
+	&report_field_size,	 &report_field_total_stdv, &report_field_self_stdv,
 };
 
 static void setup_default_graph_field(struct list_head *fields, struct uftrace_opts *opts,
