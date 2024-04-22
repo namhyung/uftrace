@@ -301,6 +301,7 @@ static int setup_dwarf_info(const char *filename, struct uftrace_dbg_info *dinfo
 	dinfo->dwfl = dwfl_begin(&dwfl_callbacks);
 	if (dinfo->dwfl == NULL) {
 		pr_dbg2("failed to begin libdwfl: %s\n", dwfl_errmsg(dwfl_errno()));
+		close(fd);
 		return -1;
 	}
 
