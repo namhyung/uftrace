@@ -776,7 +776,7 @@ void report_sort_tasks(struct uftrace_data *handle, struct rb_root *name_root,
 	static void print_##_func(struct field_data *fd)                                           \
 	{                                                                                          \
 		struct uftrace_report_node *node = fd->arg;                                        \
-		pr_out("%9.2f%% ", node->_field);                                                  \
+		pr_out("%9.2f%%", node->_field);                                                   \
 	}                                                                                          \
 	FIELD_STRUCT(_id, _name, _func, _header, 10)
 
