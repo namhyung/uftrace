@@ -501,6 +501,7 @@ int lstat(const char *pathname, void *statbuf);
 
 int chmod(const char *pathname, oct_mode_t mode);
 int fchmod(int fd, oct_mode_t mode);
+int fchmodat(int dirfd, const char *pathname, oct_mode_t mode, int flags);
 void umask(oct_mode_t mask);
 
 int creat(const char *file, oct_mode_t mode);
