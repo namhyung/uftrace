@@ -851,6 +851,41 @@ static int read_uftrace_version(void *arg)
 	return 0;
 }
 
+static int fill_utc_offset(void *arg)
+{
+	struct fill_handler_arg *fha = arg;
+	time_t current_time;
+	struct timespec ts;
+	long offset;
+
+	time(&current_time);
+	clock_gettime(clock_source, &ts);
+
+	/* calculate time offset between UTC and clock_source. */
+	offset = (long)difftime(current_time, ts.tv_sec);
+
+	dprintf(fha->fd, "utc_offset:%ld\n", offset);
+	return 0;
+}
+
+static int read_utc_offset(void *arg)
+{
+	struct read_handler_arg *rha = arg;
+	struct uftrace_data *handle = rha->handle;
+	struct uftrace_info *info = &handle->info;
+	char *buf = rha->buf;
+
+	if (fgets(buf, sizeof(rha->buf), handle->fp) == NULL)
+		return -1;
+
+	if (strncmp(buf, "utc_offset:", 11))
+		return -1;
+
+	info->utc_offset = copy_info_str(&buf[11]);
+
+	return 0;
+}
+
 struct uftrace_info_handler {
 	enum uftrace_info_bits bit;
 	int (*handler)(void *arg);
@@ -883,6 +918,7 @@ void fill_uftrace_info(uint64_t *info_mask, int fd, struct uftrace_opts *opts, i
 		{ RECORD_DATE, fill_record_date },
 		{ PATTERN_TYPE, fill_pattern_type },
 		{ VERSION, fill_uftrace_version },
+		{ UTC_OFFSET, fill_utc_offset },
 	};
 
 	for (i = 0; i < ARRAY_SIZE(fill_handlers); i++) {
@@ -926,6 +962,7 @@ int read_uftrace_info(uint64_t info_mask, struct uftrace_data *handle)
 		{ RECORD_DATE, read_record_date },
 		{ PATTERN_TYPE, read_pattern_type },
 		{ VERSION, read_uftrace_version },
+		{ UTC_OFFSET, read_utc_offset },
 	};
 
 	memset(&handle->info, 0, sizeof(handle->info));
@@ -955,6 +992,7 @@ void clear_uftrace_info(struct uftrace_info *info)
 	free(info->argspec);
 	free(info->record_date);
 	free(info->elapsed_time);
+	free(info->utc_offset);
 	free(info->uftrace_version);
 	free(info->retspec);
 	free(info->autoarg);
