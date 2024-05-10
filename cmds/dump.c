@@ -540,7 +540,7 @@ static void dump_raw_header(struct uftrace_dump_ops *ops, struct uftrace_data *h
 	const char *info_str[] = { "EXE_NAME",	   "EXE_BUILD_ID", "EXIT_STATUS", "CMDLINE",
 				   "CPUINFO",	   "MEMINFO",	   "OSINFO",	  "TASKINFO",
 				   "USAGEINFO",	   "LOADINFO",	   "ARG_SPEC",	  "RECORD_DATE",
-				   "PATTERN_TYPE", "VERSION" };
+				   "PATTERN_TYPE", "VERSION",	   "UTC_OFFSET" };
 
 	pr_out("uftrace file header: magic         = ");
 	for (i = 0; i < UFTRACE_MAGIC_LEN; i++)

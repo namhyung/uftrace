@@ -98,6 +98,7 @@ enum uftrace_info_bits {
 	RECORD_DATE_BIT,
 	PATTERN_TYPE_BIT,
 	VERSION_BIT,
+	UTC_OFFSET_BIT,
 
 	INFO_BIT_MAX,
 
@@ -116,6 +117,7 @@ enum uftrace_info_bits {
 	RECORD_DATE = (1U << RECORD_DATE_BIT),
 	PATTERN_TYPE = (1U << PATTERN_TYPE_BIT),
 	VERSION = (1U << VERSION_BIT),
+	UTC_OFFSET = (1U << UTC_OFFSET_BIT),
 };
 
 struct uftrace_info {
@@ -142,6 +144,7 @@ struct uftrace_info {
 	double utime;
 	char *record_date;
 	char *elapsed_time;
+	char *utc_offset;
 	long vctxsw;
 	long ictxsw;
 	long maxrss;
