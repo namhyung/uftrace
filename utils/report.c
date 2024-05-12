@@ -14,7 +14,8 @@ static void init_time_stat(struct report_time_stat *ts)
 	ts->min = -1ULL;
 }
 
-static void update_time_stat(struct report_time_stat *ts, uint64_t time_ns, bool recursive)
+static void update_time_stat(struct report_time_stat *ts, uint64_t time_ns, uint64_t timestamp,
+			     bool recursive)
 {
 	if (recursive) {
 		ts->rec += time_ns;
@@ -25,10 +26,15 @@ static void update_time_stat(struct report_time_stat *ts, uint64_t time_ns, bool
 		ts->sum_sq += time_ns * time_ns;
 	}
 
-	if (ts->min > time_ns)
+	if (ts->min > time_ns) {
 		ts->min = time_ns;
-	if (ts->max < time_ns)
+		ts->min_ts = timestamp;
+	}
+
+	if (ts->max < time_ns) {
 		ts->max = time_ns;
+		ts->max_ts = timestamp;
+	}
 }
 
 static void finish_time_stat(struct report_time_stat *ts, unsigned long call)
@@ -104,6 +110,7 @@ void report_update_node(struct uftrace_report_node *node, struct uftrace_task_re
 	struct uftrace_fstack *fstack;
 	uint64_t total_time;
 	uint64_t self_time;
+	uint64_t timestamp;
 	bool recursive = false;
 	int i;
 
@@ -124,9 +131,13 @@ void report_update_node(struct uftrace_report_node *node, struct uftrace_task_re
 
 	total_time = fstack->total_time;
 	self_time = fstack->total_time - fstack->child_time;
+	if (task->rstack)
+		timestamp = task->rstack->time - total_time;
+	else
+		timestamp = 0;
 
-	update_time_stat(&node->total, total_time, recursive);
-	update_time_stat(&node->self, self_time, false);
+	update_time_stat(&node->total, total_time, timestamp, recursive);
+	update_time_stat(&node->self, self_time, timestamp, false);
 	node->call++;
 	node->loc = loc;
 	if (task->func != NULL)
@@ -775,6 +786,14 @@ void report_sort_tasks(struct uftrace_data *handle, struct rb_root *name_root,
 	}                                                                                          \
 	FIELD_STRUCT(_id, _name, _func, _header, 10)
 
+#define FIELD_TIMESTAMP(_id, _name, _field, _func, _header)                                        \
+	static void print_##_func(struct field_data *fd)                                           \
+	{                                                                                          \
+		struct uftrace_report_node *node = fd->arg;                                        \
+		print_timestamp(node->_field);                                                     \
+	}                                                                                          \
+	FIELD_STRUCT(_id, _name, _func, _header, 18)
+
 #define FIELD_UINT(_id, _name, _field, _func, _header)                                             \
 	static void print_##_func(struct field_data *fd)                                           \
 	{                                                                                          \
@@ -906,6 +925,10 @@ FIELD_UINT(REPORT_F_CALL, call, call, call, "Calls");
 FIELD_UINT(REPORT_F_SIZE, size, size, size, "Size");
 FIELD_PERCENTAGE(REPORT_F_TOTAL_TIME_STDV, total-stdv, total.stdv, total_stdv, "Total stdv");
 FIELD_PERCENTAGE(REPORT_F_SELF_TIME_STDV, self-stdv, self.stdv, self_stdv, "Self stdv");
+FIELD_TIMESTAMP(REPORT_F_TOTAL_MIN_TS, total-min-ts, total.min_ts, total_min_ts, "Total min ts");
+FIELD_TIMESTAMP(REPORT_F_TOTAL_MAX_TS, total-max-ts, total.max_ts, total_max_ts, "Total max ts");
+FIELD_TIMESTAMP(REPORT_F_SELF_MIN_TS, self-min-ts, self.min_ts, self_min_ts, "Self min ts");
+FIELD_TIMESTAMP(REPORT_F_SELF_MAX_TS, self-max-ts, self.max_ts, self_max_ts, "Self max ts");
 
 FIELD_TIME_DIFF(REPORT_F_TOTAL_TIME, total, total.sum, total, "Total time");
 FIELD_TIME_DIFF(REPORT_F_TOTAL_TIME_AVG, total-avg, total.avg, total_avg, "Total avg");
@@ -953,9 +976,10 @@ FIELD_UINT(REPORT_F_TASK_NR_FUNC, func, call, task_nr_func, "Num funcs");
 
 /* index of this table should be matched to display_field_id */
 static struct display_field *field_table[] = {
-	&field_total, &field_total_avg, &field_total_min,  &field_total_max,
-	&field_self,  &field_self_avg,	&field_self_min,   &field_self_max,
-	&field_call,  &field_size,	&field_total_stdv, &field_self_stdv,
+	&field_total,	     &field_total_avg,	  &field_total_min,   &field_total_max,
+	&field_self,	     &field_self_avg,	  &field_self_min,    &field_self_max,
+	&field_call,	     &field_size,	  &field_total_stdv,  &field_self_stdv,
+	&field_total_min_ts, &field_total_max_ts, &field_self_min_ts, &field_self_max_ts,
 };
 
 /* index of this table should be matched to display_field_id */
