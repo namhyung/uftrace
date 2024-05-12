@@ -54,14 +54,11 @@ static void print_addr(struct field_data *fd)
 		pr_out("%*" PRIx64, width, effective_addr(fstack->addr));
 }
 
-static void print_timestamp(struct field_data *fd)
+static void print_timestamp_field(struct field_data *fd)
 {
 	struct uftrace_task_reader *task = fd->task;
 
-	uint64_t sec = task->timestamp / NSEC_PER_SEC;
-	uint64_t nsec = task->timestamp % NSEC_PER_SEC;
-
-	pr_out("%8" PRIu64 ".%09" PRIu64, sec, nsec);
+	print_timestamp(task->timestamp);
 }
 
 static void print_timedelta(struct field_data *fd)
@@ -156,7 +153,7 @@ static struct display_field field_time = {
 	.name = "time",
 	.header = "     TIMESTAMP    ",
 	.length = 18,
-	.print = print_timestamp,
+	.print = print_timestamp_field,
 	.list = LIST_HEAD_INIT(field_time.list),
 };
 
