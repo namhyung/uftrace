@@ -13,14 +13,20 @@
 #include "utils/socket.h"
 #include "utils/utils.h"
 
-static char *tmp_dirname;
+#define LIVE_NAME "uftrace-live-XXXXXX"
+#define TMP_LIVE_NAME "/tmp/" LIVE_NAME
+
+#define TMP_DIR_NAME_SIZE 32
+
+static char tmp_dirname[TMP_DIR_NAME_SIZE];
 static void cleanup_tempdir(void)
 {
-	if (!tmp_dirname)
+	if (tmp_dirname[0] == '\0')
 		return;
 
 	remove_directory(tmp_dirname);
-	tmp_dirname = NULL;
+
+	memset(tmp_dirname, '\0', sizeof(tmp_dirname));
 }
 
 /* trigger actions that need to be done in replay */
@@ -415,8 +421,6 @@ socket_error:
 
 int command_live(int argc, char *argv[], struct uftrace_opts *opts)
 {
-#define LIVE_NAME "uftrace-live-XXXXXX"
-	char template[32] = "/tmp/" LIVE_NAME;
 	int fd;
 	struct sigaction sa = {
 		.sa_flags = SA_RESETHAND,
@@ -424,21 +428,19 @@ int command_live(int argc, char *argv[], struct uftrace_opts *opts)
 	int ret;
 
 	if (!opts->record) {
-		tmp_dirname = template;
+		snprintf(tmp_dirname, sizeof(tmp_dirname), "%s", TMP_LIVE_NAME);
 		umask(022);
-		fd = mkstemp(template);
+		fd = mkstemp(tmp_dirname);
 		if (fd < 0) {
-			/* can't reuse first template because it was trashed by mkstemp */
-			strcpy(template, LIVE_NAME);
-
 			if (errno != EPERM && errno != ENOENT)
-				pr_err("cannot access to /tmp");
+				pr_err("cannot access to %s", tmp_dirname);
 
-			fd = mkstemp(template);
+			/* can't reuse first template because it was trashed by mkstemp */
+			snprintf(tmp_dirname, sizeof(tmp_dirname), "%s", LIVE_NAME);
+			fd = mkstemp(tmp_dirname);
 
 			if (fd < 0)
-				pr_err("cannot create temp name");
-			tmp_dirname = template;
+				pr_err("cannot create %s", tmp_dirname);
 		}
 
 		close(fd);
