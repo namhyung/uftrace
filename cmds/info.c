@@ -1215,7 +1215,7 @@ static void print_task(struct uftrace_data *handle, struct uftrace_task *t)
 	/* TIMESTAMP */
 	pr_out(" %13lu.%09lu ", t->time.stamp / NSEC_PER_SEC, t->time.stamp % NSEC_PER_SEC);
 	/* FLAGS  TID  COMM */
-	pr_out(" %s  [%6d]  %-16s ", flags, t->tid, t->comm);
+	pr_out(" %s  [%*d]  %-16s ", flags, TASK_ID_LEN, t->tid, t->comm);
 	/* DATA SIZE */
 	if (stbuf.st_size) {
 		uint64_t size_kb = stbuf.st_size / 1024;
@@ -1235,8 +1235,8 @@ static void print_task_info(struct uftrace_data *handle)
 	struct rb_node *n;
 	struct uftrace_task *t;
 
-	pr_out("#%23s  %5s  %8s  %-16s  %s\n", "TIMESTAMP     ", "FLAGS", "  TID  ", "TASK",
-	       "DATA SIZE");
+	pr_out("#%23s  %5s  %*s  %-16s  %s\n", "TIMESTAMP     ", "FLAGS", TASK_ID_LEN + 2,
+	       "   TID   ", "TASK", "DATA SIZE");
 
 	n = rb_first(&handle->sessions.tasks);
 	while (n != NULL) {

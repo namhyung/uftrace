@@ -610,8 +610,8 @@ int fstack_entry(struct uftrace_task_reader *task, struct uftrace_record *rstack
 	if (fstack == NULL)
 		return -1;
 
-	pr_dbg2("ENTRY: [%5d] stack: %d, depth: %d, disp: %d, I: %d, O: %d, D: %d, flags = %lx %s\n",
-		task->tid, task->stack_count - 1, rstack->depth, task->display_depth,
+	pr_dbg2("ENTRY: [%*d] stack: %d, depth: %d, disp: %d, I: %d, O: %d, D: %d, flags = %lx %s\n",
+		TASK_ID_LEN, task->tid, task->stack_count - 1, rstack->depth, task->display_depth,
 		task->filter.in_count, task->filter.out_count, task->filter.depth, fstack->flags,
 		rstack->more ? "more" : "");
 
@@ -740,8 +740,8 @@ void fstack_exit(struct uftrace_task_reader *task)
 	if (fstack == NULL)
 		return;
 
-	pr_dbg2("EXIT : [%5d] stack: %d, depth: %d, disp: %d, I: %d, O: %d, D: %d, flags = %lx\n",
-		task->tid, task->stack_count, task->rstack->depth, task->display_depth,
+	pr_dbg2("EXIT : [%*d] stack: %d, depth: %d, disp: %d, I: %d, O: %d, D: %d, flags = %lx\n",
+		TASK_ID_LEN, task->tid, task->stack_count, task->rstack->depth, task->display_depth,
 		task->filter.in_count, task->filter.out_count, task->filter.depth, fstack->flags);
 
 	if (fstack->flags & FSTACK_FL_FILTERED)
@@ -1021,10 +1021,10 @@ bool fstack_check_filter(struct uftrace_task_reader *task)
 			if (fstack == NULL)
 				return false;
 
-			pr_dbg2("SCHED: [%5d] stack: %d, depth: %d, disp: %d, I: %d, O: %d, D: %d, %s\n",
-				task->tid, idx, fstack->orig_depth, task->display_depth,
-				task->filter.in_count, task->filter.out_count, task->filter.depth,
-				sched);
+			pr_dbg2("SCHED: [%*d] stack: %d, depth: %d, disp: %d, I: %d, O: %d, D: %d, %s\n",
+				TASK_ID_LEN, task->tid, idx, fstack->orig_depth,
+				task->display_depth, task->filter.in_count, task->filter.out_count,
+				task->filter.depth, sched);
 		}
 	}
 
@@ -2237,7 +2237,7 @@ static void adjust_rstack_after_schedule(struct uftrace_data *handle,
 			task->timestamp_next -= prev_fstack->total_time;
 		}
 
-		pr_dbg3("task[%6d] delay next record after schedule\n", task->tid);
+		pr_dbg3("task[%*d] delay next record after schedule\n", TASK_ID_LEN, task->tid);
 		next_rec->time = ~0ULL;
 		return;
 	}
@@ -2253,7 +2253,7 @@ static void adjust_rstack_after_schedule(struct uftrace_data *handle,
 	/* save it in case it's overwritten by subsequent schedule */
 	task->timestamp_estimate = next_rec->time;
 
-	pr_dbg3("task[%6d] estimate next record after schedule\n", task->tid);
+	pr_dbg3("task[%*d] estimate next record after schedule\n", TASK_ID_LEN, task->tid);
 }
 
 static int __read_rstack(struct uftrace_data *handle, struct uftrace_task_reader **taskp,

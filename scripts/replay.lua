@@ -10,7 +10,7 @@ function uftrace_entry(ctx)
     local indent = _depth * 2
     local space = string.rep(' ', indent)
 
-    local buf = string.format(' %10s [%6d] | %s%s() {', '', _tid, space, _symname)
+    local buf = string.format(' %10s [%7d] | %s%s() {', '', _tid, space, _symname)
     print(buf)
 end
 
@@ -26,7 +26,7 @@ function uftrace_exit(ctx)
     local time_and_unit = get_time_and_unit(_duration)
     local time = time_and_unit[1]
     local unit = time_and_unit[2]
-    local buf = string.format(' %7.3f %s [%6d] | %s}', time, unit, _tid, space)
+    local buf = string.format(' %7.3f %s [%7d] | %s}', time, unit, _tid, space)
     local buf = string.format('%s /* %s */', buf, _symname)
     print(buf)
 end

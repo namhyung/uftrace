@@ -361,7 +361,7 @@ static void print_task(struct uftrace_report_node *node, void *arg, int space)
 	print_field(node, space);
 
 	pr_out("%*s", space, " ");
-	pr_out("%-16s\n", t->comm);
+	pr_out("%-*s\n", TASK_COMM_LEN, t->comm);
 }
 
 static void report_task(struct uftrace_data *handle, struct uftrace_opts *opts)

@@ -10,7 +10,7 @@ def uftrace_entry(ctx):
     indent = _depth * 2
     space = " " * indent
 
-    buf = " %10s [%6d] | %s%s() {" % ("", _tid, space, _symname)
+    buf = " %10s [%7d] | %s%s() {" % ("", _tid, space, _symname)
     print(buf)
 
 def uftrace_exit(ctx):
@@ -24,7 +24,7 @@ def uftrace_exit(ctx):
     space = " " * indent
 
     (time, unit) = get_time_and_unit(_duration)
-    buf = " %7.3f %s [%6d] | %s}" % (time, unit, _tid, space)
+    buf = " %7.3f %s [%7d] | %s}" % (time, unit, _tid, space)
     buf = "%s /* %s */" % (buf, _symname)
     print(buf)
 

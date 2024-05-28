@@ -128,7 +128,7 @@ static void print_task_self_time(struct field_data *fd)
 static void print_task_tid(struct field_data *fd)
 {
 	struct uftrace_task *task = fd->arg;
-	pr_out("[%6d]", task->tid);
+	pr_out("[%*d]", TASK_ID_LEN, task->tid);
 }
 
 static struct display_field field_task_total_time = {
@@ -154,8 +154,8 @@ static struct display_field field_task_self_time = {
 static struct display_field field_task_tid = {
 	.id = GRAPH_F_TASK_TID,
 	.name = "tid",
-	.header = "   TID  ",
-	.length = 8,
+	.header = "   TID   ",
+	.length = TASK_ID_LEN + 2, /* +2 for "[ ]" */
 	.print = print_task_tid,
 	.list = LIST_HEAD_INIT(field_task_tid.list),
 };

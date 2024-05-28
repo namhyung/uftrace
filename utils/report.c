@@ -851,9 +851,9 @@ void report_sort_tasks(struct uftrace_data *handle, struct rb_root *name_root,
 	static void print_##_func(struct field_data *fd)                                           \
 	{                                                                                          \
 		struct uftrace_report_node *node = fd->arg;                                        \
-		pr_out("%6d", strtol(node->name, NULL, 10));                                       \
+		pr_out("%*d", TASK_ID_LEN, strtol(node->name, NULL, 10));                          \
 	}                                                                                          \
-	FIELD_STRUCT(_id, _name, _func, _header, 6)
+	FIELD_STRUCT(_id, _name, _func, _header, TASK_ID_LEN)
 
 #define NODATA "-"
 static void print_time_or_dash(uint64_t time_nsec)

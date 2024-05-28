@@ -28,7 +28,7 @@ def uftrace_entry(ctx):
     _name       = ctx["name"]
 
     unit = 10 ** 9
-    print("%d.%09d %6d: [entry] %s(%x) depth: %d" %
+    print("%d.%09d %7d: [entry] %s(%x) depth: %d" %
             (_time / unit, _time % unit, _tid, _name, _address, _depth))
 
     if "args" in ctx:
@@ -47,7 +47,7 @@ def uftrace_exit(ctx):
     _name       = ctx["name"]
 
     unit = 10 ** 9
-    print("%d.%09d %6d: [exit ] %s(%x) depth: %d" %
+    print("%d.%09d %7d: [exit ] %s(%x) depth: %d" %
             (_time / unit, _time % unit, _tid, _name, _address, _depth))
 
     if "retval" in ctx:
@@ -62,7 +62,7 @@ def uftrace_event(ctx):
     _name       = ctx["name"]
 
     unit = 10 ** 9
-    print("%d.%09d %6d: [event] %s(%x)" %
+    print("%d.%09d %7d: [event] %s(%x)" %
             (_time / unit, _time % unit, _tid, _name, _address))
 
 # uftrace_end is optional, so can be omitted.

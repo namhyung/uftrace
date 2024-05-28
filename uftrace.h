@@ -357,6 +357,7 @@ void put_libmcount_path(char *libpath);
 #define SESSION_ID_LEN 16
 #define TASK_COMM_LEN 16
 #define TASK_COMM_LAST (TASK_COMM_LEN - 1)
+#define TASK_ID_LEN 7
 
 struct uftrace_session {
 	struct rb_node node;

@@ -601,8 +601,8 @@ static void dump_raw_task_rstack(struct uftrace_dump_ops *ops, struct uftrace_ta
 		name = event_get_name(task->h, frs->addr);
 
 	pr_time(frs->time);
-	pr_out("%5d: [%s] %s(%" PRIx64 ") depth: %u\n", task->tid, rstack_type(frs), name,
-	       frs->addr, frs->depth);
+	pr_out("%*d: [%s] %s(%" PRIx64 ") depth: %u\n", TASK_ID_LEN, task->tid, rstack_type(frs),
+	       name, frs->addr, frs->depth);
 	pr_hex(&raw->file_offset, frs, sizeof(*frs));
 
 	if (frs->type == UFTRACE_EVENT)
@@ -611,13 +611,15 @@ static void dump_raw_task_rstack(struct uftrace_dump_ops *ops, struct uftrace_ta
 	if (frs->more && show_args) {
 		if (frs->type == UFTRACE_ENTRY) {
 			pr_time(frs->time);
-			pr_out("%5d: [%s] length = %d\n", task->tid, "args ", task->args.len);
+			pr_out("%*d: [%s] length = %d\n", TASK_ID_LEN, task->tid, "args ",
+			       task->args.len);
 			pr_args(&task->args);
 			pr_hex(&raw->file_offset, task->args.data, ALIGN(task->args.len, 8));
 		}
 		else if (frs->type == UFTRACE_EXIT) {
 			pr_time(frs->time);
-			pr_out("%5d: [%s] length = %d\n", task->tid, "retval", task->args.len);
+			pr_out("%*d: [%s] length = %d\n", TASK_ID_LEN, task->tid, "retval",
+			       task->args.len);
 			pr_retval(&task->args);
 			pr_hex(&raw->file_offset, task->args.data, ALIGN(task->args.len, 8));
 		}
@@ -633,13 +635,13 @@ static void dump_raw_task_event(struct uftrace_dump_ops *ops, struct uftrace_tas
 	char *name = event_get_name(task->h, frs->addr);
 
 	pr_time(frs->time);
-	pr_out("%5d: [%s] %s(%" PRIx64 ") depth: %u\n", task->tid, rstack_type(frs), name,
-	       frs->addr, frs->depth);
+	pr_out("%*d: [%s] %s(%" PRIx64 ") depth: %u\n", TASK_ID_LEN, task->tid, rstack_type(frs),
+	       name, frs->addr, frs->depth);
 	pr_hex(&raw->file_offset, frs, sizeof(*frs));
 
 	if (frs->more && show_args) {
 		pr_time(frs->time);
-		pr_out("%5d: [%s] length = %d\n", task->tid, "data ", task->args.len);
+		pr_out("%*d: [%s] length = %d\n", TASK_ID_LEN, task->tid, "data ", task->args.len);
 		pr_event(task, frs->addr);
 		pr_hex(&raw->file_offset, task->args.data, ALIGN(task->args.len, 8));
 	}
@@ -692,8 +694,8 @@ static void dump_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 			timestamp = ((uint64_t)upper << 27) + (lower >> 5);
 
 			pr_time(frs->time - timestamp);
-			pr_out("%5d: [%s] %s (+%" PRIu64 " nsec)\n", tid, "time ", "extend",
-			       timestamp);
+			pr_out("%*d: [%s] %s (+%" PRIu64 " nsec)\n", TASK_ID_LEN, tid, "time ",
+			       "extend", timestamp);
 
 			if (debug)
 				pr_hex(&offset, tmp, 8);
@@ -705,8 +707,8 @@ static void dump_raw_kernel_rstack(struct uftrace_dump_ops *ops,
 	}
 
 	pr_time(frs->time);
-	pr_out("%5d: [%s] %s(%" PRIx64 ") depth: %u\n", tid, rstack_type(frs), name, frs->addr,
-	       frs->depth);
+	pr_out("%*d: [%s] %s(%" PRIx64 ") depth: %u\n", TASK_ID_LEN, tid, rstack_type(frs), name,
+	       frs->addr, frs->depth);
 
 	if (debug) {
 		/* this is only needed for hex dump */
@@ -744,7 +746,8 @@ static void dump_raw_kernel_event(struct uftrace_dump_ops *ops,
 	event_data = read_kernel_event(kernel, cpu, &size);
 
 	pr_time(frs->time);
-	pr_out("%5d: [%s] %s(%ld) %.*s\n", tid, rstack_type(frs), buf, frs->addr, size, event_data);
+	pr_out("%*d: [%s] %s(%ld) %.*s\n", TASK_ID_LEN, tid, rstack_type(frs), buf, frs->addr, size,
+	       event_data);
 
 	if (debug) {
 		/* this is only needed for hex dump */
@@ -765,7 +768,7 @@ static void dump_raw_kernel_event(struct uftrace_dump_ops *ops,
 static void dump_raw_kernel_lost(struct uftrace_dump_ops *ops, uint64_t time, int tid, int losts)
 {
 	pr_time(time);
-	pr_red("%5d: [%s ]: %d events\n", tid, "lost", losts);
+	pr_red("%*d: [%s ]: %d events\n", TASK_ID_LEN, tid, "lost", losts);
 }
 
 static void dump_raw_perf_start(struct uftrace_dump_ops *ops, struct uftrace_perf_reader *perf,
@@ -788,7 +791,8 @@ static void dump_raw_perf_event(struct uftrace_dump_ops *ops, struct uftrace_per
 	char *evt_name = event_get_name(NULL, frs->addr);
 
 	pr_time(frs->time);
-	pr_out("%5d: [%s] %s(%" PRIu64 ")\n", perf->tid, rstack_type(frs), evt_name, frs->addr);
+	pr_out("%*d: [%s] %s(%" PRIu64 ")\n", TASK_ID_LEN, perf->tid, rstack_type(frs), evt_name,
+	       frs->addr);
 
 	if (debug) {
 		/* XXX: this is different from file contents */

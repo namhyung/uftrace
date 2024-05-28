@@ -38,7 +38,7 @@ static void print_duration(struct field_data *fd)
 static void print_tid(struct field_data *fd)
 {
 	struct uftrace_task_reader *task = fd->task;
-	pr_out("[%6d]", task->tid);
+	pr_out("[%*d]", TASK_ID_LEN, task->tid);
 }
 
 static void print_addr(struct field_data *fd)
@@ -87,7 +87,8 @@ static void print_task(struct field_data *fd)
 {
 	struct uftrace_task_reader *task = fd->task;
 
-	pr_out("%*s", 15, task->t->comm);
+	/* The task (command) name contains NUL at the end */
+	pr_out("%*s", TASK_COMM_LEN - 1, task->t->comm);
 }
 
 static void print_module(struct field_data *fd)
@@ -131,8 +132,8 @@ static struct display_field field_duration = {
 static struct display_field field_tid = {
 	.id = REPLAY_F_TID,
 	.name = "tid",
-	.header = "   TID  ",
-	.length = 8,
+	.header = "   TID   ",
+	.length = TASK_ID_LEN + 2, /* +2 for "[ ]" */
 	.print = print_tid,
 	.list = LIST_HEAD_INIT(field_tid.list),
 };
@@ -182,7 +183,7 @@ static struct display_field field_task = {
 	.id = REPLAY_F_TASK,
 	.name = "task",
 	.header = "      TASK NAME",
-	.length = 15,
+	.length = TASK_COMM_LEN - 1, /* -1 due to NUL at the end */
 	.print = print_task,
 	.list = LIST_HEAD_INIT(field_task.list),
 };
