@@ -4,6 +4,10 @@
 uftrace
 =======
 
+<a href="https://repology.org/project/uftrace/versions">
+    <img src="https://repology.org/badge/vertical-allrepos/uftrace.svg" alt="Packaging status" align="right">
+</a>
+
 uftrace is a function call graph tracer for C, C++, Rust and Python programs.
 
 It hooks into the entry and exit of each function, recording timestamps
