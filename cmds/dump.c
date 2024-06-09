@@ -950,6 +950,8 @@ static void dump_chrome_kernel_rstack(struct uftrace_dump_ops *ops,
 
 	tid = kernel->tids[cpu];
 	task = get_task_handle(kernel->handle, tid);
+	if (task == NULL)
+		return;
 
 	dump_chrome_task_rstack(ops, task, name);
 }
@@ -1152,6 +1154,8 @@ static void dump_flame_kernel_rstack(struct uftrace_dump_ops *ops,
 
 	tid = kernel->tids[cpu];
 	task = get_task_handle(kernel->handle, tid);
+	if (task == NULL)
+		return;
 
 	graph = graph_get_task(task, sizeof(*graph));
 
@@ -1223,6 +1227,8 @@ static void dump_graphviz_kernel_rstack(struct uftrace_dump_ops *ops,
 
 	tid = kernel->tids[cpu];
 	task = get_task_handle(kernel->handle, tid);
+	if (task == NULL)
+		return;
 
 	graph = graph_get_task(task, sizeof(*graph));
 
@@ -1299,6 +1305,8 @@ static void dump_mermaid_kernel_rstack(struct uftrace_dump_ops *ops,
 
 	tid = kernel->tids[cpu];
 	task = get_task_handle(kernel->handle, tid);
+	if (task == NULL)
+		return;
 
 	graph = graph_get_task(task, sizeof(*graph));
 
