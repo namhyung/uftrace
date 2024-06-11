@@ -616,6 +616,7 @@ enum uftrace_event_id {
 	EVENT_ID_READ_PMU_BRANCH,
 	EVENT_ID_DIFF_PMU_BRANCH,
 	EVENT_ID_WATCH_CPU,
+	EVENT_ID_WATCH_VAR,
 
 	/* supported perf events */
 	EVENT_ID_PERF = 200000U,
@@ -638,6 +639,16 @@ struct uftrace_event {
 	enum uftrace_event_id id;
 	char *provider;
 	char *event;
+};
+
+struct uftrace_watch_event {
+	union {
+		int cpu;
+		struct {
+			uint64_t addr;
+			uint64_t data;
+		} var;
+	};
 };
 
 #define HTML_HEADER                                                                                \
