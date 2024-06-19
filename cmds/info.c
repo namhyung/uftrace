@@ -539,7 +539,7 @@ static int read_taskinfo(void *arg)
 		else if (!strncmp(&buf[9], "tids=", 5)) {
 			char *tids_str = &buf[14];
 			char *endp = tids_str;
-			int *tids = xcalloc(sizeof(*tids), info->nr_tid);
+			int *tids = xcalloc(info->nr_tid, sizeof(*tids));
 			int nr_tid = 0;
 
 			while (*endp != '\n') {

@@ -73,7 +73,7 @@ void prepare_shmem_buffer(struct mcount_thread_data *mtdp)
 
 	shmem->nr_buf = 2;
 	shmem->max_buf = 2;
-	shmem->buffer = xcalloc(sizeof(*shmem->buffer), 2);
+	shmem->buffer = xcalloc(2, sizeof(*shmem->buffer));
 
 	for (idx = 0; idx < shmem->nr_buf; idx++) {
 		shmem->buffer[idx] = allocate_shmem_buffer(buf, sizeof(buf), tid, idx);
