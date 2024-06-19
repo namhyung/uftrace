@@ -197,7 +197,7 @@ static char **collect_uftrace_envp(void)
 			n++;
 	}
 
-	envp = xcalloc(sizeof(*envp), n + 2);
+	envp = xcalloc(n + 2, sizeof(*envp));
 
 	for (i = k = 0; i < ARRAY_SIZE(uftrace_env); i++) {
 		char *env_str;
@@ -232,7 +232,7 @@ static char **merge_envp(char *const *env1, char **env2)
 	n += count_envp(env1);
 	n += count_envp(env2);
 
-	envp = xcalloc(sizeof(*envp), n + 1);
+	envp = xcalloc(n + 1, sizeof(*envp));
 
 	n = 0;
 	for (i = 0; env1 && env1[i]; i++)

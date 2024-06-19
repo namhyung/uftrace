@@ -1778,7 +1778,7 @@ static int kernel_test_setup_handle(struct uftrace_kernel_reader *kernel,
 	int i;
 
 	handle->nr_tasks = NUM_TASK;
-	handle->tasks = xcalloc(sizeof(*handle->tasks), NUM_TASK);
+	handle->tasks = xcalloc(NUM_TASK, sizeof(*handle->tasks));
 
 	handle->time_range.start = handle->time_range.stop = 0;
 	handle->time_filter = 0;

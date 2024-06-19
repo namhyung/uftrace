@@ -190,16 +190,16 @@ extern void setup_signal(void);
 
 #define xzalloc(sz)                                                                                \
 	({                                                                                         \
-		void *__ptr = calloc(sz, 1);                                                       \
+		void *__ptr = calloc(1, sz);                                                       \
 		if (__ptr == NULL) {                                                               \
 			pr_err("xzalloc");                                                         \
 		}                                                                                  \
 		__ptr;                                                                             \
 	})
 
-#define xcalloc(sz, n)                                                                             \
+#define xcalloc(n, sz)                                                                             \
 	({                                                                                         \
-		void *__ptr = calloc(sz, n);                                                       \
+		void *__ptr = calloc(n, sz);                                                       \
 		if (__ptr == NULL) {                                                               \
 			pr_err("xcalloc");                                                         \
 		}                                                                                  \
