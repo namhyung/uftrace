@@ -88,7 +88,7 @@ this info can be shown by `uftrace replay --srcline` and in `uftrace tui`. Users
 open the editor at the source location as shown in https://uftrace.github.io/slide/#120.
 
 If debug information for the program (`gcc -g`) is available, `--auto-args`
-works even on functions inside the compiled the user programs.
+works even on functions inside the user-compiled programs.
 
 In case argument information is not available, argument specifications like
 (`-A udev_new@arg1/s`) can be passed on the command line or an options file.
