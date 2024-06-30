@@ -18,10 +18,9 @@ enum options {
 };
 
 static struct option demangler_options[] = {
-	{ "simple", no_argument, 0, OPT_simple },
-	{ "full", no_argument, 0, OPT_full },
-	{ "no", no_argument, 0, OPT_no },
-	{ "verbose", no_argument, 0, 'v' },
+	{ "simple", no_argument, 0, OPT_simple }, { "full", no_argument, 0, OPT_full },
+	{ "no", no_argument, 0, OPT_no },	  { "verbose", no_argument, 0, 'v' },
+	{ "help", no_argument, 0, 'h' },	  { 0 }
 };
 
 static const char demangler_usage[] =
@@ -32,6 +31,7 @@ static const char demangler_usage[] =
 	"      --full             Use libstdc++ demangler\n"
 	"      --no               Do not use demangler\n"
 	"  -v, --verbose          Be verbose\n"
+	"  -h, --help             Display this help and exit\n"
 	"\n";
 
 struct demangler_opts {
@@ -46,7 +46,7 @@ static void parse_option(int argc, char **argv, struct demangler_opts *opts)
 	while (!done) {
 		int key, tmp;
 
-		key = getopt_long(argc, argv, "v", demangler_options, &tmp);
+		key = getopt_long(argc, argv, "vh", demangler_options, &tmp);
 		switch (key) {
 		case OPT_simple:
 			opts->mode = DEMANGLE_SIMPLE;
@@ -64,6 +64,10 @@ static void parse_option(int argc, char **argv, struct demangler_opts *opts)
 			debug++;
 			dbg_domain[DBG_DEMANGLE]++;
 			break;
+
+		case 'h':
+			printf("%s", demangler_usage);
+			exit(0);
 
 		case -1:
 			done = true;
