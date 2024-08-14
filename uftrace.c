@@ -1383,6 +1383,19 @@ __used static void apply_default_opts(int *argc, char ***argv, struct uftrace_op
 	}
 }
 
+__used static void show_man_page(char *cmd)
+{
+	char *cmdstr = NULL;
+
+	if (cmd)
+		xasprintf(&cmdstr, "uftrace-%s", cmd);
+	else
+		cmdstr = xstrdup("uftrace");
+	execlp("man", "man", cmdstr, (char *)NULL);
+	/* fall through if man command itself is not found */
+	free(cmdstr);
+}
+
 #ifndef UNIT_TEST
 int main(int argc, char *argv[])
 {
@@ -1428,6 +1441,8 @@ int main(int argc, char *argv[])
 		ret = 0;
 		goto cleanup;
 	case -3:
+		if (opts.mode)
+			show_man_page(argv[1]);
 		if (opts.use_pager)
 			start_pager(setup_pager());
 		pr_out(uftrace_usage);
