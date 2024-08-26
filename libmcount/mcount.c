@@ -1201,7 +1201,7 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp, struct mcount_r
 #define FLAGS_TO_CHECK (TRIGGER_FL_RECOVER | TRIGGER_FL_TRACE_ON | TRIGGER_FL_TRACE_OFF)
 
 		if (tr->flags & FLAGS_TO_CHECK) {
-			if (tr->flags & TRIGGER_FL_RECOVER) {
+			if ((tr->flags & TRIGGER_FL_RECOVER) && !mcount_estimate_return) {
 				mcount_rstack_restore(mtdp);
 				*rstack->parent_loc = mcount_return_fn;
 				rstack->flags |= MCOUNT_FL_RECOVER;
