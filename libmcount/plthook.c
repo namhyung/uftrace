@@ -1015,7 +1015,7 @@ static unsigned long __plthook_exit(long *retval)
 	 * no need to check recursion here.  But still needs to
 	 * prevent recursion during this call.
 	 */
-	__mcount_guard_recursion(mtdp);
+	__mcount_guard_recursion();
 
 again:
 	if (likely(mtdp->idx > 0))
@@ -1042,7 +1042,7 @@ again:
 	if (unlikely(dyn_idx == MCOUNT_INVALID_DYNIDX || dyn_idx >= rstack->pd->dsymtab.nr_sym))
 		pr_err_ns("<%d> invalid dynsym idx: %d\n", mtdp->idx, dyn_idx);
 
-	if (!ARCH_CAN_RESTORE_PLTHOOK && unlikely(mtdp->dead)) {
+	if (!ARCH_CAN_RESTORE_PLTHOOK && unlikely(mcount_need_dead(mtdp))) {
 		ret_addr = rstack->parent_ip;
 
 		/* make sure it doesn't have plthook below */
@@ -1080,7 +1080,7 @@ again:
 	if (mcount_auto_recover)
 		mcount_auto_reset(mtdp);
 
-	__mcount_unguard_recursion(mtdp);
+	__mcount_unguard_recursion();
 
 	if (unlikely(mcount_should_stop())) {
 		mtd_dtor(mtdp);

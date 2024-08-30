@@ -145,7 +145,6 @@ struct mcount_thread_data {
 	int tid;
 	int idx;
 	int record_idx;
-	bool recursion_marker;
 	bool in_exception;
 	bool dead;
 	bool warned;
@@ -177,20 +176,24 @@ static inline void mcount_restore_arch_context(struct mcount_arch_context *ctx)
 
 #ifdef SINGLE_THREAD
 #define TLS
-#define get_thread_data() &mtd
-#define check_thread_data(mtdp) (mtdp->rstack == NULL)
+#define TLS_ATTR
 #else
 #define TLS __thread
-#define get_thread_data() pthread_getspecific(mtd_key)
-#define check_thread_data(mtdp) (mtdp == NULL)
+#define TLS_ATTR __attribute__((tls_model("initial-exec")))
 #endif
 
-extern TLS struct mcount_thread_data mtd;
+#define check_thread_data(mtdp) (mtdp == NULL)
+#define get_thread_data() tls_mtd
 
-void __mcount_guard_recursion(struct mcount_thread_data *mtdp);
-void __mcount_unguard_recursion(struct mcount_thread_data *mtdp);
+extern TLS struct mcount_thread_data *tls_mtd TLS_ATTR;
+extern TLS bool mcount_recursion_marker TLS_ATTR;
+
+void __mcount_guard_recursion(void);
+void __mcount_unguard_recursion(void);
 bool mcount_guard_recursion(struct mcount_thread_data *mtdp);
 void mcount_unguard_recursion(struct mcount_thread_data *mtdp);
+bool mcount_need_dead(struct mcount_thread_data *mtdp);
+void mcount_should_dead(struct mcount_thread_data *mtdp);
 
 extern uint64_t mcount_threshold; /* nsec */
 extern unsigned mcount_minsize;
