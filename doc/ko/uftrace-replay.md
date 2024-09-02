@@ -22,7 +22,7 @@ REPLAY 옵션
 ==============
 -f *FIELD*, \--output-fields=*FIELD*
 :   결과로 보여지는 필드를 사용자가 지정한다.  가능한 값들로는 duration, tid,
-    time, delta, elapsed, addr 가 있다.  여러 필드를 갖는 경우 콤마로 구분된다.
+    time, delta, elapsed, addr, task, module 가 있다.  여러 필드를 갖는 경우 콤마로 구분된다.
     모든 필드를 감추기 위한 (단일하게 사용되는) 'none' 특수 필드가 있으며
     기본적으로 'duration,tid' 가 사용된다.  상세한 설명은 *FIELDS* 를 참고한다.
 
@@ -48,8 +48,14 @@ REPLAY 옵션
 \--libname
 :   함수 이름과 함께 라이브러리 이름을 출력한다.
 
+\--srcline
+:   가능한 경우 각 함수의 소스 위치를 표시한다.
+
 \--format=*TYPE*
 :   형식화된 출력을 보여준다. 현재는 'normal' 과 'html' 형식이 지원된다.
+
+\--no-args
+:   함수 인자와 반환값을 표시하지 않는다.
 
 
 공통 옵션
@@ -110,8 +116,11 @@ REPLAY 옵션
     기본 설정은 `regex`이다.
 
 \--disable
-:   uftrace 를 시작할때 데이터를 기록하지 않고 시작한다.
-    이것은 `trace_on` 트리거와 함께 사용되었을 때만 의미를 가진다.
+:   더 이상 사용되지 않는다. 대신 `--trace=off`를 사용한다.
+
+\--trace=*STATE*
+:   uftrace 트레이싱 상태를 설정한다. 가능한 상태는 `on`과 `off`이며 기본값은
+    `on`이다. 이는 `trace_on` 트리거나 에이전트와 함께 사용할 때만 의미가 있다.
 
 \--with-syms=*DIR*
 :   DIR 디렉토리의 .sym 파일에서 심볼(symbol) 데이터를 읽는다.
