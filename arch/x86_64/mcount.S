@@ -58,7 +58,14 @@ GLOBAL(mcount)
 	/* save rax (implicit argument for variadic functions) */
 	push %rax
 
+	/* save scratch registers due to -fipa-ra */
+	push %r10
+	push %r11
+
 	call mcount_entry
+
+	pop  %r11
+	pop  %r10
 
 	pop  %rax
 
@@ -88,10 +95,19 @@ END(mcount)
  */
 ENTRY(mcount_return)
 	.cfi_startproc
-	sub $48, %rsp
-	.cfi_def_cfa_offset 48
+	sub $96, %rsp
+	.cfi_def_cfa_offset 96
 
-	movq   %rdi,  32(%rsp)
+	/* save all caller-saved registers due to -fipa-ra */
+	movq   %r11,  80(%rsp)
+	movq   %r10,  72(%rsp)
+	movq   %r9,   64(%rsp)
+	movq   %r8,   56(%rsp)
+	movq   %rdi,  48(%rsp)
+	movq   %rsi,  40(%rsp)
+	movq   %rcx,  32(%rsp)
+
+	/* below are used to carry return value */
 	movdqu %xmm0, 16(%rsp)
 	movq   %rdx,   8(%rsp)
 	movq   %rax,   0(%rsp)
@@ -113,14 +129,21 @@ ENTRY(mcount_return)
 	movq    0(%rsp), %rsp
 
 	/* restore original return address in parent */
-	movq    %rax, 40(%rsp)
+	movq    %rax, 88(%rsp)
 
 	movq    0(%rsp), %rax
 	movq    8(%rsp), %rdx
 	movdqu 16(%rsp), %xmm0
-	movq   32(%rsp), %rdi
 
-	add $40, %rsp
+	movq   32(%rsp), %rcx
+	movq   40(%rsp), %rsi
+	movq   48(%rsp), %rdi
+	movq   56(%rsp), %r8
+	movq   64(%rsp), %r9
+	movq   72(%rsp), %r10
+	movq   80(%rsp), %r11
+
+	add    $88, %rsp
 	.cfi_def_cfa_offset 8
 	retq
 	.cfi_endproc

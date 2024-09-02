@@ -905,7 +905,7 @@ static int record_event(struct mcount_thread_data *mtdp, struct mcount_event *ev
 		rec->data += 4; /* set 'more' bit in uftrace_record */
 
 		*(uint16_t *)ptr = data_size;
-		memcpy(ptr + 2, event->data, data_size);
+		mcount_memcpy1(ptr + 2, event->data, data_size);
 	}
 
 	curr_buf->size += size;

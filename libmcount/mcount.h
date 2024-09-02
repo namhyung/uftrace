@@ -49,11 +49,10 @@ struct mcount_ret_stack {
 	unsigned long parent_ip;
 	unsigned long child_ip;
 	enum mcount_rstack_flag flags;
+	unsigned dyn_idx;
 	/* time in nsec (CLOCK_MONOTONIC) */
 	uint64_t start_time;
 	uint64_t end_time;
-	int tid;
-	unsigned dyn_idx;
 	uint64_t filter_time;
 	unsigned filter_size;
 	unsigned short depth;
