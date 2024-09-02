@@ -175,6 +175,10 @@ RECORD 옵션
 :   추적을 사용하지 않은 채로 uftrace를 시작한다. 이것은 `trace_on` 트리거와 함께
     사용되었을 때만 의미를 가진다.
 
+\--trace=*STATE*
+:   uftrace tracing을 STATE로 지정한다. 가능한 상태는 `on`과 `off`이다. 기본은 `on`이다.
+    이것은 `trace_on` 트리거와 함께 사용되거나 agent와 사용되었을 때만 의미를 가진다.
+
 \--with-syms=*DIR*
 :   DIR 디렉토리의 .sym 파일에서 심볼(symbol) 데이터를 읽는다.
     이는 심볼(symbol) 데이터가 제거된 바이너리 파일을 다루는데 유용하다.
@@ -226,6 +230,11 @@ RECORD 설정 옵션
 \--no-randomize-addr
 :   ASLR(Address Space Layout Randomization)을 비활성화 한다.
     이는 프로세스의 라이브러리 로딩 주소가 매번 변경되지 않도록 막아준다.
+
+-g, \--agent
+:   대상 프로그램 내에서 agent thread를 실행한다.
+    agent는 실행 중에 외부에서 명령을 받아 일부 tracing 옵션을 바꿀 수 있다.
+    관련 설명은 `utfrace-live`(1)에서 *AGENT* 부분을 참고한다.
 
 \--srcline
 :   디버그 정보에 레코드한 소스 줄번호를 표시한다.
@@ -832,6 +841,7 @@ uftrace 의 watch point 는 특정 값의 변경사항을 출력한다.  개념�
 아직까지는, 아래의 watch point 들만이 지원된다.
 
  * "cpu" : 현재 작업을 수행하는 cpu 번호
+ * "var" : ":" 다음에 주어진 전역 변수의 값
 
 트리거를 읽을 때처럼, 결과는 다음과 같이 주석 형식의 이벤트로 출력된다.
 
@@ -847,6 +857,22 @@ uftrace 의 watch point 는 특정 값의 변경사항을 출력한다.  개념�
        8.690 us [ 19060] |     } /* b */
        9.350 us [ 19060] |   } /* a */
       12.479 us [ 19060] | } /* main */
+
+'var' watchpoint를 사용하는 방법은 다음과 같다:
+
+
+     $ uftrace -W var:mydata a.out
+     # DURATION     TID     FUNCTION
+                 [239842] | __monstartup() {
+                 [239842] |   /* watch:var (mydata=7) */
+        3.534 us [239842] | } /* __monstartup */
+        0.191 us [239842] | __cxa_atexit();
+                 [239842] | main() {
+                 [239842] |   foo() {
+                 [239842] |     /* watch:var (mydata=42) */
+        0.381 us [239842] |     bar();
+        1.069 us [239842] |   } /* foo */
+        2.698 us [239842] | } /* main */
 
 
 함께 보기
