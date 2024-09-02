@@ -175,6 +175,10 @@ RECORD 옵션
 :   추적을 사용하지 않은 채로 uftrace를 시작한다. 이것은 `trace_on` 트리거와 함께
     사용되었을 때만 의미를 가진다.
 
+\--trace=*STATE*
+:   uftrace tracing을 STATE로 지정한다. 가능한 상태는 `on`과 `off`이다. 기본은 `on`이다.
+    이것은 `trace_on` 트리거와 함께 사용되거나 agent와 사용되었을 때만 의미를 가진다.
+
 \--with-syms=*DIR*
 :   DIR 디렉토리의 .sym 파일에서 심볼(symbol) 데이터를 읽는다.
     이는 심볼(symbol) 데이터가 제거된 바이너리 파일을 다루는데 유용하다.
