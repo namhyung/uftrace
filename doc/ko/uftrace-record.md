@@ -231,6 +231,11 @@ RECORD 설정 옵션
 :   ASLR(Address Space Layout Randomization)을 비활성화 한다.
     이는 프로세스의 라이브러리 로딩 주소가 매번 변경되지 않도록 막아준다.
 
+-g, \--agent
+:   대상에서 agent thread을 시작한다.
+    런타임에 agent는 외부 커멘드를 받아 지원되는 tracing 옵션을 바꿀 수 있다.
+    관련 설명은 `utfrace-live`(1)에서 *AGENT* 부분을 참고한다.
+
 \--srcline
 :   디버그 정보에 레코드한 소스 줄번호를 표시한다.
 
