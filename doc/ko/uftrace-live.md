@@ -77,6 +77,10 @@ uftrace [live] [*options*] COMMAND [*command-options*]
 :   uftrace 를 시작할때 데이터를 기록하지 않고 시작한다.
     이것은 `trace_on` 트리거와 함께 사용되었을 때만 의미를 가진다.
 
+\--trace=*STATE*
+:   utfrace 트레이싱 상태를 정의한다. 가능한 상태로는 `on`과 `off`가 있다. 
+    기본 옵션은 `on`이다. 이 옵션은 `trace_on` 트리거나 agent와 함께 이용할 때만 의미있다.
+
 \--with-syms=*DIR*
 :   DIR 디렉토리의 .sym 파일에서 심볼(symbol) 데이터를 읽는다.
     이는 심볼(symbol) 데이터가 제거된 바이너리 파일을 다루는데 유용하다.
@@ -93,6 +97,9 @@ LIVE 옵션
 \--record
 :   기록된 데이터를 향후 분석을 위해 저장한다.
 
+-p *PID*, \--pid=*PID*
+:   클라이언트 모드로 변경한다. 주어진 PID를 가진 실행중인 타겟의 지원되는 트레이싱 옵션을 전달한다.
+    자세한 내용은 *AGENT* 을 참고한다. 
 
 RECORD 옵션
 ==============
@@ -113,10 +120,6 @@ RECORD 옵션
 :   주어진 FUNC 함수에 대해 동적 패치를 적용하지 않는다.
     이 옵션은 한번 이상 쓰일 수 있다.
     관련 설명은 *DYNAMIC TRACING* 을 참고한다.
-
--Z *SIZE*, \--size-filter=*SIZE*
-:   SIZE 바이트보다 큰 함수들을 동적으로 패치한다.
-    동적추적에 대해서는 *DYNAMIC TRACING* 을 참고한다.
 
 -E *EVENT*, \--event=*EVENT*
 :   이벤트 추적을 활성화한다.  시스템 내에서 사용 가능한 이벤트여야 한다.
@@ -233,6 +236,9 @@ RECORD 설정 옵션
 :   ASLR(Address Space Layout Randomization)을 비활성화 한다.
     이는 프로세스의 라이브러리 로딩 주소가 매번 변경되지 않도록 막아준다.
 
+-g, \--agent
+:   타겟에 있는 agent 쓰레드를 생성한다. 실행되는 동안 agent는 바깥의 명령어를 수용하고
+    지원된 트레이싱 옵션을 변경할 수 있다. 자세한 내용은 *AGENT*를 참고한다. 
 
 REPLAY 옵션
 ==============
@@ -263,6 +269,9 @@ REPLAY 옵션
 
 \--libname
 :   함수 이름과 함께 라이브러리 이름을 출력한다.
+
+\--no-args
+:   함수의 인자와 반환 값을 보이지 않도록 한다.
 
 
 공통 분석 옵션
