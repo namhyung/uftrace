@@ -240,10 +240,6 @@ static struct mcount_event *get_event_pointer(void *base, unsigned idx)
 }
 
 #ifndef DISABLE_MCOUNT_FILTER
-/*
- * These functions are for regular libmcount with filters.
- */
-
 void *get_argbuf(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack)
 {
 	ptrdiff_t idx = rstack - mtdp->rstack;
@@ -822,10 +818,6 @@ void save_watchpoint(struct mcount_thread_data *mtdp, struct mcount_ret_stack *r
 }
 
 #else
-/*
- * These are for fast libmcount libraries without filters.
- */
-
 void *get_argbuf(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack)
 {
 	return NULL;
@@ -901,17 +893,7 @@ static int record_event(struct mcount_thread_data *mtdp, struct mcount_event *ev
 
 	/*
 	 * instead of set bit fields, do the bit operations manually.
-	 * this would be good for both performance and portability,
-	 * and should be equivalent to the following:
-	 *
-	 *	struct uftrace_record *data = curr_buf->data + curr_buf->size;
-	 *
-	 *	data->time   = event->time;
-	 *	data->type   = UFTRACE_EVENT;
-	 *	data->magic  = RECORD_MAGIC;
-	 *	data->more   = 0;
-	 *	data->depth  = 0;
-	 *	data->addr   = event->id;
+	 * this would be good for both performance and portability.
 	 */
 	rec->data = UFTRACE_EVENT | RECORD_MAGIC << 3;
 	rec->data += (uint64_t)event->id << 16;
@@ -989,19 +971,19 @@ static int record_ret_stack(struct mcount_thread_data *mtdp, enum uftrace_record
 	if (curr_buf == NULL)
 		return mtdp->shmem.done ? 0 : -1;
 
+#if 0
+	frstack = (void *)(curr_buf->data + curr_buf->size);
+
+	frstack->time   = timestamp;
+	frstack->type   = type;
+	frstack->magic  = RECORD_MAGIC;
+	frstack->more   = !!argbuf;
+	frstack->depth  = mrstack->depth;
+	frstack->addr   = mrstack->child_ip;
+#else
 	/*
 	 * instead of set bit fields, do the bit operations manually.
-	 * this would be good for both performance and portability,
-	 * and should be equivalent to the following:
-	 *
-	 *	frstack = (void *)(curr_buf->data + curr_buf->size);
-	 *
-	 *	frstack->time   = timestamp;
-	 *	frstack->type   = type;
-	 *	frstack->magic  = RECORD_MAGIC;
-	 *	frstack->more   = !!argbuf;
-	 *	frstack->depth  = mrstack->depth;
-	 *	frstack->addr   = mrstack->child_ip;
+	 * this would be good for both performance and portability.
 	 */
 	rec = type | RECORD_MAGIC << 3;
 	rec += argbuf ? 4 : 0;
@@ -1011,6 +993,7 @@ static int record_ret_stack(struct mcount_thread_data *mtdp, enum uftrace_record
 	buf = (void *)(curr_buf->data + curr_buf->size);
 	buf[0] = timestamp;
 	buf[1] = rec;
+#endif
 
 	curr_buf->size += sizeof(*frstack);
 	mrstack->flags |= MCOUNT_FL_WRITTEN;
@@ -1050,30 +1033,6 @@ static int record_ret_stack(struct mcount_thread_data *mtdp, enum uftrace_record
 	return 0;
 }
 
-/*
- * For performance reasons and time filter, it doesn't record trace data one at
- * a time.  Instead it usually writes the data when an EXIT record is ready so
- * it needs to record ENTRY data in the current and may in the parent functions.
- *
- * For example, if it has a time filter for 1 usec.
- *
- * foo() {
- *   bar() {
- *     leaf1();   // takes 0.5 usec
- *     leaf2();   // takes 1.2 usec
- *
- * Then it can start to record when leaf2 function returns (at this moment,
- * mcount_ret_stack for leaf1 is gone) then it'd save the following records
- * (unless ENTRY foo or bar is saved by an earlier child before leaf[12]).
- *
- *   ENTRY (foo)
- *   ENTRY (bar)
- *   ENTRY (leaf2)
- *   EXIT  (leaf2)
- *
- * Then it adds MCOUNT_FL_WRITTEN flag to parent (foo and bar) so that they
- * never be written anymore by other child function.
- */
 int record_trace_data(struct mcount_thread_data *mtdp, struct mcount_ret_stack *mrstack,
 		      long *retval)
 {

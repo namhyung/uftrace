@@ -196,7 +196,7 @@ extern uint64_t mcount_threshold; /* nsec */
 extern unsigned mcount_minsize;
 extern pthread_key_t mtd_key;
 extern int shmem_bufsize;
-extern int mcount_pfd;
+extern int pfd;
 extern int mcount_depth;
 extern char *mcount_exename;
 extern int page_size_in_kb;
@@ -317,11 +317,11 @@ extern void uftrace_send_message(int type, void *data, size_t len);
 extern void build_debug_domain(char *dbg_domain_str);
 
 extern void mcount_rstack_restore(struct mcount_thread_data *mtdp);
-extern void mcount_rstack_rehook(struct mcount_thread_data *mtdp);
-extern void mcount_rstack_rehook_exception(struct mcount_thread_data *mtdp,
-					   unsigned long frame_addr);
+extern void mcount_rstack_reset(struct mcount_thread_data *mtdp);
+extern void mcount_rstack_reset_exception(struct mcount_thread_data *mtdp,
+					  unsigned long frame_addr);
 extern void mcount_auto_restore(struct mcount_thread_data *mtdp);
-extern void mcount_auto_rehook(struct mcount_thread_data *mtdp);
+extern void mcount_auto_reset(struct mcount_thread_data *mtdp);
 extern bool mcount_rstack_has_plthook(struct mcount_thread_data *mtdp);
 
 extern void prepare_shmem_buffer(struct mcount_thread_data *mtdp);
