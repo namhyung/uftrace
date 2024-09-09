@@ -56,12 +56,12 @@ static void send_dlopen_msg(struct mcount_thread_data *mtdp, const char *sess_id
 	};
 	int len = sizeof(msg) + msg.len;
 
-	if (pfd < 0)
+	if (mcount_pfd < 0)
 		return;
 
 	mcount_memcpy4(dlop.sid, sess_id, sizeof(dlop.sid));
 
-	if (writev(pfd, iov, 3) != len) {
+	if (writev(mcount_pfd, iov, 3) != len) {
 		if (!mcount_should_stop())
 			pr_err("write tid info failed");
 	}
@@ -615,7 +615,7 @@ __visible_default int close(int fd)
 	if (unlikely(real_close == NULL))
 		mcount_hook_functions();
 
-	if (unlikely(fd == pfd)) {
+	if (unlikely(fd == mcount_pfd)) {
 		return 0;
 	}
 

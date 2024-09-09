@@ -196,7 +196,7 @@ extern uint64_t mcount_threshold; /* nsec */
 extern unsigned mcount_minsize;
 extern pthread_key_t mtd_key;
 extern int shmem_bufsize;
-extern int pfd;
+extern int mcount_pfd;
 extern int mcount_depth;
 extern char *mcount_exename;
 extern int page_size_in_kb;

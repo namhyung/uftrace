@@ -59,7 +59,7 @@ pthread_key_t mtd_key = (pthread_key_t)-1;
 TLS struct mcount_thread_data mtd;
 
 /* pipe file descriptor to communite to uftrace */
-int pfd = -1;
+int mcount_pfd = -1;
 
 /* maximum depth of mcount rstack */
 static int mcount_rstack_max = MCOUNT_RSTACK_MAX;
@@ -612,12 +612,12 @@ static void send_session_msg(struct mcount_thread_data *mtdp, const char *sess_i
 	};
 	int len = sizeof(msg) + msg.len;
 
-	if (pfd < 0)
+	if (mcount_pfd < 0)
 		return;
 
 	mcount_memcpy4(sess.sid, sess_id, sizeof(sess.sid));
 
-	if (writev(pfd, iov, 3) != len) {
+	if (writev(mcount_pfd, iov, 3) != len) {
 		if (!mcount_should_stop())
 			pr_err("write tid info failed");
 	}
@@ -640,9 +640,9 @@ static void mcount_trace_finish(bool send_msg)
 	if (send_msg)
 		uftrace_send_message(UFTRACE_MSG_FINISH, NULL, 0);
 
-	if (pfd != -1) {
-		close(pfd);
-		pfd = -1;
+	if (mcount_pfd != -1) {
+		close(mcount_pfd);
+		mcount_pfd = -1;
 	}
 
 	trace_finished = true;
@@ -1979,7 +1979,7 @@ static __used void mcount_startup(void)
 		dirname = UFTRACE_DIR_NAME;
 
 	xasprintf(&channel, "%s/%s", dirname, ".channel");
-	pfd = open(channel, O_WRONLY);
+	mcount_pfd = open(channel, O_WRONLY);
 	free(channel);
 
 	if (getenv("UFTRACE_LIST_EVENT")) {
