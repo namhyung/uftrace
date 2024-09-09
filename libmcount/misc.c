@@ -82,7 +82,7 @@ void uftrace_send_message(int type, void *data, size_t len)
 	len += sizeof(msg);
 	if (writev(mcount_pfd, iov, 2) != (ssize_t)len) {
 		if (!mcount_should_stop())
-			pr_err("writing shmem name to pipe");
+			pr_err("send msg (type %d) failed", type);
 	}
 }
 

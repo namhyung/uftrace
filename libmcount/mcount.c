@@ -619,7 +619,7 @@ static void send_session_msg(struct mcount_thread_data *mtdp, const char *sess_i
 
 	if (writev(mcount_pfd, iov, 3) != len) {
 		if (!mcount_should_stop())
-			pr_err("write tid info failed");
+			pr_err("send session msg failed");
 	}
 }
 
