@@ -32,6 +32,21 @@
 #include "utils/utils.h"
 #include "version.h"
 
+/*
+ * mcount global variables.
+ *
+ * These are to control various features in the libmcount.
+ * They are set during initialization (mcount_startup) which I believe, runs in
+ * a single thread.  After that multiple threads (mostly) read the value so it's
+ * not protected by lock or something.  So special care needs to be taken if you
+ * want to change it at runtime (like in the agent).
+ *
+ * Some are marked as 'maybe unused' because they are only used when filter
+ * functions are implemented.  Note that libmcount is built with different
+ * settings like -fast and -single to be more efficient in some situation like
+ * when no filter is specified in the command line and/or single-thread only.
+ */
+
 /* time filter in nsec */
 uint64_t mcount_threshold;
 
@@ -55,7 +70,13 @@ unsigned long mcount_global_flags = MCOUNT_GFL_SETUP;
 /* TSD key to save mtd below */
 pthread_key_t mtd_key = (pthread_key_t)-1;
 
-/* thread local data to trace function execution */
+/*
+ * A thread local data to trace function execution.
+ * While this is itself TLS so ok to by accessed safely by each thread,
+ * mcount routines use TSD APIs to access it for performance reason.
+ * Also TSD provides destructor so it can release the resources when the thread
+ * exits.
+ */
 TLS struct mcount_thread_data mtd;
 
 /* pipe file descriptor to communite to uftrace */
@@ -106,6 +127,10 @@ __weak void dynamic_return(void)
 static LIST_HEAD(mcount_watch_list);
 
 #ifdef DISABLE_MCOUNT_FILTER
+/*
+ * These functions are only the FAST version of libmcount libraries which don't
+ * implement filters (other than time and size filters).
+ */
 
 static void mcount_filter_init(struct uftrace_filter_setting *filter_setting, bool force)
 {
@@ -129,6 +154,9 @@ static void mcount_watch_finish(void)
 }
 
 #else
+/*
+ * Here goes the regular libmcount's filter and trigger functions.
+ */
 
 /* be careful: this can be called from signal handler */
 static void mcount_finish_trigger(void)
@@ -581,6 +609,10 @@ static void mcount_watch_release(struct mcount_thread_data *mtdp)
 
 #endif /* DISABLE_MCOUNT_FILTER */
 
+/*
+ * These are common routines used in every libmcount libraries.
+ */
+
 static void send_session_msg(struct mcount_thread_data *mtdp, const char *sess_id)
 {
 	struct uftrace_msg_sess sess = {
@@ -919,6 +951,10 @@ static bool mcount_check_rstack(struct mcount_thread_data *mtdp)
 }
 
 #ifndef DISABLE_MCOUNT_FILTER
+/*
+ * Again, this implements filter functionality used in !fast versions.
+ */
+
 extern void *get_argbuf(struct mcount_thread_data *, struct mcount_ret_stack *);
 
 /**
@@ -1309,6 +1345,10 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp, struct mcount_re
 }
 
 #else /* DISABLE_MCOUNT_FILTER */
+/*
+ * Here fast versions don't implement filters.
+ */
+
 enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, unsigned long child,
 					     struct uftrace_trigger *tr)
 {
@@ -2093,14 +2133,20 @@ static void mcount_cleanup(void)
  */
 #define UFTRACE_ALIAS(_func) void uftrace_##_func(void *, void *) __alias(_func)
 
+/* This is the historic startup routine for mcount but not used here. */
 void __visible_default __monstartup(unsigned long low, unsigned long high)
 {
 }
 
+/* This is the historic cleanup routine for mcount but not used here. */
 void __visible_default _mcleanup(void)
 {
 }
 
+/*
+ * This is a non-standard external function to work around some stack
+ * corruption problems in the past.  I hope we don't need it anymore.
+ */
 void __visible_default mcount_restore(void)
 {
 	struct mcount_thread_data *mtdp;
@@ -2112,6 +2158,10 @@ void __visible_default mcount_restore(void)
 	mcount_rstack_restore(mtdp);
 }
 
+/*
+ * This is a non-standard external function to work around some stack
+ * corruption problems in the past.  I hope we don't need it anymore.
+ */
 void __visible_default mcount_reset(void)
 {
 	struct mcount_thread_data *mtdp;
@@ -2123,6 +2173,10 @@ void __visible_default mcount_reset(void)
 	mcount_rstack_rehook(mtdp);
 }
 
+/*
+ * External entry points for -finstrument-functions.  The alias was added to
+ * avoid calling them through PLT.
+ */
 void __visible_default __cyg_profile_func_enter(void *child, void *parent)
 {
 	cygprof_entry((unsigned long)parent, (unsigned long)child);
