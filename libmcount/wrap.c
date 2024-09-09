@@ -56,14 +56,14 @@ static void send_dlopen_msg(struct mcount_thread_data *mtdp, const char *sess_id
 	};
 	int len = sizeof(msg) + msg.len;
 
-	if (pfd < 0)
+	if (mcount_pfd < 0)
 		return;
 
 	mcount_memcpy4(dlop.sid, sess_id, sizeof(dlop.sid));
 
-	if (writev(pfd, iov, 3) != len) {
+	if (writev(mcount_pfd, iov, 3) != len) {
 		if (!mcount_should_stop())
-			pr_err("write tid info failed");
+			pr_err("send dlopen msg failed");
 	}
 }
 
@@ -93,7 +93,7 @@ static int dlopen_base_callback(struct dl_phdr_info *info, size_t size, void *ar
 	return 0;
 }
 
-void mcount_rstack_reset_exception(struct mcount_thread_data *mtdp, unsigned long frame_addr)
+void mcount_rstack_rehook_exception(struct mcount_thread_data *mtdp, unsigned long frame_addr)
 {
 	int idx;
 	struct mcount_ret_stack *rstack;
@@ -148,7 +148,7 @@ void mcount_rstack_reset_exception(struct mcount_thread_data *mtdp, unsigned lon
 	mtdp->idx = idx + 1;
 	pr_dbg3("%s: exception returned to [%d]\n", __func__, mtdp->idx);
 
-	mcount_rstack_reset(mtdp);
+	mcount_rstack_rehook(mtdp);
 }
 
 static char **collect_uftrace_envp(void)
@@ -305,7 +305,7 @@ __visible_default int backtrace(void **buffer, int sz)
 	ret = real_backtrace(buffer, sz);
 
 	if (!check_thread_data(mtdp))
-		mcount_rstack_reset(mtdp);
+		mcount_rstack_rehook(mtdp);
 
 	return ret;
 }
@@ -326,7 +326,7 @@ __visible_default void __cxa_throw(void *exception, void *type, void *dest)
 		/*
 		 * restore return addresses so that it can unwind stack
 		 * frames safely during the exception handling.
-		 * It pairs to mcount_rstack_reset_exception().
+		 * It pairs to mcount_rstack_rehook_exception().
 		 */
 		mcount_rstack_restore(mtdp);
 	}
@@ -350,7 +350,7 @@ __visible_default void __cxa_rethrow(void)
 		/*
 		 * restore return addresses so that it can unwind stack
 		 * frames safely during the exception handling.
-		 * It pairs to mcount_rstack_reset_exception()
+		 * It pairs to mcount_rstack_rehook_exception()
 		 */
 		mcount_rstack_restore(mtdp);
 	}
@@ -374,7 +374,7 @@ __visible_default void _Unwind_Resume(void *exception)
 		/*
 		 * restore return addresses so that it can unwind stack
 		 * frames safely during the exception handling.
-		 * It pairs to mcount_rstack_reset_exception().
+		 * It pairs to mcount_rstack_rehook_exception().
 		 */
 		mcount_rstack_restore(mtdp);
 	}
@@ -404,7 +404,7 @@ __visible_default void *__cxa_begin_catch(void *exception)
 		if (frame_addr < (unsigned long)frame_ptr)
 			frame_addr = (unsigned long)frame_ptr;
 
-		mcount_rstack_reset_exception(mtdp, frame_addr);
+		mcount_rstack_rehook_exception(mtdp, frame_addr);
 		mtdp->in_exception = false;
 		pr_dbg2("%s: exception caught begin on [%d]\n", __func__, mtdp->idx);
 	}
@@ -443,7 +443,7 @@ __visible_default void __cxa_guard_abort(void *guard_obj)
 		if (frame_addr < (unsigned long)frame_ptr)
 			frame_addr = (unsigned long)frame_ptr;
 
-		mcount_rstack_reset_exception(mtdp, frame_addr);
+		mcount_rstack_rehook_exception(mtdp, frame_addr);
 		mtdp->in_exception = false;
 
 		/*
@@ -615,7 +615,7 @@ __visible_default int close(int fd)
 	if (unlikely(real_close == NULL))
 		mcount_hook_functions();
 
-	if (unlikely(fd == pfd)) {
+	if (unlikely(fd == mcount_pfd)) {
 		return 0;
 	}
 
