@@ -190,7 +190,7 @@ last_rstack:
 }
 
 /* hook return address again (used after mcount_rstack_restore) */
-void mcount_rstack_reset(struct mcount_thread_data *mtdp)
+void mcount_rstack_rehook(struct mcount_thread_data *mtdp)
 {
 	int idx;
 	struct mcount_ret_stack *rstack;
@@ -244,7 +244,7 @@ void mcount_auto_restore(struct mcount_thread_data *mtdp)
 	}
 }
 
-void mcount_auto_reset(struct mcount_thread_data *mtdp)
+void mcount_auto_rehook(struct mcount_thread_data *mtdp)
 {
 	struct mcount_ret_stack *curr_rstack;
 	struct mcount_ret_stack *prev_rstack;

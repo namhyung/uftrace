@@ -1246,7 +1246,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp, struct mcount_re
 			mtdp->filter.out_count--;
 
 		if (rstack->flags & MCOUNT_FL_RECOVER)
-			mcount_rstack_reset(mtdp);
+			mcount_rstack_rehook(mtdp);
 	}
 
 #undef FLAGS_TO_CHECK
@@ -1448,7 +1448,7 @@ static int __mcount_entry(unsigned long *parent_loc, unsigned long child, struct
 		if (frame_addr < (unsigned long)parent_loc)
 			frame_addr = (unsigned long)(parent_loc - 1);
 
-		mcount_rstack_reset_exception(mtdp, frame_addr);
+		mcount_rstack_rehook_exception(mtdp, frame_addr);
 		mtdp->in_exception = false;
 	}
 
@@ -1522,7 +1522,7 @@ static unsigned long __mcount_exit(long *retval)
 
 	/* re-hijack return address of parent */
 	if (mcount_auto_recover)
-		mcount_auto_reset(mtdp);
+		mcount_auto_rehook(mtdp);
 
 	__mcount_unguard_recursion(mtdp);
 
@@ -1586,7 +1586,7 @@ static int __cygprof_entry(unsigned long parent, unsigned long child)
 		if (frame_addr < (unsigned long)frame_ptr)
 			frame_addr = (unsigned long)frame_ptr;
 
-		mcount_rstack_reset_exception(mtdp, frame_addr);
+		mcount_rstack_rehook_exception(mtdp, frame_addr);
 		mtdp->in_exception = false;
 	}
 
@@ -1733,7 +1733,7 @@ static void _xray_entry(unsigned long parent, unsigned long child, struct mcount
 		if (frame_addr < (unsigned long)frame_ptr)
 			frame_addr = (unsigned long)frame_ptr;
 
-		mcount_rstack_reset_exception(mtdp, frame_addr);
+		mcount_rstack_rehook_exception(mtdp, frame_addr);
 		mtdp->in_exception = false;
 	}
 
@@ -2120,7 +2120,7 @@ void __visible_default mcount_reset(void)
 	if (unlikely(check_thread_data(mtdp)))
 		return;
 
-	mcount_rstack_reset(mtdp);
+	mcount_rstack_rehook(mtdp);
 }
 
 void __visible_default __cyg_profile_func_enter(void *child, void *parent)
