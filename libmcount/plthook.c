@@ -948,7 +948,7 @@ static unsigned long __plthook_entry(unsigned long *ret_addr, unsigned long chil
 			    strcmp(pd->mod_name, mcount_exename)) {
 				*ret_addr = rstack->parent_ip;
 				if (mcount_auto_recover)
-					mcount_auto_reset(mtdp);
+					mcount_auto_rehook(mtdp);
 
 				/*
 				 * as its return address was recovered,
@@ -1078,7 +1078,7 @@ again:
 
 	/* re-hijack return address of parent */
 	if (mcount_auto_recover)
-		mcount_auto_reset(mtdp);
+		mcount_auto_rehook(mtdp);
 
 	__mcount_unguard_recursion(mtdp);
 
