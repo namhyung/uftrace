@@ -1423,12 +1423,15 @@ static void send_event_file(int sock, const char *dirname)
 	send_trace_metadata(sock, dirname, "events.txt");
 }
 
-static void send_log_file(int sock, const char *logfile)
+static void send_log_file(int sock, const char *dirname, const char *logfile)
 {
-	if (access(logfile, F_OK) != 0)
+	char *logfile_path = NULL;
+	xasprintf(&logfile_path, "%s/%s", dirname, logfile);
+
+	if (access(logfile_path, F_OK) != 0)
 		return;
 
-	send_trace_metadata(sock, NULL, (char *)logfile);
+	send_trace_metadata(sock, dirname, (char *)logfile);
 }
 
 static void update_session_maps(struct uftrace_opts *opts)
@@ -2070,7 +2073,7 @@ after_save:
 		if (opts->event)
 			send_event_file(sock, opts->dirname);
 		if (opts->logfile)
-			send_log_file(sock, opts->logfile);
+			send_log_file(sock, opts->dirname, opts->logfile);
 
 		send_trace_end(sock);
 		close(sock);
@@ -2275,7 +2278,7 @@ int command_record(int argc, char *argv[], struct uftrace_opts *opts)
 	check_perf_event(opts);
 
 	if (!opts->nop) {
-		if (create_directory(opts->dirname) < 0)
+		if (!opts->logfile && (create_directory(opts->dirname) < 0))
 			return -1;
 
 		xasprintf(&channel, "%s/%s", opts->dirname, ".channel");

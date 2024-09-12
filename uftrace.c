@@ -1474,7 +1474,16 @@ int main(int argc, char *argv[])
 		debug = 1;
 
 	if (opts.logfile) {
-		logfp = fopen(opts.logfile, "a");
+		char *logfile_path = NULL;
+		if (create_directory(opts.dirname) < 0) {
+			ret = -1;
+			goto cleanup;
+		}
+
+		xasprintf(&logfile_path, "%s/%s", opts.dirname, opts.logfile);
+		logfp = fopen(logfile_path, "a");
+		free(logfile_path);
+
 		if (logfp == NULL) {
 			logfp = stderr;
 			pr_err("cannot open log file");
