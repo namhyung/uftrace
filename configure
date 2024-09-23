@@ -146,6 +146,17 @@ libdir=${libdir:-${prefix}/lib/uftrace}
 etcdir=${etcdir:-${prefix}/etc}
 mandir=${mandir:-${prefix}/share/man}
 
+if [ -z "$compldir" ]; then
+    if command -v pkg-config >/dev/null 2>&1 && pkg-config --exists bash-completion; then
+        compldir=$(pkg-config --variable=completionsdir bash-completion)
+        if [[ "$compldir" == /usr/share/* ]] && [ "$prefix" != "/usr" ]; then
+            compldir="${prefix}/share/bash-completion/completions"
+        fi
+    else
+        compldir=${prefix}/share/bash-completion/completions
+    fi
+fi
+
 if [ "$etcdir" = /usr/etc ]; then
     etcdir=/etc
 fi
@@ -280,6 +291,7 @@ override bindir := $bindir
 override libdir := $libdir
 override mandir := $mandir
 override etcdir := $etcdir
+override compldir := $compldir
 EOF
 
 if [ ! -z $with_elfutils ]; then

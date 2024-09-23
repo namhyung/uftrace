@@ -31,7 +31,7 @@ libdir = $(prefix)/lib/uftrace
 etcdir = $(prefix)/etc
 mandir = $(prefix)/share/man
 docdir = $(srcdir)/doc
-completiondir = $(etcdir)/bash_completion.d
+completiondir = $(compldir)
 
 ifeq ($(DOCLANG), ko)
   docdir = $(srcdir)/doc/ko
