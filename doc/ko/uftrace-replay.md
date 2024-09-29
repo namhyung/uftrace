@@ -21,9 +21,9 @@ uftrace replay [*options*]
 REPLAY 옵션
 ==============
 -f *FIELD*, \--output-fields=*FIELD*
-:   결과로 보여지는 필드를 사용자가 지정한다.  가능한 값들로는 duration, tid,
-    time, delta, elapsed, addr, task, module 가 있다.  여러 필드를 갖는 경우 콤마로 구분된다.
-    모든 필드를 감추기 위한 (단일하게 사용되는) 'none' 특수 필드가 있으며
+:   결과로 보여지는 필드를 사용자가 지정한다.  가능한 값들로는 duration, tid, addr,
+    time, delta, elapsed, task, module 이 있다.  여러 필드를 갖는 경우 콤마
+    로 구분된다.  모든 필드를 감추기 위한 (단일하게 사용되는) 'none' 특수 필드가 있으며
     기본적으로 'duration,tid' 가 사용된다.  상세한 설명은 *FIELDS* 를 참고한다.
 
 \--flat
@@ -116,7 +116,7 @@ REPLAY 옵션
     기본 설정은 `regex`이다.
 
 \--disable
-:   더 이상 사용되지 않는다. 대신 `--trace=off`를 사용한다.
+:   더 이상 사용되지 않으며 대신 `--trace=off` 를 사용할 수 있다.
 
 \--trace=*STATE*
 :   uftrace 트레이싱 상태를 설정한다. 가능한 상태는 `on`과 `off`이며 기본값은
