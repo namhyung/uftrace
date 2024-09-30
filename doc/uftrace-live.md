@@ -238,9 +238,9 @@ RECORD CONFIG OPTIONS
 REPLAY OPTIONS
 ==============
 -f *FIELD*, \--output-fields=*FIELD*
-:   Customize field in the output.  Possible values are: duration, tid, time,
-    delta, elapsed and addr.  Multiple fields can be set by using comma.
-    Special field of 'none' can be used (solely) to hide all fields.
+:   Customize field in the output.  Possible values are: duration, tid, addr,
+    time, delta, elapsed, task and module.  Multiple fields can be set by using
+    comma.  Special field of 'none' can be used (solely) to hide all fields.
     Default is 'duration,tid'.  See *FIELDS*.
 
 \--flat
@@ -264,6 +264,12 @@ REPLAY OPTIONS
 
 \--libname
 :   Show library name along with function name.
+
+\--srcline
+:   Show source location of each function if available.
+
+\--format=*TYPE*
+:   Show format style output. Currently, normal and html styles are supported.
 
 \--no-args
 :   Do not show function arguments and return value.
