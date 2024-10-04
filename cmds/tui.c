@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -127,6 +128,7 @@ static struct tui_graph partial_graph;
 static struct tui_list tui_info;
 static struct tui_list tui_session;
 static char *tui_search;
+static bool is_utf8_locale;
 
 static const struct tui_window_ops graph_ops;
 static const struct tui_window_ops report_ops;
@@ -211,6 +213,12 @@ static char *report_sort_key[] = {
 static char *selected_report_sort_key[NUM_REPORT_FIELD];
 
 static int curr_sort_key = 0;
+
+static void check_utf8_locale(void)
+{
+	const char *lang = getenv("LANG");
+	is_utf8_locale = (lang != NULL && strstr(lang, ".UTF-8") != NULL);
+}
 
 static void init_colors(void)
 {
@@ -1260,6 +1268,18 @@ static void print_graph_indent(struct tui_graph *graph, struct tui_graph_node *n
 {
 	int i;
 	struct tui_graph_node *parent = (void *)node->n.parent;
+	const char *vertical_line, *corner, *branch;
+
+	if (is_utf8_locale) {
+		vertical_line = "│";
+		corner = "└";
+		branch = "├";
+	}
+	else {
+		vertical_line = "| ";
+		corner = "`-";
+		branch = "+-";
+	}
 
 	for (i = 0; i < depth; i++) {
 		if (width < 3) {
@@ -1274,11 +1294,11 @@ static void print_graph_indent(struct tui_graph *graph, struct tui_graph_node *n
 		}
 
 		if (i < depth - 1 || single_child)
-			printw("  │");
+			printw("  %s", vertical_line);
 		else if (is_last_child(parent, node))
-			printw("  └");
+			printw("  %s", corner);
 		else
-			printw("  ├");
+			printw("  %s", branch);
 	}
 }
 
@@ -1299,7 +1319,10 @@ static void win_display_graph(struct tui_window *win, void *node)
 		return;
 	}
 
-	fold_sign = curr->folded ? "▶" : "─";
+	if (is_utf8_locale)
+		fold_sign = curr->folded ? "▶" : "─";
+	else
+		fold_sign = curr->folded ? ">" : "";
 
 	parent = win_parent_graph(win, node);
 	if (parent == NULL)
@@ -1327,10 +1350,16 @@ static void win_display_graph(struct tui_window *win, void *node)
 			w = COLS - width;
 			width += snprintf(buf, sizeof(buf), "%s(%d) ", fold_sign, curr->n.nr_calls);
 
-			/* handle UTF-8 character length */
+			/* handle character length */
 			if (strcmp(fold_sign, " ")) {
-				width -= 2;
-				w += 2;
+				if (is_utf8_locale) {
+					width -= 2;
+					w += 2;
+				}
+				else {
+					width -= 1;
+					w += 1;
+				}
 			}
 			printw("%.*s", w, buf);
 		}
@@ -3028,6 +3057,8 @@ int command_tui(int argc, char *argv[], struct uftrace_opts *opts)
 	int ret;
 	struct uftrace_data handle;
 	struct uftrace_task_reader *task;
+
+	check_utf8_locale();
 
 	ret = open_data_file(opts, &handle);
 	if (ret < 0) {
