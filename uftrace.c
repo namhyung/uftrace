@@ -1592,9 +1592,15 @@ int main(int argc, char *argv[])
 	wait_for_pager();
 
 cleanup:
-	if (opts.logfile)
+	if (opts.logfile) {
+		char *logfile_path = NULL;
 		fclose(logfp);
 
+		xasprintf(&logfile_path, "%s/%s", opts.dirname, opts.logfile);
+		copy_file(opts.logfile, logfile_path);
+
+		free(logfile_path);
+	}
 	if (opts.opt_file)
 		free_parsed_cmdline(argv - opts.idx);
 
