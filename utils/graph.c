@@ -61,6 +61,7 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name, size_t nod
 {
 	struct uftrace_graph_node *node = NULL;
 	struct uftrace_graph_node *curr = tg->node;
+	struct uftrace_graph_node *search_curr = NULL;
 	struct uftrace_graph_node *recursive_src = NULL;
 	struct uftrace_graph_node *add_calls_tgt = NULL;
 	struct uftrace_fstack *fstack;
@@ -85,13 +86,13 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name, size_t nod
 			skip = !strcmp(name, curr->name) && !strcmp(name, curr->parent->name);
 		}
 
-		while (curr && !strcmp(name, curr->name)) {
-			recursive_src = curr;
-			curr = curr->parent;
+		search_curr = curr;
+		while (search_curr && search_curr->name && !strcmp(name, search_curr->name)) {
+			recursive_src = search_curr;
+			search_curr = search_curr->parent;
 		}
 	}
 
-	curr = tg->node;
 	list_for_each_entry(node, &curr->head, list) {
 		if (name && !strcmp(name, node->name))
 			break;
