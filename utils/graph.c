@@ -82,7 +82,7 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name, size_t nod
 		return -1;
 
 	if (name) {
-		if (curr && curr->parent) {
+		if (curr && curr->name && curr->parent && curr->parent->name) {
 			skip = !strcmp(name, curr->name) && !strcmp(name, curr->parent->name);
 		}
 
