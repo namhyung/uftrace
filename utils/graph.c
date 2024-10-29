@@ -145,7 +145,7 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name, size_t nod
 
 out:
 	node->nr_calls++;
-	if (skip) {
+	if (skip && recursive_src) {
 		list_for_each_entry(add_calls_tgt, &recursive_src->head, list) {
 			if (name && !strcmp(name, add_calls_tgt->name))
 				break;
