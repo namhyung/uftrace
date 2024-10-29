@@ -63,6 +63,7 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name, size_t nod
 	struct uftrace_graph_node *curr = tg->node;
 	struct uftrace_fstack *fstack;
 	static uint32_t next_id = 1;
+	static bool skip = false;
 
 	if (tg->lost)
 		return 1; /* ignore kernel functions after LOST */
@@ -76,6 +77,10 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name, size_t nod
 	fstack = fstack_get(tg->task, tg->task->stack_count - 1);
 	if (curr == NULL || fstack == NULL)
 		return -1;
+
+	if (name && curr && curr->parent) {
+		skip = !strcmp(name, curr->name) && !strcmp(name, curr->parent->name);
+	}
 
 	list_for_each_entry(node, &curr->head, list) {
 		if (name && !strcmp(name, node->name))
@@ -91,6 +96,7 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name, size_t nod
 		node->id = next_id++;
 		node->addr = fstack->addr;
 		node->name = xstrdup(name ?: "none");
+		node->skip = skip;
 		INIT_LIST_HEAD(&node->head);
 
 		node->parent = curr;
