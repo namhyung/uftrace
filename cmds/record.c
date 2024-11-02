@@ -930,6 +930,13 @@ static int filter_shmem(const struct dirent *de)
 static void unlink_shmem_list(void)
 {
 	struct shmem_list *sl, *tmp;
+	char *shmem_root = (char *)uftrace_shmem_root();
+
+	/* check the root is existed (due to some embed devices maybe not have it) */
+	if (access(shmem_root, F_OK) != 0) {
+		shmem_root = NULL;
+		pr_warn("access shmem root failed and will ignore it, err: %s\n", strerror(errno));
+	}
 
 	/* unlink shmem list (not used anymore) */
 	list_for_each_entry_safe(sl, tmp, &shmem_need_unlink, list) {
@@ -942,16 +949,17 @@ static void unlink_shmem_list(void)
 		sscanf(sl->id, "/uftrace-%[^-]-%*d-%*d", shmem_session);
 		pr_dbg2("unlink for session: %s\n", shmem_session);
 
-		num = scandir(uftrace_shmem_root(), &shmem_bufs, filter_shmem, alphasort);
-		for (i = 0; i < num; i++) {
-			sid[0] = '/';
-			memcpy(&sid[1], shmem_bufs[i]->d_name, MSG_ID_SIZE);
-			pr_dbg3("unlink %s\n", sid);
-			uftrace_shmem_unlink(sid);
-			free(shmem_bufs[i]);
+		if (shmem_root) {
+			num = scandir(shmem_root, &shmem_bufs, filter_shmem, alphasort);
+			for (i = 0; i < num; i++) {
+				sid[0] = '/';
+				memcpy(&sid[1], shmem_bufs[i]->d_name, MSG_ID_SIZE);
+				pr_dbg3("unlink %s\n", sid);
+				uftrace_shmem_unlink(sid);
+				free(shmem_bufs[i]);
+			}
+			free(shmem_bufs);
 		}
-
-		free(shmem_bufs);
 		free(sl);
 	}
 }
