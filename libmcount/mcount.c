@@ -391,23 +391,18 @@ static void mcount_signal_finish(void)
 	}
 }
 
-static void mcount_filter_init(struct uftrace_filter_setting *filter_setting, bool force)
+struct uftrace_triggers_info *mcount_trigger_init(struct uftrace_filter_setting *filter_setting)
 {
+	struct uftrace_triggers_info *triggers;
 	char *filter_str = getenv("UFTRACE_FILTER");
 	char *trigger_str = getenv("UFTRACE_TRIGGER");
 	char *argument_str = getenv("UFTRACE_ARGUMENT");
 	char *retval_str = getenv("UFTRACE_RETVAL");
 	char *autoargs_str = getenv("UFTRACE_AUTO_ARGS");
+	char *patch_str = getenv("UFTRACE_PATCH");
 	char *caller_str = getenv("UFTRACE_CALLER");
 	char *loc_str = getenv("UFTRACE_LOCATION");
 	bool needs_debug_info = false;
-
-	filter_setting->lp64 = host_is_lp64();
-	filter_setting->arch = host_cpu_arch();
-
-	load_module_symtabs(&mcount_sym_info);
-
-	mcount_signal_init(getenv("UFTRACE_SIGNAL"), filter_setting);
 
 	/* setup auto-args only if argument/return value is used */
 	if (argument_str || retval_str || autoargs_str ||
@@ -422,27 +417,29 @@ static void mcount_filter_init(struct uftrace_filter_setting *filter_setting, bo
 	/* use debug info if available */
 	if (needs_debug_info) {
 		prepare_debug_info(&mcount_sym_info, filter_setting->ptype, argument_str,
-				   retval_str, !!autoargs_str, force);
+				   retval_str, !!autoargs_str, !!patch_str);
 		save_debug_info(&mcount_sym_info, mcount_sym_info.dirname);
 	}
 
-	mcount_triggers = xmalloc(sizeof(*mcount_triggers));
-	memset(mcount_triggers, 0, sizeof(*mcount_triggers));
-	mcount_triggers->root = RB_ROOT;
-	uftrace_setup_filter(filter_str, &mcount_sym_info, mcount_triggers, filter_setting);
-	uftrace_setup_trigger(trigger_str, &mcount_sym_info, mcount_triggers, filter_setting);
-	uftrace_setup_argument(argument_str, &mcount_sym_info, mcount_triggers, filter_setting);
-	uftrace_setup_retval(retval_str, &mcount_sym_info, mcount_triggers, filter_setting);
+	if (!filter_str && !trigger_str && !argument_str && !retval_str && !autoargs_str &&
+	    !caller_str && !loc_str)
+		return NULL;
 
-	if (needs_debug_info) {
-		uftrace_setup_loc_filter(loc_str, &mcount_sym_info, mcount_triggers,
-					 filter_setting);
-	}
+	triggers = xzalloc(sizeof(*triggers));
+	triggers->root = RB_ROOT;
 
-	if (caller_str) {
-		uftrace_setup_caller_filter(caller_str, &mcount_sym_info, mcount_triggers,
-					    filter_setting);
-	}
+	filter_setting->auto_args = false;
+
+	uftrace_setup_filter(filter_str, &mcount_sym_info, triggers, filter_setting);
+	uftrace_setup_trigger(trigger_str, &mcount_sym_info, triggers, filter_setting);
+	uftrace_setup_argument(argument_str, &mcount_sym_info, triggers, filter_setting);
+	uftrace_setup_retval(retval_str, &mcount_sym_info, triggers, filter_setting);
+
+	if (needs_debug_info)
+		uftrace_setup_loc_filter(loc_str, &mcount_sym_info, triggers, filter_setting);
+
+	if (caller_str)
+		uftrace_setup_caller_filter(caller_str, &mcount_sym_info, triggers, filter_setting);
 
 	if (autoargs_str) {
 		char *autoarg = ".";
@@ -453,8 +450,27 @@ static void mcount_filter_init(struct uftrace_filter_setting *filter_setting, bo
 
 		filter_setting->auto_args = true;
 
-		uftrace_setup_argument(autoarg, &mcount_sym_info, mcount_triggers, filter_setting);
-		uftrace_setup_retval(autoret, &mcount_sym_info, mcount_triggers, filter_setting);
+		uftrace_setup_argument(autoarg, &mcount_sym_info, triggers, filter_setting);
+		uftrace_setup_retval(autoret, &mcount_sym_info, triggers, filter_setting);
+	}
+
+	return triggers;
+}
+
+static void mcount_filter_init(struct uftrace_filter_setting *filter_setting, bool force)
+{
+	filter_setting->lp64 = host_is_lp64();
+	filter_setting->arch = host_cpu_arch();
+
+	load_module_symtabs(&mcount_sym_info);
+
+	mcount_signal_init(getenv("UFTRACE_SIGNAL"), filter_setting);
+
+	mcount_triggers = mcount_trigger_init(filter_setting);
+	if (mcount_triggers == NULL) {
+		/* make sure it has the root of triggers */
+		mcount_triggers = xzalloc(sizeof(*mcount_triggers));
+		mcount_triggers->root = RB_ROOT;
 	}
 
 	if (getenv("UFTRACE_DEPTH"))
