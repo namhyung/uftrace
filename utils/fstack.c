@@ -448,6 +448,7 @@ static int build_arg_spec(struct uftrace_session *s, void *arg)
 		s->filters = triggers.root;
 	}
 
+	session_setup_dlopen_argspec(s, setting, false);
 	return 0;
 }
 
@@ -463,6 +464,7 @@ static int build_ret_spec(struct uftrace_session *s, void *arg)
 		s->filters = triggers.root;
 	}
 
+	session_setup_dlopen_argspec(s, setting, true);
 	return 0;
 }
 

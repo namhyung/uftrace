@@ -360,6 +360,8 @@ void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp, unsign
 	udl->mod = load_module_symtab(&sess->sym_info, libname, build_id);
 	load_module_debug_info(udl->mod, sess->sym_info.symdir, needs_srcline);
 
+	udl->filters = RB_ROOT;
+
 	list_for_each_entry(pos, &sess->dlopen_libs, list) {
 		if (pos->time > timestamp)
 			break;
@@ -404,6 +406,7 @@ void delete_session(struct uftrace_session *sess)
 
 	list_for_each_entry_safe(udl, tmp, &sess->dlopen_libs, list) {
 		list_del(&udl->list);
+		uftrace_cleanup_filter(&udl->filters);
 		free(udl);
 	}
 
@@ -784,6 +787,33 @@ struct uftrace_dbg_loc *task_find_loc_addr(struct uftrace_session_link *sessions
 	}
 
 	return NULL;
+}
+
+void session_setup_dlopen_argspec(struct uftrace_session *sess,
+				  struct uftrace_filter_setting *setting, bool is_retval)
+{
+	struct uftrace_dlopen_list *udl;
+	struct uftrace_triggers_info triggers = {
+		.root = RB_ROOT,
+	};
+
+	list_for_each_entry(udl, &sess->dlopen_libs, list) {
+		struct uftrace_sym_info dl_info;
+		struct uftrace_mmap dl_map = {
+			.start = udl->base,
+			.mod = udl->mod,
+		};
+
+		dl_info = sess->sym_info;
+		dl_info.maps = &dl_map;
+
+		triggers.root = udl->filters;
+		if (is_retval)
+			uftrace_setup_retval(setting->info_str, &dl_info, &triggers, setting);
+		else
+			uftrace_setup_argument(setting->info_str, &dl_info, &triggers, setting);
+		udl->filters = triggers.root;
+	}
 }
 
 #ifdef UNIT_TEST
