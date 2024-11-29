@@ -19,6 +19,7 @@
 extern struct uftrace_sym_info mcount_sym_info;
 
 struct dlopen_base_data {
+	const char *filename;
 	struct mcount_thread_data *mtdp;
 	uint64_t timestamp;
 };
@@ -76,6 +77,8 @@ static int dlopen_base_callback(struct dl_phdr_info *info, size_t size, void *ar
 	if (info->dlpi_name[0] == '\0')
 		return 0;
 	if (!strcmp("linux-vdso.so.1", info->dlpi_name))
+		return 0;
+	if (!strstr(info->dlpi_name, data->filename))
 		return 0;
 
 	p = realpath(info->dlpi_name, buf);
@@ -465,6 +468,7 @@ __visible_default void *dlopen(const char *filename, int flags)
 	struct mcount_thread_data *mtdp;
 	struct dlopen_base_data data = {
 		.timestamp = mcount_gettime(),
+		.filename = filename,
 	};
 	void *ret;
 
