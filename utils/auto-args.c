@@ -227,6 +227,9 @@ char *get_auto_retspec_str(void)
 
 void setup_auto_args(struct uftrace_filter_setting *setting)
 {
+	if (!RB_EMPTY_ROOT(&auto_enum))
+		return;
+
 	parse_enum_string(auto_enum_list, &auto_enum);
 	build_auto_args(auto_args_list, &auto_argspec, TRIGGER_FL_ARGUMENT, setting);
 	build_auto_args(auto_retvals_list, &auto_retspec, TRIGGER_FL_RETVAL, setting);
@@ -235,6 +238,9 @@ void setup_auto_args(struct uftrace_filter_setting *setting)
 void setup_auto_args_str(char *args, char *rets, char *enums,
 			 struct uftrace_filter_setting *setting)
 {
+	if (!RB_EMPTY_ROOT(&auto_enum))
+		return;
+
 	parse_enum_string(enums, &auto_enum);
 	build_auto_args(args, &auto_argspec, TRIGGER_FL_ARGUMENT, setting);
 	build_auto_args(rets, &auto_retspec, TRIGGER_FL_RETVAL, setting);
