@@ -297,7 +297,7 @@ static void setup_fstack_and_graph(struct uftrace_graph *graph, struct test_data
 	tg->new_sess = true;
 
 	/* TODO: de-couple graph from fstack */
-	task.func_stack = xcalloc(sizeof(*task.func_stack), len);
+	task.func_stack = xcalloc(len, sizeof(*task.func_stack));
 
 	for (i = 0; i < len; i++) {
 		struct uftrace_fstack *fstack = NULL;
