@@ -2221,6 +2221,18 @@ out:
 	return ret;
 }
 
+void load_module_debug_info(struct uftrace_module *mod, const char *dirname, bool needs_srcline)
+{
+	struct uftrace_dbg_info *dinfo;
+
+	dinfo = &mod->dinfo;
+
+	if (!debug_info_has_location(dinfo) && !debug_info_has_argspec(dinfo)) {
+		load_debug_file(dinfo, &mod->symtab, dirname, mod->name, mod->build_id,
+				needs_srcline);
+	}
+}
+
 void load_debug_info(struct uftrace_sym_info *sinfo, bool needs_srcline)
 {
 	struct uftrace_mmap *map;

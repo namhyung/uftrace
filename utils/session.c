@@ -340,13 +340,14 @@ struct uftrace_session *get_session_from_sid(struct uftrace_session_link *sessio
  * @timestamp: timestamp at the dlopen call
  * @base_addr: load address of text segment of the library
  * @libname: name of the library
+ * @needs_srcline: whether debug info loading is needed
  *
  * This functions adds the info of a library which was loaded by dlopen.
  * Instead of creating a new session, it just adds the library information
  * to the @sess.
  */
 void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp, unsigned long base_addr,
-			const char *libname)
+			const char *libname, bool needs_srcline)
 {
 	struct uftrace_dlopen_list *udl, *pos;
 	char build_id[BUILD_ID_STR_SIZE];
@@ -357,6 +358,8 @@ void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp, unsign
 
 	read_build_id(libname, build_id, sizeof(build_id));
 	udl->mod = load_module_symtab(&sess->sym_info, libname, build_id);
+	load_module_debug_info(udl->mod, sess->sym_info.symdir, needs_srcline);
+
 	list_for_each_entry(pos, &sess->dlopen_libs, list) {
 		if (pos->time > timestamp)
 			break;
@@ -1165,7 +1168,7 @@ TEST_CASE(task_symbol_dlopen)
 	TEST_EQ(test_sessions.first->pid, 1);
 
 	pr_dbg("add dlopen info message\n");
-	session_add_dlopen(test_sessions.first, 200, 0x7003000, "libuftrace-test.so.0");
+	session_add_dlopen(test_sessions.first, 200, 0x7003000, "libuftrace-test.so.0", false);
 	remove("libuftrace-test.so.0.sym");
 
 	TEST_EQ(list_empty(&test_sessions.first->dlopen_libs), false);
