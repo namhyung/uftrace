@@ -93,6 +93,7 @@ struct uftrace_mmap {
 	char prot[4];
 	uint32_t len;
 	char build_id[BUILD_ID_STR_SIZE];
+	void *handle; /* for dlopen() */
 	char libname[];
 };
 
