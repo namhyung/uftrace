@@ -128,7 +128,12 @@ struct uftrace_sym_info {
 };
 
 #define for_each_map(sym_info, map)                                                                \
-	for ((map) = (sym_info)->maps; (map) != NULL; (map) = (map)->next)
+	for (({                                                                                    \
+		     (map) = (sym_info)->maps;                                                     \
+		     read_memory_barrier();                                                        \
+	     });                                                                                   \
+                                                                                                   \
+	     (map) != NULL; (map) = (map)->next)
 
 /* addr should be from fstack or something other than rstack (rec) */
 static inline bool is_kernel_address(struct uftrace_sym_info *sinfo, uint64_t addr)
