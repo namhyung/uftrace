@@ -492,6 +492,8 @@ void session_setup_dlopen_argspec(struct uftrace_session *sess,
 				  struct uftrace_filter_setting *setting, bool is_retval);
 struct uftrace_symbol *session_find_dlsym(struct uftrace_session *sess, uint64_t timestamp,
 					  unsigned long addr);
+struct uftrace_filter *session_find_filter(struct uftrace_session *sess, struct uftrace_record *rec,
+					   struct uftrace_trigger *tr);
 void delete_sessions(struct uftrace_session_link *sess);
 
 struct uftrace_record;
