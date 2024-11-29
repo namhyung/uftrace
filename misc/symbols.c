@@ -162,7 +162,7 @@ static int read_sessions(struct uftrace_session_link *link, char *dirname)
 			dlop.namelen = strlen(exename);
 
 			s = get_session_from_sid(link, dlop.sid);
-			session_add_dlopen(s, dlop.task.time, dlop.base_addr, exename);
+			session_add_dlopen(s, dlop.task.time, dlop.base_addr, exename, false);
 		}
 	}
 

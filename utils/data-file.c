@@ -199,7 +199,8 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname, char *s
 
 			s = get_session_from_sid(sess, dlop.sid);
 			ASSERT(s);
-			session_add_dlopen(s, dlop.task.time, dlop.base_addr, exename);
+			session_add_dlopen(s, dlop.task.time, dlop.base_addr, exename,
+					   needs_srcline);
 		}
 	}
 	ret = 0;

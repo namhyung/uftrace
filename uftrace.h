@@ -486,7 +486,7 @@ void delete_session_map(struct uftrace_sym_info *sinfo);
 void update_session_map(const char *filename);
 struct uftrace_session *get_session_from_sid(struct uftrace_session_link *sess, char sid[]);
 void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp, unsigned long base_addr,
-			const char *libname);
+			const char *libname, bool needs_srcline);
 struct uftrace_symbol *session_find_dlsym(struct uftrace_session *sess, uint64_t timestamp,
 					  unsigned long addr);
 void delete_sessions(struct uftrace_session_link *sess);
