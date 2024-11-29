@@ -1347,7 +1347,7 @@ int read_task_args(struct uftrace_task_reader *task, struct uftrace_record *rsta
 		return -1;
 	}
 
-	fl = uftrace_match_filter(rstack->addr, &sess->filters, &tr);
+	fl = session_find_filter(sess, rstack, &tr);
 	if (fl == NULL) {
 		pr_dbg("cannot find filter: %lx\n", rstack->addr);
 		return -1;
