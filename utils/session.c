@@ -400,6 +400,27 @@ struct uftrace_symbol *session_find_dlsym(struct uftrace_session *sess, uint64_t
 	return NULL;
 }
 
+static struct uftrace_dlopen_list *session_find_dlopen(struct uftrace_session *sess,
+						       uint64_t timestamp, unsigned long addr)
+{
+	struct uftrace_dlopen_list *pos;
+	struct uftrace_symbol *sym;
+
+	list_for_each_entry_reverse(pos, &sess->dlopen_libs, list) {
+		if (pos->time > timestamp)
+			continue;
+
+		if (pos->mod == NULL)
+			continue;
+
+		sym = find_sym(&pos->mod->symtab, addr - pos->base);
+		if (sym)
+			return pos;
+	}
+
+	return NULL;
+}
+
 void delete_session(struct uftrace_session *sess)
 {
 	struct uftrace_dlopen_list *udl, *tmp;
@@ -787,6 +808,23 @@ struct uftrace_dbg_loc *task_find_loc_addr(struct uftrace_session_link *sessions
 	}
 
 	return NULL;
+}
+
+struct uftrace_filter *session_find_filter(struct uftrace_session *sess, struct uftrace_record *rec,
+					   struct uftrace_trigger *tr)
+{
+	struct uftrace_filter *ret;
+	struct uftrace_dlopen_list *dl;
+
+	ret = uftrace_match_filter(rec->addr, &sess->filters, tr);
+	if (ret)
+		return ret;
+
+	dl = session_find_dlopen(sess, rec->time, rec->addr);
+	if (dl == NULL)
+		return NULL;
+
+	return uftrace_match_filter(rec->addr, &dl->filters, tr);
 }
 
 #ifdef UNIT_TEST
