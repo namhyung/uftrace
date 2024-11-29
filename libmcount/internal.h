@@ -478,4 +478,6 @@ bool mcount_is_main_executable(const char *filename, const char *exename);
 int agent_spawn(void);
 int agent_kill(void);
 
+void swap_triggers(struct uftrace_triggers_info **old, struct uftrace_triggers_info *new);
+
 #endif /* UFTRACE_MCOUNT_INTERNAL_H */

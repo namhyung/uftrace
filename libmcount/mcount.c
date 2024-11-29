@@ -1312,8 +1312,16 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp, struct mcount_re
 		if (!mcount_enabled)
 			return;
 
-		if (!(rstack->flags & MCOUNT_FL_RETVAL))
+		if (rstack->flags & MCOUNT_FL_RETVAL) {
+			struct uftrace_trigger tr;
+
+			/* update args as trigger might be updated due to dlopen() */
+			uftrace_match_filter(rstack->child_ip, &mcount_triggers->root, &tr);
+			rstack->pargs = tr.pargs;
+		}
+		else {
 			retval = NULL;
+		}
 
 		if (rstack->flags & MCOUNT_FL_READ) {
 			struct uftrace_trigger tr;
