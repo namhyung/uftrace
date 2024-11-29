@@ -117,6 +117,7 @@ static int dlopen_base_callback(struct dl_phdr_info *info, size_t size, void *ar
 	map->mod = load_module_symtab(&mcount_sym_info, p, map->build_id);
 
 	map->next = mcount_sym_info.maps;
+	write_memory_barrier();
 	mcount_sym_info.maps = map;
 
 	mcount_dynamic_dlopen(&mcount_sym_info, info, p, map);
