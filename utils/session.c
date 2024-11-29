@@ -360,6 +360,8 @@ void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp, unsign
 	udl->mod = load_module_symtab(&sess->sym_info, libname, build_id);
 	load_module_debug_info(udl->mod, sess->sym_info.symdir, needs_srcline);
 
+	udl->filters = RB_ROOT;
+
 	list_for_each_entry(pos, &sess->dlopen_libs, list) {
 		if (pos->time > timestamp)
 			break;
@@ -404,6 +406,7 @@ void delete_session(struct uftrace_session *sess)
 
 	list_for_each_entry_safe(udl, tmp, &sess->dlopen_libs, list) {
 		list_del(&udl->list);
+		uftrace_cleanup_filter(&udl->filters);
 		free(udl);
 	}
 

@@ -383,6 +383,7 @@ struct uftrace_dlopen_list {
 	uint64_t time;
 	unsigned long base;
 	struct uftrace_module *mod;
+	struct rb_root filters;
 };
 
 struct uftrace_task {

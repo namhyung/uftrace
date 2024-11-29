@@ -439,6 +439,7 @@ static void fstack_prepare_fixup(struct uftrace_data *handle)
 static int build_arg_spec(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
+	struct uftrace_dlopen_list *udl;
 	struct uftrace_triggers_info triggers = {
 		.root = s->filters,
 	};
@@ -448,12 +449,27 @@ static int build_arg_spec(struct uftrace_session *s, void *arg)
 		s->filters = triggers.root;
 	}
 
+	list_for_each_entry(udl, &s->dlopen_libs, list) {
+		struct uftrace_sym_info dl_info;
+		struct uftrace_mmap dl_map = {
+			.start = udl->base,
+			.mod = udl->mod,
+		};
+
+		dl_info = s->sym_info;
+		dl_info.maps = &dl_map;
+
+		triggers.root = udl->filters;
+		uftrace_setup_argument(setting->info_str, &dl_info, &triggers, setting);
+		udl->filters = triggers.root;
+	}
 	return 0;
 }
 
 static int build_ret_spec(struct uftrace_session *s, void *arg)
 {
 	struct uftrace_filter_setting *setting = arg;
+	struct uftrace_dlopen_list *udl;
 	struct uftrace_triggers_info triggers = {
 		.root = s->filters,
 	};
@@ -463,6 +479,20 @@ static int build_ret_spec(struct uftrace_session *s, void *arg)
 		s->filters = triggers.root;
 	}
 
+	list_for_each_entry(udl, &s->dlopen_libs, list) {
+		struct uftrace_sym_info dl_info;
+		struct uftrace_mmap dl_map = {
+			.start = udl->base,
+			.mod = udl->mod,
+		};
+
+		dl_info = s->sym_info;
+		dl_info.maps = &dl_map;
+
+		triggers.root = udl->filters;
+		uftrace_setup_retval(setting->info_str, &dl_info, &triggers, setting);
+		udl->filters = triggers.root;
+	}
 	return 0;
 }
 
