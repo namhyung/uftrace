@@ -71,6 +71,7 @@ static void send_dlopen_msg(struct mcount_thread_data *mtdp, const char *sess_id
 static int dlopen_base_callback(struct dl_phdr_info *info, size_t size, void *arg)
 {
 	struct dlopen_base_data *data = arg;
+	struct uftrace_mmap *map;
 	char buf[PATH_MAX];
 	char *p;
 
@@ -92,7 +93,31 @@ static int dlopen_base_callback(struct dl_phdr_info *info, size_t size, void *ar
 	send_dlopen_msg(data->mtdp, mcount_session_name(), data->timestamp, info->dlpi_addr,
 			info->dlpi_name);
 
-	mcount_dynamic_dlopen(&mcount_sym_info, info, p);
+	map = xzalloc(sizeof(*map) + strlen(p) + 1);
+	map->len = strlen(p);
+	strcpy(map->libname, p);
+	mcount_memcpy1(map->prot, "r-xp", 4);
+
+	for (int i = 0; i < info->dlpi_phnum; i++) {
+		if (info->dlpi_phdr[i].p_type != PT_LOAD)
+			continue;
+
+		if (map->start == 0)
+			map->start = info->dlpi_phdr[i].p_vaddr + info->dlpi_addr;
+
+		if (info->dlpi_phdr[i].p_flags & PF_X) {
+			map->end = info->dlpi_phdr[i].p_vaddr + info->dlpi_addr;
+			map->end += info->dlpi_phdr[i].p_memsz;
+			break;
+		}
+	}
+
+	read_build_id(p, map->build_id, sizeof(map->build_id));
+	map->mod = load_module_symtab(&mcount_sym_info, p, map->build_id);
+
+	map->next = mcount_sym_info.maps;
+	write_memory_barrier();
+	mcount_sym_info.maps = map;
 	return 0;
 }
 
