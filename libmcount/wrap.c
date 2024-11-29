@@ -21,6 +21,7 @@ extern struct uftrace_sym_info mcount_sym_info;
 struct dlopen_base_data {
 	const char *filename;
 	struct mcount_thread_data *mtdp;
+	struct uftrace_triggers_info *triggers;
 	uint64_t timestamp;
 };
 
@@ -116,8 +117,12 @@ static int dlopen_base_callback(struct dl_phdr_info *info, size_t size, void *ar
 	map->mod = load_module_symtab(&mcount_sym_info, p, map->build_id);
 
 	map->next = mcount_sym_info.maps;
-	write_memory_barrier();
 	mcount_sym_info.maps = map;
+
+	mcount_dynamic_dlopen(&mcount_sym_info, info, p, map);
+
+	data->triggers = mcount_trigger_init(&mcount_filter_setting);
+
 	return 0;
 }
 
@@ -526,7 +531,11 @@ __visible_default void *dlopen(const char *filename, int flags)
 	data.mtdp = mtdp;
 	dl_iterate_phdr(dlopen_base_callback, &data);
 
+	if (data.triggers)
+		swap_triggers(&mcount_triggers, data.triggers);
+
 	mcount_unguard_recursion(mtdp);
+
 	return ret;
 }
 
