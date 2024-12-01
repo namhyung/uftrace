@@ -4,6 +4,7 @@
 
 /* universal stack constraint: (SP mod 16) == 0 */
 GLOBAL(_mcount)
+#ifndef HAVE_LIBCAPSTONE
 	/* setup frame pointer */
 	stp	x29, x30, [sp, #-16]!
 	mov	x29, sp
@@ -34,6 +35,7 @@ GLOBAL(_mcount)
 
 	/* restore frame pointer */
 	ldp	x29, x30, [sp], #16
+#endif
 	ret
 END(_mcount)
 
