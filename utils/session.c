@@ -768,8 +768,9 @@ struct uftrace_dbg_loc *task_find_loc_addr(struct uftrace_session_link *sessions
 					   uint64_t addr)
 {
 	struct uftrace_session *sess;
-	struct uftrace_symbol *sym = NULL;
+	struct uftrace_symbol *sym;
 	struct uftrace_mmap *map;
+	struct uftrace_module *mod;
 	struct uftrace_dbg_info *dinfo;
 	struct uftrace_dbg_loc *loc;
 	ptrdiff_t sym_idx;
@@ -794,14 +795,25 @@ struct uftrace_dbg_loc *task_find_loc_addr(struct uftrace_session_link *sessions
 
 	if (sym->type == ST_LOCAL_FUNC || sym->type == ST_GLOBAL_FUNC) {
 		map = find_map(&sess->sym_info, addr);
-		if (map == NULL)
-			return NULL;
+		if (map) {
+			mod = map->mod;
+			dinfo = &mod->dinfo;
+		}
+		else {
+			struct uftrace_dlopen_list *udl;
 
-		dinfo = &(map->mod->dinfo);
+			udl = session_find_dlopen(sess, time, addr);
+			if (udl == NULL)
+				return NULL;
+
+			mod = udl->mod;
+			dinfo = &mod->dinfo;
+		}
+
 		if (dinfo == NULL || dinfo->nr_locs_used == 0)
 			return NULL;
 
-		sym_idx = sym - map->mod->symtab.sym;
+		sym_idx = sym - mod->symtab.sym;
 		loc = &dinfo->locs[sym_idx];
 		if (loc->file != NULL)
 			return loc;
