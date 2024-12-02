@@ -98,6 +98,7 @@ static void print_module(struct field_data *fd)
 	uint64_t timestamp = task->timestamp;
 	struct uftrace_session *s;
 	struct uftrace_mmap *map;
+	struct uftrace_dlopen_list *udl;
 	const char *modname = "[unknown]";
 
 	/* for EVENT or LOST record */
@@ -115,6 +116,11 @@ static void print_module(struct field_data *fd)
 			modname = uftrace_basename(map->libname);
 		else if (is_sched_event(fstack->addr))
 			modname = "[event]";
+		else {
+			udl = session_find_dlopen(s, timestamp, fstack->addr);
+			if (udl)
+				modname = uftrace_basename(udl->mod->name);
+		}
 	}
 
 	pr_out("%*.*s", 16, 16, modname);
