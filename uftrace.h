@@ -383,6 +383,7 @@ struct uftrace_dlopen_list {
 	uint64_t time;
 	unsigned long base;
 	struct uftrace_module *mod;
+	struct rb_root filters;
 };
 
 struct uftrace_task {
@@ -486,9 +487,15 @@ void delete_session_map(struct uftrace_sym_info *sinfo);
 void update_session_map(const char *filename);
 struct uftrace_session *get_session_from_sid(struct uftrace_session_link *sess, char sid[]);
 void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp, unsigned long base_addr,
-			const char *libname);
+			const char *libname, bool needs_srcline);
+void session_setup_dlopen_argspec(struct uftrace_session *sess,
+				  struct uftrace_filter_setting *setting, bool is_retval);
+struct uftrace_dlopen_list *session_find_dlopen(struct uftrace_session *sess, uint64_t timestamp,
+						unsigned long addr);
 struct uftrace_symbol *session_find_dlsym(struct uftrace_session *sess, uint64_t timestamp,
 					  unsigned long addr);
+struct uftrace_filter *session_find_filter(struct uftrace_session *sess, struct uftrace_record *rec,
+					   struct uftrace_trigger *tr);
 void delete_sessions(struct uftrace_session_link *sess);
 
 struct uftrace_record;

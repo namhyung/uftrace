@@ -9,6 +9,7 @@
 #include "utils/rbtree.h"
 
 struct uftrace_sym_info;
+struct uftrace_module;
 
 #ifdef HAVE_LIBDW
 #include <elfutils/libdwfl.h>
@@ -74,5 +75,7 @@ struct uftrace_dbg_loc *find_file_line(struct uftrace_sym_info *sinfo, uint64_t 
 extern void save_debug_info(struct uftrace_sym_info *sinfo, const char *dirname);
 extern void load_debug_info(struct uftrace_sym_info *sinfo, bool needs_srcline);
 extern void save_debug_file(FILE *fp, char code, char *str, unsigned long val);
+extern void load_module_debug_info(struct uftrace_module *mod, const char *dirname,
+				   bool needs_srcline);
 
 #endif /* UFTRACE_DWARF_H */

@@ -692,30 +692,16 @@ int mcount_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 }
 
 void mcount_dynamic_dlopen(struct uftrace_sym_info *sinfo, struct dl_phdr_info *info,
-			   char *pathname)
+			   char *pathname, struct uftrace_mmap *map)
 {
 	struct mcount_dynamic_info *mdi;
-	struct uftrace_mmap *map;
 
 	if (!match_pattern_module(pathname))
 		return;
 
 	mdi = create_mdi(info);
-
-	map = xmalloc(sizeof(*map) + strlen(pathname) + 1);
-	map->start = info->dlpi_addr;
-	map->end = map->start + mdi->text_size;
-	map->len = strlen(pathname);
-
-	strcpy(map->libname, pathname);
-	mcount_memcpy1(map->prot, "r-xp", 4);
-	read_build_id(pathname, map->build_id, sizeof(map->build_id));
-
-	map->next = sinfo->maps;
-	sinfo->maps = map;
 	mdi->map = map;
 
-	map->mod = load_module_symtab(sinfo, map->libname, map->build_id);
 	mcount_arch_find_module(mdi, &map->mod->symtab);
 
 	if (mcount_setup_trampoline(mdi) < 0) {

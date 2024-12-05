@@ -21,7 +21,9 @@ extern struct uftrace_sym_info mcount_sym_info;
 struct dlopen_base_data {
 	const char *filename;
 	struct mcount_thread_data *mtdp;
+	struct uftrace_triggers_info *triggers;
 	uint64_t timestamp;
+	void *handle;
 };
 
 static void send_dlopen_msg(struct mcount_thread_data *mtdp, const char *sess_id,
@@ -71,6 +73,7 @@ static void send_dlopen_msg(struct mcount_thread_data *mtdp, const char *sess_id
 static int dlopen_base_callback(struct dl_phdr_info *info, size_t size, void *arg)
 {
 	struct dlopen_base_data *data = arg;
+	struct uftrace_mmap *map;
 	char buf[PATH_MAX];
 	char *p;
 
@@ -92,7 +95,37 @@ static int dlopen_base_callback(struct dl_phdr_info *info, size_t size, void *ar
 	send_dlopen_msg(data->mtdp, mcount_session_name(), data->timestamp, info->dlpi_addr,
 			info->dlpi_name);
 
-	mcount_dynamic_dlopen(&mcount_sym_info, info, p);
+	map = xzalloc(sizeof(*map) + strlen(p) + 1);
+	map->len = strlen(p);
+	strcpy(map->libname, p);
+	mcount_memcpy1(map->prot, "r-xp", 4);
+	map->handle = data->handle;
+
+	for (int i = 0; i < info->dlpi_phnum; i++) {
+		if (info->dlpi_phdr[i].p_type != PT_LOAD)
+			continue;
+
+		if (map->start == 0)
+			map->start = info->dlpi_phdr[i].p_vaddr + info->dlpi_addr;
+
+		if (info->dlpi_phdr[i].p_flags & PF_X) {
+			map->end = info->dlpi_phdr[i].p_vaddr + info->dlpi_addr;
+			map->end += info->dlpi_phdr[i].p_memsz;
+			break;
+		}
+	}
+
+	read_build_id(p, map->build_id, sizeof(map->build_id));
+	map->mod = load_module_symtab(&mcount_sym_info, p, map->build_id);
+
+	map->next = mcount_sym_info.maps;
+	write_memory_barrier();
+	mcount_sym_info.maps = map;
+
+	mcount_dynamic_dlopen(&mcount_sym_info, info, p, map);
+
+	data->triggers = mcount_trigger_init(&mcount_filter_setting);
+
 	return 0;
 }
 
@@ -256,6 +289,7 @@ static void *(*real_cxa_begin_catch)(void *exc);
 static void (*real_cxa_end_catch)(void);
 static void (*real_cxa_guard_abort)(void *guard_obj);
 static void *(*real_dlopen)(const char *filename, int flags);
+static int (*real_dlclose)(void *handle);
 static __noreturn void (*real_pthread_exit)(void *retval);
 static void (*real_unwind_resume)(void *exc);
 static int (*real_posix_spawn)(pid_t *pid, const char *path,
@@ -281,6 +315,7 @@ void mcount_hook_functions(void)
 	real_cxa_end_catch = dlsym(RTLD_NEXT, "__cxa_end_catch");
 	real_cxa_guard_abort = dlsym(RTLD_NEXT, "__cxa_guard_abort");
 	real_dlopen = dlsym(RTLD_NEXT, "dlopen");
+	real_dlclose = dlsym(RTLD_NEXT, "dlclose");
 	real_pthread_exit = dlsym(RTLD_NEXT, "pthread_exit");
 	real_unwind_resume = dlsym(RTLD_NEXT, "_Unwind_Resume");
 	real_posix_spawn = dlsym(RTLD_NEXT, "posix_spawn");
@@ -499,9 +534,50 @@ __visible_default void *dlopen(const char *filename, int flags)
 	}
 
 	data.mtdp = mtdp;
+	data.handle = ret;
 	dl_iterate_phdr(dlopen_base_callback, &data);
 
+	if (data.triggers)
+		swap_triggers(&mcount_triggers, data.triggers);
+
 	mcount_unguard_recursion(mtdp);
+	return ret;
+}
+
+__visible_default int dlclose(void *handle)
+{
+	struct mcount_thread_data *mtdp;
+	struct uftrace_mmap *map;
+	int ret;
+
+	if (unlikely(real_dlopen == NULL))
+		mcount_hook_functions();
+
+	ret = real_dlclose(handle);
+
+	mtdp = get_thread_data();
+	if (unlikely(check_thread_data(mtdp))) {
+		mtdp = mcount_prepare();
+		if (mtdp == NULL)
+			return ret;
+	}
+	else {
+		if (!mcount_guard_recursion(mtdp))
+			return ret;
+	}
+
+	for_each_map(&mcount_sym_info, map) {
+		if (map->mod == NULL)
+			continue;
+
+		if (map->handle == handle) {
+			map->mod = NULL;
+			break;
+		}
+	}
+
+	mcount_unguard_recursion(mtdp);
+
 	return ret;
 }
 

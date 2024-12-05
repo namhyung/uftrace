@@ -81,7 +81,8 @@ struct mcount_disasm_engine {
 
 int mcount_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 			  enum uftrace_pattern_type ptype);
-void mcount_dynamic_dlopen(struct uftrace_sym_info *sinfo, struct dl_phdr_info *info, char *path);
+void mcount_dynamic_dlopen(struct uftrace_sym_info *sinfo, struct dl_phdr_info *info, char *path,
+			   struct uftrace_mmap *map);
 void mcount_dynamic_finish(void);
 
 struct mcount_orig_insn {

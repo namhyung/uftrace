@@ -236,6 +236,11 @@ static inline void mcount_watch_setup(struct mcount_thread_data *mtdp)
 static inline void mcount_watch_release(struct mcount_thread_data *mtdp)
 {
 }
+static inline struct uftrace_triggers_info *
+mcount_trigger_init(struct uftrace_filter_setting *filter_setting)
+{
+	return NULL;
+}
 #endif /* DISABLE_MCOUNT_FILTER */
 
 static inline uint64_t mcount_gettime(void)
@@ -434,6 +439,7 @@ extern void save_argument(struct mcount_thread_data *mtdp, struct mcount_ret_sta
 void save_retval(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack, long *retval);
 void save_trigger_read(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
 		       enum trigger_read_type type, bool diff);
+struct uftrace_triggers_info *mcount_trigger_init(struct uftrace_filter_setting *filter_setting);
 #endif /* DISABLE_MCOUNT_FILTER */
 
 bool check_mem_region(struct mcount_arg_context *ctx, unsigned long addr);
@@ -471,5 +477,7 @@ bool mcount_is_main_executable(const char *filename, const char *exename);
 
 int agent_spawn(void);
 int agent_kill(void);
+
+void swap_triggers(struct uftrace_triggers_info **old, struct uftrace_triggers_info *new);
 
 #endif /* UFTRACE_MCOUNT_INTERNAL_H */

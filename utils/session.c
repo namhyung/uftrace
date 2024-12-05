@@ -340,13 +340,14 @@ struct uftrace_session *get_session_from_sid(struct uftrace_session_link *sessio
  * @timestamp: timestamp at the dlopen call
  * @base_addr: load address of text segment of the library
  * @libname: name of the library
+ * @needs_srcline: whether debug info loading is needed
  *
  * This functions adds the info of a library which was loaded by dlopen.
  * Instead of creating a new session, it just adds the library information
  * to the @sess.
  */
 void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp, unsigned long base_addr,
-			const char *libname)
+			const char *libname, bool needs_srcline)
 {
 	struct uftrace_dlopen_list *udl, *pos;
 	char build_id[BUILD_ID_STR_SIZE];
@@ -357,6 +358,10 @@ void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp, unsign
 
 	read_build_id(libname, build_id, sizeof(build_id));
 	udl->mod = load_module_symtab(&sess->sym_info, libname, build_id);
+	load_module_debug_info(udl->mod, sess->sym_info.symdir, needs_srcline);
+
+	udl->filters = RB_ROOT;
+
 	list_for_each_entry(pos, &sess->dlopen_libs, list) {
 		if (pos->time > timestamp)
 			break;
@@ -395,12 +400,34 @@ struct uftrace_symbol *session_find_dlsym(struct uftrace_session *sess, uint64_t
 	return NULL;
 }
 
+struct uftrace_dlopen_list *session_find_dlopen(struct uftrace_session *sess, uint64_t timestamp,
+						unsigned long addr)
+{
+	struct uftrace_dlopen_list *pos;
+	struct uftrace_symbol *sym;
+
+	list_for_each_entry_reverse(pos, &sess->dlopen_libs, list) {
+		if (pos->time > timestamp)
+			continue;
+
+		if (pos->mod == NULL)
+			continue;
+
+		sym = find_sym(&pos->mod->symtab, addr - pos->base);
+		if (sym)
+			return pos;
+	}
+
+	return NULL;
+}
+
 void delete_session(struct uftrace_session *sess)
 {
 	struct uftrace_dlopen_list *udl, *tmp;
 
 	list_for_each_entry_safe(udl, tmp, &sess->dlopen_libs, list) {
 		list_del(&udl->list);
+		uftrace_cleanup_filter(&udl->filters);
 		free(udl);
 	}
 
@@ -741,8 +768,9 @@ struct uftrace_dbg_loc *task_find_loc_addr(struct uftrace_session_link *sessions
 					   uint64_t addr)
 {
 	struct uftrace_session *sess;
-	struct uftrace_symbol *sym = NULL;
+	struct uftrace_symbol *sym;
 	struct uftrace_mmap *map;
+	struct uftrace_module *mod;
 	struct uftrace_dbg_info *dinfo;
 	struct uftrace_dbg_loc *loc;
 	ptrdiff_t sym_idx;
@@ -767,20 +795,75 @@ struct uftrace_dbg_loc *task_find_loc_addr(struct uftrace_session_link *sessions
 
 	if (sym->type == ST_LOCAL_FUNC || sym->type == ST_GLOBAL_FUNC) {
 		map = find_map(&sess->sym_info, addr);
-		if (map == NULL)
-			return NULL;
+		if (map) {
+			mod = map->mod;
+			dinfo = &mod->dinfo;
+		}
+		else {
+			struct uftrace_dlopen_list *udl;
 
-		dinfo = &(map->mod->dinfo);
+			udl = session_find_dlopen(sess, time, addr);
+			if (udl == NULL)
+				return NULL;
+
+			mod = udl->mod;
+			dinfo = &mod->dinfo;
+		}
+
 		if (dinfo == NULL || dinfo->nr_locs_used == 0)
 			return NULL;
 
-		sym_idx = sym - map->mod->symtab.sym;
+		sym_idx = sym - mod->symtab.sym;
 		loc = &dinfo->locs[sym_idx];
 		if (loc->file != NULL)
 			return loc;
 	}
 
 	return NULL;
+}
+
+void session_setup_dlopen_argspec(struct uftrace_session *sess,
+				  struct uftrace_filter_setting *setting, bool is_retval)
+{
+	struct uftrace_dlopen_list *udl;
+	struct uftrace_triggers_info triggers = {
+		.root = RB_ROOT,
+	};
+
+	list_for_each_entry(udl, &sess->dlopen_libs, list) {
+		struct uftrace_sym_info dl_info;
+		struct uftrace_mmap dl_map = {
+			.start = udl->base,
+			.mod = udl->mod,
+		};
+
+		dl_info = sess->sym_info;
+		dl_info.maps = &dl_map;
+
+		triggers.root = udl->filters;
+		if (is_retval)
+			uftrace_setup_retval(setting->info_str, &dl_info, &triggers, setting);
+		else
+			uftrace_setup_argument(setting->info_str, &dl_info, &triggers, setting);
+		udl->filters = triggers.root;
+	}
+}
+
+struct uftrace_filter *session_find_filter(struct uftrace_session *sess, struct uftrace_record *rec,
+					   struct uftrace_trigger *tr)
+{
+	struct uftrace_filter *ret;
+	struct uftrace_dlopen_list *udl;
+
+	ret = uftrace_match_filter(rec->addr, &sess->filters, tr);
+	if (ret)
+		return ret;
+
+	udl = session_find_dlopen(sess, rec->time, rec->addr);
+	if (udl == NULL)
+		return NULL;
+
+	return uftrace_match_filter(rec->addr, &udl->filters, tr);
 }
 
 #ifdef UNIT_TEST
@@ -1165,7 +1248,7 @@ TEST_CASE(task_symbol_dlopen)
 	TEST_EQ(test_sessions.first->pid, 1);
 
 	pr_dbg("add dlopen info message\n");
-	session_add_dlopen(test_sessions.first, 200, 0x7003000, "libuftrace-test.so.0");
+	session_add_dlopen(test_sessions.first, 200, 0x7003000, "libuftrace-test.so.0", false);
 	remove("libuftrace-test.so.0.sym");
 
 	TEST_EQ(list_empty(&test_sessions.first->dlopen_libs), false);
@@ -1214,6 +1297,93 @@ TEST_CASE(session_map_build_id)
 	TEST_EQ(map, NULL);
 
 	delete_session_map(&test_sinfo);
+	return TEST_OK;
+}
+
+TEST_CASE(session_autoarg_dlopen)
+{
+	struct uftrace_session *sess;
+	struct uftrace_filter *filter;
+	struct uftrace_trigger tr = {};
+	struct uftrace_record rec = {
+		.time = 234,
+		.addr = 0x7003456,
+	};
+	struct uftrace_msg_sess msg = {
+		.task = {
+			.pid = 1,
+			.tid = 1,
+			.time = 100,
+		},
+		.sid = "test",
+		.namelen = 8,  /* = strlen("unittest") */
+	};
+	struct uftrace_filter_setting setting = {
+		.ptype = PATT_SIMPLE,
+		.info_str = "foo@auto-args",
+	};
+	struct uftrace_dlopen_list *udl;
+	FILE *fp;
+
+	fp = fopen("sid-test.map", "w");
+	TEST_NE(fp, NULL);
+	fprintf(fp, "%s", session_map);
+	fclose(fp);
+
+	pr_dbg("creating symbol for the dlopen library\n");
+	fp = fopen("libuftrace-test.so.0.sym", "w");
+	TEST_NE(fp, NULL);
+	fprintf(fp, "0100 P __tls_get_addr\n");
+	fprintf(fp, "0200 P __dynsym_end\n");
+	fprintf(fp, "0300 T _start\n");
+	fprintf(fp, "0400 T foo\n");
+	fprintf(fp, "0500 T __sym_end\n");
+	fclose(fp);
+
+	pr_dbg("creating debug info for the dlopen library\n");
+	fp = fopen("libuftrace-test.so.0.dbg", "w");
+	TEST_NE(fp, NULL);
+	fprintf(fp, "# path name: libuftrace-test.so.0\n");
+	fprintf(fp, "# build-id: \n");
+	fprintf(fp, "F: 400 foo\n");
+	fprintf(fp, "L: 5 s-uftrace-test.c\n");
+	fprintf(fp, "A: @arg1,arg2/f32\n");
+	fprintf(fp, "R: @retval\n");
+	fclose(fp);
+
+	create_session(&test_sessions, &msg, ".", ".", "unittest", false, true, true);
+	remove("sid-test.map");
+
+	sess = test_sessions.first;
+	TEST_NE(sess, NULL);
+	TEST_EQ(sess->pid, 1);
+
+	pr_dbg("add dlopen info message\n");
+	session_add_dlopen(sess, 200, 0x7003000, "libuftrace-test.so.0", false);
+	remove("libuftrace-test.so.0.sym");
+	remove("libuftrace-test.so.0.dbg");
+
+	pr_dbg("set filters for dlopen library\n");
+	udl = session_find_dlopen(sess, rec.time, rec.addr);
+	TEST_NE(udl, NULL);
+	TEST_NE(udl->mod, NULL);
+
+	session_setup_dlopen_argspec(sess, &setting, false);
+	session_setup_dlopen_argspec(sess, &setting, true);
+
+#ifdef HAVE_LIBDW
+	pr_dbg("try to find a filter for the dlopen address\n");
+	filter = session_find_filter(sess, &rec, &tr);
+
+	TEST_NE(filter, NULL);
+	TEST_EQ(filter->trigger.flags, TRIGGER_FL_ARGUMENT | TRIGGER_FL_RETVAL);
+	TEST_NE(filter->trigger.pargs, NULL);
+	TEST_STREQ(filter->name, "foo");
+#endif /* HAVE_LIBDW */
+
+	delete_sessions(&test_sessions);
+	TEST_EQ(RB_EMPTY_ROOT(&test_sessions.root), true);
+
 	return TEST_OK;
 }
 

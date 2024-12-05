@@ -32,7 +32,7 @@ static volatile bool agent_run = false;
  * @old - pointer to the tree to deprecate
  * @new - new version of the tree to use
  */
-static void swap_triggers(struct uftrace_triggers_info **old, struct uftrace_triggers_info *new)
+void swap_triggers(struct uftrace_triggers_info **old, struct uftrace_triggers_info *new)
 {
 	struct uftrace_triggers_info *tmp;
 	tmp = __sync_val_compare_and_swap(old, *old, new);
