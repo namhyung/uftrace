@@ -1,3 +1,20 @@
+uftrace v0.17
+=============
+* New features
+  Support watchpoint for global variables (#661)
+  Show man pages for the given command (#1316)
+  Add utc_offset in the header info (#1916)
+
+* Bug fixes
+  Show arguments in libraries from dlopen (#842, #1981)
+  Save debug info for libraries from dlopen (#1312)
+  Protect FD of communication channel from being closed
+
+And many other fixes and improvements.  Thanks all contributors:
+  Daehyun Kim, Honggyu Kim, Kang Minchul, Michelle Jin, Rongsong Shen,
+  Seunghyeok Park, Sin Sohi, Yunseong Kim, zyxeeker
+
+
 uftrace v0.16
 =============
 * New features
