@@ -20,7 +20,7 @@
 int arch_load_dynsymtab_noplt(struct uftrace_symtab *dsymtab, struct uftrace_elf_data *elf,
 			      unsigned long offset, unsigned long flags)
 {
-	struct uftrace_elf_iter sec_iter;
+	struct uftrace_elf_iter sec_iter = {};
 	struct uftrace_elf_iter rel_iter;
 	struct uftrace_elf_iter sym_iter;
 	unsigned grow = SYMTAB_GROW;
