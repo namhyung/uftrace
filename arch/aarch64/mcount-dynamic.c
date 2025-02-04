@@ -164,6 +164,7 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi, struct uftrace_sym
 		}
 	}
 
+#ifndef HAVE_LIBCAPSTONE
 	switch (check_trace_functions(mdi->map->libname)) {
 	case TRACE_MCOUNT:
 		mdi->type = DYNAMIC_PG;
@@ -171,6 +172,7 @@ void mcount_arch_find_module(struct mcount_dynamic_info *mdi, struct uftrace_sym
 	default:
 		break;
 	}
+#endif
 
 out:
 	pr_dbg("dynamic patch type: %s: %d (%s)\n", uftrace_basename(mdi->map->libname), mdi->type,
