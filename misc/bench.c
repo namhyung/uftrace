@@ -1,19 +1,19 @@
 #include <stdlib.h>
 
-int foo(volatile int *ptr)
+int leaf(volatile int *ptr)
 {
 	*ptr += 1;
 	return *ptr;
 }
 
-void baz(volatile int *ptr)
+void nested_child(volatile int *ptr)
 {
 	*ptr += 1;
 }
 
-int bar(volatile int *ptr)
+int nested_parent(volatile int *ptr)
 {
-	baz(ptr);
+	nested_child(ptr);
 	return *ptr;
 }
 
@@ -24,9 +24,9 @@ int bench(int count)
 
 	for (i = 0; i < count; i++) {
 		if (i % 2 == 0)
-			foo(&result);
+			leaf(&result);
 		else
-			bar(&result);
+			nested_parent(&result);
 	}
 	return result;
 }
