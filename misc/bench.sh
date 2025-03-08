@@ -1,8 +1,9 @@
 #!/bin/bash
 
-UFTRACE="../uftrace --libmcount-path=../libmcount"
+MISCDIR=$(dirname "$0")
+UFTRACE="${MISCDIR}/../uftrace --libmcount-path=${MISCDIR}/../libmcount"
 UOPTS=
-PROG="./bench"
+PROG="${MISCDIR}/bench"
 DATA=bench.data
 
 # setup cpufreq (on a cpu)
@@ -84,7 +85,7 @@ fi
 
 msg "running uftrace record ${UOPTS} with ${TARGET}"
 ${TASKSET} ${UFTRACE} record -d ${DATA} ${UOPTS} ${TARGET}
-${UFTRACE} report -d ${DATA} -F 'foo' -F '^ba' -f self-avg,self-min
+${UFTRACE} report -d ${DATA} -F 'leaf' -F '^nested' --no-sched -f self-avg,self-min -s func
 
 set_cpufreq "${ORIG_GOV}"
 
