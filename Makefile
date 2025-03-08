@@ -427,7 +427,7 @@ pytest: all
 	@$(MAKE) -C $(srcdir)/tests TESTARG="$(TESTARG)" PYTESTARG="$(PYTESTARG)" test_python
 
 bench: all $(objdir)/misc/bench
-	@cd $(srcdir)/misc && echo && ./bench.sh $(BENCHARG)
+	@echo && misc/bench.sh $(BENCHARG)
 
 dist:
 	@git archive --prefix=uftrace-$(VERSION)/ $(VERSION_GIT) -o $(objdir)/uftrace-$(VERSION).tar

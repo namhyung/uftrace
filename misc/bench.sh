@@ -1,8 +1,9 @@
 #!/bin/bash
 
-UFTRACE="../uftrace --libmcount-path=../libmcount"
+MISCDIR=$(dirname "$0")
+UFTRACE="${MISCDIR}/../uftrace --libmcount-path=${MISCDIR}/../libmcount"
 UOPTS=
-PROG="./bench"
+PROG="${MISCDIR}/bench"
 DATA=bench.data
 
 # setup cpufreq (on a cpu)
