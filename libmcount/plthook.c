@@ -876,7 +876,7 @@ static unsigned long __plthook_entry(unsigned long *ret_addr, unsigned long chil
 		return 0;
 	}
 
-	filtered = mcount_entry_filter_check(mtdp, sym->addr, &tr);
+	filtered = mcount_entry_filter_check(mtdp, sym->addr, &tr, regs);
 	if (filtered != FILTER_IN) {
 		/*
 		 * Skip recording but still hook the return address,
