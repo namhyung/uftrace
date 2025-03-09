@@ -23,7 +23,7 @@ static int b(void *arg)
 
 static int c(void *arg)
 {
-	return *(int *)arg;
+	return *(long *)arg;
 }
 
 static void *foo(void *arg)
