@@ -65,6 +65,21 @@ enum trigger_read_type {
 	TRIGGER_READ_PMU_BRANCH = 16,
 };
 
+enum filter_cond_op {
+	FILTER_OP_EQ,
+	FILTER_OP_NE,
+	FILTER_OP_GT,
+	FILTER_OP_GE,
+	FILTER_OP_LT,
+	FILTER_OP_LE,
+};
+
+struct uftrace_filter_cond {
+	int idx; /* argument index, 0 if disabled */
+	enum filter_cond_op op;
+	long val;
+};
+
 struct uftrace_trigger {
 	enum trigger_flag flags;
 	enum trigger_flag clear_flags;
@@ -75,6 +90,7 @@ struct uftrace_trigger {
 	enum filter_mode fmode;
 	enum filter_mode lmode;
 	enum trigger_read_type read;
+	struct uftrace_filter_cond cond;
 	struct list_head *pargs;
 };
 
@@ -163,6 +179,8 @@ void uftrace_cleanup_filter(struct rb_root *root);
 void uftrace_cleanup_triggers(struct uftrace_triggers_info *triggers);
 void uftrace_print_filter(struct rb_root *root);
 int uftrace_count_filter(struct rb_root *root, unsigned long flag);
+
+bool uftrace_eval_cond(struct uftrace_filter_cond *cond, long val);
 
 void init_filter_pattern(enum uftrace_pattern_type type, struct uftrace_pattern *p, char *str);
 bool match_filter_pattern(struct uftrace_pattern *p, char *name);
