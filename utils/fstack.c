@@ -655,6 +655,38 @@ int fstack_entry(struct uftrace_task_reader *task, struct uftrace_record *rstack
 		}
 
 		uftrace_match_filter(addr, &sess->filters, tr);
+
+		if (tr->flags & TRIGGER_FL_FILTER && tr->cond.idx && task->args.args &&
+		    !list_empty(task->args.args)) {
+			struct list_head *arg_list = task->args.args;
+			struct uftrace_arg_spec *spec;
+			void *data = task->args.data;
+			long val = 0;
+			bool found = false;
+
+			list_for_each_entry(spec, arg_list, list) {
+				int size = spec->size;
+
+				if (spec->idx == tr->cond.idx) {
+					memcpy(&val, data, spec->size);
+					found = true;
+					break;
+				}
+
+				/* skip unrelated arguments */
+				if (spec->fmt == ARG_FMT_STR || spec->fmt == ARG_FMT_STD_STRING) {
+					uint16_t slen;
+
+					memcpy(&slen, data, sizeof(slen));
+					size = slen + sizeof(slen);
+				}
+
+				data += ALIGN(size, 4);
+			}
+
+			if (found && !uftrace_eval_cond(&tr->cond, val))
+				tr->flags &= ~TRIGGER_FL_FILTER;
+		}
 	}
 
 	if (tr->flags & TRIGGER_FL_FILTER) {
