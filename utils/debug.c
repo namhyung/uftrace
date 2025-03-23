@@ -442,4 +442,25 @@ void print_diff_count(uint64_t base, uint64_t pair)
 	else
 		pr_out("%9s", "+0");
 }
+
+void print_diff_percent_point(double base, double pair)
+{
+	double diff = pair - base;
+	const char *sc;
+	const char *ec = get_color(COLOR_CODE_RESET);
+
+	/* for some error cases */
+	if (diff > 999.99)
+		diff = 999.99;
+	else if (diff < -999.99)
+		diff = -999.99;
+
+	sc = diff > 30	? get_color(COLOR_CODE_RED) :
+	     diff > 3	? get_color(COLOR_CODE_MAGENTA) :
+	     diff < -30 ? get_color(COLOR_CODE_BLUE) :
+	     diff < -3	? get_color(COLOR_CODE_CYAN) :
+			  get_color(COLOR_CODE_NORMAL);
+
+	pr_out("%s%+7.2f%%pt%s", sc, diff, ec);
+}
 #endif

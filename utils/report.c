@@ -33,8 +33,14 @@ static void update_time_stat(struct report_time_stat *ts, uint64_t time_ns, bool
 
 static void finish_time_stat(struct report_time_stat *ts, unsigned long call)
 {
+	double variance;
+
 	ts->avg = (ts->sum + ts->rec) / call;
-	ts->stdv = sqrt((ts->sum_sq + ts->rec_sq) / call - ts->avg * ts->avg) * 100 / ts->avg;
+
+	variance = (ts->sum_sq + ts->rec_sq) / call;
+	variance -= ts->avg * ts->avg;
+
+	ts->stdv = sqrt(variance / call) * 100 / ts->avg;
 }
 
 static struct uftrace_report_node *find_or_create_node(struct rb_root *root, const char *name,
@@ -810,6 +816,16 @@ void report_sort_tasks(struct uftrace_data *handle, struct rb_root *name_root,
 	}                                                                                          \
 	FIELD_STRUCT(_id, _name, _func##_diff, _header, 11)
 
+#define FIELD_PERCENT_DIFF(_id, _name, _field, _func, _header)                                     \
+	static void print_##_func##_diff(struct field_data *fd)                                    \
+	{                                                                                          \
+		struct uftrace_report_node *node = fd->arg;                                        \
+		struct uftrace_report_node *pair = node->pair;                                     \
+		pr_out(" ");                                                                       \
+		print_diff_percent_point(node->_field, pair->_field);                              \
+	}                                                                                          \
+	FIELD_STRUCT(_id, _name, _func##_diff, _header, 11)
+
 #define FIELD_TIME_DIFF_FULL(_id, _name, _field, _func, _header)                                   \
 	static void print_##_func##_diff_full(struct field_data *fd)                               \
 	{                                                                                          \
@@ -833,6 +849,19 @@ void report_sort_tasks(struct uftrace_data *handle, struct rb_root *name_root,
 		print_diff_count(node->_field, pair->_field);                                      \
 	}                                                                                          \
 	FIELD_STRUCT(_id, _name, _func, _header, 32)
+
+#define FIELD_PERCENT_DIFF_FULL(_id, _name, _field, _func, _header)                                \
+	static void print_##_func##_diff_full(struct field_data *fd)                               \
+	{                                                                                          \
+		struct uftrace_report_node *node = fd->arg;                                        \
+		struct uftrace_report_node *pair = node->pair;                                     \
+		pr_out("%9.2f%%", node->_field);                                                   \
+		pr_out(" ");                                                                       \
+		pr_out("%9.2f%%", pair->_field);                                                   \
+		pr_out(" ");                                                                       \
+		print_diff_percent_point(node->_field, pair->_field);                              \
+	}                                                                                          \
+	FIELD_STRUCT(_id, _name, _func##_diff_full, _header, 32)
 
 #define FIELD_TIME_DIFF_FULL_PCT(_id, _name, _field, _func, _header)                               \
 	static void print_##_func##_diff_full_percent(struct field_data *fd)                       \
@@ -888,6 +917,8 @@ FIELD_TIME_DIFF(REPORT_F_SELF_TIME_MIN, self-min, self.min, self_min, "Self min"
 FIELD_TIME_DIFF(REPORT_F_SELF_TIME_MAX, self-max, self.max, self_max, "Self max");
 FIELD_UINT_DIFF(REPORT_F_CALL, call, call, call, "Calls");
 FIELD_UINT_DIFF(REPORT_F_SIZE, size, size, size, "Size");
+FIELD_PERCENT_DIFF(REPORT_F_TOTAL_TIME_STDV, total-stdv, total.stdv, total_stdv, "Total stdv");
+FIELD_PERCENT_DIFF(REPORT_F_SELF_TIME_STDV, self-stdv, self.stdv, self_stdv, "Self stdv");
 
 FIELD_TIME_DIFF_FULL(REPORT_F_TOTAL_TIME, total, total.sum, total, "Total time (diff)");
 FIELD_TIME_DIFF_FULL(REPORT_F_TOTAL_TIME_AVG, total-avg, total.avg, total_avg, "Total avg (diff)");
@@ -899,6 +930,8 @@ FIELD_TIME_DIFF_FULL(REPORT_F_SELF_TIME_MIN, self-min, self.min, self_min, "Self
 FIELD_TIME_DIFF_FULL(REPORT_F_SELF_TIME_MAX, self-max, self.max, self_max, "Self min (diff)");
 FIELD_UINT_DIFF_FULL(REPORT_F_CALL, call, call, call_diff_full, "Calls (diff)");
 FIELD_UINT_DIFF_FULL(REPORT_F_SIZE, size, size, size_diff_full, "Size (diff)");
+FIELD_PERCENT_DIFF_FULL(REPORT_F_TOTAL_TIME_STDV, total-stdv, total.stdv, total_stdv, "Total stdv (diff)");
+FIELD_PERCENT_DIFF_FULL(REPORT_F_SELF_TIME_STDV, self-stdv, self.stdv, self_stdv, "Self stdv (diff)");
 
 FIELD_TIME_DIFF_FULL_PCT(REPORT_F_TOTAL_TIME, total, total.sum, total, "Total time (diff)");
 FIELD_TIME_DIFF_FULL_PCT(REPORT_F_TOTAL_TIME_AVG, total-avg, total.avg, total_avg, "Total avg (diff)");
@@ -910,6 +943,7 @@ FIELD_TIME_DIFF_FULL_PCT(REPORT_F_SELF_TIME_MIN, self-min, self.min, self_min, "
 FIELD_TIME_DIFF_FULL_PCT(REPORT_F_SELF_TIME_MAX, self-max, self.max, self_max, "Self min (diff)");
 FIELD_UINT_DIFF_FULL(REPORT_F_CALL, call, call, call_diff_full_percent, "Calls (diff)");
 FIELD_UINT_DIFF_FULL(REPORT_F_SIZE, size, size, size_diff_full_percent, "Size (diff)");
+// reused FIELD_PERCENT_DIFF_FULL for total-stdv and self-stdv
 
 FIELD_TIME(REPORT_F_TASK_TOTAL_TIME, total, total.sum, task_total, "Total time");
 FIELD_TIME(REPORT_F_TASK_SELF_TIME, self, self.sum, task_self, "Self time");
@@ -926,17 +960,17 @@ static struct display_field *field_table[] = {
 
 /* index of this table should be matched to display_field_id */
 static struct display_field *field_diff_table[] = {
-	&field_total_diff, &field_total_avg_diff, &field_total_min_diff, &field_total_max_diff,
-	&field_self_diff,  &field_self_avg_diff,  &field_self_min_diff,	 &field_self_max_diff,
-	&field_call_diff,  &field_size_diff,
+	&field_total_diff, &field_total_avg_diff, &field_total_min_diff,  &field_total_max_diff,
+	&field_self_diff,  &field_self_avg_diff,  &field_self_min_diff,	  &field_self_max_diff,
+	&field_call_diff,  &field_size_diff,	  &field_total_stdv_diff, &field_self_stdv_diff,
 };
 
 /* index of this table should be matched to display_field_id */
 static struct display_field *field_diff_full_table[] = {
-	&field_total_diff_full,	    &field_total_avg_diff_full, &field_total_min_diff_full,
-	&field_total_max_diff_full, &field_self_diff_full,	&field_self_avg_diff_full,
-	&field_self_min_diff_full,  &field_self_max_diff_full,	&field_call_diff_full,
-	&field_size_diff_full,
+	&field_total_diff_full,	    &field_total_avg_diff_full,	 &field_total_min_diff_full,
+	&field_total_max_diff_full, &field_self_diff_full,	 &field_self_avg_diff_full,
+	&field_self_min_diff_full,  &field_self_max_diff_full,	 &field_call_diff_full,
+	&field_size_diff_full,	    &field_total_stdv_diff_full, &field_self_stdv_diff_full,
 };
 
 /* index of this table should be matched to display_field_id */
@@ -946,6 +980,7 @@ static struct display_field *field_diff_full_percent_table[] = {
 	&field_self_diff_full_percent,	    &field_self_avg_diff_full_percent,
 	&field_self_min_diff_full_percent,  &field_self_max_diff_full_percent,
 	&field_call_diff_full_percent,	    &field_size_diff_full_percent,
+	&field_total_stdv_diff_full,	    &field_self_stdv_diff_full,
 };
 
 /* index of this table should be matched to display_field_id */
