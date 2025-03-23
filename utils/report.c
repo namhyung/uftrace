@@ -33,8 +33,14 @@ static void update_time_stat(struct report_time_stat *ts, uint64_t time_ns, bool
 
 static void finish_time_stat(struct report_time_stat *ts, unsigned long call)
 {
+	double variance;
+
 	ts->avg = (ts->sum + ts->rec) / call;
-	ts->stdv = sqrt((ts->sum_sq + ts->rec_sq) / call - ts->avg * ts->avg) * 100 / ts->avg;
+
+	variance = (ts->sum_sq + ts->rec_sq) / call;
+	variance -= ts->avg * ts->avg;
+
+	ts->stdv = sqrt(variance / call) * 100 / ts->avg;
 }
 
 static struct uftrace_report_node *find_or_create_node(struct rb_root *root, const char *name,
