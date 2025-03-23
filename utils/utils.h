@@ -366,6 +366,7 @@ void print_time_unit(uint64_t delta_nsec);
 void print_diff_percent(uint64_t base_nsec, uint64_t delta_nsec);
 void print_diff_time_unit(uint64_t base_nsec, uint64_t pair_nsec);
 void print_diff_count(uint64_t base, uint64_t pair);
+void print_diff_percent_point(double base, double pair);
 
 char *setup_pager(void);
 void start_pager(char *pager);
