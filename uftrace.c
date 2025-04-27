@@ -1348,6 +1348,22 @@ static int parse_options(int argc, char **argv, struct uftrace_opts *opts)
 			return tmp;
 	}
 
+#if defined(HAVE_LIBCAPSTONE) && defined(__aarch64__)
+	// Address the AArch64 mcount-gcc first argument passing problem:
+	// https://github.com/namhyung/uftrace/issues/781
+	// On aarch64, gcc passes the frame pointer in 0x (despite already passing it in x30),
+	// thereby overwriting arg1 for mcount(). We can only patch this using fully dynamic
+	// tracing.
+	// The initial workaround switches from mcount() to -P., even when instrumented
+	// using -pg or -finstrument-functions. To avoid the duplicate records from these,
+	// we switch from collecting data from those to use fully dynamic tracing:
+	if (!opts->patch) { // If fully dynamic tracing was not enabled, enable it like "-P.":
+		opts->patch = strdup("."); // FIXME:
+		// filter bogus operator!=() which capstone-based tracing emits in s-arg.c:check()
+		opts->filter = opt_add_prefix_string(opts->filter, "!", "operator!=()");
+		opts->filter = opt_add_prefix_string(opts->filter, "!", "operator==()");
+	}
+#endif
 	if (optind < argc) {
 		opts->idx = optind;
 		opts->exename = argv[optind];
