@@ -51,6 +51,7 @@ struct code_page {
 
 static LIST_HEAD(code_pages);
 
+/* contains out-of-line execution code (return address -> modified instructions ptr) */
 static struct Hashmap *code_hmap;
 
 /* minimum function size for dynamic update */
@@ -221,6 +222,10 @@ __weak int mcount_patch_func(struct mcount_dynamic_info *mdi, struct uftrace_sym
 			     struct mcount_disasm_engine *disasm, unsigned min_size)
 {
 	return -1;
+}
+
+__weak void mcount_patch_normal_func_fini(void)
+{
 }
 
 __weak int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
@@ -578,6 +583,8 @@ static void patch_normal_func_matched(struct mcount_dynamic_info *mdi, struct uf
 
 	if (!found)
 		stats.nomatch++;
+
+	mcount_patch_normal_func_fini();
 
 	free(soname);
 }
