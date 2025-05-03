@@ -309,6 +309,31 @@ with the `-N` option.
        6.448 us [ 1234] |   a();
        8.631 us [ 1234] | } /* main */
 
+You can set a condition for these filters using the value of argument.
+Currently it assumes the argument has an integer value and does the comparison
+for integers.  The "@if:" suffix should be added after the function name with
+the comparison expressions.
+
+    $ uftrace record -F main@if:arg1==1  ./abc
+    $ uftrace replay
+    # DURATION    TID     FUNCTION
+                [ 1234] | main() {
+                [ 1234] |   a() {
+                [ 1234] |     b() {
+       3.880 us [ 1234] |       c();
+       5.475 us [ 1234] |     } /* b */
+       6.448 us [ 1234] |   } /* a */
+       8.631 us [ 1234] | } /* main */
+
+It worked because the value of the first argument of 'main' function was 1.
+If you change the condition, it won't enable the filter.
+
+    $ uftrace record -F main@if:arg1==2  ./abc
+    $ uftrace replay
+    WARN: cannot open record data: uftrace.data: No data available
+
+Of course, it only works the function has arguments.
+
 If users only care about specific functions and want to know how they are called,
 one can use the caller filter.  It makes the function as leaf and records the
 parent functions to the function.
@@ -434,9 +459,11 @@ The BNF for trigger specification is as follows:
     <action>     :=  "depth="<num> | "trace" | "trace_on" | "trace_off" |
                      "time="<time_spec> | "size="<num> | "read="<read_spec> |
                      "finish" | "filter" | "notrace" | "recover"
-                     "filter" | "notrace" | "recover"
+                     "filter" | "notrace" | "recover" | "if:"<cond_spec>
     <time_unit>  :=  "ns" | "nsec" | "us" | "usec" | "ms" | "msec" | "s" | "sec" | "m" | "min"
     <read_spec>  :=  "proc/statm" | "page-fault" | "pmu-cycle" | "pmu-cache" | "pmu-branch"
+    <cond_spec>  :=  "arg"<num> <cond_op> <num>
+    <cond_op>    :=  "==" | "!=" | ">" | ">=" | "<" | "<="
 
 The `depth` trigger is to change filter depth during execution of the function.
 It can be used to apply different filter depths for different functions.
@@ -498,7 +525,7 @@ The 'finish' trigger is to end recording.  The process still can run and this
 can be useful to trace unterminated processes like daemon.
 
 The 'filter' and 'notrace' triggers have same effect as `-F`/`--filter` and
-`-N`/`--notrace` options respectively.
+`-N`/`--notrace` options respectively.  And it can have a condition.
 
 Triggers only work for user-level functions for now.
 
