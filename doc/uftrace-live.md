@@ -384,6 +384,29 @@ with the `-N` option.
        6.448 us [ 1234] |   a();
        8.631 us [ 1234] | } /* main */
 
+You can set a condition for these filters using the value of argument.
+Currently it assumes the argument has an integer value and does the comparison
+for integers.  The "@if:" suffix should be added after the function name with
+the comparison expressions.
+
+    $ uftrace -F main@if:arg1==1  ./abc
+    # DURATION    TID     FUNCTION
+                [ 1234] | main() {
+                [ 1234] |   a() {
+                [ 1234] |     b() {
+       3.880 us [ 1234] |       c();
+       5.475 us [ 1234] |     } /* b */
+       6.448 us [ 1234] |   } /* a */
+       8.631 us [ 1234] | } /* main */
+
+It worked because the value of the first argument of 'main' function was 1.
+If you change the condition, it won't enable the filter.
+
+    $ uftrace -F main@if:arg1==2  ./abc
+    WARN: cannot open record data: /tmp/uftrace-live-DEFJzZ: No data available
+
+Of course, it only works the function has arguments.
+
 You can hide the function `b()` only without affecting the calls it makes in its
 subtree functions with `-H` option.
 
@@ -513,11 +536,14 @@ The BNF for trigger specification is as follows:
     <actions>    :=  <action>  | <action> "," <actions>
     <action>     :=  "depth="<num> | "backtrace" | "trace" | "trace_on" | "trace_off" |
                      "recover" | "color="<color> | "time="<time_spec> | "read="<read_spec> |
-                     "finish" | "filter" | "notrace" | "hide" | "clear" [ "="<clear_spec> ]
+                     "finish" | "filter" | "notrace" | "hide" | "clear" [ "="<clear_spec> ] |
+		     "if:"<cond_spec>
     <time_spec>  :=  <num> [ <time_unit> ]
     <time_unit>  :=  "ns" | "nsec" | "us" | "usec" | "ms" | "msec" | "s" | "sec" | "m" | "min"
     <read_spec>  :=  "proc/statm" | "page-fault" | "pmu-cycle" | "pmu-cache" | "pmu-branch"
     <clear_spec> :=  <action> | <action> "+" <action>
+    <cond_spec>  :=  "arg"<num> <cond_op> <num>
+    <cond_op>    :=  "==" | "!=" | ">" | ">=" | "<" | "<="
 
 The `depth` trigger is to change filter depth during execution of the function.
 It can be used to apply different filter depths for different functions.  And
@@ -587,7 +613,7 @@ The `finish` trigger is to end recording.  The process can still run, which
 can be useful to trace non-terminating processes like daemon.
 
 The `filter` and `notrace` triggers have same effect as `-F`/`--filter` and
-`-N`/`--notrace` options respectively.
+`-N`/`--notrace` options respectively.  And it can have a condition.
 
 The `hide` trigger has the same effect as `-H`/`--hide` option that hides the
 given functions, but does not affect to the functions in their subtree unlike

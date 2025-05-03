@@ -229,6 +229,9 @@ with the `-N` option.
        6.448 us [ 1234] |   a();
        8.631 us [ 1234] | } /* main */
 
+The filter condition can be applied to `uftrace replay`.  But it'd work only if
+arguments are saved by `uftrace record`.
+
 You can hide the function `b()` only without affecting the calls it makes in its
 subtree functions with `-H` option.
 
@@ -381,9 +384,11 @@ without filters.  Currently supported triggers are `depth`, `backtrace`,
     <actions>    :=  <action>  | <action> "," <actions>
     <action>     :=  "depth="<num> | "backtrace" | "trace_on" | "trace_off" |
                      "color="<color> | "time="<time_spec> | "size="<num> |
-                     "filter" | "notrace" | "hide"
+                     "filter" | "notrace" | "hide" | "if:"<cond_spec>
     <time_spec>  :=  <num> [ <time_unit> ]
     <time_unit>  :=  "ns" | "nsec" | "us" | "usec" | "ms" | "msec" | "s" | "sec" | "m" | "min"
+    <cond_spec>  :=  "arg"<num> <cond_op> <num>
+    <cond_op>    :=  "==" | "!=" | ">" | ">=" | "<" | "<="
 
 The `depth` trigger is to change filter depth during execution of the function.
 It can be used to apply different filter depths for different functions.  And
@@ -415,7 +420,7 @@ The `time` trigger is to change time filter setting during execution of the
 function.  It can be used to apply different time filter for different functions.
 
 The `filter` and `notrace` triggers have same effect as `-F`/`--filter` and
-`-N`/`--notrace` options respectively.
+`-N`/`--notrace` options respectively.  And it can have a condition.
 
 The `hide` trigger has the same effect as `-H`/`--hide` option that hides the
 given functions, but do not affect to the functions in their subtree unlike
