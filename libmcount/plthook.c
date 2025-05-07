@@ -413,9 +413,9 @@ static int hook_pltgot(const char *modname, unsigned long offset)
 
 /* functions should skip PLT hooking */
 static const char *skip_syms[] = {
-	"_mcleanup",	  "__libc_start_main",	  "__cxa_throw",
-	"__cxa_rethrow",  "__cxa_begin_catch",	  "__cxa_end_catch",
-	"__cxa_finalize", "__gxx_personality_v0", "_Unwind_Resume",
+	"_mcleanup",	     "__libc_start_main", "__cxa_throw",    "__cxa_rethrow",
+	"__cxa_begin_catch", "__cxa_end_catch",	  "__cxa_finalize", "__gxx_personality_v0",
+	"_Unwind_Resume",    "runtime.schedinit",
 };
 
 static const char *setjmp_syms[] = {
