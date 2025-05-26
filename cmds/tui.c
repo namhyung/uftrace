@@ -291,22 +291,68 @@ static void print_graph_addr(struct field_data *fd)
 	printw("%*" PRIx64, width, effective_addr(node->addr));
 }
 
-static void print_graph_total_avg(struct field_data *fd){
+static void print_graph_total_avg(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	uint64_t d;
+
+	d = graph_get_total_avg(node->parent);
+
+	print_time(d);
 }
 
-static void print_graph_total_min(struct field_data *fd){
+static void print_graph_total_min(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	struct uftrace_graph_node *min_node = graph_find_total_min_node(node->parent);
+	uint64_t d;
+
+	d = min_node->time;
+
+	print_time(d);
 }
 
-static void print_graph_total_max(struct field_data *fd){
+static void print_graph_total_max(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	struct uftrace_graph_node *max_node = graph_find_total_max_node(node->parent);
+	uint64_t d;
+
+	d = max_node->time;
+
+	print_time(d);
 }
 
-static void print_graph_self_min(struct field_data *fd){
+static void print_graph_self_min(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	struct uftrace_graph_node *min_node = graph_find_self_min_node(node->parent);
+	uint64_t d;
+
+	d = min_node->time - min_node->child_time;
+
+	print_time(d);
 }
 
-static void print_graph_self_max(struct field_data *fd){
+static void print_graph_self_max(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	struct uftrace_graph_node *max_node = graph_find_self_max_node(node->parent);
+	uint64_t d;
+
+	d = max_node->time - max_node->child_time;
+
+	print_time(d);
 }
 
-static void print_graph_self_avg(struct field_data *fd){
+static void print_graph_self_avg(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	uint64_t d;
+
+	d = graph_get_self_avg(node->parent);
+
+	print_time(d);
 }
 
 static struct display_field graph_field_total = {
