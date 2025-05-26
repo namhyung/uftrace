@@ -390,7 +390,7 @@ static struct display_field graph_field_addr = {
 	.list = LIST_HEAD_INIT(graph_field_addr.list),
 };
 
-static struct display_field *graph_field_total_avg = {
+static struct display_field graph_field_total_avg = {
 	.id = GRAPH_F_TOTAL_AVG,
 	.name = "total-avg",
 	.alias = "total-al",
@@ -400,7 +400,7 @@ static struct display_field *graph_field_total_avg = {
 	.list = LIST_HEAD_INIT(graph_field_total.list),
 }
 
-static struct display_field *graph_field_self_avg = {
+static struct display_field graph_field_self_avg = {
 	.id = GRAPH_F_SELF_AVG,
 	.name = "self-avg",
 	.alias = "self-a",
@@ -410,7 +410,7 @@ static struct display_field *graph_field_self_avg = {
 	.list = LIST_HEAD_INIT(graph_field_self_avg.list),
 }
 
-static struct display_field *graph_field_total_min= {
+static struct display_field graph_field_total_min= {
 	.id = GRAPH_F_TOTAL_MIN,
 	.name = "total-min",
 	.alias = "total-m",
@@ -420,7 +420,7 @@ static struct display_field *graph_field_total_min= {
 	.list = LIST_HEAD_INIT(graph_field_total_min.list),
 }
 
-static struct display_field *graph_field_self_min = {
+static struct display_field graph_field_self_min = {
 	.id = GRAPH_F_SELF_AVG,
 	.name = "self-min",
 	.alias = "self-m",
@@ -430,7 +430,7 @@ static struct display_field *graph_field_self_min = {
 	.list = LIST_HEAD_INIT(graph_field_self_min.list),
 }
 
-static struct display_field *graph_field_total_max = {
+static struct display_field graph_field_total_max = {
 	.id = GRAPH_F_TOTAL_AVG,
 	.name = "total-max",
 	.alias = "total-M",
@@ -440,7 +440,7 @@ static struct display_field *graph_field_total_max = {
 	.list = LIST_HEAD_INIT(graph_field_total_max.list),
 }
 
-static struct display_field *graph_field_self_max = {
+static struct display_field graph_field_self_max = {
 	.id = GRAPH_F_SELF_MAX,
 	.name = "self-max",
 	.alias = "self-m",
