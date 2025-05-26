@@ -398,7 +398,7 @@ static struct display_field graph_field_total_avg = {
 	.length = 10,
 	.print = print_graph_total_avg,
 	.list = LIST_HEAD_INIT(graph_field_total.list),
-}
+};
 
 static struct display_field graph_field_self_avg = {
 	.id = GRAPH_F_SELF_AVG,
@@ -408,9 +408,9 @@ static struct display_field graph_field_self_avg = {
 	.length = 10,
 	.print = print_graph_self_avg,
 	.list = LIST_HEAD_INIT(graph_field_self_avg.list),
-}
+};
 
-static struct display_field graph_field_total_min= {
+static struct display_field graph_field_total_min = {
 	.id = GRAPH_F_TOTAL_MIN,
 	.name = "total-min",
 	.alias = "total-m",
@@ -418,7 +418,7 @@ static struct display_field graph_field_total_min= {
 	.length = 10,
 	.print = print_graph_total_min,
 	.list = LIST_HEAD_INIT(graph_field_total_min.list),
-}
+};
 
 static struct display_field graph_field_self_min = {
 	.id = GRAPH_F_SELF_AVG,
@@ -428,7 +428,7 @@ static struct display_field graph_field_self_min = {
 	.length = 10,
 	.print = print_graph_self_min,
 	.list = LIST_HEAD_INIT(graph_field_self_min.list),
-}
+};
 
 static struct display_field graph_field_total_max = {
 	.id = GRAPH_F_TOTAL_AVG,
@@ -438,7 +438,7 @@ static struct display_field graph_field_total_max = {
 	.length = 10,
 	.print = print_graph_total_max,
 	.list = LIST_HEAD_INIT(graph_field_total_max.list),
-}
+};
 
 static struct display_field graph_field_self_max = {
 	.id = GRAPH_F_SELF_MAX,
@@ -448,19 +448,13 @@ static struct display_field graph_field_self_max = {
 	.length = 10,
 	.print = print_graph_self_max,
 	.list = LIST_HEAD_INIT(graph_field_self_max.list),
-}
+};
 
 /* index of this table should be matched to display_field_id */
 static struct display_field *graph_field_table[] = {
-	&graph_field_total,
-	&graph_field_self,
-	&graph_field_addr,
-	&graph_field_total_avg,
-	&graph_field_self_avg,
-	&graph_field_total_min,
-	&graph_field_self_min,
-	&graph_field_total_max,
-	&graph_field_self_max,
+	&graph_field_total,	&graph_field_self,	&graph_field_addr,
+	&graph_field_total_avg, &graph_field_self_avg,	&graph_field_total_min,
+	&graph_field_self_min,	&graph_field_total_max, &graph_field_self_max,
 };
 
 /* clang-format off */
