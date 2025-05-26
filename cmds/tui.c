@@ -291,6 +291,24 @@ static void print_graph_addr(struct field_data *fd)
 	printw("%*" PRIx64, width, effective_addr(node->addr));
 }
 
+static void print_graph_total_avg(struct field_data *fd){
+}
+
+static void print_graph_total_min(struct field_data *fd){
+}
+
+static void print_graph_total_max(struct field_data *fd){
+}
+
+static void print_graph_self_min(struct field_data *fd){
+}
+
+static void print_graph_self_max(struct field_data *fd){
+}
+
+static void print_graph_self_avg(struct field_data *fd){
+}
+
 static struct display_field graph_field_total = {
 	.id = GRAPH_F_TOTAL_TIME,
 	.name = "total-time",
@@ -326,11 +344,77 @@ static struct display_field graph_field_addr = {
 	.list = LIST_HEAD_INIT(graph_field_addr.list),
 };
 
+static struct display_field *graph_field_total_avg = {
+	.id = GRAPH_F_TOTAL_AVG,
+	.name = "total-avg",
+	.alias = "total-al",
+	.header = "TOTAL AVG",
+	.length = 10,
+	.print = print_graph_total_avg,
+	.list = LIST_HEAD_INIT(graph_field_total.list),
+}
+
+static struct display_field *graph_field_self_avg = {
+	.id = GRAPH_F_SELF_AVG,
+	.name = "self-avg",
+	.alias = "self-a",
+	.header = "SELF AVG",
+	.length = 10,
+	.print = print_graph_self_avg,
+	.list = LIST_HEAD_INIT(graph_field_self_avg.list),
+}
+
+static struct display_field *graph_field_total_min= {
+	.id = GRAPH_F_TOTAL_MIN,
+	.name = "total-min",
+	.alias = "total-m",
+	.header = "TOTAL MIN",
+	.length = 10,
+	.print = print_graph_total_min,
+	.list = LIST_HEAD_INIT(graph_field_total_min.list),
+}
+
+static struct display_field *graph_field_self_min = {
+	.id = GRAPH_F_SELF_AVG,
+	.name = "self-min",
+	.alias = "self-m",
+	.header = "SELF MIN",
+	.length = 10,
+	.print = print_graph_self_min,
+	.list = LIST_HEAD_INIT(graph_field_self_min.list),
+}
+
+static struct display_field *graph_field_total_max = {
+	.id = GRAPH_F_TOTAL_AVG,
+	.name = "total-max",
+	.alias = "total-M",
+	.header = "TOTAL MAX",
+	.length = 10,
+	.print = print_graph_total_max,
+	.list = LIST_HEAD_INIT(graph_field_total_max.list),
+}
+
+static struct display_field *graph_field_self_max = {
+	.id = GRAPH_F_SELF_MAX,
+	.name = "self-max",
+	.alias = "self-m",
+	.header = "SELF MAX",
+	.length = 10,
+	.print = print_graph_self_max,
+	.list = LIST_HEAD_INIT(graph_field_self_max.list),
+}
+
 /* index of this table should be matched to display_field_id */
 static struct display_field *graph_field_table[] = {
 	&graph_field_total,
 	&graph_field_self,
 	&graph_field_addr,
+	&graph_field_total_avg,
+	&graph_field_self_avg,
+	&graph_field_total_min,
+	&graph_field_self_min,
+	&graph_field_total_max,
+	&graph_field_self_max,
 };
 
 /* clang-format off */
