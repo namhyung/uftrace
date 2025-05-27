@@ -235,6 +235,9 @@ struct uftrace_graph_node *graph_find_node(struct uftrace_graph_node *parent, ui
 
 uint64_t graph_get_total_avg(struct uftrace_graph_node *parent)
 {
+	if (parent == NULL) {
+		return -1;
+	}
 	uint64_t total = 0;
 	uint32_t counter = 0;
 	struct uftrace_graph_node *node;
@@ -247,6 +250,9 @@ uint64_t graph_get_total_avg(struct uftrace_graph_node *parent)
 
 struct uftrace_graph_node *graph_find_total_min_node(struct uftrace_graph_node *parent)
 {
+	if (parent == NULL) {
+		return NULL;
+	}
 	struct uftrace_graph_node *node;
 	struct uftrace_graph_node *min_node =
 		list_first_entry(&parent->head, struct uftrace_graph_node, list);
@@ -262,6 +268,9 @@ struct uftrace_graph_node *graph_find_total_min_node(struct uftrace_graph_node *
 
 struct uftrace_graph_node *graph_find_total_max_node(struct uftrace_graph_node *parent)
 {
+	if (parent == NULL) {
+		return NULL;
+	}
 	struct uftrace_graph_node *node;
 	struct uftrace_graph_node *max_node =
 		list_first_entry(&parent->head, struct uftrace_graph_node, list);
@@ -277,6 +286,9 @@ struct uftrace_graph_node *graph_find_total_max_node(struct uftrace_graph_node *
 
 uint64_t graph_get_self_avg(struct uftrace_graph_node *parent)
 {
+	if (parent == NULL) {
+		return -1;
+	}
 	uint64_t total = 0;
 	uint32_t counter = 0;
 	struct uftrace_graph_node *node;
@@ -289,6 +301,9 @@ uint64_t graph_get_self_avg(struct uftrace_graph_node *parent)
 
 struct uftrace_graph_node *graph_find_self_max_node(struct uftrace_graph_node *parent)
 {
+	if (parent == NULL) {
+		return NULL;
+	}
 	struct uftrace_graph_node *node;
 	struct uftrace_graph_node *max_self_node =
 		list_first_entry(&parent->head, struct uftrace_graph_node, list);
@@ -304,6 +319,9 @@ struct uftrace_graph_node *graph_find_self_max_node(struct uftrace_graph_node *p
 
 struct uftrace_graph_node *graph_find_self_min_node(struct uftrace_graph_node *parent)
 {
+	if (parent == NULL) {
+		return NULL;
+	}
 	struct uftrace_graph_node *node;
 	struct uftrace_graph_node *min_self_node =
 		list_first_entry(&parent->head, struct uftrace_graph_node, list);
