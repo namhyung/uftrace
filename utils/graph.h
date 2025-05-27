@@ -66,10 +66,10 @@ int graph_add_node(struct uftrace_task_graph *tg, int type, char *name, size_t n
 struct uftrace_graph_node *graph_find_node(struct uftrace_graph_node *parent, uint64_t addr);
 
 uint64_t graph_get_total_avg(struct uftrace_graph_node *parent);
-struct uftrace_graph_node *graph_find_total_min_node(struct uftrace_graph_node *parent);
-struct uftrace_graph_node *graph_find_total_max_node(struct uftrace_graph_node *parent);
-struct uftrace_graph_node *graph_find_self_max_node(struct uftrace_graph_node *parent);
-struct uftrace_graph_node *graph_find_self_min_node(struct uftrace_graph_node *parent);
+uint64_t graph_find_total_min_node(struct uftrace_graph_node *parent);
+uint64_t graph_find_total_max_node(struct uftrace_graph_node *parent);
+uint64_t graph_find_self_max_node(struct uftrace_graph_node *parent);
+uint64_t graph_find_self_min_node(struct uftrace_graph_node *parent);
 uint64_t graph_get_self_avg(struct uftrace_graph_node *parent);
 
 #endif /* UFTRACE_GRAPH_H */
