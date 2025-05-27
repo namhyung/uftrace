@@ -176,7 +176,7 @@ static struct display_field graph_field_total_avg = {
 	.header = "TOTAL AVG",
 	.length = 10,
 	.print = print_graph_total_avg,
-	.list = LIST_HEAD_INIT(graph_field_tota_avgl.list),
+	.list = LIST_HEAD_INIT(graph_field_total_avg.list),
 };
 
 static struct display_field graph_field_self_avg = {
