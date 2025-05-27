@@ -254,11 +254,12 @@ struct uftrace_graph_node *graph_find_total_min_node(struct uftrace_graph_node *
 {
 	struct uftrace_graph_node *node;
 	struct uftrace_graph_node *min_node;
+	uint64_t min_time;
 	if (parent == NULL) {
 		return NULL;
 	}
 	min_node = list_first_entry(&parent->head, struct uftrace_graph_node, list);
-	uint64_t min_time = min_node->time;
+	min_time = min_node->time;
 	list_for_each_entry(node, &parent->head, list) {
 		if (node->time < min_time) {
 			min_node = node;
@@ -272,11 +273,12 @@ struct uftrace_graph_node *graph_find_total_max_node(struct uftrace_graph_node *
 {
 	struct uftrace_graph_node *node;
 	struct uftrace_graph_node *max_node;
+	uint64_t max_time;
 	if (parent == NULL) {
 		return NULL;
 	}
 	max_node = list_first_entry(&parent->head, struct uftrace_graph_node, list);
-	uint64_t max_time = max_node->time;
+	max_time = max_node->time;
 	list_for_each_entry(node, &parent->head, list) {
 		if (node->time > max_time) {
 			max_node = node;
@@ -307,13 +309,14 @@ struct uftrace_graph_node *graph_find_self_max_node(struct uftrace_graph_node *p
 {
 	struct uftrace_graph_node *node;
 	struct uftrace_graph_node *max_self_node;
+	uint64_t max_self_time;
 
 	if (parent == NULL) {
 		return NULL;
 	}
 
 	max_self_node = list_first_entry(&parent->head, struct uftrace_graph_node, list);
-	uint64_t max_self_time = max_self_node->time - max_self_node->child_time;
+	max_self_time = max_self_node->time - max_self_node->child_time;
 	list_for_each_entry(node, &parent->head, list) {
 		if (node->time - node->child_time > max_self_time) {
 			max_self_node = node;
@@ -327,12 +330,13 @@ struct uftrace_graph_node *graph_find_self_min_node(struct uftrace_graph_node *p
 {
 	struct uftrace_graph_node *node;
 	struct uftrace_graph_node *min_self_node;
+	uint64_t min_self_time;
 
 	if (parent == NULL) {
 		return NULL;
 	}
 	min_self_node = list_first_entry(&parent->head, struct uftrace_graph_node, list);
-	uint64_t min_self_time = min_self_node->time - min_self_node->child_time;
+	min_self_time = min_self_node->time - min_self_node->child_time;
 	list_for_each_entry(node, &parent->head, list) {
 		if (node->time - node->child_time < min_self_time) {
 			min_self_node = node;
