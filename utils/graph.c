@@ -235,12 +235,14 @@ struct uftrace_graph_node *graph_find_node(struct uftrace_graph_node *parent, ui
 
 uint64_t graph_get_total_avg(struct uftrace_graph_node *parent)
 {
-	if (parent == NULL) {
-		return -1;
-	}
 	uint64_t total = 0;
 	uint32_t counter = 0;
 	struct uftrace_graph_node *node;
+
+	if (parent == NULL) {
+		return -1;
+	}
+
 	list_for_each_entry(node, &parent->head, list) {
 		total += node->time;
 		counter++;
@@ -250,12 +252,12 @@ uint64_t graph_get_total_avg(struct uftrace_graph_node *parent)
 
 struct uftrace_graph_node *graph_find_total_min_node(struct uftrace_graph_node *parent)
 {
+	struct uftrace_graph_node *node;
+	struct uftrace_graph_node *min_node;
 	if (parent == NULL) {
 		return NULL;
 	}
-	struct uftrace_graph_node *node;
-	struct uftrace_graph_node *min_node =
-		list_first_entry(&parent->head, struct uftrace_graph_node, list);
+	min_node = list_first_entry(&parent->head, struct uftrace_graph_node, list);
 	uint64_t min_time = min_node->time;
 	list_for_each_entry(node, &parent->head, list) {
 		if (node->time < min_time) {
@@ -268,12 +270,12 @@ struct uftrace_graph_node *graph_find_total_min_node(struct uftrace_graph_node *
 
 struct uftrace_graph_node *graph_find_total_max_node(struct uftrace_graph_node *parent)
 {
+	struct uftrace_graph_node *node;
+	struct uftrace_graph_node *max_node;
 	if (parent == NULL) {
 		return NULL;
 	}
-	struct uftrace_graph_node *node;
-	struct uftrace_graph_node *max_node =
-		list_first_entry(&parent->head, struct uftrace_graph_node, list);
+	max_node = list_first_entry(&parent->head, struct uftrace_graph_node, list);
 	uint64_t max_time = max_node->time;
 	list_for_each_entry(node, &parent->head, list) {
 		if (node->time > max_time) {
@@ -286,12 +288,14 @@ struct uftrace_graph_node *graph_find_total_max_node(struct uftrace_graph_node *
 
 uint64_t graph_get_self_avg(struct uftrace_graph_node *parent)
 {
-	if (parent == NULL) {
-		return -1;
-	}
 	uint64_t total = 0;
 	uint32_t counter = 0;
 	struct uftrace_graph_node *node;
+
+	if (parent == NULL) {
+		return -1;
+	}
+
 	list_for_each_entry(node, &parent->head, list) {
 		total += node->time - node->child_time;
 		counter++;
@@ -301,12 +305,14 @@ uint64_t graph_get_self_avg(struct uftrace_graph_node *parent)
 
 struct uftrace_graph_node *graph_find_self_max_node(struct uftrace_graph_node *parent)
 {
+	struct uftrace_graph_node *node;
+	struct uftrace_graph_node *max_self_node;
+
 	if (parent == NULL) {
 		return NULL;
 	}
-	struct uftrace_graph_node *node;
-	struct uftrace_graph_node *max_self_node =
-		list_first_entry(&parent->head, struct uftrace_graph_node, list);
+
+	max_self_node = list_first_entry(&parent->head, struct uftrace_graph_node, list);
 	uint64_t max_self_time = max_self_node->time - max_self_node->child_time;
 	list_for_each_entry(node, &parent->head, list) {
 		if (node->time - node->child_time > max_self_time) {
@@ -319,12 +325,13 @@ struct uftrace_graph_node *graph_find_self_max_node(struct uftrace_graph_node *p
 
 struct uftrace_graph_node *graph_find_self_min_node(struct uftrace_graph_node *parent)
 {
+	struct uftrace_graph_node *node;
+	struct uftrace_graph_node *min_self_node;
+
 	if (parent == NULL) {
 		return NULL;
 	}
-	struct uftrace_graph_node *node;
-	struct uftrace_graph_node *min_self_node =
-		list_first_entry(&parent->head, struct uftrace_graph_node, list);
+	min_self_node = list_first_entry(&parent->head, struct uftrace_graph_node, list);
 	uint64_t min_self_time = min_self_node->time - min_self_node->child_time;
 	list_for_each_entry(node, &parent->head, list) {
 		if (node->time - node->child_time < min_self_time) {
