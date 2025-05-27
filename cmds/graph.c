@@ -77,7 +77,7 @@ static void print_graph_total_avg(struct field_data *fd)
 
 	d = graph_get_total_avg(node->parent);
 
-	print_time(d);
+	print_time_unit(d);
 }
 
 static void print_graph_total_min(struct field_data *fd)
@@ -88,7 +88,7 @@ static void print_graph_total_min(struct field_data *fd)
 
 	d = min_node->time;
 
-	print_time(d);
+	print_time_unit(d);
 }
 
 static void print_graph_total_max(struct field_data *fd)
@@ -99,7 +99,7 @@ static void print_graph_total_max(struct field_data *fd)
 
 	d = max_node->time;
 
-	print_time(d);
+	print_time_unit(d);
 }
 
 static void print_graph_self_min(struct field_data *fd)
@@ -110,7 +110,7 @@ static void print_graph_self_min(struct field_data *fd)
 
 	d = min_node->time - min_node->child_time;
 
-	print_time(d);
+	print_time_unit(d);
 }
 
 static void print_graph_self_max(struct field_data *fd)
@@ -121,7 +121,7 @@ static void print_graph_self_max(struct field_data *fd)
 
 	d = max_node->time - max_node->child_time;
 
-	print_time(d);
+	print_time_unit(d);
 }
 
 static void print_graph_self_avg(struct field_data *fd)
@@ -131,7 +131,7 @@ static void print_graph_self_avg(struct field_data *fd)
 
 	d = graph_get_self_avg(node->parent);
 
-	print_time(d);
+	print_time_unit(d);
 }
 
 static struct display_field field_total_time = {
@@ -176,7 +176,7 @@ static struct display_field graph_field_total_avg = {
 	.header = "TOTAL AVG",
 	.length = 10,
 	.print = print_graph_total_avg,
-	.list = LIST_HEAD_INIT(graph_field_total.list),
+	.list = LIST_HEAD_INIT(graph_field_tota_avgl.list),
 };
 
 static struct display_field graph_field_self_avg = {
