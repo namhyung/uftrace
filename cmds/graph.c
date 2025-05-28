@@ -45,7 +45,37 @@ static void print_total_time(struct field_data *fd)
 	struct uftrace_graph_node *node = fd->arg;
 	uint64_t d;
 
-	d = node->time;
+	d = node->total_time.sum;
+
+	print_time_unit(d);
+}
+
+static void print_total_avg_time(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	uint64_t d;
+
+	d = node->total_time.sum / node->nr_calls;
+
+	print_time_unit(d);
+}
+
+static void print_total_min_time(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	uint64_t d;
+
+	d = node->total_time.min;
+
+	print_time_unit(d);
+}
+
+static void print_total_max_time(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	uint64_t d;
+
+	d = node->total_time.max;
 
 	print_time_unit(d);
 }
@@ -55,7 +85,7 @@ static void print_self_time(struct field_data *fd)
 	struct uftrace_graph_node *node = fd->arg;
 	uint64_t d;
 
-	d = node->time - node->child_time;
+	d = node->total_time.sum - node->child_time;
 
 	print_time_unit(d);
 }
@@ -78,6 +108,36 @@ static struct display_field field_total_time = {
 	.length = 10,
 	.print = print_total_time,
 	.list = LIST_HEAD_INIT(field_total_time.list),
+};
+
+static struct display_field field_total_avg_time = {
+	.id = GRAPH_F_TOTAL_AVG,
+	.name = "total-avg",
+	.alias = "tavg",
+	.header = "TOTAL AVG",
+	.length = 10,
+	.print = print_total_avg_time,
+	.list = LIST_HEAD_INIT(field_total_avg_time.list),
+};
+
+static struct display_field field_total_min_time = {
+	.id = GRAPH_F_TOTAL_MIN,
+	.name = "total-min",
+	.alias = "tmin",
+	.header = "TOTAL MIN",
+	.length = 10,
+	.print = print_total_min_time,
+	.list = LIST_HEAD_INIT(field_total_min_time.list),
+};
+
+static struct display_field field_total_max_time = {
+	.id = GRAPH_F_TOTAL_MAX,
+	.name = "total-max",
+	.alias = "tmax",
+	.header = "TOTAL MAX",
+	.length = 10,
+	.print = print_total_max_time,
+	.list = LIST_HEAD_INIT(field_total_max_time.list),
 };
 
 static struct display_field field_self_time = {
@@ -162,9 +222,8 @@ static struct display_field field_task_tid = {
 
 /* index of this table should be matched to display_field_id */
 static struct display_field *field_table[] = {
-	&field_total_time,
-	&field_self_time,
-	&field_addr,
+	&field_total_time,     &field_total_avg_time, &field_total_min_time,
+	&field_total_max_time, &field_self_time,      &field_addr,
 };
 
 /* index of this task table should be matched to display_field_id */
@@ -489,7 +548,8 @@ static int print_graph(struct session_graph *graph, struct uftrace_opts *opts)
 	bool *indent_mask;
 
 	/* skip empty graph */
-	if (list_empty(&graph->bt_list) && graph->ug.root.time == 0 && graph->ug.root.nr_edges == 0)
+	if (list_empty(&graph->bt_list) && graph->ug.root.total_time.sum == 0 &&
+	    graph->ug.root.nr_edges == 0)
 		return 0;
 
 	pr_out("# Function Call Graph for '%s' (session: %.16s)\n", graph->func,
@@ -503,7 +563,7 @@ static int print_graph(struct session_graph *graph, struct uftrace_opts *opts)
 	setup_field(&output_fields, opts, &setup_default_field, field_table,
 		    ARRAY_SIZE(field_table));
 
-	if (graph->ug.root.time || graph->ug.root.nr_edges) {
+	if (graph->ug.root.total_time.sum || graph->ug.root.nr_edges) {
 		pr_out("========== FUNCTION CALL GRAPH ==========\n");
 		print_header(&output_fields, "# ", "FUNCTION", 2, false);
 		if (!list_empty(&output_fields)) {
@@ -695,8 +755,8 @@ static void build_graph(struct uftrace_opts *opts, struct uftrace_data *handle, 
 		struct uftrace_graph_node *node;
 
 		list_for_each_entry(node, &graph->ug.root.head, list) {
-			graph->ug.root.time += node->time;
-			graph->ug.root.child_time += node->time;
+			graph->ug.root.total_time.sum += node->total_time.sum;
+			graph->ug.root.child_time += node->total_time.sum;
 		}
 
 		graph = graph->next;

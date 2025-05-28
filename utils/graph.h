@@ -9,12 +9,18 @@
 #include "utils/list.h"
 #include "utils/rbtree.h"
 
+struct graph_time_stat {
+	uint64_t sum;
+	uint64_t min;
+	uint64_t max;
+};
+
 struct uftrace_graph_node {
 	uint64_t addr;
 	char *name;
 	int nr_edges;
 	int nr_calls;
-	uint64_t time;
+	struct graph_time_stat total_time;
 	uint64_t child_time;
 	uint32_t id;
 	struct list_head head;
@@ -57,6 +63,9 @@ typedef void (*graph_fn)(struct uftrace_task_graph *tg, void *arg);
 void graph_init(struct uftrace_graph *graph, struct uftrace_session *s);
 void graph_init_callbacks(graph_fn entry, graph_fn exit, graph_fn event, void *arg);
 void graph_destroy(struct uftrace_graph *graph);
+
+void graph_init_time_stat(struct graph_time_stat *ts);
+void graph_update_time_stat(struct graph_time_stat *ts, uint64_t time_ns);
 
 struct uftrace_task_graph *graph_get_task(struct uftrace_task_reader *task, size_t tg_size);
 void graph_remove_task(void);
