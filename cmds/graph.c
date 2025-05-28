@@ -70,6 +70,26 @@ static void print_addr(struct field_data *fd)
 	pr_out("%*" PRIx64, width, effective_addr(node->addr));
 }
 
+static void print_graph_total_avg(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	uint64_t d;
+
+	d = node->time / node->nr_calls;
+
+	print_time_unit(d);
+}
+
+static void print_graph_self_avg(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	uint64_t d;
+
+	d = (node->time - node->child_time) / node->nr_calls;
+
+	print_time_unit(d);
+}
+
 static struct display_field field_total_time = {
 	.id = GRAPH_F_TOTAL_TIME,
 	.name = "total-time",
@@ -103,6 +123,26 @@ static struct display_field field_addr = {
 #endif
 	.print = print_addr,
 	.list = LIST_HEAD_INIT(field_addr.list),
+};
+
+static struct display_field graph_field_total_avg = {
+	.id = GRAPH_F_TOTAL_AVG,
+	.name = "total-avg",
+	.alias = "total-al",
+	.header = "TOTAL AVG",
+	.length = 10,
+	.print = print_graph_total_avg,
+	.list = LIST_HEAD_INIT(graph_field_total_avg.list),
+};
+
+static struct display_field graph_field_self_avg = {
+	.id = GRAPH_F_SELF_AVG,
+	.name = "self-avg",
+	.alias = "self-a",
+	.header = "SELF AVG",
+	.length = 10,
+	.print = print_graph_self_avg,
+	.list = LIST_HEAD_INIT(graph_field_self_avg.list),
 };
 
 static void print_task_total_time(struct field_data *fd)
@@ -162,9 +202,8 @@ static struct display_field field_task_tid = {
 
 /* index of this table should be matched to display_field_id */
 static struct display_field *field_table[] = {
-	&field_total_time,
-	&field_self_time,
-	&field_addr,
+	&field_total_time,	&field_self_time,      &field_addr,
+	&graph_field_total_avg, &graph_field_self_avg,
 };
 
 /* index of this task table should be matched to display_field_id */

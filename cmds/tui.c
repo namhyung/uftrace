@@ -174,12 +174,10 @@ static const char *help[] = {
 	"q             Quit",
 };
 
-#define NUM_GRAPH_FIELD 3
+#define NUM_GRAPH_FIELD 5
 
 static const char *graph_field_names[NUM_GRAPH_FIELD] = {
-	"TOTAL TIME",
-	"SELF TIME",
-	"ADDRESS",
+	"TOTAL TIME", "SELF TIME", "ADDRESS", "TOTAL AVG", "SELF AVG",
 };
 
 #define NUM_REPORT_FIELD 12
@@ -291,6 +289,26 @@ static void print_graph_addr(struct field_data *fd)
 	printw("%*" PRIx64, width, effective_addr(node->addr));
 }
 
+static void print_graph_total_avg(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	uint64_t d;
+
+	d = node->time / node->nr_calls;
+
+	print_time(d);
+}
+
+static void print_graph_self_avg(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	uint64_t d;
+
+	d = (node->time - node->child_time) / node->nr_calls;
+
+	print_time(d);
+}
+
 static struct display_field graph_field_total = {
 	.id = GRAPH_F_TOTAL_TIME,
 	.name = "total-time",
@@ -326,11 +344,30 @@ static struct display_field graph_field_addr = {
 	.list = LIST_HEAD_INIT(graph_field_addr.list),
 };
 
+static struct display_field graph_field_total_avg = {
+	.id = GRAPH_F_TOTAL_AVG,
+	.name = "total-avg",
+	.alias = "total-al",
+	.header = "TOTAL AVG",
+	.length = 10,
+	.print = print_graph_total_avg,
+	.list = LIST_HEAD_INIT(graph_field_total_avg.list),
+};
+
+static struct display_field graph_field_self_avg = {
+	.id = GRAPH_F_SELF_AVG,
+	.name = "self-avg",
+	.alias = "self-a",
+	.header = "SELF AVG",
+	.length = 10,
+	.print = print_graph_self_avg,
+	.list = LIST_HEAD_INIT(graph_field_self_avg.list),
+};
+
 /* index of this table should be matched to display_field_id */
 static struct display_field *graph_field_table[] = {
-	&graph_field_total,
-	&graph_field_self,
-	&graph_field_addr,
+	&graph_field_total,	&graph_field_self,     &graph_field_addr,
+	&graph_field_total_avg, &graph_field_self_avg,
 };
 
 /* clang-format off */
