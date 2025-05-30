@@ -70,6 +70,66 @@ static void print_addr(struct field_data *fd)
 	pr_out("%*" PRIx64, width, effective_addr(node->addr));
 }
 
+static void print_graph_total_avg(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	uint64_t d;
+
+	d = node->time / node->nr_calls;
+
+	print_time_unit(d);
+}
+
+static void print_graph_self_avg(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	uint64_t d;
+
+	d = (node->time - node->child_time) / node->nr_calls;
+
+	print_time_unit(d);
+}
+
+static void print_graph_total_min(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	uint64_t d;
+
+	d = node->total.min;
+
+	print_time_unit(d);
+}
+
+static void print_graph_total_max(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	uint64_t d;
+
+	d = node->total.max;
+
+	print_time_unit(d);
+}
+
+static void print_graph_self_max(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	uint64_t d;
+
+	d = node->self.max;
+
+	print_time_unit(d);
+}
+
+static void print_graph_self_min(struct field_data *fd)
+{
+	struct uftrace_graph_node *node = fd->arg;
+	uint64_t d;
+
+	d = node->self.min;
+
+	print_time_unit(d);
+}
+
 static struct display_field field_total_time = {
 	.id = GRAPH_F_TOTAL_TIME,
 	.name = "total-time",
@@ -103,6 +163,66 @@ static struct display_field field_addr = {
 #endif
 	.print = print_addr,
 	.list = LIST_HEAD_INIT(field_addr.list),
+};
+
+static struct display_field graph_field_total_avg = {
+	.id = GRAPH_F_TOTAL_AVG,
+	.name = "total-avg",
+	.alias = "total-al",
+	.header = "TOTAL AVG",
+	.length = 10,
+	.print = print_graph_total_avg,
+	.list = LIST_HEAD_INIT(graph_field_total_avg.list),
+};
+
+static struct display_field graph_field_self_avg = {
+	.id = GRAPH_F_SELF_AVG,
+	.name = "self-avg",
+	.alias = "self-a",
+	.header = "SELF AVG",
+	.length = 10,
+	.print = print_graph_self_avg,
+	.list = LIST_HEAD_INIT(graph_field_self_avg.list),
+};
+
+static struct display_field graph_field_total_min = {
+	.id = GRAPH_F_TOTAL_MIN,
+	.name = "total-min",
+	.alias = "total-min",
+	.header = "TOTAL MIN",
+	.length = 10,
+	.print = print_graph_total_min,
+	.list = LIST_HEAD_INIT(graph_field_total_min.list),
+};
+
+static struct display_field graph_field_total_max = {
+	.id = GRAPH_F_TOTAL_MAX,
+	.name = "total-max",
+	.alias = "total-max",
+	.header = "TOTAL MAX",
+	.length = 10,
+	.print = print_graph_total_max,
+	.list = LIST_HEAD_INIT(graph_field_total_max.list),
+};
+
+static struct display_field graph_field_self_max = {
+	.id = GRAPH_F_SELF_MAX,
+	.name = "self-avg",
+	.alias = "self-max",
+	.header = "SELF MAX",
+	.length = 10,
+	.print = print_graph_self_max,
+	.list = LIST_HEAD_INIT(graph_field_self_max.list),
+};
+
+static struct display_field graph_field_self_min = {
+	.id = GRAPH_F_SELF_MIN,
+	.name = "self-avg",
+	.alias = "self-min",
+	.header = "SELF MIN",
+	.length = 10,
+	.print = print_graph_self_min,
+	.list = LIST_HEAD_INIT(graph_field_self_min.list),
 };
 
 static void print_task_total_time(struct field_data *fd)
@@ -162,9 +282,9 @@ static struct display_field field_task_tid = {
 
 /* index of this table should be matched to display_field_id */
 static struct display_field *field_table[] = {
-	&field_total_time,
-	&field_self_time,
-	&field_addr,
+	&field_total_time,	&field_self_time,      &field_addr,
+	&graph_field_total_avg, &graph_field_self_avg, &graph_field_total_min,
+	&graph_field_total_max, &graph_field_self_max, &graph_field_self_min,
 };
 
 /* index of this task table should be matched to display_field_id */
@@ -698,6 +818,9 @@ static void build_graph(struct uftrace_opts *opts, struct uftrace_data *handle, 
 			graph->ug.root.time += node->time;
 			graph->ug.root.child_time += node->time;
 		}
+		/* graph time*/
+		graph->ug.root.total.min = graph->ug.root.time;
+		graph->ug.root.total.max = graph->ug.root.time;
 
 		graph = graph->next;
 	}
