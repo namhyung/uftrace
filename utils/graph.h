@@ -9,6 +9,11 @@
 #include "utils/list.h"
 #include "utils/rbtree.h"
 
+struct graph_time_stat {
+	uint64_t max;
+	uint64_t min;
+};
+
 struct uftrace_graph_node {
 	uint64_t addr;
 	char *name;
@@ -21,6 +26,8 @@ struct uftrace_graph_node {
 	struct list_head list;
 	struct uftrace_graph_node *parent;
 	struct uftrace_dbg_loc *loc;
+	struct graph_time_stat total;
+	struct graph_time_stat self;
 };
 
 enum uftrace_graph_node_type {
