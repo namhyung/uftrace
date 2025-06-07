@@ -1,4 +1,4 @@
-LINKFLAGS := -r -m elf_i386 -z noexecstack
+ARFLAGS := rcs
 
 sdir := $(srcdir)/arch/i386
 odir := $(objdir)/arch/i386
@@ -13,13 +13,13 @@ ARCH_MCOUNT_OBJS  = $(patsubst $(sdir)/%.S,$(odir)/%.op,$(ARCH_ENTRY_SRC))
 ARCH_MCOUNT_OBJS += $(patsubst $(sdir)/%.c,$(odir)/%.op,$(ARCH_MCOUNT_SRC))
 ARCH_UFTRACE_OBJS = $(patsubst $(sdir)/%.c,$(odir)/%.o,$(ARCH_UFTRACE_SRC))
 
-all: $(odir)/entry.op
+all: $(odir)/mcount-arch.a
 
-$(odir)/mcount-entry.op: $(ARCH_MCOUNT_OBJS)
-	$(QUIET_LINK)$(LD) $(LINKFLAGS) -o $@ $^
+$(odir)/mcount-arch.a: $(ARCH_MCOUNT_OBJS)
+	$(QUIET_AR)$(AR) $(ARFLAGS) $@ $^
 
-$(odir)/uftrace.o: $(ARCH_UFTRACE_OBJS)
-	$(QUIET_LINK)$(LD) $(LINKFLAGS) -o $@ $^
+$(odir)/uftrace-arch.a: $(ARCH_UFTRACE_OBJS)
+	$(QUIET_AR)$(AR) $(ARFLAGS) $@ $^
 
 $(odir)/%.op: $(sdir)/%.S
 	$(QUIET_ASM)$(CC) $(LIB_CFLAGS) -c -o $@ $<
@@ -31,4 +31,4 @@ $(odir)/%.o: $(sdir)/%.c
 	$(QUIET_CC)$(CC) $(UFTRACE_CFLAGS) -c -o $@ $<
 
 clean:
-	$(RM) $(odir)/*.op $(odir)/*.o
+	$(RM) $(odir)/*.op $(odir)/*.o $(odir)/*.a
