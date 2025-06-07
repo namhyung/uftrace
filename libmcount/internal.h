@@ -348,7 +348,7 @@ struct plthook_special_func {
 
 struct plthook_skip_symbol {
 	const char *name;
-	void *addr;
+	int entry_idx; /* for mcount_arch_ops.entry[] */
 };
 
 struct plthook_data {
