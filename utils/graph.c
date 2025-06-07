@@ -136,6 +136,28 @@ out:
 	return 0;
 }
 
+static void update_graph_node_times(struct uftrace_graph_node *node, struct uftrace_fstack *fstack)
+{
+	uint64_t self_time;
+
+	node->time += fstack->total_time;
+	node->child_time += fstack->child_time;
+
+	self_time = fstack->total_time > fstack->child_time ?
+			    fstack->total_time - fstack->child_time :
+			    0;
+
+	if (node->total.min > fstack->total_time || node->total.min == 0)
+		node->total.min = fstack->total_time;
+	if (node->total.max < fstack->total_time)
+		node->total.max = fstack->total_time;
+
+	if (node->self.min > self_time || node->self.min == 0)
+		node->self.min = self_time;
+	if (node->self.max < self_time)
+		node->self.max = self_time;
+}
+
 static int add_graph_exit(struct uftrace_task_graph *tg)
 {
 	struct uftrace_fstack *fstack = fstack_get(tg->task, tg->task->stack_count);
@@ -172,8 +194,7 @@ static int add_graph_exit(struct uftrace_task_graph *tg)
 	}
 
 out:
-	node->time += fstack->total_time;
-	node->child_time += fstack->child_time;
+	update_graph_node_times(node, fstack);
 
 	if (exit_cb)
 		exit_cb(tg, cb_arg);
