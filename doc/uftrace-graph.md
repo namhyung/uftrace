@@ -24,7 +24,8 @@ count and the total time spent running that function.
 GRAPH OPTIONS
 =============
 -f *FIELD*, \--output-fields=*FIELD*
-:   Customize field in the output.  Possible values are: total, self and addr.
+:   Customize field in the output.  Possible values are: total, self, addr, total-avg,
+    total-max, total-min, self-avg, self-max, and self-min.
     Multiple fields can be set by using comma.  Special field of 'none' can be
     used (solely) to hide all fields.  Default is 'total'.  See *FIELDS*.
 
@@ -316,7 +317,13 @@ By default it uses time only, but you can use other fields in any order like:
 Each field has following meaning:
 
  * total: function execution time in total
+ * total-avg: average of total time of each function.
+ * total-max: max of total time of each function.
+ * total-min: min of total time of each function.
  * self : function execution time excluding its children's
+ * self-avg: average of self time of each function.
+ * self-max: max of self time of each function.
+ * self-min: min of self time of each function.
  * addr : address of the function
 
 The default value is 'total'.  If given field name starts with "+", then it'll

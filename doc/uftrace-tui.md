@@ -24,7 +24,8 @@ TUI OPTIONS
 ===========
 -f *FIELD*, \--output-fields=*FIELD*
 :   Customize fields in the output.  This option basically indicates graph fields.
-    Possible values are total, self and addr.  The default value is 'total'.
+    Possible values are total, self, addr, total-avg, total-max, total-min, self-avg,
+    self-max and self-min. The default value is 'total'.
     But if this option is used with --report option,
     this option indicates report fields.  Possible values are total, total-avg,
     total-min, total-max, total-stdv, self, self-avg, self-min, self-max,
