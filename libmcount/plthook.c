@@ -79,30 +79,31 @@ static void resolve_pltgot(struct plthook_data *pd, int idx)
 	}
 }
 
-/* use weak reference for non-defined (arch-dependent) symbols */
-#define ALIAS_DECL(_sym) extern __weak void (*uftrace_##_sym)(void);
+#define SKIP_SYM(func, _IDX) { #func, UFT_ARCH_OPS_##_IDX }
 
-ALIAS_DECL(mcount);
-ALIAS_DECL(_mcount);
-ALIAS_DECL(__fentry__);
-ALIAS_DECL(__gnu_mcount_nc);
-ALIAS_DECL(__cyg_profile_func_enter);
-ALIAS_DECL(__cyg_profile_func_exit);
-
-#define SKIP_SYM(func)                                                                             \
-	{                                                                                          \
-#func, &uftrace_##func                                                             \
-	}
-
+/*
+ * These are internal compiler-generated functions used by libmcount.
+ * As we don't want to trace these functions, it should not go through the
+ * usual PLTHOOK infra and just call them directly.
+ *
+ * I don't think we need XRAY here as it'd be embedded in the binary so won't
+ * create PLT entries.  And compiler doesn't generate DYNAMIC entries. :)
+ */
 const struct plthook_skip_symbol plt_skip_syms[] = {
-	SKIP_SYM(mcount),
-	SKIP_SYM(_mcount),
-	SKIP_SYM(__fentry__),
-	SKIP_SYM(__gnu_mcount_nc),
-	SKIP_SYM(__cyg_profile_func_enter),
-	SKIP_SYM(__cyg_profile_func_exit),
+	SKIP_SYM(mcount, MCOUNT),
+	SKIP_SYM(_mcount, MCOUNT),
+	SKIP_SYM(__fentry__, FENTRY),
+	SKIP_SYM(__gnu_mcount_nc, MCOUNT),
 };
 size_t plt_skip_nr = ARRAY_SIZE(plt_skip_syms);
+
+#undef SKIP_SYM
+
+/* These aliases are defined in mcount.c */
+extern void uftrace___cyg_profile_func_enter(void *, void *);
+extern void uftrace___cyg_profile_func_exit(void *, void *);
+
+#define CYGPROF_PREFIX "__cyg_profile_func_"
 
 /*
  * Some compilers generate PLT section even if -fno-plt option is given.
@@ -120,9 +121,6 @@ const char *const noplt_skip_syms[] = {
 	"_Unwind_Resume",
 };
 size_t noplt_skip_nr = ARRAY_SIZE(noplt_skip_syms);
-
-#undef SKIP_SYM
-#undef ALIAS_DECL
 
 /*
  * mcount_plthook_addr() returns the address of GOT entry.
@@ -178,20 +176,38 @@ static void restore_plt_functions(struct plthook_data *pd)
 
 		for (k = 0; k < plt_skip_nr; k++) {
 			const struct plthook_skip_symbol *skip_sym;
+			unsigned long sym_addr;
 
 			skip_sym = &plt_skip_syms[k];
 			if (strcmp(sym->name, skip_sym->name))
 				continue;
 
-			overwrite_pltgot(pd, got_idx, (long)skip_sym->addr);
+			sym_addr = mcount_arch_ops.entry[skip_sym->entry_idx];
+			overwrite_pltgot(pd, got_idx, sym_addr);
 			pr_dbg2("overwrite GOT[%d + %d] to %p (%s)\n", i, ARCH_PLTGOT_OFFSET,
-				skip_sym->addr, skip_sym->name);
+				sym_addr, skip_sym->name);
 
 			skipped = true;
 			break;
 		}
 		if (skipped)
 			continue;
+
+		if (!strncmp(sym->name, CYGPROF_PREFIX, strlen(CYGPROF_PREFIX))) {
+			unsigned long sym_addr = 0;
+
+			if (!strcmp(sym->name, CYGPROF_PREFIX "enter"))
+				sym_addr = (unsigned long)uftrace___cyg_profile_func_enter;
+			else if (!strcmp(sym->name, CYGPROF_PREFIX "exit"))
+				sym_addr = (unsigned long)uftrace___cyg_profile_func_exit;
+
+			if (sym_addr) {
+				overwrite_pltgot(pd, got_idx, sym_addr);
+				pr_dbg2("overwrite GOT[%d + %d] to %p (%s)\n", i,
+					ARCH_PLTGOT_OFFSET, sym_addr, sym->name);
+				continue;
+			}
+		}
 
 		resolved_addr = pd->pltgot_ptr[got_idx];
 		plthook_addr = mcount_plthook_addr(pd, i);
