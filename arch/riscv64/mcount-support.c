@@ -4,6 +4,23 @@
 #include "utils/filter.h"
 #include "utils/utils.h"
 
+/* These functions are implemented in assembly */
+extern void _mcount(void);
+extern void plt_hooker(void);
+extern void mcount_return(void);
+extern void plthook_return(void);
+
+const struct mcount_arch_ops mcount_arch_ops = {
+	.entry = {
+		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)_mcount,
+		[UFT_ARCH_OPS_PLTHOOK] = (unsigned long)plt_hooker,
+	},
+	.exit = {
+		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)mcount_return,
+		[UFT_ARCH_OPS_PLTHOOK] = (unsigned long)plthook_return,
+	},
+};
+
 static int mcount_get_register_arg(struct mcount_arg_context *ctx, struct uftrace_arg_spec *spec)
 {
 	struct mcount_regs *regs = ctx->regs;

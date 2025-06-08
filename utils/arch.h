@@ -6,6 +6,29 @@
 
 #include <stdbool.h>
 
+enum mcount_arch_ops_entry {
+	UFT_ARCH_OPS_MCOUNT,
+	UFT_ARCH_OPS_PLTHOOK,
+	UFT_ARCH_OPS_FENTRY,
+	UFT_ARCH_OPS_DYNAMIC,
+	UFT_ARCH_OPS_XRAY,
+
+	UFT_ARCH_OPS_NUM,
+};
+
+/* Arch-specific callback functions for libmcount. */
+struct mcount_arch_ops {
+	/*
+	 * Save address of arch-specific assembly functions for tracing entry and exit paths.
+	 * MCOUNT and PLTHOOK are required and others are optional.
+	 */
+	unsigned long entry[UFT_ARCH_OPS_NUM];
+	unsigned long exit[UFT_ARCH_OPS_NUM];
+};
+
+/* Each architecture should provide this. */
+extern const struct mcount_arch_ops mcount_arch_ops;
+
 enum uftrace_cpu_arch {
 	UFT_CPU_NONE,
 	UFT_CPU_X86_64,

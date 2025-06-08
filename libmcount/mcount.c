@@ -116,12 +116,11 @@ static unsigned long __maybe_unused mcount_watchpoints;
 /* address of function will be called when a function returns */
 unsigned long mcount_return_fn;
 
+/* address of function will be called when a PLT function returns */
+unsigned long plthook_return_fn;
+
 /* do not hook return address and inject EXIT record between functions */
 bool mcount_estimate_return;
-
-__weak void dynamic_return(void)
-{
-}
 
 /* list of watch points (of global variables) */
 static LIST_HEAD(mcount_watch_list);
@@ -2089,9 +2088,11 @@ static __used void mcount_startup(void)
 		mcount_filter_setting.ptype = parse_filter_pattern(pattern_str);
 
 	if (patch_str)
-		mcount_return_fn = (unsigned long)dynamic_return;
+		mcount_return_fn = mcount_arch_ops.exit[UFT_ARCH_OPS_DYNAMIC];
 	else
-		mcount_return_fn = (unsigned long)mcount_return;
+		mcount_return_fn = mcount_arch_ops.exit[UFT_ARCH_OPS_MCOUNT];
+
+	plthook_return_fn = mcount_arch_ops.exit[UFT_ARCH_OPS_PLTHOOK];
 
 	mcount_filter_init(&mcount_filter_setting, !!patch_str);
 	mcount_watch_init();

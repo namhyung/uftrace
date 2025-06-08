@@ -40,6 +40,23 @@ struct offset_entry {
 	unsigned long offset;
 };
 
+/* These functions are implemented in assembly */
+extern void __gnu_mcount_nc(void);
+extern void plt_hooker(void);
+extern void mcount_return(void);
+extern void plthook_return(void);
+
+const struct mcount_arch_ops mcount_arch_ops = {
+	.entry = {
+		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)__gnu_mcount_nc,
+		[UFT_ARCH_OPS_PLTHOOK] = (unsigned long)plt_hooker,
+	},
+	.exit = {
+		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)mcount_return,
+		[UFT_ARCH_OPS_PLTHOOK] = (unsigned long)plthook_return,
+	},
+};
+
 static unsigned rotate_right(unsigned val, unsigned bits, unsigned shift)
 {
 	return (val >> shift) | (val << (bits - shift));

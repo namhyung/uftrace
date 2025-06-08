@@ -4,6 +4,30 @@
 #include "utils/filter.h"
 #include "utils/utils.h"
 
+/* These functions are implemented in assembly */
+extern void _mcount(void);
+extern void plt_hooker(void);
+extern void __fentry__(void);
+extern void __dentry__(void);
+extern void mcount_return(void);
+extern void plthook_return(void);
+extern void dynamic_return(void);
+
+const struct mcount_arch_ops mcount_arch_ops = {
+	.entry = {
+		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)_mcount,
+		[UFT_ARCH_OPS_PLTHOOK] = (unsigned long)plt_hooker,
+		[UFT_ARCH_OPS_FENTRY] = (unsigned long)__fentry__,
+		[UFT_ARCH_OPS_DYNAMIC] = (unsigned long)__dentry__,
+	},
+	.exit = {
+		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)mcount_return,
+		[UFT_ARCH_OPS_PLTHOOK] = (unsigned long)plthook_return,
+		[UFT_ARCH_OPS_FENTRY] = (unsigned long)mcount_return,
+		[UFT_ARCH_OPS_DYNAMIC] = (unsigned long)dynamic_return,
+	},
+};
+
 /* FIXME: x0 is overwritten before calling _mcount() */
 static int mcount_get_register_arg(struct mcount_arg_context *ctx, struct uftrace_arg_spec *spec)
 {
