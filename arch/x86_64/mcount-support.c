@@ -29,6 +29,24 @@ extern struct plthook_data *mcount_arch_hook_no_plt(struct uftrace_elf_data *, c
 /* These functions are defined in mcount-event.c */
 extern int mcount_arch_enable_event(struct mcount_event_info *mei);
 
+/* These functions are defined in mcount-dynamic.c */
+extern int mcount_setup_trampoline(struct mcount_dynamic_info *mdi);
+extern void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi);
+extern int mcount_patch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
+			     struct mcount_disasm_engine *disasm, unsigned min_size);
+extern int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
+			       struct mcount_disasm_engine *disasm);
+extern void mcount_arch_find_module(struct mcount_dynamic_info *mdi, struct uftrace_symtab *symtab);
+extern void mcount_arch_dynamic_recover(struct mcount_dynamic_info *mdi,
+					struct mcount_disasm_engine *disasm);
+extern int mcount_arch_branch_table_size(struct mcount_disasm_info *info);
+extern void mcount_arch_patch_branch(struct mcount_disasm_info *info,
+				     struct mcount_orig_insn *orig);
+
+/* These functions are defined in mcount-insn.c */
+extern void mcount_disasm_init(struct mcount_disasm_engine *disasm);
+extern void mcount_disasm_finish(struct mcount_disasm_engine *disasm);
+
 const struct mcount_arch_ops mcount_arch_ops = {
 	.entry = {
 		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)mcount,
@@ -48,6 +66,16 @@ const struct mcount_arch_ops mcount_arch_ops = {
 	.plthook_addr = mcount_arch_plthook_addr,
 	.hook_no_plt = mcount_arch_hook_no_plt,
 	.enable_event = mcount_arch_enable_event,
+	.disasm_init = mcount_disasm_init,
+	.disasm_finish = mcount_disasm_finish,
+	.setup_trampoline = mcount_setup_trampoline,
+	.cleanup_trampoline = mcount_cleanup_trampoline,
+	.patch_func = mcount_patch_func,
+	.unpatch_func = mcount_unpatch_func,
+	.find_module = mcount_arch_find_module,
+	.dynamic_recover = mcount_arch_dynamic_recover,
+	.branch_table_size = mcount_arch_branch_table_size,
+	.patch_branch = mcount_arch_patch_branch,
 };
 
 #define COPY_XMM(xmm)                                                                              \
