@@ -80,8 +80,19 @@ struct mcount_arch_ops {
 	void (*patch_branch)(struct mcount_disasm_info *, struct mcount_orig_insn *);
 };
 
-/* Each architecture should provide this. */
+/* Arch-specific operations used by both uftrace and libmcount */
+struct uftrace_arch_ops {
+	/*
+	 * Load dynamic symbols from ELF data when they are not in the PLT relocation table.
+	 * It may reset the symbol table.  It should return the number of symbols loaded.
+	 */
+	int (*load_dynsymtab)(struct uftrace_symtab *symtab, struct uftrace_elf_data *elf,
+			      unsigned long offset, unsigned long flags);
+};
+
+/* Each architecture should provide these. */
 extern const struct mcount_arch_ops mcount_arch_ops;
+extern const struct uftrace_arch_ops uftrace_arch_ops;
 
 enum uftrace_cpu_arch {
 	UFT_CPU_NONE,
