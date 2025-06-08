@@ -36,10 +36,10 @@ static LIST_HEAD(plthook_modules);
 /* check getenv("LD_BIND_NOT") */
 static bool plthook_no_pltbind;
 
-static void overwrite_pltgot(struct plthook_data *pd, int idx, void *data)
+static void overwrite_pltgot(struct plthook_data *pd, int idx, unsigned long addr)
 {
 	/* overwrite it - might be write-protected */
-	pd->pltgot_ptr[idx] = (unsigned long)data;
+	pd->pltgot_ptr[idx] = addr;
 }
 
 unsigned long setup_pltgot(struct plthook_data *pd, int got_idx, int sym_idx, void *data)
@@ -48,7 +48,7 @@ unsigned long setup_pltgot(struct plthook_data *pd, int got_idx, int sym_idx, vo
 
 	pd->resolved_addr[sym_idx] = real_addr;
 
-	overwrite_pltgot(pd, got_idx, data);
+	overwrite_pltgot(pd, got_idx, (long)data);
 	return real_addr;
 }
 
@@ -154,7 +154,7 @@ static void restore_plt_functions(struct plthook_data *pd)
 			if (strcmp(sym->name, skip_sym->name))
 				continue;
 
-			overwrite_pltgot(pd, got_idx, skip_sym->addr);
+			overwrite_pltgot(pd, got_idx, (long)skip_sym->addr);
 			pr_dbg2("overwrite GOT[%d + %d] to %p (%s)\n", i, ARCH_PLTGOT_OFFSET,
 				skip_sym->addr, skip_sym->name);
 
@@ -171,7 +171,7 @@ static void restore_plt_functions(struct plthook_data *pd)
 
 			/* save already resolved address and hook it */
 			pd->resolved_addr[i] = resolved_addr;
-			overwrite_pltgot(pd, got_idx, (void *)plthook_addr);
+			overwrite_pltgot(pd, got_idx, plthook_addr);
 
 			if (dbg_domain[DBG_PLTHOOK] < 2)
 				continue;
@@ -188,9 +188,6 @@ static void restore_plt_functions(struct plthook_data *pd)
 		}
 	}
 }
-
-extern void __weak plt_hooker(void);
-extern unsigned long plthook_return(void);
 
 __weak struct plthook_data *mcount_arch_hook_no_plt(struct uftrace_elf_data *elf,
 						    const char *modname, unsigned long offset)
@@ -346,8 +343,8 @@ static int find_got(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter,
 	 */
 	if (pd->module_id == 0) {
 		pr_dbg2("update module id to %p\n", pd);
-		overwrite_pltgot(pd, ARCH_PLTGOT_MOD_ID, pd);
 		pd->module_id = (unsigned long)pd;
+		overwrite_pltgot(pd, ARCH_PLTGOT_MOD_ID, pd->module_id);
 	}
 
 	pr_dbg2("found GOT at %p (base_addr + %#lx)\n", pd->pltgot_ptr,
@@ -356,7 +353,7 @@ static int find_got(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter,
 
 	restore_plt_functions(pd);
 
-	overwrite_pltgot(pd, ARCH_PLTGOT_RESOLVE, plt_hooker);
+	overwrite_pltgot(pd, ARCH_PLTGOT_RESOLVE, mcount_arch_ops.entry[UFT_ARCH_OPS_PLTHOOK]);
 
 	if (getenv("LD_BIND_NOT"))
 		plthook_no_pltbind = true;
@@ -911,7 +908,7 @@ static unsigned long __plthook_entry(unsigned long *ret_addr, unsigned long chil
 
 	if (!mcount_estimate_return) {
 		/* hijack the return address of child */
-		*ret_addr = (unsigned long)plthook_return;
+		*ret_addr = plthook_return_fn;
 
 		/* restore return address of parent */
 		if (mcount_auto_recover)
