@@ -31,4 +31,4 @@ $(odir)/%.o: $(sdir)/%.c
 	$(QUIET_CC)$(CC) $(UFTRACE_CFLAGS) -c -o $@ $<
 
 clean:
-	$(RM) $(odir)/*.op $(odir)/*.o $(odir)/*.a
+	$(RM) $(odir)/*.o[pyt] $(odir)/*.[ao]
