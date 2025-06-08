@@ -6,9 +6,15 @@
 
 #include <stdbool.h>
 
+struct mcount_dynamic_info;
+struct mcount_disasm_engine;
+struct mcount_disasm_info;
 struct mcount_event_info;
+struct mcount_orig_insn;
 struct plthook_data;
 struct uftrace_elf_data;
+struct uftrace_symtab;
+struct uftrace_symbol;
 
 enum mcount_arch_ops_entry {
 	UFT_ARCH_OPS_MCOUNT,
@@ -33,6 +39,24 @@ struct mcount_arch_ops {
 
 	/* optional functions for event processing (e.g. SDT) */
 	int (*enable_event)(struct mcount_event_info *);
+
+	/*
+	 * optional functions for dynamic tracing.
+	 * if 'disasm_init' is defined, it assumes others are defined too.
+	 */
+	void (*disasm_init)(struct mcount_disasm_engine *);
+	void (*disasm_finish)(struct mcount_disasm_engine *);
+	int (*setup_trampoline)(struct mcount_dynamic_info *);
+	void (*cleanup_trampoline)(struct mcount_dynamic_info *);
+	int (*patch_func)(struct mcount_dynamic_info *, struct uftrace_symbol *,
+			  struct mcount_disasm_engine *, unsigned);
+	int (*unpatch_func)(struct mcount_dynamic_info *, struct uftrace_symbol *,
+			    struct mcount_disasm_engine *);
+	void (*find_module)(struct mcount_dynamic_info *, struct uftrace_symtab *);
+	void (*dynamic_recover)(struct mcount_dynamic_info *, struct mcount_disasm_engine *);
+	/* these two are optional */
+	int (*branch_table_size)(struct mcount_disasm_info *);
+	void (*patch_branch)(struct mcount_disasm_info *, struct mcount_orig_insn *);
 };
 
 /* each architecture should provide this */

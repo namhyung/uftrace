@@ -104,7 +104,10 @@ void mcount_save_code(struct mcount_disasm_info *info, unsigned call_size, void 
 		/* it needs to save original instructions as well */
 		int orig_size = ALIGN(info->orig_size, 16);
 		int copy_size = ALIGN(info->copy_size + jmp_size, 16);
-		int table_size = mcount_arch_branch_table_size(info);
+		int table_size = 0;
+
+		if (mcount_arch_ops.branch_table_size)
+			mcount_arch_ops.branch_table_size(info);
 
 		patch_size = ALIGN(copy_size + orig_size + table_size, 32);
 	}
@@ -145,7 +148,8 @@ void mcount_save_code(struct mcount_disasm_info *info, unsigned call_size, void 
 		orig->orig = orig->insn + patch_size - ALIGN(info->orig_size, 16);
 		memcpy(orig->orig, (void *)info->addr, info->orig_size);
 
-		mcount_arch_patch_branch(info, orig);
+		if (mcount_arch_ops.patch_branch)
+			mcount_arch_ops.patch_branch(info, orig);
 	}
 
 	memcpy(orig->insn, info->insns, info->copy_size);
@@ -207,54 +211,6 @@ void mcount_release_code(void)
 	}
 }
 
-/* dummy functions (will be overridden by arch-specific code) */
-__weak int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
-{
-	return -1;
-}
-
-__weak void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi)
-{
-}
-
-__weak int mcount_patch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
-			     struct mcount_disasm_engine *disasm, unsigned min_size)
-{
-	return -1;
-}
-
-__weak int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
-			       struct mcount_disasm_engine *disasm)
-{
-	return -1;
-}
-
-__weak void mcount_arch_find_module(struct mcount_dynamic_info *mdi, struct uftrace_symtab *symtab)
-{
-}
-
-__weak void mcount_arch_dynamic_recover(struct mcount_dynamic_info *mdi,
-					struct mcount_disasm_engine *disasm)
-{
-}
-
-__weak void mcount_disasm_init(struct mcount_disasm_engine *disasm)
-{
-}
-
-__weak void mcount_disasm_finish(struct mcount_disasm_engine *disasm)
-{
-}
-
-__weak int mcount_arch_branch_table_size(struct mcount_disasm_info *info)
-{
-	return 0;
-}
-
-__weak void mcount_arch_patch_branch(struct mcount_disasm_info *info, struct mcount_orig_insn *orig)
-{
-}
-
 struct find_module_data {
 	struct uftrace_sym_info *sinfo;
 	bool needs_modules;
@@ -306,7 +262,7 @@ static int find_dynamic_module(struct dl_phdr_info *info, size_t sz, void *data)
 	map = find_map(sym_info, mdi->base_addr);
 	if (map && map->mod) {
 		mdi->map = map;
-		mcount_arch_find_module(mdi, &map->mod->symtab);
+		mcount_arch_ops.find_module(mdi, &map->mod->symtab);
 
 		mdi->next = mdinfo;
 		mdinfo = mdi;
@@ -344,7 +300,7 @@ struct mcount_dynamic_info *setup_trampoline(struct uftrace_mmap *map)
 	}
 
 	if (mdi != NULL && mdi->trampoline == 0) {
-		if (mcount_setup_trampoline(mdi) < 0)
+		if (mcount_arch_ops.setup_trampoline(mdi) < 0)
 			mdi = NULL;
 	}
 
@@ -483,7 +439,7 @@ static bool skip_sym(struct uftrace_symbol *sym, struct mcount_dynamic_info *mdi
 static void mcount_patch_func_with_stats(struct mcount_dynamic_info *mdi,
 					 struct uftrace_symbol *sym)
 {
-	switch (mcount_patch_func(mdi, sym, &disasm, min_size)) {
+	switch (mcount_arch_ops.patch_func(mdi, sym, &disasm, min_size)) {
 	case INSTRUMENT_FAILED:
 		stats.failed++;
 		break;
@@ -540,7 +496,7 @@ static void patch_patchable_func_matched(struct mcount_dynamic_info *mdi, struct
 		else if (match == 1)
 			mcount_patch_func_with_stats(mdi, sym);
 		else
-			mcount_unpatch_func(mdi, sym, NULL);
+			mcount_arch_ops.unpatch_func(mdi, sym, NULL);
 	}
 
 	if (!found)
@@ -573,7 +529,7 @@ static void patch_normal_func_matched(struct mcount_dynamic_info *mdi, struct uf
 		else if (match == 1)
 			mcount_patch_func_with_stats(mdi, sym);
 		else
-			mcount_unpatch_func(mdi, sym, NULL);
+			mcount_arch_ops.unpatch_func(mdi, sym, NULL);
 	}
 
 	if (!found)
@@ -636,8 +592,8 @@ static void freeze_dynamic_update(void)
 	while (mdi) {
 		tmp = mdi->next;
 
-		mcount_arch_dynamic_recover(mdi, &disasm);
-		mcount_cleanup_trampoline(mdi);
+		mcount_arch_ops.dynamic_recover(mdi, &disasm);
+		mcount_arch_ops.cleanup_trampoline(mdi);
 		free(mdi);
 
 		mdi = tmp;
@@ -662,7 +618,10 @@ int mcount_dynamic_update(struct uftrace_sym_info *sinfo, char *patch_funcs,
 	char *size_filter;
 	bool needs_modules = !!strchr(patch_funcs, '@');
 
-	mcount_disasm_init(&disasm);
+	if (mcount_arch_ops.disasm_init == NULL)
+		return -1;
+
+	mcount_arch_ops.disasm_init(&disasm);
 
 	prepare_dynamic_update(sinfo, needs_modules);
 
@@ -699,12 +658,15 @@ void mcount_dynamic_dlopen(struct uftrace_sym_info *sinfo, struct dl_phdr_info *
 	if (!match_pattern_module(pathname))
 		return;
 
+	if (mcount_arch_ops.disasm_init == NULL)
+		return;
+
 	mdi = create_mdi(info);
 	mdi->map = map;
 
-	mcount_arch_find_module(mdi, &map->mod->symtab);
+	mcount_arch_ops.find_module(mdi, &map->mod->symtab);
 
-	if (mcount_setup_trampoline(mdi) < 0) {
+	if (mcount_arch_ops.setup_trampoline(mdi) < 0) {
 		pr_dbg("setup trampoline to %s failed\n", map->libname);
 		free(mdi);
 		return;
@@ -712,8 +674,8 @@ void mcount_dynamic_dlopen(struct uftrace_sym_info *sinfo, struct dl_phdr_info *
 
 	patch_func_matched(mdi, map);
 
-	mcount_arch_dynamic_recover(mdi, &disasm);
-	mcount_cleanup_trampoline(mdi);
+	mcount_arch_ops.dynamic_recover(mdi, &disasm);
+	mcount_arch_ops.cleanup_trampoline(mdi);
 	free(mdi);
 
 	mcount_freeze_code();
@@ -722,7 +684,8 @@ void mcount_dynamic_dlopen(struct uftrace_sym_info *sinfo, struct dl_phdr_info *
 void mcount_dynamic_finish(void)
 {
 	release_pattern_list();
-	mcount_disasm_finish(&disasm);
+	if (mcount_arch_ops.disasm_finish)
+		mcount_arch_ops.disasm_finish(&disasm);
 }
 
 struct dynamic_bad_symbol *mcount_find_badsym(struct mcount_dynamic_info *mdi, unsigned long addr)
