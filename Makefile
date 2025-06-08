@@ -195,6 +195,7 @@ SYMBOLS_SRCS += $(srcdir)/utils/utils.c $(srcdir)/utils/debug.c
 SYMBOLS_SRCS += $(srcdir)/utils/filter.c $(srcdir)/utils/dwarf.c
 SYMBOLS_SRCS += $(srcdir)/utils/auto-args.c $(srcdir)/utils/regs.c
 SYMBOLS_SRCS += $(srcdir)/utils/argspec.c
+SYMBOLS_SRCS += $(srcdir)/arch/$(ARCH)/common.c
 SYMBOLS_SRCS += $(wildcard $(srcdir)/utils/symbol*.c)
 SYMBOLS_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(SYMBOLS_SRCS))
 
@@ -203,6 +204,7 @@ DBGINFO_SRCS += $(srcdir)/utils/auto-args.c $(srcdir)/utils/regs.c
 DBGINFO_SRCS += $(srcdir)/utils/utils.c $(srcdir)/utils/debug.c
 DBGINFO_SRCS += $(srcdir)/utils/argspec.c $(srcdir)/utils/rbtree.c
 DBGINFO_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/filter.c
+DBGINFO_SRCS += $(srcdir)/arch/$(ARCH)/common.c
 DBGINFO_SRCS += $(wildcard $(srcdir)/utils/symbol*.c)
 DBGINFO_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(DBGINFO_SRCS))
 
@@ -211,6 +213,7 @@ BENCH_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(BENCH_SRCS))
 
 PYTHON_SRCS := $(srcdir)/python/trace-python.c $(srcdir)/utils/debug.c
 PYTHON_SRCS += $(srcdir)/utils/utils.c $(srcdir)/utils/rbtree.c $(srcdir)/utils/shmem.c
+PYTHON_SRCS += $(srcdir)/arch/$(ARCH)/common.c
 PYTHON_SRCS += $(wildcard $(srcdir)/utils/symbol-*.c)
 PYTHON_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.oy,$(PYTHON_SRCS))
 
