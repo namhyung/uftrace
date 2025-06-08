@@ -19,7 +19,6 @@
 #define TRAMP_IDX_OFFSET 1
 #define TRAMP_JMP_OFFSET 6
 
-extern void __weak plt_hooker(void);
 struct plthook_data *mcount_arch_hook_no_plt(struct uftrace_elf_data *elf, const char *modname,
 					     unsigned long offset)
 {
@@ -44,7 +43,7 @@ struct plthook_data *mcount_arch_hook_no_plt(struct uftrace_elf_data *elf, const
 		0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc,
 	};
 	/* clang-format on */
-	void *plthook_addr = plt_hooker;
+	void *plthook_addr = (void *)mcount_arch_ops.entry[UFT_ARCH_OPS_PLTHOOK];
 	void *tramp;
 
 	pd = xzalloc(sizeof(*pd));

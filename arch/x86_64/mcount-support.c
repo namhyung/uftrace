@@ -9,6 +9,34 @@
 #include "utils/arch.h"
 #include "utils/filter.h"
 
+/* These functions are implemented in assembly */
+extern void mcount(void);
+extern void plt_hooker(void);
+extern void __fentry__(void);
+extern void __dentry__(void);
+extern void __xray_entry(void);
+extern void mcount_return(void);
+extern void plthook_return(void);
+extern void dynamic_return(void);
+extern void __xray_exit(void);
+
+const struct mcount_arch_ops mcount_arch_ops = {
+	.entry = {
+		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)mcount,
+		[UFT_ARCH_OPS_PLTHOOK] = (unsigned long)plt_hooker,
+		[UFT_ARCH_OPS_FENTRY] = (unsigned long)__fentry__,
+		[UFT_ARCH_OPS_DYNAMIC] = (unsigned long)__dentry__,
+		[UFT_ARCH_OPS_XRAY] = (unsigned long)__xray_entry,
+	},
+	.exit = {
+		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)mcount_return,
+		[UFT_ARCH_OPS_PLTHOOK] = (unsigned long)plthook_return,
+		[UFT_ARCH_OPS_FENTRY] = (unsigned long)mcount_return,
+		[UFT_ARCH_OPS_DYNAMIC] = (unsigned long)dynamic_return,
+		[UFT_ARCH_OPS_XRAY] = (unsigned long)__xray_exit,
+	},
+};
+
 #define COPY_XMM(xmm)                                                                              \
 	do {                                                                                       \
 		if (spec->size == 8)                                                               \

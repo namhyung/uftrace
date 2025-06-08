@@ -125,7 +125,6 @@ void mcount_rstack_restore(struct mcount_thread_data *mtdp)
 {
 	int idx;
 	struct mcount_ret_stack *rstack;
-	unsigned long plthook_return_fn = (unsigned long)plthook_return;
 
 	if (unlikely(mcount_estimate_return))
 		return;
@@ -204,7 +203,7 @@ void mcount_rstack_rehook(struct mcount_thread_data *mtdp)
 		if (rstack->dyn_idx == MCOUNT_INVALID_DYNIDX)
 			*rstack->parent_loc = mcount_return_fn;
 		else if (ARCH_CAN_RESTORE_PLTHOOK)
-			*rstack->parent_loc = (unsigned long)plthook_return;
+			*rstack->parent_loc = plthook_return_fn;
 	}
 }
 
@@ -234,7 +233,7 @@ void mcount_auto_restore(struct mcount_thread_data *mtdp)
 		unsigned long parent_ip = prev_rstack->parent_ip;
 
 		/* parent also can be tail-called; skip */
-		if (parent_ip == mcount_return_fn || parent_ip == (unsigned long)plthook_return) {
+		if (parent_ip == mcount_return_fn || parent_ip == plthook_return_fn) {
 			prev_rstack--;
 			continue;
 		}
@@ -269,7 +268,7 @@ void mcount_auto_rehook(struct mcount_thread_data *mtdp)
 	if (prev_rstack->dyn_idx == MCOUNT_INVALID_DYNIDX)
 		*prev_rstack->parent_loc = mcount_return_fn;
 	else
-		*prev_rstack->parent_loc = (unsigned long)plthook_return;
+		*prev_rstack->parent_loc = plthook_return_fn;
 }
 
 #ifdef UNIT_TEST

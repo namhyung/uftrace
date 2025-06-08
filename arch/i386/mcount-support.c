@@ -22,6 +22,27 @@
 
 static bool search_main_ret = false;
 
+/* These functions are implemented in assembly */
+extern void mcount(void);
+extern void plt_hooker(void);
+extern void __fentry__(void);
+extern void mcount_return(void);
+extern void plthook_return(void);
+extern void fentry_return(void);
+
+const struct mcount_arch_ops mcount_arch_ops = {
+	.entry = {
+		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)mcount,
+		[UFT_ARCH_OPS_PLTHOOK] = (unsigned long)plt_hooker,
+		[UFT_ARCH_OPS_FENTRY] = (unsigned long)__fentry__,
+	},
+	.exit = {
+		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)mcount_return,
+		[UFT_ARCH_OPS_PLTHOOK] = (unsigned long)plthook_return,
+		[UFT_ARCH_OPS_FENTRY] = (unsigned long)fentry_return,
+	},
+};
+
 int mcount_get_register_arg(struct mcount_arg_context *ctx, struct uftrace_arg_spec *spec)
 {
 	struct mcount_regs *regs = ctx->regs;
