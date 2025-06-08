@@ -6,6 +6,7 @@
 
 #include <stdbool.h>
 
+struct mcount_event_info;
 struct plthook_data;
 struct uftrace_elf_data;
 
@@ -29,6 +30,9 @@ struct mcount_arch_ops {
 	unsigned long (*plthook_addr)(struct plthook_data *, int);
 	unsigned long (*child_idx)(unsigned long);
 	struct plthook_data *(*hook_no_plt)(struct uftrace_elf_data *, const char *, unsigned long);
+
+	/* optional functions for event processing (e.g. SDT) */
+	int (*enable_event)(struct mcount_event_info *);
 };
 
 /* each architecture should provide this */
