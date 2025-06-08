@@ -6,9 +6,15 @@
 
 #include <stdbool.h>
 
+struct mcount_dynamic_info;
+struct mcount_disasm_engine;
+struct mcount_disasm_info;
 struct mcount_event_info;
+struct mcount_orig_insn;
 struct plthook_data;
 struct uftrace_elf_data;
+struct uftrace_symtab;
+struct uftrace_symbol;
 
 enum mcount_arch_ops_entry {
 	UFT_ARCH_OPS_MCOUNT,
@@ -44,6 +50,34 @@ struct mcount_arch_ops {
 
 	/* Optional functions for event processing (e.g. SDT).  Returns 0 or negative error. */
 	int (*enable_event)(struct mcount_event_info *mei);
+
+	/*
+	 * Functions to support dynamic tracing.  If 'disasm_init' is defined, it assumes others
+	 * (except for the last two) are defined too.
+	 */
+	/* Initialize the (capstone) disassembly engine. */
+	void (*disasm_init)(struct mcount_disasm_engine *disasm);
+	/* Finalize the (capstone) disassembly engine. */
+	void (*disasm_finish)(struct mcount_disasm_engine *disasm);
+	/* Setup a trampoline to jump to the entry function. Return 0 or negative error. */
+	int (*setup_trampoline)(struct mcount_dynamic_info *mdi);
+	/* Cleanup the trampoline if it's setup. */
+	void (*cleanup_trampoline)(struct mcount_dynamic_info *mdi);
+	/* Update code in the function entry to jump to the trampoline. */
+	int (*patch_func)(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
+			  struct mcount_disasm_engine *disasm, unsigned min_size);
+	/* Update code in the function entry not to jump to the entry. */
+	int (*unpatch_func)(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
+			    struct mcount_disasm_engine *disasm);
+	/* Check binary (module) for the mdi and set mdi->type properly. */
+	void (*find_module)(struct mcount_dynamic_info *mdi, struct uftrace_symtab *symtab);
+	/* Restore original code in the mdi when something bad happen. */
+	void (*dynamic_recover)(struct mcount_dynamic_info *mdi,
+				struct mcount_disasm_engine *disasm);
+	/* Optional function to calculate size of branch tables for the original code. */
+	int (*branch_table_size)(struct mcount_disasm_info *info);
+	/* Optional function to handle branch instructions in the original code. */
+	void (*patch_branch)(struct mcount_disasm_info *, struct mcount_orig_insn *);
 };
 
 /* Each architecture should provide this. */

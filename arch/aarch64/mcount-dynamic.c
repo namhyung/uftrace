@@ -95,6 +95,11 @@ int mcount_setup_trampoline(struct mcount_dynamic_info *mdi)
 	return 0;
 }
 
+void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi)
+{
+	/* do nothing */
+}
+
 static void read_patchable_loc(struct mcount_dynamic_info *mdi, struct uftrace_elf_data *elf,
 			       struct uftrace_elf_iter *iter, unsigned long offset)
 {
@@ -273,6 +278,13 @@ int mcount_patch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sy
 		break;
 	}
 	return result;
+}
+
+int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
+			struct mcount_disasm_engine *disasm)
+{
+	/* not supported yet */
+	return -1;
 }
 
 static void revert_normal_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
