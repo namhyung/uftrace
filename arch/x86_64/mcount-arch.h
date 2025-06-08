@@ -67,4 +67,6 @@ struct mcount_disasm_info;
 int disasm_check_insns(struct mcount_disasm_engine *disasm, struct mcount_dynamic_info *mdi,
 		       struct mcount_disasm_info *info);
 
+unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx);
+
 #endif /* MCOUNT_ARCH_H */

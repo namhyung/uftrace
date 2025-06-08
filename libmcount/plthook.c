@@ -125,6 +125,35 @@ size_t noplt_skip_nr = ARRAY_SIZE(noplt_skip_syms);
 #undef ALIAS_DECL
 
 /*
+ * mcount_plthook_addr() returns the address of GOT entry.
+ * The initial value for each GOT entry redirects the execution to
+ * the runtime resolver. (_dl_runtime_resolve in ld-linux.so)
+ *
+ * The GOT entry is updated by the runtime resolver to the resolved address of
+ * the target library function for later reference.
+ *
+ * However, uftrace gets this address to update it back to the initial value.
+ * Even if the GOT entry is resolved by runtime resolver, uftrace restores the
+ * address back to the initial value to watch library function calls.
+ *
+ * Before doing this work, GOT[2] is updated from the address of runtime
+ * resolver(_dl_runtime_resolve) to uftrace hooking routine(plt_hooker).
+ *
+ * This address depends on the PLT structure of each architecture so this
+ * function is implemented differently for each architecture.
+ */
+static unsigned long mcount_plthook_addr(struct plthook_data *pd, int idx)
+{
+	struct uftrace_symbol *sym;
+
+	if (mcount_arch_ops.plthook_addr)
+		return mcount_arch_ops.plthook_addr(pd, idx);
+
+	sym = &pd->dsymtab.sym[idx];
+	return sym->addr + ARCH_PLTHOOK_ADDR_OFFSET;
+}
+
+/*
  * The `mcount` (and its friends) are part of uftrace itself,
  * so no need to use PLT hook for them.
  */
@@ -165,7 +194,7 @@ static void restore_plt_functions(struct plthook_data *pd)
 			continue;
 
 		resolved_addr = pd->pltgot_ptr[got_idx];
-		plthook_addr = mcount_arch_plthook_addr(pd, i);
+		plthook_addr = mcount_plthook_addr(pd, i);
 		if (resolved_addr != plthook_addr) {
 			char *symname;
 
@@ -187,17 +216,6 @@ static void restore_plt_functions(struct plthook_data *pd)
 			resolve_pltgot(pd, i);
 		}
 	}
-}
-
-__weak struct plthook_data *mcount_arch_hook_no_plt(struct uftrace_elf_data *elf,
-						    const char *modname, unsigned long offset)
-{
-	return NULL;
-}
-
-__weak void mcount_arch_plthook_setup(struct plthook_data *pd, struct uftrace_elf_data *elf)
-{
-	pd->arch = NULL;
 }
 
 static int find_got(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter,
@@ -291,7 +309,11 @@ static int find_got(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter,
 	}
 
 	if (!plt_found) {
-		pd = mcount_arch_hook_no_plt(elf, modname, offset);
+		if (mcount_arch_ops.hook_no_plt)
+			pd = mcount_arch_ops.hook_no_plt(elf, modname, offset);
+		else
+			pd = NULL;
+
 		if (pd == NULL)
 			pr_dbg2("no PLTGOT found.. ignoring...\n");
 		else
@@ -331,7 +353,11 @@ static int find_got(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter,
 	pd->special_funcs = NULL;
 	pd->nr_special = 0;
 
-	mcount_arch_plthook_setup(pd, elf);
+	if (mcount_arch_ops.plthook_setup)
+		mcount_arch_ops.plthook_setup(pd, elf);
+	else
+		pd->arch = NULL;
+
 	list_add_tail(&pd->list, &plthook_modules);
 
 	if (plthook_resolver_addr == 0)
@@ -749,32 +775,6 @@ static struct mcount_ret_stack *restore_vfork(struct mcount_thread_data *mtdp,
 	return rstack;
 }
 
-/*
- * mcount_arch_plthook_addr() returns the address of GOT entry.
- * The initial value for each GOT entry redirects the execution to
- * the runtime resolver. (_dl_runtime_resolve in ld-linux.so)
- *
- * The GOT entry is updated by the runtime resolver to the resolved address of
- * the target library function for later reference.
- *
- * However, uftrace gets this address to update it back to the initial value.
- * Even if the GOT entry is resolved by runtime resolver, uftrace restores the
- * address back to the initial value to watch library function calls.
- *
- * Before doing this work, GOT[2] is updated from the address of runtime
- * resolver(_dl_runtime_resolve) to uftrace hooking routine(plt_hooker).
- *
- * This address depends on the PLT structure of each architecture so this
- * function is implemented differently for each architecture.
- */
-__weak unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx)
-{
-	struct uftrace_symbol *sym;
-
-	sym = &pd->dsymtab.sym[idx];
-	return sym->addr + ARCH_PLTHOOK_ADDR_OFFSET;
-}
-
 static void update_pltgot(struct mcount_thread_data *mtdp, struct plthook_data *pd, int dyn_idx)
 {
 	if (unlikely(plthook_no_pltbind))
@@ -789,7 +789,7 @@ static void update_pltgot(struct mcount_thread_data *mtdp, struct plthook_data *
 #endif
 		if (!pd->resolved_addr[dyn_idx]) {
 			int got_idx = ARCH_PLTGOT_OFFSET + dyn_idx;
-			plthook_addr = mcount_arch_plthook_addr(pd, dyn_idx);
+			plthook_addr = mcount_plthook_addr(pd, dyn_idx);
 			setup_pltgot(pd, got_idx, dyn_idx, (void *)plthook_addr);
 		}
 
@@ -797,11 +797,6 @@ static void update_pltgot(struct mcount_thread_data *mtdp, struct plthook_data *
 		pthread_mutex_unlock(&resolver_mutex);
 #endif
 	}
-}
-
-__weak unsigned long mcount_arch_child_idx(unsigned long child_idx)
-{
-	return child_idx;
 }
 
 static unsigned long __plthook_entry(unsigned long *ret_addr, unsigned long child_idx,
@@ -822,7 +817,8 @@ static unsigned long __plthook_entry(unsigned long *ret_addr, unsigned long chil
 	mcount_memset4(&tr, 0, sizeof(tr));
 
 	// if necessary, implement it by architecture.
-	child_idx = mcount_arch_child_idx(child_idx);
+	if (mcount_arch_ops.child_idx)
+		child_idx = mcount_arch_ops.child_idx(child_idx);
 	list_for_each_entry(pd, &plthook_modules, list) {
 		if (module_id == pd->module_id)
 			break;

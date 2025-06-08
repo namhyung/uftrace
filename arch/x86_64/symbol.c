@@ -7,15 +7,9 @@
 #define PR_FMT "symbol"
 #define PR_DOMAIN DBG_SYMBOL
 
-#include "libmcount/internal.h"
-#include "mcount-arch.h"
 #include "uftrace.h"
 #include "utils/symbol.h"
 #include "utils/utils.h"
-
-#define R_OFFSET_POS 2
-#define JMP_INSN_SIZE 6
-#define PLTGOT_SIZE 8
 
 int arch_load_dynsymtab_noplt(struct uftrace_symtab *dsymtab, struct uftrace_elf_data *elf,
 			      unsigned long offset, unsigned long flags)
@@ -95,41 +89,4 @@ int arch_load_dynsymtab_noplt(struct uftrace_symtab *dsymtab, struct uftrace_elf
 	sort_dynsymtab(dsymtab);
 
 	return dsymtab->nr_sym;
-}
-
-void mcount_arch_plthook_setup(struct plthook_data *pd, struct uftrace_elf_data *elf)
-{
-	struct plthook_arch_context *ctx;
-	struct uftrace_elf_iter iter;
-	char *secname;
-
-	ctx = xzalloc(sizeof(*ctx));
-
-	elf_for_each_shdr(elf, &iter) {
-		secname = elf_get_name(elf, &iter, iter.shdr.sh_name);
-
-		if (strcmp(secname, ".plt.sec") == 0) {
-			ctx->has_plt_sec = true;
-			break;
-		}
-	}
-
-	pd->arch = ctx;
-}
-
-unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx)
-{
-	struct plthook_arch_context *ctx = pd->arch;
-	struct uftrace_symbol *sym;
-
-	if (ctx->has_plt_sec) {
-		unsigned long sym_addr;
-
-		/* symbol has .plt.sec address, so return .plt address */
-		sym_addr = pd->plt_addr + (idx + 1) * 16;
-		return sym_addr;
-	}
-
-	sym = &pd->dsymtab.sym[idx];
-	return sym->addr + ARCH_PLTHOOK_ADDR_OFFSET;
 }

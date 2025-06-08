@@ -13,6 +13,9 @@ extern void mcount_return(void);
 extern void plthook_return(void);
 extern void dynamic_return(void);
 
+/* These functions are defined in the current file */
+static unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx);
+
 const struct mcount_arch_ops mcount_arch_ops = {
 	.entry = {
 		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)_mcount,
@@ -26,6 +29,7 @@ const struct mcount_arch_ops mcount_arch_ops = {
 		[UFT_ARCH_OPS_FENTRY] = (unsigned long)mcount_return,
 		[UFT_ARCH_OPS_DYNAMIC] = (unsigned long)dynamic_return,
 	},
+	.plthook_addr = mcount_arch_plthook_addr,
 };
 
 /* FIXME: x0 is overwritten before calling _mcount() */
@@ -251,7 +255,7 @@ void mcount_arch_get_retval(struct mcount_arg_context *ctx, struct uftrace_arg_s
 		mcount_memcpy4(ctx->val.v, ctx->retval, spec->size);
 }
 
-unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx)
+static unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx)
 {
 	struct uftrace_symbol *sym;
 

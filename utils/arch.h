@@ -6,6 +6,9 @@
 
 #include <stdbool.h>
 
+struct plthook_data;
+struct uftrace_elf_data;
+
 enum mcount_arch_ops_entry {
 	UFT_ARCH_OPS_MCOUNT,
 	UFT_ARCH_OPS_PLTHOOK,
@@ -20,6 +23,12 @@ struct mcount_arch_ops {
 	/* save address of arch-specific assembly functions */
 	unsigned long entry[UFT_ARCH_OPS_NUM];
 	unsigned long exit[UFT_ARCH_OPS_NUM];
+
+	/* for plthook symbol handling */
+	void (*plthook_setup)(struct plthook_data *, struct uftrace_elf_data *);
+	unsigned long (*plthook_addr)(struct plthook_data *, int);
+	unsigned long (*child_idx)(unsigned long);
+	struct plthook_data *(*hook_no_plt)(struct uftrace_elf_data *, const char *, unsigned long);
 };
 
 /* each architecture should provide this */
