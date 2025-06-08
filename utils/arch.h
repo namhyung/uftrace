@@ -59,8 +59,15 @@ struct mcount_arch_ops {
 	void (*patch_branch)(struct mcount_disasm_info *, struct mcount_orig_insn *);
 };
 
-/* each architecture should provide this */
+/* arch-specific operations used by both uftrace and libmcount */
+struct uftrace_arch_ops {
+	int (*load_dynsymtab)(struct uftrace_symtab *, struct uftrace_elf_data *, unsigned long,
+			      unsigned long);
+};
+
+/* each architecture should provide thiese */
 extern const struct mcount_arch_ops mcount_arch_ops;
+extern const struct uftrace_arch_ops uftrace_arch_ops;
 
 enum uftrace_cpu_arch {
 	UFT_CPU_NONE,

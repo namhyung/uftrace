@@ -17,6 +17,7 @@
 #include <sys/mman.h>
 
 #include "uftrace.h"
+#include "utils/arch.h"
 #include "utils/filter.h"
 #include "utils/list.h"
 #include "utils/rbtree.h"
@@ -149,6 +150,11 @@ static int libcall_count;
 /* functions in libmcount.so */
 static void (*cygprof_enter)(unsigned long child, unsigned long parent);
 static void (*cygprof_exit)(unsigned long child, unsigned long parent);
+
+#ifndef UNIT_TEST
+/* dummy arch ops just for build */
+const struct uftrace_arch_ops uftrace_arch_ops = {};
+#endif
 
 /* main trace function to be called from python interpreter */
 static PyObject *uftrace_trace_python(PyObject *self, PyObject *args);

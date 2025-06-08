@@ -8,11 +8,21 @@
 #define PR_DOMAIN DBG_SYMBOL
 
 #include "uftrace.h"
+#include "utils/arch.h"
 #include "utils/symbol.h"
 #include "utils/utils.h"
 
-int arch_load_dynsymtab_noplt(struct uftrace_symtab *dsymtab, struct uftrace_elf_data *elf,
-			      unsigned long offset, unsigned long flags)
+/* These functions are defined in the current file. */
+static int arch_load_dynsymtab_noplt(struct uftrace_symtab *dsymtab, struct uftrace_elf_data *elf,
+				     unsigned long offset, unsigned long flags);
+
+/* This is a common arch-ops that will be used by both uftrace and libmcount. */
+const struct uftrace_arch_ops uftrace_arch_ops = {
+	.load_dynsymtab = arch_load_dynsymtab_noplt,
+};
+
+static int arch_load_dynsymtab_noplt(struct uftrace_symtab *dsymtab, struct uftrace_elf_data *elf,
+				     unsigned long offset, unsigned long flags)
 {
 	struct uftrace_elf_iter sec_iter = {};
 	struct uftrace_elf_iter rel_iter;
