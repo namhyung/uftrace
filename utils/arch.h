@@ -6,6 +6,9 @@
 
 #include <stdbool.h>
 
+struct plthook_data;
+struct uftrace_elf_data;
+
 enum mcount_arch_ops_entry {
 	UFT_ARCH_OPS_MCOUNT,
 	UFT_ARCH_OPS_PLTHOOK,
@@ -24,6 +27,19 @@ struct mcount_arch_ops {
 	 */
 	unsigned long entry[UFT_ARCH_OPS_NUM];
 	unsigned long exit[UFT_ARCH_OPS_NUM];
+
+	/*
+	 * Functions to support non-standard PLT hooking.
+	 */
+	/* Prepare arch-specific PLT handling and save necessary info to pd->arch. */
+	void (*plthook_setup)(struct plthook_data *pd, struct uftrace_elf_data *elf);
+	/* Return the address of PLT function at the given index. */
+	unsigned long (*plthook_addr)(struct plthook_data *pd, int idx);
+	/* Adjust and return the index of PLT function. */
+	unsigned long (*child_idx)(unsigned long idx);
+	/* Setup an artificial PLT if the module doesn't have one, and return a new plthook_data. */
+	struct plthook_data *(*hook_no_plt)(struct uftrace_elf_data *elf, const char *module,
+					    unsigned long offset);
 };
 
 /* Each architecture should provide this. */

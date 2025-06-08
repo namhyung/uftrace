@@ -20,6 +20,12 @@ extern void plthook_return(void);
 extern void dynamic_return(void);
 extern void __xray_exit(void);
 
+/* These functions are defined in mcount-plthook.c */
+extern void mcount_arch_plthook_setup(struct plthook_data *pd, struct uftrace_elf_data *elf);
+extern unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx);
+extern struct plthook_data *mcount_arch_hook_no_plt(struct uftrace_elf_data *, const char *,
+						    unsigned long);
+
 const struct mcount_arch_ops mcount_arch_ops = {
 	.entry = {
 		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)mcount,
@@ -35,6 +41,9 @@ const struct mcount_arch_ops mcount_arch_ops = {
 		[UFT_ARCH_OPS_DYNAMIC] = (unsigned long)dynamic_return,
 		[UFT_ARCH_OPS_XRAY] = (unsigned long)__xray_exit,
 	},
+	.plthook_setup = mcount_arch_plthook_setup,
+	.plthook_addr = mcount_arch_plthook_addr,
+	.hook_no_plt = mcount_arch_hook_no_plt,
 };
 
 #define COPY_XMM(xmm)                                                                              \
