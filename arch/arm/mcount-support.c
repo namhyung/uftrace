@@ -46,6 +46,9 @@ extern void plt_hooker(void);
 extern void mcount_return(void);
 extern void plthook_return(void);
 
+/* These functions are defined in the current file */
+static unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx);
+
 const struct mcount_arch_ops mcount_arch_ops = {
 	.entry = {
 		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)__gnu_mcount_nc,
@@ -55,6 +58,7 @@ const struct mcount_arch_ops mcount_arch_ops = {
 		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)mcount_return,
 		[UFT_ARCH_OPS_PLTHOOK] = (unsigned long)plthook_return,
 	},
+	.plthook_addr = mcount_arch_plthook_addr,
 };
 
 static unsigned rotate_right(unsigned val, unsigned bits, unsigned shift)
@@ -512,7 +516,7 @@ void mcount_arch_get_retval(struct mcount_arg_context *ctx, struct uftrace_arg_s
 		memcpy(ctx->val.v, ctx->retval, spec->size);
 }
 
-unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx)
+static unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx)
 {
 	return pd->plt_addr;
 }

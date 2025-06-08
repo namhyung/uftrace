@@ -10,6 +10,9 @@ extern void plt_hooker(void);
 extern void mcount_return(void);
 extern void plthook_return(void);
 
+/* These functions are defined in the current file */
+static unsigned long mcount_arch_plthook_addr(struct plthook_data *, int);
+
 const struct mcount_arch_ops mcount_arch_ops = {
 	.entry = {
 		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)_mcount,
@@ -19,6 +22,7 @@ const struct mcount_arch_ops mcount_arch_ops = {
 		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)mcount_return,
 		[UFT_ARCH_OPS_PLTHOOK] = (unsigned long)plthook_return,
 	},
+	.plthook_addr = mcount_arch_plthook_addr,
 };
 
 static int mcount_get_register_arg(struct mcount_arg_context *ctx, struct uftrace_arg_spec *spec)
@@ -228,7 +232,7 @@ void mcount_restore_arch_context(struct mcount_arch_context *ctx)
 	asm volatile("fld fa7, %0\n" ::"m"(ctx->f[7]));
 }
 
-unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx)
+static unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx)
 {
 	return pd->plt_addr;
 }
