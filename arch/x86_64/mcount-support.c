@@ -26,6 +26,9 @@ extern unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx);
 extern struct plthook_data *mcount_arch_hook_no_plt(struct uftrace_elf_data *, const char *,
 						    unsigned long);
 
+/* These functions are defined in mcount-event.c */
+extern int mcount_arch_enable_event(struct mcount_event_info *mei);
+
 const struct mcount_arch_ops mcount_arch_ops = {
 	.entry = {
 		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)mcount,
@@ -44,6 +47,7 @@ const struct mcount_arch_ops mcount_arch_ops = {
 	.plthook_setup = mcount_arch_plthook_setup,
 	.plthook_addr = mcount_arch_plthook_addr,
 	.hook_no_plt = mcount_arch_hook_no_plt,
+	.enable_event = mcount_arch_enable_event,
 };
 
 #define COPY_XMM(xmm)                                                                              \

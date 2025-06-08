@@ -6,6 +6,7 @@
 
 #include <stdbool.h>
 
+struct mcount_event_info;
 struct plthook_data;
 struct uftrace_elf_data;
 
@@ -40,6 +41,9 @@ struct mcount_arch_ops {
 	/* Setup an artificial PLT if the module doesn't have one, and return a new plthook_data. */
 	struct plthook_data *(*hook_no_plt)(struct uftrace_elf_data *elf, const char *module,
 					    unsigned long offset);
+
+	/* Optional functions for event processing (e.g. SDT).  Returns 0 or negative error. */
+	int (*enable_event)(struct mcount_event_info *mei);
 };
 
 /* Each architecture should provide this. */
