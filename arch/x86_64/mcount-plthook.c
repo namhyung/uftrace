@@ -50,7 +50,7 @@ struct plthook_data *mcount_arch_hook_no_plt(struct uftrace_elf_data *elf, const
 	pd->module_id = (unsigned long)pd;
 	pd->base_addr = offset;
 
-	if (arch_load_dynsymtab_noplt(&pd->dsymtab, elf, offset, 0) < 0 ||
+	if (uftrace_arch_ops.load_dynsymtab(&pd->dsymtab, elf, offset, 0) < 0 ||
 	    pd->dsymtab.nr_sym == 0) {
 		free(pd);
 		return NULL;

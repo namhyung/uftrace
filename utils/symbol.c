@@ -515,12 +515,6 @@ void sort_dynsymtab(struct uftrace_symtab *dsymtab)
 	dsymtab->name_sorted = false;
 }
 
-__weak int arch_load_dynsymtab_noplt(struct uftrace_symtab *dsymtab, struct uftrace_elf_data *elf,
-				     unsigned long offset, unsigned long flags)
-{
-	return 0;
-}
-
 int load_elf_dynsymtab(struct uftrace_symtab *dsymtab, struct uftrace_elf_data *elf,
 		       unsigned long offset, unsigned long flags)
 {
@@ -587,7 +581,8 @@ int load_elf_dynsymtab(struct uftrace_symtab *dsymtab, struct uftrace_elf_data *
 	}
 
 	if (rel_type == SHT_NULL) {
-		arch_load_dynsymtab_noplt(dsymtab, elf, offset, flags);
+		if (uftrace_arch_ops.load_dynsymtab)
+			uftrace_arch_ops.load_dynsymtab(dsymtab, elf, offset, flags);
 		goto out_sort;
 	}
 
@@ -713,7 +708,6 @@ static void merge_symtabs(struct uftrace_symtab *left, struct uftrace_symtab *ri
 static int load_dynsymtab(struct uftrace_symtab *dsymtab, const char *filename,
 			  unsigned long offset, unsigned long flags)
 {
-	struct uftrace_symtab dsymtab_noplt = {};
 	struct uftrace_elf_data elf;
 
 	if (elf_init(filename, &elf) < 0) {
@@ -723,8 +717,12 @@ static int load_dynsymtab(struct uftrace_symtab *dsymtab, const char *filename,
 
 	pr_dbg3("loading dynamic symbols from %s (offset: %#lx)\n", filename, offset);
 	load_elf_dynsymtab(dsymtab, &elf, offset, flags);
-	arch_load_dynsymtab_noplt(&dsymtab_noplt, &elf, offset, flags);
-	merge_symtabs(dsymtab, &dsymtab_noplt);
+	if (uftrace_arch_ops.load_dynsymtab) {
+		struct uftrace_symtab dsymtab_noplt = {};
+
+		uftrace_arch_ops.load_dynsymtab(&dsymtab_noplt, &elf, offset, flags);
+		merge_symtabs(dsymtab, &dsymtab_noplt);
+	}
 
 	elf_finish(&elf);
 	return dsymtab->nr_sym;

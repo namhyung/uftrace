@@ -158,8 +158,6 @@ struct uftrace_symbol *find_sym(struct uftrace_symtab *symtab, uint64_t addr);
 struct uftrace_symbol *find_symname(struct uftrace_symtab *symtab, const char *name);
 void print_symtab(struct uftrace_symtab *symtab);
 
-int arch_load_dynsymtab_noplt(struct uftrace_symtab *dsymtab, struct uftrace_elf_data *elf,
-			      unsigned long offset, unsigned long flags);
 int load_elf_dynsymtab(struct uftrace_symtab *dsymtab, struct uftrace_elf_data *elf,
 		       unsigned long offset, unsigned long flags);
 
