@@ -833,7 +833,7 @@ static void record_mmap_file(const char *dirname, char *sess_id, int bufsize)
 	struct mcount_shmem_buffer *shmem_buf;
 
 	/* write (append) it to disk */
-	fd = uftrace_shmem_open(sess_id, O_RDWR, 0600);
+	fd = uftrace_shmem_open(sess_id, O_RDWR, UFTRACE_SHMEM_PERMISSION_MODE);
 	if (fd < 0) {
 		pr_dbg("open shmem buffer failed: %s: %m\n", sess_id);
 		return;
