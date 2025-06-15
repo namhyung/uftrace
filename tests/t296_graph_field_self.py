@@ -11,10 +11,6 @@ class TestCase(TestBase):
 ========== FUNCTION CALL GRAPH ==========
 # SELF AVG   SELF MAX   SELF MIN    FUNCTION
                                      : (1) t-sort
-  161.125 us  161.125 us  161.125 us :  +-(1) __monstartup
-                                     :  |
-    0.625 us    0.625 us    0.625 us :  +-(1) __cxa_atexit
-                                     :  |
    69.166 us   69.166 us   69.166 us :  +-(1) main
     2.666 us    4.958 us    0.375 us :     +-(2) foo
     8.736 us   36.625 us    3.125 us :     | (6) loop
@@ -29,7 +25,7 @@ class TestCase(TestBase):
 
     def setup(self):
         self.subcmd = 'graph'
-        self.option = '-f self-avg,self-max,self-min'
+        self.option = '-F main -f self-avg,self-max,self-min'
         self.exearg = ''
 
     def sort(self, output):
@@ -70,10 +66,6 @@ class TestCase(TestBase):
 
                 func_match = re.search(r'\(\d+\)\s+(\S+)', ln)
                 func_name = func_match.group(1) if func_match else 'UNKNOWN'
-
-                #system initializing function is not needed for same comparison
-                if func_name in ('__monstartup','__cxa_atexit'):
-                    continue
 
                 # Functions that are executed only once – compare if times are the same
                 if call_count == 1:
