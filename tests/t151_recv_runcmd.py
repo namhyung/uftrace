@@ -2,6 +2,7 @@
 
 import select
 import subprocess as sp
+import time
 
 from runtest import TestBase
 
@@ -34,6 +35,8 @@ class TestCase(TestBase):
         recv_cmd += ['--run-cmd', '%s %s' % (TestBase.uftrace_cmd, 'replay')]
         self.pr_debug('prerun command: ' + ' '.join(recv_cmd))
         self.recv_p = sp.Popen(recv_cmd, stdout=sp.PIPE, stderr=sp.PIPE)
+
+        time.sleep(0.1)
 
         epolls = select.epoll()
         epolls.register(self.recv_p.stdout, select.EPOLLIN)

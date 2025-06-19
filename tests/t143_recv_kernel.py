@@ -3,6 +3,7 @@
 import os
 import random
 import subprocess as sp
+import time
 
 from runtest import TestBase
 
@@ -39,6 +40,8 @@ class TestCase(TestBase):
         recv_cmd = self.runcmd()
         self.pr_debug('prerun command: ' + recv_cmd)
         self.recv_p = sp.Popen(recv_cmd.split())
+
+        time.sleep(0.1)
 
         self.dirname = 'dir-%d' % random.randint(100000, 999999)
         self.subcmd = 'record'
