@@ -51,6 +51,8 @@
 #define NSEC_PER_SEC 1000000000
 #define NSEC_PER_MSEC 1000000
 
+#define UFTRACE_SHMEM_PERMISSION_MODE 0700
+
 #define BUG_REPORT_MSG "Please report this bug to https://github.com/namhyung/uftrace/issues.\n\n"
 
 extern int debug;

@@ -34,7 +34,7 @@ static struct mcount_shmem_buffer *allocate_shmem_buffer(char *sess_id, size_t s
 
 	snprintf(sess_id, size, SHMEM_SESSION_FMT, mcount_session_name(), tid, idx);
 
-	fd = uftrace_shmem_open(sess_id, O_RDWR | O_CREAT | O_TRUNC, 0600);
+	fd = uftrace_shmem_open(sess_id, O_RDWR | O_CREAT | O_TRUNC, UFTRACE_SHMEM_PERMISSION_MODE);
 	if (fd < 0) {
 		saved_errno = errno;
 		pr_dbg("failed to open shmem buffer: %s\n", sess_id);

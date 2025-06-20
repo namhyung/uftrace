@@ -221,7 +221,8 @@ static void init_symtab(void)
 {
 	snprintf(uftrace_shmem_name, sizeof(uftrace_shmem_name), "/uftrace-python-%d", getpid());
 
-	uftrace_shmem_fd = uftrace_shmem_open(uftrace_shmem_name, O_RDWR | O_CREAT | O_TRUNC, 0600);
+	uftrace_shmem_fd = uftrace_shmem_open(uftrace_shmem_name, O_RDWR | O_CREAT | O_TRUNC,
+					      UFTRACE_SHMEM_PERMISSION_MODE);
 	if (uftrace_shmem_fd < 0)
 		pr_err("failed to open shared memory for %s", uftrace_shmem_name);
 
@@ -340,8 +341,8 @@ static void init_dbginfo(void)
 	snprintf(uftrace_shmem_dbg_name, sizeof(uftrace_shmem_dbg_name), "/uftrace-python-dbg-%d",
 		 getpid());
 
-	uftrace_shmem_dbg_fd =
-		uftrace_shmem_open(uftrace_shmem_dbg_name, O_RDWR | O_CREAT | O_TRUNC, 0600);
+	uftrace_shmem_dbg_fd = uftrace_shmem_open(
+		uftrace_shmem_dbg_name, O_RDWR | O_CREAT | O_TRUNC, UFTRACE_SHMEM_PERMISSION_MODE);
 	if (uftrace_shmem_dbg_fd < 0)
 		pr_err("failed to open shared memory for %s", uftrace_shmem_dbg_name);
 
