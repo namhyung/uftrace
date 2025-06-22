@@ -44,10 +44,16 @@ class TestCase(TestBase):
     def fixup(self, cflags, result):
         uname = os.uname()
 
-        # Linux v4.17 (x86_64) changed syscall routines
-        major, minor, release = uname[2].split('.')
-        if uname[0] == 'Linux' and uname[4] == 'x86_64' and \
-           int(major) >= 5 or (int(major) == 4 and int(minor) >= 17):
-            result = result.replace('sys_', '__x64_sys_')
+        # Later version changed syscall routines
+        major, minor, release = uname[2].split('.', 2)
+        if uname[0] == 'Linux' and uname[4] == 'x86_64':
+            if int(major) >= 6 and int(minor) >= 9:
+                import re
+                result = re.sub(r'sys_[^(]*', 'x64_sys_call', result)
+            elif int(major) >= 5 or (int(major) == 4 and int(minor) >= 17):
+                result = result.replace('sys_', '__x64_sys_')
+        if uname[0] == 'Linux' and uname[4] == 'aarch64' and \
+           int(major) >= 5 or (int(major) == 4 and int(minor) >= 19):
+            result = result.replace('sys_', '__arm64_sys_')
 
         return result.replace(' sys_open', ' sys_openat')

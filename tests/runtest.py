@@ -783,6 +783,13 @@ def run_single_case(case, flags, opts, arg, compilers):
     result = []
     timeout = int(arg.timeout)
 
+    if timeout == -1:
+        # kernel tests takes more time to setup
+        if 'kernel' in case:
+            timeout = 30
+        else:
+            timeout = 5
+
     # for python3
     _locals = {}
     exec("import %s as T" % (case), globals(), _locals)
@@ -949,7 +956,7 @@ def parse_argument():
                         help="show internal command and result for debugging")
     parser.add_argument("-l", "--color", dest='color', default='auto',
                         help="set color in the output. 'auto', 'on' or 'off'")
-    parser.add_argument("-t", "--timeout", dest='timeout', default=5,
+    parser.add_argument("-t", "--timeout", dest='timeout', default="-1",
                         help="fail test if it runs more than TIMEOUT seconds")
     parser.add_argument("-j", "--worker", dest='worker', type=int, default=multiprocessing.cpu_count(),
                         help="Parallel worker count; using all core for default")

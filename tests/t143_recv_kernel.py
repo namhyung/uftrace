@@ -45,7 +45,7 @@ class TestCase(TestBase):
 
         self.dirname = 'dir-%d' % random.randint(100000, 999999)
         self.subcmd = 'record'
-        self.option = '--host %s --port %s -d %s' % ('localhost', self.port, self.dirname)
+        self.option = '--host %s --port %s -d %s -k' % ('localhost', self.port, self.dirname)
         self.exearg = 't-' + self.name
         record_cmd = self.runcmd()
         self.pr_debug('prerun command: ' + record_cmd)
@@ -64,10 +64,16 @@ class TestCase(TestBase):
     def fixup(self, cflags, result):
         uname = os.uname()
 
-        # Linux v4.17 (x86_64) changed syscall routines
-        major, minor, release = uname[2].split('.')
-        if uname[0] == 'Linux' and uname[4] == 'x86_64' and \
-           int(major) >= 5 or (int(major) == 4 and int(minor) >= 17):
-            result = result.replace('sys_', '__x64_sys_')
+        # Later version changed syscall routines
+        major, minor, release = uname[2].split('.', 2)
+        if uname[0] == 'Linux' and uname[4] == 'x86_64':
+            if int(major) == 6 and int(minor) >= 9:
+                result = result.replace('sys_open', 'x64_sys_call')
+                result = result.replace('sys_close', 'x64_sys_call')
+            elif int(major) >= 5 or (int(major) == 4 and int(minor) >= 17):
+                result = result.replace('sys_', '__x64_sys_')
+        if uname[0] == 'Linux' and uname[4] == 'aarch64' and \
+           int(major) >= 5 or (int(major) == 4 and int(minor) >= 19):
+            result = result.replace('sys_', '__arm64_sys_')
 
         return result.replace(' sys_open', ' sys_openat')

@@ -65,10 +65,16 @@ class TestCase(TestBase):
 """(1) getpid
    0.738 us :  | (1) sys_getpid""")
 
-        # Linux v4.17 (x86_64) changed syscall routines
-        major, minor, release = uname[2].split('.')
-        if uname[0] == 'Linux' and uname[4] == 'x86_64' and \
-           int(major) >= 5 or (int(major) == 4 and int(minor) >= 17):
-            result = result.replace('sys_get', '__x64_sys_get')
+        # Later versions changed syscall routines
+        major, minor, release = uname[2].split('.', 2)
+        if uname[0] == 'Linux' and uname[4] == 'x86_64':
+            if int(major) == 6 and int(minor) >= 9:
+                import re
+                result = re.sub(r'sys_get[a-z]*', 'x64_sys_call', result)
+            elif int(major) >= 5 or (int(major) == 4 and int(minor) >= 17):
+                result = result.replace('sys_get', '__x64_sys_get')
+        if uname[0] == 'Linux' and uname[4] == 'aarch64' and \
+           int(major) >= 5 or (int(major) == 4 and int(minor) >= 19):
+            result = result.replace('sys_get', '__arm64_sys_get')
 
         return result
