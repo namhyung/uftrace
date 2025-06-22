@@ -314,28 +314,6 @@ int __attribute__((weak)) arch_fill_cpuinfo_model(int fd)
 	return 0;
 }
 
-void mcount_return(void)
-{
-}
-void plthook_return(void)
-{
-}
-void dynamic_return(void)
-{
-}
-void __fentry__(void)
-{
-}
-void __dentry__(void)
-{
-}
-void __xray_entry(void)
-{
-}
-void __xray_exit(void)
-{
-}
-
 #undef main
 int main(int argc, char *argv[])
 {

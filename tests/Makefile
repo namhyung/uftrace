@@ -1,4 +1,5 @@
 TEST_CFLAGS  += -g -include $(srcdir)/tests/unittest.h -Wno-sign-compare $(CFLAGS_$@)
+TEST_AFLAGS  := -iquote $(srcdir) -iquote $(objdir) -iquote $(srcdir)/arch/$(ARCH)
 
 UNIT_TEST_SRC := $(srcdir)/uftrace.c
 UNIT_TEST_SRC += $(wildcard $(srcdir)/cmds/*.c)
@@ -10,6 +11,9 @@ UNIT_TEST_SRC += $(wildcard $(srcdir)/python/*.c)
 endif
 UNIT_TEST_OBJ := $(patsubst $(srcdir)/%.c,$(objdir)/%.ot,$(UNIT_TEST_SRC))
 UNIT_TEST_OBJ := $(filter-out %-nop.ot,$(UNIT_TEST_OBJ))
+
+UNIT_TEST_ASM := $(wildcard $(srcdir)/arch/$(ARCH)/*.S)
+UNIT_TEST_AOB := $(patsubst $(srcdir)/%.S,$(objdir)/%.ot,$(UNIT_TEST_ASM))
 
 UNIT_TEST_HDR := $(srcdir)/uftrace.h
 UNIT_TEST_HDR += $(srcdir)/tests/unittest.h
@@ -48,13 +52,16 @@ test_python:
 test_unit: unittest
 	$(QUIET_TEST)./unittest $(TESTARG) $(UNITTESTARG)
 
-unittest: unittest.c unittest.h $(UNIT_TEST_OBJ)
-	$(QUIET_LINK)$(CC) -o $@ $(TEST_CFLAGS) $< $(UNIT_TEST_OBJ) $(TEST_LDFLAGS)
+unittest: unittest.c unittest.h $(UNIT_TEST_OBJ) $(UNIT_TEST_AOB)
+	$(QUIET_LINK)$(CC) -o $@ $(TEST_CFLAGS) $(filter-out unittest.h, $^) $(TEST_LDFLAGS)
 
 $(UNIT_TEST_OBJ_VERSION): $(objdir)/version.h
 
 $(UNIT_TEST_OBJ): $(objdir)/%.ot: $(srcdir)/%.c $(objdir)/.config $(UNIT_TEST_HDR)
 	$(QUIET_CC)$(CC) -o $@ -c $(TEST_CFLAGS) $<
+
+$(UNIT_TEST_AOB): $(objdir)/%.ot: $(srcdir)/%.S $(objdir)/.config $(UNIT_TEST_HDR)
+	$(QUIET_ASM)$(CC) -o $@ -c $(TEST_AFLAGS) $<
 
 clean:
 	$(call QUIET_CLEAN, test)

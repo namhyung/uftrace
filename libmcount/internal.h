@@ -308,11 +308,8 @@ static inline void mcount_memcpy4(void *restrict dst, const void *restrict src, 
 		*p++ = *q++;
 }
 
-extern void mcount_return(void);
-extern void dynamic_return(void);
-extern unsigned long plthook_return(void);
-
 extern unsigned long mcount_return_fn;
+extern unsigned long plthook_return_fn;
 
 extern struct mcount_thread_data *mcount_prepare(void);
 
@@ -351,7 +348,7 @@ struct plthook_special_func {
 
 struct plthook_skip_symbol {
 	const char *name;
-	void *addr;
+	int entry_idx; /* for mcount_arch_ops.entry[] */
 };
 
 struct plthook_data {
@@ -383,8 +380,6 @@ extern void mcount_setup_plthook(char *exename, bool nest_libcall);
 
 extern void setup_dynsym_indexes(struct plthook_data *pd);
 extern void destroy_dynsym_indexes(void);
-
-extern unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx);
 
 extern unsigned long plthook_resolver_addr;
 extern const struct plthook_skip_symbol plt_skip_syms[];

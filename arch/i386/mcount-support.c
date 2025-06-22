@@ -22,6 +22,31 @@
 
 static bool search_main_ret = false;
 
+/* These functions are implemented in assembly */
+extern void mcount(void);
+extern void plt_hooker(void);
+extern void __fentry__(void);
+extern void mcount_return(void);
+extern void plthook_return(void);
+extern void fentry_return(void);
+
+/* These functions are defined in the current file */
+static unsigned long mcount_arch_child_idx(unsigned long child_idx);
+
+const struct mcount_arch_ops mcount_arch_ops = {
+	.entry = {
+		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)mcount,
+		[UFT_ARCH_OPS_PLTHOOK] = (unsigned long)plt_hooker,
+		[UFT_ARCH_OPS_FENTRY] = (unsigned long)__fentry__,
+	},
+	.exit = {
+		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)mcount_return,
+		[UFT_ARCH_OPS_PLTHOOK] = (unsigned long)plthook_return,
+		[UFT_ARCH_OPS_FENTRY] = (unsigned long)fentry_return,
+	},
+	.child_idx = mcount_arch_child_idx,
+};
+
 int mcount_get_register_arg(struct mcount_arg_context *ctx, struct uftrace_arg_spec *spec)
 {
 	struct mcount_regs *regs = ctx->regs;
@@ -231,7 +256,7 @@ unsigned long *mcount_arch_parent_location(struct uftrace_sym_info *symtabs,
 }
 
 // in i386, the idx value is set to a multiple of 8 unlike other.
-unsigned long mcount_arch_child_idx(unsigned long child_idx)
+static unsigned long mcount_arch_child_idx(unsigned long child_idx)
 {
 	if (child_idx > 0) {
 		if (child_idx % 8) {

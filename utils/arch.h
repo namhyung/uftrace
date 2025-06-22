@@ -6,6 +6,94 @@
 
 #include <stdbool.h>
 
+struct mcount_dynamic_info;
+struct mcount_disasm_engine;
+struct mcount_disasm_info;
+struct mcount_event_info;
+struct mcount_orig_insn;
+struct plthook_data;
+struct uftrace_elf_data;
+struct uftrace_symtab;
+struct uftrace_symbol;
+
+enum mcount_arch_ops_entry {
+	UFT_ARCH_OPS_MCOUNT,
+	UFT_ARCH_OPS_PLTHOOK,
+	UFT_ARCH_OPS_FENTRY,
+	UFT_ARCH_OPS_DYNAMIC,
+	UFT_ARCH_OPS_XRAY,
+
+	UFT_ARCH_OPS_NUM,
+};
+
+/* Arch-specific callback functions for libmcount. */
+struct mcount_arch_ops {
+	/*
+	 * Save address of arch-specific assembly functions for tracing entry and exit paths.
+	 * MCOUNT and PLTHOOK are required and others are optional.
+	 */
+	unsigned long entry[UFT_ARCH_OPS_NUM];
+	unsigned long exit[UFT_ARCH_OPS_NUM];
+
+	/*
+	 * Functions to support non-standard PLT hooking.
+	 */
+	/* Prepare arch-specific PLT handling and save necessary info to pd->arch. */
+	void (*plthook_setup)(struct plthook_data *pd, struct uftrace_elf_data *elf);
+	/* Return the address of PLT function at the given index. */
+	unsigned long (*plthook_addr)(struct plthook_data *pd, int idx);
+	/* Adjust and return the index of PLT function. */
+	unsigned long (*child_idx)(unsigned long idx);
+	/* Setup an artificial PLT if the module doesn't have one, and return a new plthook_data. */
+	struct plthook_data *(*hook_no_plt)(struct uftrace_elf_data *elf, const char *module,
+					    unsigned long offset);
+
+	/* Optional functions for event processing (e.g. SDT).  Returns 0 or negative error. */
+	int (*enable_event)(struct mcount_event_info *mei);
+
+	/*
+	 * Functions to support dynamic tracing.  If 'disasm_init' is defined, it assumes others
+	 * (except for the last two) are defined too.
+	 */
+	/* Initialize the (capstone) disassembly engine. */
+	void (*disasm_init)(struct mcount_disasm_engine *disasm);
+	/* Finalize the (capstone) disassembly engine. */
+	void (*disasm_finish)(struct mcount_disasm_engine *disasm);
+	/* Setup a trampoline to jump to the entry function. Return 0 or negative error. */
+	int (*setup_trampoline)(struct mcount_dynamic_info *mdi);
+	/* Cleanup the trampoline if it's setup. */
+	void (*cleanup_trampoline)(struct mcount_dynamic_info *mdi);
+	/* Update code in the function entry to jump to the trampoline. */
+	int (*patch_func)(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
+			  struct mcount_disasm_engine *disasm, unsigned min_size);
+	/* Update code in the function entry not to jump to the entry. */
+	int (*unpatch_func)(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
+			    struct mcount_disasm_engine *disasm);
+	/* Check binary (module) for the mdi and set mdi->type properly. */
+	void (*find_module)(struct mcount_dynamic_info *mdi, struct uftrace_symtab *symtab);
+	/* Restore original code in the mdi when something bad happen. */
+	void (*dynamic_recover)(struct mcount_dynamic_info *mdi,
+				struct mcount_disasm_engine *disasm);
+	/* Optional function to calculate size of branch tables for the original code. */
+	int (*branch_table_size)(struct mcount_disasm_info *info);
+	/* Optional function to handle branch instructions in the original code. */
+	void (*patch_branch)(struct mcount_disasm_info *, struct mcount_orig_insn *);
+};
+
+/* Arch-specific operations used by both uftrace and libmcount */
+struct uftrace_arch_ops {
+	/*
+	 * Load dynamic symbols from ELF data when they are not in the PLT relocation table.
+	 * It may reset the symbol table.  It should return the number of symbols loaded.
+	 */
+	int (*load_dynsymtab)(struct uftrace_symtab *symtab, struct uftrace_elf_data *elf,
+			      unsigned long offset, unsigned long flags);
+};
+
+/* Each architecture should provide these. */
+extern const struct mcount_arch_ops mcount_arch_ops;
+extern const struct uftrace_arch_ops uftrace_arch_ops;
+
 enum uftrace_cpu_arch {
 	UFT_CPU_NONE,
 	UFT_CPU_X86_64,

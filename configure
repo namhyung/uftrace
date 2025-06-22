@@ -155,6 +155,7 @@ fi
 
 CC=${CC:-${CROSS_COMPILE}gcc}
 LD=${LD:-${CROSS_COMPILE}ld}
+AR=${AR:-${CROSS_COMPILE}ar}
 
 if $CC --version | grep -q Android; then
     ANDROID=1
@@ -291,6 +292,7 @@ cat >>$output <<EOF
 override ARCH   := $ARCH
 override CC     := $CC
 override LD     := $LD
+override AR     := $AR
 override CFLAGS  = $CFLAGS
 override LDFLAGS = $LDFLAGS
 override ANDROID = $ANDROID

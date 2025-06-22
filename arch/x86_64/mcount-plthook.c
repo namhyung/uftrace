@@ -4,8 +4,8 @@
 #include <sys/mman.h>
 
 /* This should be defined before #include "utils.h" */
-#define PR_FMT "mcount"
-#define PR_DOMAIN DBG_MCOUNT
+#define PR_FMT "plthook"
+#define PR_DOMAIN DBG_PLTHOOK
 
 #include "libmcount/internal.h"
 #include "libmcount/mcount.h"
@@ -19,7 +19,6 @@
 #define TRAMP_IDX_OFFSET 1
 #define TRAMP_JMP_OFFSET 6
 
-extern void __weak plt_hooker(void);
 struct plthook_data *mcount_arch_hook_no_plt(struct uftrace_elf_data *elf, const char *modname,
 					     unsigned long offset)
 {
@@ -44,14 +43,14 @@ struct plthook_data *mcount_arch_hook_no_plt(struct uftrace_elf_data *elf, const
 		0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc,
 	};
 	/* clang-format on */
-	void *plthook_addr = plt_hooker;
+	void *plthook_addr = (void *)mcount_arch_ops.entry[UFT_ARCH_OPS_PLTHOOK];
 	void *tramp;
 
 	pd = xzalloc(sizeof(*pd));
 	pd->module_id = (unsigned long)pd;
 	pd->base_addr = offset;
 
-	if (arch_load_dynsymtab_noplt(&pd->dsymtab, elf, offset, 0) < 0 ||
+	if (uftrace_arch_ops.load_dynsymtab(&pd->dsymtab, elf, offset, 0) < 0 ||
 	    pd->dsymtab.nr_sym == 0) {
 		free(pd);
 		return NULL;
@@ -123,4 +122,41 @@ struct plthook_data *mcount_arch_hook_no_plt(struct uftrace_elf_data *elf, const
 	pd->mod_name = xstrdup(modname);
 
 	return pd;
+}
+
+void mcount_arch_plthook_setup(struct plthook_data *pd, struct uftrace_elf_data *elf)
+{
+	struct plthook_arch_context *ctx;
+	struct uftrace_elf_iter iter;
+	char *secname;
+
+	ctx = xzalloc(sizeof(*ctx));
+
+	elf_for_each_shdr(elf, &iter) {
+		secname = elf_get_name(elf, &iter, iter.shdr.sh_name);
+
+		if (strcmp(secname, ".plt.sec") == 0) {
+			ctx->has_plt_sec = true;
+			break;
+		}
+	}
+
+	pd->arch = ctx;
+}
+
+unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx)
+{
+	struct plthook_arch_context *ctx = pd->arch;
+	struct uftrace_symbol *sym;
+
+	if (ctx->has_plt_sec) {
+		unsigned long sym_addr;
+
+		/* symbol has .plt.sec address, so return .plt address */
+		sym_addr = pd->plt_addr + (idx + 1) * 16;
+		return sym_addr;
+	}
+
+	sym = &pd->dsymtab.sym[idx];
+	return sym->addr + ARCH_PLTHOOK_ADDR_OFFSET;
 }

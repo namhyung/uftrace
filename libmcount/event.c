@@ -40,11 +40,6 @@ static LIST_HEAD(events);
 /* event id which is allocated dynamically */
 static unsigned event_id = EVENT_ID_USER;
 
-__weak int mcount_arch_enable_event(struct mcount_event_info *mei)
-{
-	return 0;
-}
-
 static int search_sdt_event(struct dl_phdr_info *info, size_t sz, void *data)
 {
 	const char *name = info->dlpi_name;
@@ -205,7 +200,8 @@ int mcount_setup_events(char *dirname, char *event_str, enum uftrace_pattern_typ
 
 	list_for_each_entry(mei, &events, list) {
 		/* ignore failures */
-		mcount_arch_enable_event(mei);
+		if (mcount_arch_ops.enable_event)
+			mcount_arch_ops.enable_event(mei);
 	}
 out:
 	return ret;
