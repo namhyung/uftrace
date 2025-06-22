@@ -72,5 +72,8 @@ class TestCase(TestBase):
                 result = result.replace('sys_close', 'x64_sys_call')
             elif int(major) >= 5 or (int(major) == 4 and int(minor) >= 17):
                 result = result.replace('sys_', '__x64_sys_')
+        if uname[0] == 'Linux' and uname[4] == 'aarch64' and \
+           int(major) >= 5 or (int(major) == 4 and int(minor) >= 19):
+            result = result.replace('sys_', '__arm64_sys_')
 
         return result.replace(' sys_open', ' sys_openat')

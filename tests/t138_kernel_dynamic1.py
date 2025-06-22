@@ -41,5 +41,8 @@ class TestCase(TestBase):
         if uname[0] == 'Linux' and uname[4] == 'x86_64' and \
            int(major) >= 5 or (int(major) == 4 and int(minor) >= 17):
             result = result.replace('sys_', '__x64_sys_')
+        if uname[0] == 'Linux' and uname[4] == 'aarch64' and \
+           int(major) >= 5 or (int(major) == 4 and int(minor) >= 19):
+            result = result.replace('sys_', '__arm64_sys_')
 
         return result
