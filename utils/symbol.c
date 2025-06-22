@@ -485,6 +485,7 @@ static int load_dyn_symbol(struct uftrace_symtab *dsymtab, int sym_idx, unsigned
 void sort_dynsymtab(struct uftrace_symtab *dsymtab)
 {
 	unsigned i, k;
+
 	if (dsymtab->nr_sym == 0)
 		return;
 	dsymtab->nr_alloc = dsymtab->nr_sym;
@@ -493,7 +494,8 @@ void sort_dynsymtab(struct uftrace_symtab *dsymtab)
 	/*
 	 * abuse ->sym_names[] to save original index
 	 */
-	dsymtab->sym_names = xmalloc(sizeof(*dsymtab->sym_names) * dsymtab->nr_sym);
+	dsymtab->sym_names =
+		xrealloc(dsymtab->sym_names, dsymtab->nr_sym * sizeof(*dsymtab->sym_names));
 
 	/* save current address for each symbol */
 	for (i = 0; i < dsymtab->nr_sym; i++)
