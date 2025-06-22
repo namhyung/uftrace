@@ -32,7 +32,7 @@ class TestCase(TestBase):
         uname = os.uname()
 
         # Linux v4.17 (x86_64) changed syscall routines
-        major, minor, release = uname[2].split('.')
+        major, minor, release = uname[2].split('.', 2)
         if uname[0] == 'Linux' and uname[4] == 'x86_64' and \
            int(major) >= 5 or (int(major) == 4 and int(minor) >= 17):
             return result.replace(' sys_open', ' __x64_sys_openat')
