@@ -45,8 +45,10 @@ const struct mcount_arch_ops mcount_arch_ops = {
 		[UFT_ARCH_OPS_DYNAMIC] = (unsigned long)dynamic_return,
 	},
 	.plthook_addr = mcount_arch_plthook_addr,
+#ifdef HAVE_LIBCAPSTONE
 	.disasm_init = mcount_disasm_init,
 	.disasm_finish = mcount_disasm_finish,
+#endif
 	.setup_trampoline = mcount_setup_trampoline,
 	.cleanup_trampoline = mcount_cleanup_trampoline,
 	.patch_func = mcount_patch_func,

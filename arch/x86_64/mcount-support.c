@@ -66,8 +66,10 @@ const struct mcount_arch_ops mcount_arch_ops = {
 	.plthook_addr = mcount_arch_plthook_addr,
 	.hook_no_plt = mcount_arch_hook_no_plt,
 	.enable_event = mcount_arch_enable_event,
+#ifdef HAVE_LIBCAPSTONE
 	.disasm_init = mcount_disasm_init,
 	.disasm_finish = mcount_disasm_finish,
+#endif
 	.setup_trampoline = mcount_setup_trampoline,
 	.cleanup_trampoline = mcount_cleanup_trampoline,
 	.patch_func = mcount_patch_func,
