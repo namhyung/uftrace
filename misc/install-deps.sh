@@ -16,6 +16,16 @@ install_packages() {
             dnf install $OPT libtraceevent-devel || true
             exit
             ;;
+        "rocky")
+            rpm -ivh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+            dnf install $OPT dnf-plugins-core
+            dnf config-manager --set-enabled crb
+            dnf install $OPT pandoc elfutils-devel python3-devel ncurses-devel pkgconfig
+            dnf install $OPT luajit-devel || true
+            dnf install $OPT capstone-devel || true
+            dnf install $OPT libtraceevent-devel || true
+            exit
+            ;;
         "rhel" | "centos")
             rpm -ivh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
             yum install $OPT pandoc elfutils-devel python3-devel ncurses-devel pkgconfig
