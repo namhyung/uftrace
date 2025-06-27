@@ -584,28 +584,31 @@ __visible_default int dlclose(void *handle)
 __visible_default __noreturn void pthread_exit(void *retval)
 {
 	struct mcount_thread_data *mtdp;
-	struct mcount_ret_stack *rstack;
 
 	if (unlikely(real_pthread_exit == NULL))
 		mcount_hook_functions();
 
 	mtdp = get_thread_data();
-	if (!mcount_estimate_return && !check_thread_data(mtdp)) {
-		rstack = &mtdp->rstack[mtdp->idx - 1];
+	if (check_thread_data(mtdp))
+		goto out;
+
+	pr_dbg("%s: pthread exited on [%d]\n", __func__, mtdp->idx);
+
+	if (!mcount_estimate_return) {
+		struct mcount_ret_stack *rstack = &mtdp->rstack[mtdp->idx - 1];
+
 		/* record the final call */
+		rstack->end_time = mcount_gettime();
 		mcount_exit_filter_record(mtdp, rstack, NULL);
 
-		/*
-		 * it won't return to the caller ("noreturn"),
-		 * do not try to restore the address..
-		 */
-		mtdp->idx--;
-
 		mcount_rstack_restore(mtdp);
+		mtdp->idx--;
 	}
 
-	if (!check_thread_data(mtdp))
-		pr_dbg("%s: pthread exited on [%d]\n", __func__, mtdp->idx);
+	/* To skip duplicate mcount_rstack_restore() in mtd_dtor() */
+	mtdp->exited = true;
+
+out:
 	real_pthread_exit(retval);
 }
 

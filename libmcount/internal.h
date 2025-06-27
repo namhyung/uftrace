@@ -147,13 +147,14 @@ struct mcount_thread_data {
 	int record_idx;
 	bool recursion_marker;
 	bool in_exception;
-	bool dead;
+	bool dead; /* mtd_dtor() called */
 	bool warned;
 	unsigned long cygprof_dummy;
 	struct mcount_ret_stack *rstack;
 	void *argbuf;
 	struct filter_control filter;
 	bool enable_cached;
+	bool exited; /* pthread_exit() called */
 	struct mcount_shmem shmem;
 	struct mcount_event event[MAX_EVENT];
 	int nr_events;

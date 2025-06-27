@@ -734,7 +734,8 @@ void mtd_dtor(void *arg)
 	if (mcount_estimate_return)
 		mcount_rstack_estimate_finish(mtdp);
 
-	mcount_rstack_restore(mtdp);
+	if (!mtdp->exited)
+		mcount_rstack_restore(mtdp);
 
 	if (ARCH_CAN_RESTORE_PLTHOOK || !mcount_rstack_has_plthook(mtdp)) {
 		free(mtdp->rstack);
