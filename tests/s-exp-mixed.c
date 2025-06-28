@@ -7,6 +7,9 @@ double mixed_add(int a, float b)
 	return a + b;
 }
 
+#if __clang__
+__attribute__((optnone))
+#endif
 long mixed_sub(void *a, unsigned long b)
 {
 	return (long)a - b;

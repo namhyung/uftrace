@@ -21,7 +21,11 @@ static int b(void *arg)
 	return c(arg) + 1;
 }
 
-static int c(void *arg)
+#if __clang__
+__attribute__((optnone))
+#endif
+static int
+c(void *arg)
 {
 	return *(int *)arg;
 }
