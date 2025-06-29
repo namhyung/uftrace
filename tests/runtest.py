@@ -80,6 +80,7 @@ class TestBase:
     TEST_NONZERO_RETURN = -6
     TEST_SKIP = -7
     TEST_SUCCESS_FIXED = -8
+    TEST_NORMAL = [TEST_SUCCESS, TEST_SUCCESS_FIXED, TEST_SKIP]
 
     origdir = os.getcwd()
     basedir = os.path.dirname(origdir)
@@ -697,8 +698,12 @@ class TestBase:
         return ret, ''
 
     def __del__(self):
-        if self.keep:
+        if self.keep and self.ret not in TestBase.TEST_NORMAL:
             sp.call(['mv', self.test_dir, TestBase.origdir])
+            target_dir = os.path.basename(self.test_dir)
+            mvdir = f"{TestBase.origdir}/{target_dir}"
+            with open(f"{mvdir}/diff.txt", "w") as f:
+                f.write(self.dif)
         else:
             sp.call(['rm', '-rf', self.test_dir])
 
@@ -821,6 +826,8 @@ def run_single_case(case, flags, opts, arg, compilers):
                     if ret == TestBase.TEST_SUCCESS:
                         ret, dif = tc.run(case, cflags, arg.diff, timeout)
                         ret = tc.postrun(ret)
+                tc.ret = ret
+                tc.dif = dif
                 result.append((ret, dif))
 
     return result
@@ -861,16 +868,15 @@ def print_test_result(case, result, diffs, color, ftests, nr_compilers):
     output += '\n'
 
     # write abnormal test result to failed-tests.txt
-    normal = [TestBase.TEST_SUCCESS, TestBase.TEST_SUCCESS_FIXED, TestBase.TEST_SKIP]
     for r in result:
-        if r not in normal:
+        if r not in TestBase.TEST_NORMAL:
             ftests.write(output)
             ftests.flush()
             break
 
     if arg.quiet:
         for r in result:
-            if r not in normal:
+            if r not in TestBase.TEST_NORMAL:
                 sys.stdout.write(output)
                 break
     else:
