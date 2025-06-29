@@ -1,3 +1,21 @@
+uftrace v0.18
+=============
+* New features
+  Add basic filter condition support (#1992)
+  Support avg, max, min fields to uftrace graph (#1451)
+  Enable build with LTO (#1343)
+
+* Bug fixes
+  Fix segfaults after pthread_exit() (#826)
+  Fix segfaults in uftrace report --diff (#1970)
+  Fix crashes in Go programs built with gccgo (#1693)
+  Reduce noise in the recv test
+  Update kernel tests to handle recent kernel changes
+
+And many other fixes and improvements.  Thanks all contributors:
+  Honggyu Kim, Jun Yeong Kim, Yunseong Kim
+
+
 uftrace v0.17
 =============
 * New features
