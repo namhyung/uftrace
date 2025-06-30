@@ -878,6 +878,9 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 			opts->trace = TRACE_STATE_ON;
 		else if (!strcmp(arg, "off"))
 			opts->trace = TRACE_STATE_OFF;
+		else if (strchr(arg, '~')) {
+			setenv("UFTRACE_TIME_FILTER", arg, 1);
+		}
 		else
 			pr_use("unknown tracing state: %s (ignoring..)\n", arg);
 		break;
