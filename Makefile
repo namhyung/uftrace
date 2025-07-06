@@ -60,6 +60,7 @@ COMMON_CFLAGS := -std=gnu11 -D_GNU_SOURCE $(CFLAGS) $(CPPFLAGS)
 COMMON_CFLAGS += -iquote $(srcdir) -iquote $(objdir) -iquote $(srcdir)/arch/$(ARCH)
 COMMON_CFLAGS += -W -Wall -Wno-unused-parameter -Wno-missing-field-initializers
 COMMON_CFLAGS += -Wdeclaration-after-statement -Wstrict-prototypes
+COMMON_CFLAGS += -Wno-array-bounds
 
 COMMON_LDFLAGS := -ldl -pthread -Wl,-z,noexecstack $(LDFLAGS)
 ifeq ($(ANDROID),)
