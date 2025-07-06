@@ -1,5 +1,6 @@
 TEST_CFLAGS  += -g -include $(srcdir)/tests/unittest.h -Wno-sign-compare $(CFLAGS_$@)
 TEST_AFLAGS  := -iquote $(srcdir) -iquote $(objdir) -iquote $(srcdir)/arch/$(ARCH)
+TEST_AFLAGS  += $(CFLAGS) $(CFLAGS_$@)
 
 UNIT_TEST_SRC := $(srcdir)/uftrace.c
 UNIT_TEST_SRC += $(wildcard $(srcdir)/cmds/*.c)
