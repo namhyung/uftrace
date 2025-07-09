@@ -232,6 +232,7 @@ void mcount_list_events(void)
 /* save an asynchronous event */
 int mcount_save_event(struct mcount_event_info *mei)
 {
+	
 	struct mcount_thread_data *mtdp;
 
 	if (unlikely(mcount_should_stop()))

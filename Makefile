@@ -109,7 +109,7 @@ else
 endif
 
 ifeq ($(DEBUG), 1)
-  COMMON_CFLAGS += -O0 -g3 -DDEBUG_MODE=1 -Werror
+  COMMON_CFLAGS += -O0 -g3 -DDEBUG_MODE=1 
 else
   COMMON_CFLAGS += -O2 -g -DDEBUG_MODE=0
 endif

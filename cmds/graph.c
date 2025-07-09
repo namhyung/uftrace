@@ -439,7 +439,6 @@ static void print_graph_node(struct uftrace_graph *graph, struct uftrace_graph_n
 	struct uftrace_graph_node *parent = node->parent;
 	struct uftrace_graph_node *child;
 	int orig_indent = indent;
-
 	/* XXX: what if it clashes with existing function address */
 	if (node->addr == EVENT_ID_PERF_SCHED_IN)
 		symname = "linux:schedule";

@@ -487,7 +487,6 @@ void mcount_arch_get_retval(struct mcount_arg_context *ctx, struct uftrace_arg_s
 	if (spec->fmt == ARG_FMT_FLOAT && use_hard_float) {
 		/* d0, d1 registers (64 bit) were saved below the r0 */
 		long *float_retval = ctx->retval - 4;
-
 		mcount_memcpy4(ctx->val.v, float_retval, spec->size);
 	}
 	else

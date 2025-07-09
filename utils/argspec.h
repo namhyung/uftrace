@@ -19,6 +19,7 @@ enum uftrace_arg_format {
 	ARG_FMT_PTR,
 	ARG_FMT_ENUM,
 	ARG_FMT_STRUCT,
+	ARG_FMT_INT_PTR
 };
 
 #define ARG_TYPE_INDEX 0
@@ -40,19 +41,22 @@ enum uftrace_arg_format {
 #define RETVAL_IDX 0
 
 struct uftrace_arg_spec {
-	struct list_head list;
-	int idx;
-	enum uftrace_arg_format fmt;
-	int size;
+	struct list_head list;  
+	int idx; // ok
+	enum uftrace_arg_format fmt; // ok
+	int size; // ok
 	bool exact;
-	unsigned char type;
+	unsigned char type; // ok
 	short struct_reg_cnt;
 	union {
-		short reg_idx;
+		short reg_idx;  // ok
 		short stack_ofs;
 	};
-	char *type_name;
+	char *type_name;  // ok
 	short struct_regs[4];
+	// adding address of struct; 
+	int is_ptr; 
+	struct resolved_struct_type *resolved_struct;
 };
 
 struct uftrace_filter_setting;

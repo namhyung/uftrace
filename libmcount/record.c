@@ -7,6 +7,8 @@
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <inttypes.h> // For PRId64, PRIx32, etc.
+////////////
 
 /* This should be defined before #include "utils.h" */
 #define PR_FMT "mcount"
@@ -20,10 +22,11 @@
 #include "utils/shmem.h"
 #include "utils/symbol.h"
 #include "utils/utils.h"
+#include "utils/dwarf.h"
 
 #define SHMEM_SESSION_FMT "/uftrace-%s-%d-%03d" /* session-id, tid, seq */
 
-#define ARG_STR_MAX 98
+#define ARG_STR_MAX 1000 // it was 98  =)
 
 static struct mcount_shmem_buffer *allocate_shmem_buffer(char *sess_id, size_t size, int tid,
 							 int idx)
@@ -182,7 +185,6 @@ reuse:
 static void finish_shmem_buffer(struct mcount_thread_data *mtdp, int idx)
 {
 	char buf[64];
-
 	snprintf(buf, sizeof(buf), SHMEM_SESSION_FMT, mcount_session_name(), mcount_gettid(mtdp),
 		 idx);
 
@@ -193,9 +195,7 @@ void clear_shmem_buffer(struct mcount_thread_data *mtdp)
 {
 	struct mcount_shmem *shmem = &mtdp->shmem;
 	int i;
-
 	pr_dbg2("releasing all shmem buffers for task %d\n", mcount_gettid(mtdp));
-
 	for (i = 0; i < shmem->nr_buf; i++)
 		munmap(shmem->buffer[i], shmem_bufsize);
 
@@ -405,6 +405,185 @@ void finish_mem_region(struct mcount_mem_regions *regions)
 	}
 }
 
+
+// append helper (safe, truncation-aware)
+static size_t buf_append(void *out_buf, size_t out_size, size_t pos, const char *fmt, ...) {
+    if (!out_buf || out_size == 0 || pos >= out_size) return pos;
+
+    char *dst = (char *)out_buf;
+    va_list ap;
+    va_start(ap, fmt);
+    int n = vsnprintf(dst + pos, out_size - pos, fmt, ap);
+    va_end(ap);
+
+    if (n < 0) return pos;                   // ignore on error
+    if ((size_t)n >= (out_size - pos))       // truncated
+        return out_size;                     // clamp to "full"
+    return pos + (size_t)n;
+}
+
+
+static inline void *load_pointee(const void *field_addr, size_t ptr_size) {
+    uintptr_t bits = 0;
+    if (ptr_size == 8) {
+		mcount_memcpy4(&bits, field_addr, 8);
+	}
+    else if (ptr_size == 4) mcount_memcpy4(&bits, field_addr, 4);
+    else                    memcpy(&bits, field_addr, ptr_size < sizeof bits ? ptr_size : sizeof bits);
+    return (void *)(uintptr_t)bits;
+}
+
+/*
+ * Writes a textual dump of *ptr_to_struct into out_buf (void*).
+ * Returns total bytes "intended" to write, clamped at out_size on truncation.
+ */
+unsigned add_resolved_struct_dump(struct resolved_struct_type *resolved_struct,
+                                void *ptr_to_struct,
+                                void *out_buf, size_t out_size)
+{
+	union {
+		long i;
+		void *p;
+		float f;
+		double d;
+		long long ll;
+		long double D;
+		unsigned char v[16];  // to hold the raw bytes
+	} val;
+	memset(val.v, 0, sizeof(val));
+	char fmtstr[16];
+	char *len_mod[] = { "hh", "h", "", "ll" };  // Length modifiers for integer types
+	char *lm;
+	
+    unsigned pos = 0;
+    pos = buf_append(out_buf, out_size, pos, "%s {\n",
+        resolved_struct && resolved_struct->type_name ? resolved_struct->type_name : "<anon>");
+	
+    if (!resolved_struct || !ptr_to_struct) {
+        pos = buf_append(out_buf, out_size, pos, "  (null)\n}\n");
+        return pos;
+    }
+	
+    for (int i = 0; i < resolved_struct->num_members; i++) {
+        struct resolved_member *m = &resolved_struct->members[i];
+        void *member_addr = (char *)ptr_to_struct + m->offset;
+		
+        pos = buf_append(out_buf, out_size, pos, "  %s : ",
+                         m->name ? m->name : "<anon>");
+		if (m->is_ptr == 1 && m->format != 'c'){
+			// might occure problems with array or pointer to struct/union/class
+			void *pointee = load_pointee(member_addr, /* pointer width */ sizeof(void*));
+			member_addr = pointee;
+		}
+
+        switch (m->format) {
+		case 'f': {
+			switch (m->size) {
+			case 4: { // float
+				uint32_t bits = 0;
+				mcount_memcpy4(&bits, member_addr, 4);   // safe, no aliasing/alignment issues
+				pos = buf_append(out_buf, out_size, pos, "[#F4:%08" PRIx32 "]", bits);
+				break;
+			}
+			case 8: { // double
+				uint64_t bits = 0;
+				mcount_memcpy4(&bits, member_addr, 8);
+				pos = buf_append(out_buf, out_size, pos, "[#F8:%016" PRIx64 "]", bits);
+				break;
+			}
+			case 10: { // x87 80-bit (10 bytes in memory, often padded externally)
+				unsigned char raw[10];
+				mcount_memcpy4(raw, member_addr, sizeof raw);
+				pos = buf_append(out_buf, out_size, pos, "[#FL:%u:", (unsigned)sizeof raw);
+				for (size_t i = 0; i < sizeof raw; i++)
+					pos = buf_append(out_buf, out_size, pos, "%02x", raw[i]); // memory order bytes
+				pos = buf_append(out_buf, out_size, pos, "]");
+				break;
+			}
+			case 16: { // some platforms use 128-bit long double
+				unsigned char raw[16];
+				mcount_memcpy4(raw, member_addr, sizeof raw);
+				pos = buf_append(out_buf, out_size, pos, "[#FL:%u:", (unsigned)sizeof raw);
+				for (size_t i = 0; i < sizeof raw; i++)
+					pos = buf_append(out_buf, out_size, pos, "%02x", raw[i]);
+				pos = buf_append(out_buf, out_size, pos, "]");
+				break;
+			}
+			default:
+				pos = buf_append(out_buf, out_size, pos, "<invalid float size %zu>", (size_t)m->size);
+				break;
+			}
+			break;
+		}
+        case 'i': {
+            if (m->size == 8) {
+				int64_t v; memcpy(&v, member_addr, sizeof v); 
+                pos = buf_append(out_buf, out_size, pos, "%" PRId64, v);
+            } else if (m->size == 4) {
+                int32_t v; memcpy(&v, member_addr, sizeof v);
+                pos = buf_append(out_buf, out_size, pos, "%" PRId32, v);
+            } else if (m->size == 2) {
+                int16_t v; memcpy(&v, member_addr, sizeof v);
+                pos = buf_append(out_buf, out_size, pos, "%" PRId16, v);
+            } else if (m->size == 1) {
+                int8_t v; memcpy(&v, member_addr, sizeof v);
+                pos = buf_append(out_buf, out_size, pos, "%" PRId8, v);
+            } else {
+                pos = buf_append(out_buf, out_size, pos, "<unsupported int size %zu>", m->size);
+            }
+            break;
+        }
+
+        case 'p': {
+            void *pval; memcpy(&pval, member_addr, sizeof pval);
+            pos = buf_append(out_buf, out_size, pos, "%p", pval);
+            break;
+        }
+		case 's':
+			break; 
+		case 'c' : { 
+			// If it's a pointer to char (m->is_ptr == 1), resolve it as a string
+			if (m->is_ptr == 1) {
+				// Read the address at member_addr + m->offset (assuming it's a pointer)
+				void *address_of_field = NULL;
+				memcpy(&address_of_field, member_addr,m->size);  // Read the pointer (address)
+
+				char *str = NULL;
+				memcpy(&str, member_addr, sizeof(str));  // Read the char* (pointer to char)
+				// Now resolve the string, character by character, until we hit a null terminator
+				int i = 0;
+				while (str && str[i] != '\0') {
+					// We use buf_append to append each character to the buffer
+					pos = buf_append(out_buf, out_size, pos, "%c", str[i]);
+					i++;
+				}
+			} else {
+				// If it's not a pointer, resolve just one character (single byte)
+				char v;
+				memcpy(&v, member_addr, sizeof(v));  // Read the single character
+				pos = buf_append(out_buf, out_size, pos, "%c", v);
+			}
+			break;
+		}
+        default:
+            pos = buf_append(out_buf, out_size, pos, "<unknown format '%c'>", m->format);
+            break;
+        }
+
+        // Recursively dump nested structs inline
+        if (m->nested_type && member_addr) {
+            pos = buf_append(out_buf, out_size, pos, " ");
+            // Continue writing into the SAME buffer
+            pos = add_resolved_struct_dump(m->nested_type, member_addr, out_buf, out_size);
+        }
+
+        pos = buf_append(out_buf, out_size, pos, "\n");
+    }
+    pos = buf_append(out_buf, out_size, pos, "}\0");
+	
+    return pos;
+}
+
 static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 			       struct mcount_arg_context *ctx)
 {
@@ -413,13 +592,16 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 	unsigned max_size = ARGBUF_SIZE - sizeof(size);
 	bool is_retval = !!ctx->retval;
 	void *ptr;
-
+	int mew=0;
+	void *saved_ptr ; 
 	ptr = argbuf + sizeof(total_size);
 	list_for_each_entry(spec, args_spec, list) {
-		if (is_retval != (spec->idx == RETVAL_IDX))
+		char *dst ; 
+		
+		if (is_retval != (spec->idx == RETVAL_IDX)){ 
 			continue;
-
-		if (spec->fmt == ARG_FMT_STRUCT) {
+		}
+		if (spec->fmt == ARG_FMT_STRUCT ) { //  spec->is_ptr==0
 			if (total_size + spec->size > max_size) {
 				/* just to make it fail */
 				total_size += spec->size;
@@ -428,15 +610,18 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 			ctx->val.p = ptr;
 		}
 
-		if (is_retval)
+		if (is_retval){
 			mcount_arch_get_retval(ctx, spec);
+		}
 		else
-			mcount_arch_get_arg(ctx, spec);
+		{
+			mcount_arch_get_arg(ctx, spec); 
+		}
 
 		if (spec->fmt == ARG_FMT_STR || spec->fmt == ARG_FMT_STD_STRING) {
 			unsigned short len;
 			char *str = ctx->val.p;
-
+			
 			if (spec->fmt == ARG_FMT_STD_STRING) {
 				/*
 				 * This is libstdc++ implementation dependent.
@@ -455,7 +640,6 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 				unsigned i;
 				char *dst = ptr + 2;
 				char buf[32];
-
 				if (!check_mem_region(ctx, (unsigned long)str)) {
 					len = snprintf(buf, sizeof(buf), "<%p>", str);
 					str = buf;
@@ -477,11 +661,10 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 						dst[i - 1] = '.';
 						dst[i] = '\0';
 					}
-					if (!dst[i])
+					if (!dst[i]) 
 						break;
 					len++;
 				}
-				/* store 2-byte length before string */
 				*(unsigned short *)ptr = len;
 			}
 			else {
@@ -493,47 +676,106 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 			}
 			size = ALIGN(len + 2, 4);
 		}
+		else if (spec->fmt == ARG_FMT_INT_PTR) {
+			int val = 0;
+			int *ptr_val = (int *) ctx->val.p;
+			if (!check_mem_region(ctx, (unsigned long) ptr_val)) {
+				val = -1;  // orarleave val = 0
+			} else {
+				val = *ptr_val; 
+			}
+			size = ALIGN(sizeof(int), 4);
+			mcount_memcpy4(ptr, &val, sizeof(int));
+			ptr += size;
+			total_size += size;
+		}
 		else if (spec->fmt == ARG_FMT_STRUCT) {
-			/*
-			 * It already filled the argbuf in the
-			 * mcount_arch_get_arg/retval() above.
-			 */
-			size = ALIGN(spec->size, 4);
+			if (spec->is_ptr) {
+				unsigned short len = 0;
+				size_t avail = (max_size > 2) ? max_size - 2 : 0;
+				dst = ptr + 2;
+				if (spec->resolved_struct && avail) {
+					int intended = add_resolved_struct_dump(spec->resolved_struct, ctx->val.p, dst, avail);
+					// intended can be > avail-1 if truncated by snprintf
+					size_t written = strnlen(dst, avail); // bytes actually in buffer excluding the NUL
+					len = (uint16_t)written;
+					// memcpy(ptr, &len, sizeof(len));        // store length safely
+					*(unsigned short *)ptr = len;
+					
+					size = ALIGN(written + 2, 4);
+					saved_ptr = ptr+2 ; 					
+					spec->size = size ; 
+				} else {
+					uint16_t zero = 0;
+					memcpy(ptr, &zero, sizeof(zero));
+					size = ALIGN(2, 4);
+				}
+			} else {
+				size = ALIGN(spec->size, 4);
+			}
+
 		}
 		else {
 			size = ALIGN(spec->size, 4);
-			mcount_memcpy4(ptr, ctx->val.v, size);
+			mcount_memcpy4(ptr, ctx->val.v, size); 
 		}
 		ptr += size;
 		total_size += size;
 	}
-
+	
 	if (total_size > max_size)
 		return -1U;
-
 	return total_size;
 }
+
+
+
+
+/* Dump the argbuf for a single rstack frame.
+ * Expected layout: [u32 total_size][data...]
+ * If the first field is a length-prefixed string/blob (u16 slen + bytes),
+ * we show that too.
+ */
+static void dump_argbuf_for_rstackk(struct mcount_thread_data *mtdp,
+                                   struct mcount_ret_stack *rs)
+{
+	
+    void *hdr = get_argbuf(mtdp, rs);  /* points to the u32 total_size */
+    if (!hdr) {
+        return;
+    }
+
+    unsigned total = (unsigned*)hdr;  /* total bytes starting at hdr (including this u32) */
+	unsigned short sizeofthis = (unsigned short *)(hdr + sizeof(unsigned)); 
+    if (total < sizeof(unsigned) || total > ARGBUF_SIZE) {
+        return;
+    }
+    unsigned char *data = (unsigned char *)(hdr + 1);
+    unsigned data_len = total - sizeof(unsigned);
+	
+} 
+
 
 void save_argument(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
 		   struct list_head *args_spec, struct mcount_regs *regs)
 {
+
 	void *argbuf = get_argbuf(mtdp, rstack);
 	unsigned size;
 	struct mcount_arg_context ctx;
-
+	
 	mcount_memset4(&ctx, 0, sizeof(ctx));
 	ctx.regs = regs;
 	ctx.stack_base = rstack->parent_loc;
 	ctx.regions = &mtdp->mem_regions;
 	ctx.arch = &mtdp->arch;
-
 	size = save_to_argbuf(argbuf, args_spec, &ctx);
+	
 	if (size == -1U) {
 		pr_warn("argument data is too big\n");
 		return;
 	}
-
-	*(unsigned *)argbuf = size;
+	*(unsigned *)argbuf = size; 
 	rstack->flags |= MCOUNT_FL_ARGUMENT;
 }
 
@@ -543,19 +785,16 @@ void save_retval(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstac
 	void *argbuf = get_argbuf(mtdp, rstack);
 	unsigned size;
 	struct mcount_arg_context ctx;
-
 	mcount_memset4(&ctx, 0, sizeof(ctx));
 	ctx.retval = retval;
 	ctx.regions = &mtdp->mem_regions;
 	ctx.arch = &mtdp->arch;
-
 	size = save_to_argbuf(argbuf, args_spec, &ctx);
 	if (size == -1U) {
 		pr_warn("retval data is too big\n");
 		rstack->flags &= ~MCOUNT_FL_RETVAL;
 		return;
 	}
-
 	*(uint32_t *)argbuf = size;
 }
 
@@ -856,7 +1095,6 @@ static struct mcount_shmem_buffer *get_shmem_buffer(struct mcount_thread_data *m
 	struct mcount_shmem *shmem = &mtdp->shmem;
 	struct mcount_shmem_buffer *curr_buf;
 	size_t maxsize = (size_t)shmem_bufsize - sizeof(**shmem->buffer);
-
 	if (unlikely(shmem->curr == -1 || shmem->buffer == NULL))
 		goto get_buffer;
 
@@ -898,7 +1136,7 @@ static int record_event(struct mcount_thread_data *mtdp, struct mcount_event *ev
 		return mtdp->shmem.done ? 0 : -1;
 
 	rec = (void *)(curr_buf->data + curr_buf->size);
-
+	
 	/*
 	 * instead of set bit fields, do the bit operations manually.
 	 * this would be good for both performance and portability,
@@ -962,7 +1200,6 @@ static int record_ret_stack(struct mcount_thread_data *mtdp, enum uftrace_record
 		struct mcount_event *event;
 
 		argbuf = get_argbuf(mtdp, mrstack) + mrstack->event_idx;
-
 		for (i = 0; i < mrstack->nr_events; i++) {
 			evidx = mrstack->nr_events - i - 1;
 			event = get_event_pointer(argbuf, evidx);
@@ -973,7 +1210,6 @@ static int record_ret_stack(struct mcount_thread_data *mtdp, enum uftrace_record
 			/* save read2 trigger before exit record */
 			record_event(mtdp, event);
 		}
-
 		mrstack->nr_events = 0;
 		argbuf = NULL;
 	}
@@ -1016,12 +1252,9 @@ static int record_ret_stack(struct mcount_thread_data *mtdp, enum uftrace_record
 	mrstack->flags |= MCOUNT_FL_WRITTEN;
 
 	if (argbuf) {
-		unsigned int *ptr = (void *)curr_buf->data + curr_buf->size;
-
+		void *ptr = (void *)curr_buf->data + curr_buf->size;
 		size -= sizeof(*frstack);
-
 		mcount_memcpy4(ptr, argbuf + 4, size);
-
 		curr_buf->size += ALIGN(size, 8);
 	}
 
@@ -1034,7 +1267,6 @@ static int record_ret_stack(struct mcount_thread_data *mtdp, enum uftrace_record
 		struct mcount_event *event;
 
 		argbuf = get_argbuf(mtdp, mrstack) + mrstack->event_idx;
-
 		for (i = 0; i < mrstack->nr_events; i++) {
 			evidx = mrstack->nr_events - i - 1;
 			event = get_event_pointer(argbuf, evidx);
@@ -1050,9 +1282,10 @@ static int record_ret_stack(struct mcount_thread_data *mtdp, enum uftrace_record
 	return 0;
 }
 
+
 /*
  * For performance reasons and time filter, it doesn't record trace data one at
- * a time.  Instead it usually writes the data when an EXIT record is ready so
+ * a time. Instead it usually writes the data when an EXIT record is ready so
  * it needs to record ENTRY data in the current and may in the parent functions.
  *
  * For example, if it has a time filter for 1 usec.
@@ -1081,18 +1314,18 @@ int record_trace_data(struct mcount_thread_data *mtdp, struct mcount_ret_stack *
 	struct uftrace_record *frstack;
 	size_t size = 0;
 	int count = 0;
-
+	 
 #define SKIP_FLAGS (MCOUNT_FL_NORECORD | MCOUNT_FL_DISABLED)
-
+	
 	if (mrstack < mtdp->rstack)
 		return 0;
 
 	if (!(mrstack->flags & MCOUNT_FL_WRITTEN)) {
 		non_written_mrstack = mrstack;
+		if (!(non_written_mrstack->flags & SKIP_FLAGS)){
 
-		if (!(non_written_mrstack->flags & SKIP_FLAGS))
 			count++;
-
+		}
 		while (non_written_mrstack > mtdp->rstack) {
 			struct mcount_ret_stack *prev = non_written_mrstack - 1;
 
@@ -1104,8 +1337,8 @@ int record_trace_data(struct mcount_thread_data *mtdp, struct mcount_ret_stack *
 
 				if (prev->flags & MCOUNT_FL_ARGUMENT) {
 					unsigned *argbuf_size;
-
 					argbuf_size = get_argbuf(mtdp, prev);
+					unsigned tsize = *argbuf_size;
 					if (argbuf_size)
 						size += *argbuf_size;
 				}
@@ -1114,7 +1347,7 @@ int record_trace_data(struct mcount_thread_data *mtdp, struct mcount_ret_stack *
 			non_written_mrstack = prev;
 		}
 	}
-
+	
 	if (mrstack->end_time)
 		count++; /* for exit */
 
@@ -1135,6 +1368,7 @@ int record_trace_data(struct mcount_thread_data *mtdp, struct mcount_ret_stack *
 		non_written_mrstack++;
 	}
 
+
 	if (!(mrstack->flags & (MCOUNT_FL_WRITTEN | SKIP_FLAGS))) {
 		if (record_ret_stack(mtdp, UFTRACE_ENTRY, mrstack))
 			return 0;
@@ -1143,17 +1377,18 @@ int record_trace_data(struct mcount_thread_data *mtdp, struct mcount_ret_stack *
 	}
 
 	if (mrstack->end_time) {
-		if (retval)
+		if (retval){
 			save_retval(mtdp, mrstack, retval);
-		else
-			mrstack->flags &= ~MCOUNT_FL_RETVAL;
-
+		}
+		else{
+			mrstack->flags &= ~MCOUNT_FL_RETVAL;			
+		}
 		if (record_ret_stack(mtdp, UFTRACE_EXIT, mrstack))
 			return 0;
-
+		
 		count--;
 	}
-
+	
 	ASSERT(count == 0);
 	return 0;
 }

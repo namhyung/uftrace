@@ -32,6 +32,26 @@ struct uftrace_dbg_loc {
 	int line;
 };
 
+
+struct resolved_struct_type;
+
+struct resolved_member {
+    const char *name;
+    int offset;
+    int size;
+	int is_ptr; 
+    char format;  // 'i', 'f', etc.
+    struct resolved_struct_type *nested_type;  // NULL unless nested
+};
+
+struct resolved_struct_type {
+    const char *type_name;
+    struct resolved_member *members;
+    int num_members;
+    struct list_head list;  // optional for global list
+};
+
+
 struct uftrace_dbg_info {
 	/* opaque DWARF info pointer */
 	void *dw;

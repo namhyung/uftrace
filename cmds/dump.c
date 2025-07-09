@@ -316,7 +316,6 @@ static void pr_args(struct uftrace_fstack_args *args)
 	void *ptr = args->data;
 	size_t size;
 	int i = 0;
-
 	task = container_of(args, typeof(*task), args);
 	sessions = &task->h->sessions;
 
@@ -406,6 +405,9 @@ print_raw:
 
 			pr_out("  args[%d] %c%d: 0x%0*llx\n", i, ARG_SPEC_CHARS[spec->fmt],
 			       spec->size * 8, spec->size * 2, val);
+			
+			printf( " args[%d] %c%d: 0x%0*llx\n", i, ARG_SPEC_CHARS[spec->fmt],
+			       spec->size * 8, spec->size * 2, val); 
 
 			size = spec->size;
 		}
@@ -425,7 +427,6 @@ static void pr_retval(struct uftrace_fstack_args *args)
 
 	task = container_of(args, typeof(*task), args);
 	sessions = &task->h->sessions;
-
 	list_for_each_entry(spec, args->args, list) {
 		/* skip argument info */
 		if (spec->idx != RETVAL_IDX)
@@ -923,7 +924,7 @@ static void dump_chrome_task_rstack(struct uftrace_dump_ops *ops, struct uftrace
 		if (frs->more && show_args) {
 			str_mode |= NEEDS_PAREN | HAS_MORE;
 			get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
-			pr_out(",\"args\":{\"arguments\":\"%s\"}}", spec_buf);
+			pr_out(",\"args\":{\"arguments\":\"%s\"}}", spec_buf);;
 		}
 		else
 			pr_out("}");

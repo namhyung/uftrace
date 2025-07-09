@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdio_ext.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #include "uftrace.h"
 #include "utils/event.h"
@@ -14,6 +15,7 @@
 #include "utils/list.h"
 #include "utils/symbol.h"
 #include "utils/utils.h"
+
 
 static int column_index;
 static int prev_tid = -1;
@@ -422,14 +424,204 @@ static void print_escaped_char(char **args, size_t *len, const char c)
 		print_char(args, len, c);
 }
 
+
+static char *convert_hex_floats_to_decimal(const char *in, int precision)
+{
+    if (!in)
+        return NULL;
+
+    size_t cap = strlen(in) + 1;
+    char *out = xmalloc(cap);
+    size_t pos = 0;
+    const char *p = in;
+
+    while (*p) {
+        const char *start = p;
+
+        // Optional sign
+        if (*p == '+' || *p == '-')
+            p++;
+
+        // Look for the start of a hex float (0x or 0X)
+        if (p[0] == '0' && (p[1] == 'x' || p[1] == 'X')) {
+            // Skip the '0x' or '0X' part
+            p += 2;
+
+            // Parse the mantissa part (1.mantissa)
+            uint64_t mantissa = 0;
+            int hex_digits = 0;
+            while ((*p >= '0' && *p <= '9') || (*p >= 'a' && *p <= 'f') || (*p >= 'A' && *p <= 'F')) {
+                int digit = (*p >= '0' && *p <= '9') ? *p - '0' : (*p >= 'a' && *p <= 'f') ? *p - 'a' + 10 : *p - 'A' + 10;
+                mantissa = (mantissa << 4) | digit;
+                p++;
+                hex_digits++;
+            }
+
+            // If there is no mantissa part, handle as zero
+            if (hex_digits == 0) {
+                mantissa = 0;
+            }
+
+            // Skip the 'p' and the exponent
+            if (*p == 'p' || *p == 'P') {
+                p++;
+                int exponent = 0;
+                int sign = 1;
+                if (*p == '-' || *p == '+') {
+                    sign = (*p == '-') ? -1 : 1;
+                    p++;
+                }
+                while (*p >= '0' && *p <= '9') {
+                    exponent = exponent * 10 + (*p - '0');
+                    p++;
+                }
+                exponent *= sign;
+
+                // Convert mantissa and exponent into the final value
+                double value = (double)mantissa * pow(2, exponent);
+
+                // Format the result to decimal
+                char num[64];
+                int n = snprintf(num, sizeof num, "%.*g", precision, value);
+                if (n < 0) n = 0;
+
+                // Ensure capacity in the output buffer
+                if (pos + (size_t)n + 1 > cap) {
+                    cap = (pos + (size_t)n + 1) * 2;
+                    out = xrealloc(out, cap);
+                }
+
+                // Copy the formatted decimal result to the output
+                memcpy(out + pos, num, (size_t)n);
+                pos += (size_t)n;
+                continue;
+            }
+        }
+
+        // Default case: copy one character
+        if (pos + 2 > cap) {
+            cap = (cap * 2) + 16;
+            out = xrealloc(out, cap);
+        }
+        out[pos++] = *p++;
+    }
+
+    out[pos] = '\0'; // Null-terminate the result
+    return out;
+}
+
+static int hexval(int c) {
+    if (c>='0'&&c<='9') return c-'0';
+    if (c>='a'&&c<='f') return c-'a'+10;
+    if (c>='A'&&c<='F') return c-'A'+10;
+    return -1;
+}
+
+static bool parse_F4(const char **ps, float *out) {
+    const char *s = *ps;
+    if (strncmp(s, "[#F4:", 5) != 0) return false;
+    s += 5;
+    uint32_t bits = 0;
+    for (int i=0;i<8;i++){ int v=hexval(s[i]); if(v<0) return false; bits=(bits<<4)|(uint32_t)v; }
+    s += 8;
+    if (*s != ']') return false;
+    s++;
+    memcpy(out, &bits, 4);
+    *ps = s;
+    return true;
+}
+
+static bool parse_F8(const char **ps, double *out) {
+    const char *s = *ps;
+    if (strncmp(s, "[#F8:", 5) != 0) return false;
+    s += 5;
+    uint64_t bits = 0;
+    for (int i=0;i<16;i++){ int v=hexval(s[i]); if(v<0) return false; bits=(bits<<4)|(uint64_t)v; }
+    s += 16;
+    if (*s != ']') return false;
+    s++;
+    memcpy(out, &bits, 8);
+    *ps = s;
+    return true;
+}
+
+static bool parse_FL(const char **ps, long double *out) {
+    const char *s = *ps;
+    if (strncmp(s, "[#FL:", 5) != 0) return false;
+    s += 5;
+
+    // parse length
+    unsigned len = 0;
+    if (!isdigit((unsigned char)*s)) return false;
+    while (isdigit((unsigned char)*s)) { len = len*10 + (unsigned)(*s - '0'); s++; }
+    if (*s != ':') return false;
+    s++;
+
+    unsigned char buf[32];
+    if (len > sizeof buf) return false;          // sanity cap
+    for (unsigned i=0;i<len;i++){
+        int hi=hexval(s[0]), lo=hexval(s[1]);
+        if (hi<0||lo<0) return false;
+        buf[i] = (unsigned char)((hi<<4)|lo);
+        s += 2;
+    }
+    if (*s != ']') return false;
+    s++;
+
+    // memcpy what fits into local long double storage
+    unsigned copy = len < sizeof(*out) ? len : (unsigned)sizeof(*out);
+    memset(out, 0, sizeof(*out));
+    memcpy(out, buf, copy);    // memory-order round trip on same ABI
+    *ps = s;
+    return true;
+}
+
+char *convert_fp_markers(const char *in, int precision) {
+    if (!in) return NULL;
+
+    size_t cap = strlen(in) + 1, pos = 0;
+    char *out = xmalloc(cap);
+    const char *p = in;
+
+    while (*p) {
+        if (p[0]=='[' && p[1]=='#' && p[2]=='F') {
+            const char *save = p;
+            char tmp[128]; int n = -1;
+
+            float f; double d; long double ld;
+            if (parse_F4(&p, &f)) {
+                n = snprintf(tmp, sizeof tmp, "%.*f", precision, (double)f);
+            } else if (parse_F8(&p, &d)) {
+                n = snprintf(tmp, sizeof tmp, "%.*f", precision, d);
+            } else if (parse_FL(&p, &ld)) {
+                n = snprintf(tmp, sizeof tmp, "%.*Lf", precision, ld);
+            }
+
+            if (n >= 0) {
+                if (pos + (size_t)n + 1 > cap) { cap = (pos + (size_t)n + 1) * 2; out = xrealloc(out, cap); }
+                memcpy(out + pos, tmp, (size_t)n); pos += (size_t)n;
+                continue;
+            }
+
+            // not a valid marker; fall through to copy '['
+            p = save;
+        }
+
+        if (pos + 2 > cap) { cap = cap*2 + 16; out = xrealloc(out, cap); }
+        out[pos++] = *p++;
+    }
+    out[pos] = '\0';
+    return out;
+}
+
 void get_argspec_string(struct uftrace_task_reader *task, char *args, size_t len,
 			enum uftrace_argspec_string_bits str_mode)
 {
 	int i = 0, n = 0;
 	char *str = NULL;
-
 	const int null_str = -1;
 	void *data = task->args.data;
+	char* my_data = args ; 
 	struct list_head *arg_list = task->args.args;
 	struct uftrace_arg_spec *spec;
 	union {
@@ -448,7 +640,7 @@ void get_argspec_string(struct uftrace_task_reader *task, char *args, size_t len
 	bool is_retval = !!(str_mode & IS_RETVAL);
 	bool needs_assignment = !!(str_mode & NEEDS_ASSIGNMENT);
 	bool needs_json = !!(str_mode & NEEDS_JSON);
-
+	
 	if (!has_more) {
 		if (needs_paren)
 			strcpy(args, "()");
@@ -466,8 +658,10 @@ void get_argspec_string(struct uftrace_task_reader *task, char *args, size_t len
 		print_args(&args, &len, "(");
 	else if (needs_assignment)
 		print_args(&args, &len, " = ");
-
+	
+	
 	list_for_each_entry(spec, arg_list, list) {
+		
 		char fmtstr[16];
 		char *len_mod[] = { "hh", "h", "", "ll" };
 		char fmt, *lm;
@@ -522,13 +716,50 @@ void get_argspec_string(struct uftrace_task_reader *task, char *args, size_t len
 			break;
 		}
 
-		if (spec->fmt == ARG_FMT_STR || spec->fmt == ARG_FMT_STD_STRING) {
-			unsigned short slen;
+		if( spec->fmt == ARG_FMT_INT_PTR ){
+			int val_ip;
+			memcpy(&val_ip, data, sizeof(int));
+			if (needs_json)
+				print_args(&args, &len, "%d", val_ip);
+			else
+				print_args(&args, &len, "%d", val_ip);
 
+			size = sizeof(int);
+		}
+		else if (spec->fmt == ARG_FMT_FLOAT) {
+			if (spec->size == 10)
+				lm = "L";
+			else
+				lm = len_mod[idx];
+
+			memcpy(val.v, data, spec->size);
+			snprintf(fmtstr, sizeof(fmtstr), "%%#%s%c", lm, fmt);
+			switch (spec->size) {
+			case 4:
+				print_args(&args, &len, fmtstr, val.f);
+				
+				break;
+			case 8:
+				print_args(&args, &len, fmtstr, val.d);
+				
+				break;
+			case 10:
+				print_args(&args, &len, fmtstr, val.D);
+				break;
+			default:
+				pr_dbg("invalid floating-point type size %d\n", spec->size);
+				break;
+			}
+		}
+		else if (spec->fmt == ARG_FMT_STR || spec->fmt == ARG_FMT_STD_STRING) {
+		
+			unsigned short slen;
+			
 			memcpy(&slen, data, 2);
 
 			str = xmalloc(slen + 1);
 			memcpy(str, data + 2, slen);
+			
 			str[slen] = '\0';
 
 			if (slen == 4 && !memcmp(str, &null_str, sizeof(null_str)))
@@ -596,30 +827,7 @@ void get_argspec_string(struct uftrace_task_reader *task, char *args, size_t len
 			}
 			size = 1;
 		}
-		else if (spec->fmt == ARG_FMT_FLOAT) {
-			if (spec->size == 10)
-				lm = "L";
-			else
-				lm = len_mod[idx];
-
-			memcpy(val.v, data, spec->size);
-			snprintf(fmtstr, sizeof(fmtstr), "%%#%s%c", lm, fmt);
-
-			switch (spec->size) {
-			case 4:
-				print_args(&args, &len, fmtstr, val.f);
-				break;
-			case 8:
-				print_args(&args, &len, fmtstr, val.d);
-				break;
-			case 10:
-				print_args(&args, &len, fmtstr, val.D);
-				break;
-			default:
-				pr_dbg("invalid floating-point type size %d\n", spec->size);
-				break;
-			}
-		}
+		
 		else if (spec->fmt == ARG_FMT_PTR) {
 			struct uftrace_session_link *sessions = &task->h->sessions;
 			struct uftrace_symbol *sym;
@@ -676,21 +884,68 @@ void get_argspec_string(struct uftrace_task_reader *task, char *args, size_t len
 			print_args(&args, &len, "%s", color_reset);
 			free(estr);
 		}
-		else if (spec->fmt == ARG_FMT_STRUCT) {
-			if (spec->type_name) {
-				/*
-				 * gcc puts "<lambda" to anonymous lambda
-				 * but let's ignore to make it same as clang.
-				 */
-				if (strcmp(spec->type_name, "<lambda")) {
-					print_args(&args, &len, "%s%s%s", color_struct,
-						   spec->type_name, color_reset);
+		else if (spec->fmt == ARG_FMT_STRUCT) {	
+			if (spec->is_ptr && spec->resolved_struct){
+				unsigned short slen;
+				memcpy(&slen, data, 2);
+				str = xmalloc(slen + 1);
+				memcpy(str, data + 2, slen);
+				str[slen] = '\0';
+				str = convert_fp_markers(str, 7); 
+				unsigned j ; 
+				{
+					char *p = str;
+
+					print_args(&args, &len, "%s\"", color_string);
+					
+					while (*p) {
+						char c = *p++;
+						if (c & 0x80) {
+							break;
+						}
+					}
+					/*
+					* if value of character is over than 128(0x80),
+					* then it will be UTF-8 string
+					*/
+					if (*p) {
+						print_args(&args, &len, "%.*s", slen, str);
+					}
+					else {
+						p = str;
+						while (*p) {
+							char c = *p++;
+							print_escaped_char(&args, &len, c);
+						}
+					}
+					print_args(&args, &len, "\"%s", color_reset);
 				}
+
+				free(str);
+				size = slen + 2;
+				// free(spec->resolved_struct); 
 			}
-			if (spec->size)
-				print_args(&args, &len, "{...}");
-			else
-				print_args(&args, &len, "{}");
+			else{
+				
+				if(spec->type_name && spec->is_ptr == 0) {
+					/*
+					* gcc puts "<lambda" to anonymous lambda
+					* but let's ignore to make it same as clang.
+					*/
+					if (strcmp(spec->type_name, "<lambda")) {
+						
+						print_args(&args, &len, "%s%s%s", color_struct,
+							spec->type_name, color_reset);
+					}
+				}	
+				if (spec->size)
+					print_args(&args, &len, "{...}");
+				else
+					print_args(&args, &len, "{}");
+				
+
+
+			}
 		}
 		else {
 			if (spec->fmt != ARG_FMT_AUTO)
@@ -717,7 +972,6 @@ next:
 		if (is_retval)
 			break;
 	}
-
 	if (needs_paren) {
 		print_args(&args, &len, ")");
 	}
@@ -751,7 +1005,6 @@ static int print_graph_rstack(struct uftrace_data *handle, struct uftrace_task_r
 
 	sym = task_find_sym(sessions, task, rstack);
 	symname = symbol_getname(sym, rstack->addr);
-
 	/* skip it if --no-libcall is given */
 	if (!opts->libcall && sym && sym->type == ST_PLT_FUNC)
 		goto out;
@@ -783,7 +1036,7 @@ static int print_graph_rstack(struct uftrace_data *handle, struct uftrace_task_r
 		if (opts->comment && loc)
 			xasprintf(&str_loc, "%s:%d", loc->file->name, loc->line);
 	}
-
+	
 	if (rstack->type == UFTRACE_ENTRY) {
 		struct uftrace_task_reader *next = NULL;
 		struct uftrace_fstack *fstack;
@@ -817,6 +1070,7 @@ static int print_graph_rstack(struct uftrace_data *handle, struct uftrace_task_r
 
 		if (rstack->more && opts->show_args)
 			str_mode |= HAS_MORE;
+
 		get_argspec_string(task, args, sizeof(args), str_mode);
 
 		fstack = fstack_get(task, task->stack_count - 1);
@@ -1137,25 +1391,27 @@ int command_replay(int argc, char *argv[], struct uftrace_opts *opts)
 	uint64_t prev_time = 0;
 	struct uftrace_data handle;
 	struct uftrace_task_reader *task;
-
+	
 	__fsetlocking(outfp, FSETLOCKING_BYCALLER);
 	__fsetlocking(logfp, FSETLOCKING_BYCALLER);
-
+	
 	ret = open_data_file(opts, &handle);
 	if (ret < 0) {
 		pr_warn("cannot open record data: %s: %m\n", opts->dirname);
 		return -1;
 	}
-
+	
 	fstack_setup_filters(opts, &handle);
 	setup_field(&output_fields, opts, &setup_default_field, field_table,
-		    ARRAY_SIZE(field_table));
-
-	if (format_mode == FORMAT_HTML)
+		ARRAY_SIZE(field_table));
+		
+		if (format_mode == FORMAT_HTML)
 		pr_out(HTML_HEADER);
-
-	if (!opts->flat && peek_rstack(&handle, &task) == 0)
+	
+	
+	if (!opts->flat && peek_rstack(&handle, &task) == 0){
 		print_header(&output_fields, "#", "FUNCTION", 1, false);
+	}
 	if (!list_empty(&output_fields)) {
 		if (opts->srcline)
 			pr_gray(" [SOURCE]");
@@ -1182,9 +1438,9 @@ int command_replay(int argc, char *argv[], struct uftrace_opts *opts)
 
 		if (opts->flat)
 			ret = print_flat_rstack(&handle, task, opts);
-		else
+		else{
 			ret = print_graph_rstack(&handle, task, opts);
-
+		}
 		if (ret)
 			break;
 	}
@@ -1195,7 +1451,6 @@ int command_replay(int argc, char *argv[], struct uftrace_opts *opts)
 		pr_out(HTML_FOOTER);
 
 	close_data_file(opts, &handle);
-
 	return ret;
 }
 

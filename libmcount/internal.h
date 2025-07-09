@@ -298,7 +298,7 @@ static inline void mcount_memcpy4(void *restrict dst, const void *restrict src, 
 	unsigned int *restrict p = dst;
 	const unsigned int *restrict q = src;
 	int len4 = len / 4;
-
+	
 	while (len4-- > 0)
 		*p++ = *q++;
 }

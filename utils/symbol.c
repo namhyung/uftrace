@@ -1371,7 +1371,6 @@ int save_kernel_symbol(char *dirname)
 	FILE *ifp, *ofp;
 	ssize_t len;
 	int ret = 0;
-
 	xasprintf(&symfile, "%s/kallsyms", dirname);
 	ifp = fopen("/proc/kallsyms", "r");
 	ofp = fopen(symfile, "w");

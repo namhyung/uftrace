@@ -13,7 +13,6 @@ void print_debug_info(struct uftrace_dbg_info *dinfo, bool auto_args)
 	size_t i;
 	char *argspec = NULL;
 	char *retspec = NULL;
-
 	/* TODO: print enum definitions */
 
 	for (i = 0; i < dinfo->nr_locs; i++) {

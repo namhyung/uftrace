@@ -299,6 +299,7 @@ static int luajit_uftrace_exit(struct script_context *sc_ctx)
 
 static int luajit_uftrace_event(struct script_context *sc_ctx)
 {
+	
 	dllua_getglobal(L, "uftrace_event");
 	if (dllua_isnil(L, -1)) {
 		dllua_pop(L, 1);
