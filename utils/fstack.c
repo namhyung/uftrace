@@ -1301,6 +1301,10 @@ static int read_task_arg(struct uftrace_task_reader *task, struct uftrace_arg_sp
 		args->len += 2;
 	}
 
+	if (spec->fmt == ARG_FMT_INT_PTR) {
+		size = sizeof(int);
+	}
+
 	rem = (args->len + size) % 4;
 
 	if (rem)

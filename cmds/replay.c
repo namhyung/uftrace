@@ -522,7 +522,17 @@ void get_argspec_string(struct uftrace_task_reader *task, char *args, size_t len
 			break;
 		}
 
-		if (spec->fmt == ARG_FMT_STR || spec->fmt == ARG_FMT_STD_STRING) {
+		if (spec->fmt == ARG_FMT_INT_PTR) {
+			int val_ip;
+			memcpy(&val_ip, data, sizeof(int));
+			if (needs_json)
+				print_args(&args, &len, "%d", val_ip);
+			else
+				print_args(&args, &len, "%d", val_ip);
+
+			size = sizeof(int);
+		}
+		else if (spec->fmt == ARG_FMT_STR || spec->fmt == ARG_FMT_STD_STRING) {
 			unsigned short slen;
 
 			memcpy(&slen, data, 2);

@@ -19,6 +19,7 @@ enum uftrace_arg_format {
 	ARG_FMT_PTR,
 	ARG_FMT_ENUM,
 	ARG_FMT_STRUCT,
+	ARG_FMT_INT_PTR
 };
 
 #define ARG_TYPE_INDEX 0

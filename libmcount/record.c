@@ -493,6 +493,20 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 			}
 			size = ALIGN(len + 2, 4);
 		}
+		else if (spec->fmt == ARG_FMT_INT_PTR) {
+			int val = 0;
+			int *ptr_val = (int *)ctx->val.p;
+			if (!check_mem_region(ctx, (unsigned long)ptr_val)) {
+				val = -1; // orarleave val = 0
+			}
+			else {
+				val = *ptr_val;
+			}
+			size = ALIGN(sizeof(int), 4);
+			mcount_memcpy4(ptr, &val, sizeof(int));
+			ptr += size;
+			total_size += size;
+		}
 		else if (spec->fmt == ARG_FMT_STRUCT) {
 			/*
 			 * It already filled the argbuf in the
