@@ -90,7 +90,14 @@ struct uftrace_arg_spec *parse_argspec(char *str, struct uftrace_filter_setting 
 		fmt = ARG_FMT_AUTO;
 		break;
 	case 'i':
-		fmt = ARG_FMT_SINT;
+		if (strncmp(suffix, "ip", 2) == 0) {
+			fmt = ARG_FMT_INT_PTR;
+			suffix += 2;
+			size = sizeof(int);
+		}
+		else {
+			fmt = ARG_FMT_SINT;
+		}
 		break;
 	case 'u':
 		fmt = ARG_FMT_UINT;

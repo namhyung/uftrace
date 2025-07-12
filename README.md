@@ -110,6 +110,26 @@ $ uftrace -la -A udev_new@arg1/s -f+module lsusb  # -f+module adds the module na
    5.829 us [ 23561] libudev.so.1.7.2 |   fopen64("/etc/systemd/hwdb/hwdb.bin", "re") = 0;
 ```
 
+You can also dereference an int* argument using the /ip format:
+```sh
+$ uftrace -A foo@arg1/ip ./a.out
+```
+Suppose the input pointer address is 0x7ffe789cc654, and the value pointed to is 44.
+The output will display the actual dereferenced value:
+```sh
+# DURATION     TID      FUNCTION
+   1.008 us [   4358] | __monstartup();
+   0.271 us [   4358] | __cxa_atexit();
+[debug] read_task_arg: read int* value = 44 (0x2c)
+            [   4358] | main() {
+            [   4358] |   foo(44) {
+  75.021 us [   4358] |     printf();
+   7.667 us [   4358] |     printf();
+ 343.559 us [   4358] |   } /* foo */
+ 344.157 us [   4358] | } /* main */
+```
+This makes uftrace especially helpful when working with pointer-to-int arguments in low-level tracing.
+
 Furthermore, it can show detailed execution flow at function level, and report
 which functions had the longest execution time.  It also shows information about
 the execution environment.
