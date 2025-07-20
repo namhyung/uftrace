@@ -426,14 +426,14 @@ void delete_session(struct uftrace_session *sess)
 
 	list_for_each_entry_safe(udl, tmp, &sess->dlopen_libs, list) {
 		list_del(&udl->list);
-		uftrace_cleanup_filter(&udl->filter_info.root);
+		uftrace_cleanup_filter(&udl->filter_info);
 		free(udl);
 	}
 
 	finish_debug_info(&sess->sym_info);
 	delete_session_map(&sess->sym_info);
-	uftrace_cleanup_filter(&sess->filter_info.root);
-	uftrace_cleanup_filter(&sess->fixups.root);
+	uftrace_cleanup_filter(&sess->filter_info);
+	uftrace_cleanup_filter(&sess->fixups);
 	free(sess);
 }
 
@@ -853,7 +853,7 @@ struct uftrace_filter *session_find_filter(struct uftrace_session *sess, struct 
 	struct uftrace_filter *ret;
 	struct uftrace_dlopen_list *udl;
 
-	ret = uftrace_match_filter(rec->addr, &sess->filter_info.root, tr);
+	ret = uftrace_match_filter(rec->addr, &sess->filter_info, tr);
 	if (ret)
 		return ret;
 
@@ -861,7 +861,7 @@ struct uftrace_filter *session_find_filter(struct uftrace_session *sess, struct 
 	if (udl == NULL)
 		return NULL;
 
-	return uftrace_match_filter(rec->addr, &udl->filter_info.root, tr);
+	return uftrace_match_filter(rec->addr, &udl->filter_info, tr);
 }
 
 #ifdef UNIT_TEST

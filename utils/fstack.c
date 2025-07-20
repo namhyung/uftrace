@@ -289,19 +289,19 @@ static int count_filters(struct uftrace_session *s, void *arg)
 
 static int count_callers(struct uftrace_session *s, void *arg)
 {
-	*(int *)arg += uftrace_count_filter(&s->filter_info.root, TRIGGER_FL_CALLER);
+	*(int *)arg += uftrace_count_filter(&s->filter_info, TRIGGER_FL_CALLER);
 	return 0;
 }
 
 static int count_hides(struct uftrace_session *s, void *arg)
 {
-	*(int *)arg += uftrace_count_filter(&s->filter_info.root, TRIGGER_FL_HIDE);
+	*(int *)arg += uftrace_count_filter(&s->filter_info, TRIGGER_FL_HIDE);
 	return 0;
 }
 
 static int count_locs(struct uftrace_session *s, void *arg)
 {
-	*(int *)arg += uftrace_count_filter(&s->filter_info.root, TRIGGER_FL_LOC);
+	*(int *)arg += uftrace_count_filter(&s->filter_info, TRIGGER_FL_LOC);
 	return 0;
 }
 
@@ -625,7 +625,7 @@ int fstack_entry(struct uftrace_task_reader *task, struct uftrace_record *rstack
 	if (sess) {
 		struct uftrace_filter *fixup;
 
-		fixup = uftrace_match_filter(addr, &sess->fixups.root, tr);
+		fixup = uftrace_match_filter(addr, &sess->fixups, tr);
 		if (unlikely(fixup)) {
 			if (!strncmp(fixup->name, "exec", 4))
 				fstack->flags |= FSTACK_FL_EXEC;
@@ -642,7 +642,7 @@ int fstack_entry(struct uftrace_task_reader *task, struct uftrace_record *rstack
 			}
 		}
 
-		uftrace_match_filter(addr, &sess->filter_info.root, tr);
+		uftrace_match_filter(addr, &sess->filter_info, tr);
 
 		if (tr->flags & TRIGGER_FL_FILTER && tr->cond.idx && task->args.args &&
 		    !list_empty(task->args.args)) {
@@ -876,7 +876,7 @@ static int fstack_check_skip(struct uftrace_task_reader *task, struct uftrace_re
 		addr = get_kernel_address(&fsess->sym_info, addr);
 	}
 
-	uftrace_match_filter(addr, &sess->filter_info.root, &tr);
+	uftrace_match_filter(addr, &sess->filter_info, &tr);
 
 	if (tr.flags & TRIGGER_FL_FILTER) {
 		if (tr.fmode == FILTER_MODE_OUT)
@@ -1669,7 +1669,7 @@ static struct uftrace_record *get_task_ustack(struct uftrace_data *handle, int i
 		sess = find_task_session(sessions, task->t, curr->time);
 
 		if (sess && (curr->type == UFTRACE_ENTRY || curr->type == UFTRACE_EXIT))
-			uftrace_match_filter(curr->addr, &sess->filter_info.root, &tr);
+			uftrace_match_filter(curr->addr, &sess->filter_info, &tr);
 
 		if (task->filter.stack) {
 			time_filter = task->filter.stack->threshold;

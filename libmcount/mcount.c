@@ -1017,7 +1017,7 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 	if (mtdp->filter.out_count > 0)
 		return FILTER_OUT;
 
-	uftrace_match_filter(child, &mcount_triggers->root, tr);
+	uftrace_match_filter(child, mcount_triggers, tr);
 
 	pr_dbg3(" tr->flags: %x, filter mode: %d, count: %d/%d, depth: %d\n", tr->flags, tr->fmode,
 		mtdp->filter.in_count, mtdp->filter.out_count, mtdp->filter.depth);
@@ -1336,7 +1336,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp, struct mcount_re
 			struct uftrace_trigger tr;
 
 			/* update args as trigger might be updated due to dlopen() */
-			uftrace_match_filter(rstack->child_ip, &mcount_triggers->root, &tr);
+			uftrace_match_filter(rstack->child_ip, mcount_triggers, &tr);
 			rstack->pargs = tr.pargs;
 		}
 		else {
@@ -1347,7 +1347,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp, struct mcount_re
 			struct uftrace_trigger tr;
 
 			/* there's a possibility of overwriting by return value */
-			uftrace_match_filter(rstack->child_ip, &mcount_triggers->root, &tr);
+			uftrace_match_filter(rstack->child_ip, mcount_triggers, &tr);
 			save_trigger_read(mtdp, rstack, tr.read, true);
 		}
 

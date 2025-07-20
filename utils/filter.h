@@ -173,12 +173,12 @@ void uftrace_setup_loc_filter(const char *filter_str, struct uftrace_sym_info *s
 			      struct uftrace_filter_setting *setting);
 
 struct uftrace_triggers_info uftrace_deep_copy_triggers(struct uftrace_triggers_info *src);
-struct uftrace_filter *uftrace_match_filter(uint64_t ip, struct rb_root *root,
+struct uftrace_filter *uftrace_match_filter(uint64_t ip, struct uftrace_triggers_info *filters,
 					    struct uftrace_trigger *tr);
-void uftrace_cleanup_filter(struct rb_root *root);
+void uftrace_cleanup_filter(struct uftrace_triggers_info *filters);
 void uftrace_cleanup_triggers(struct uftrace_triggers_info *triggers);
-void uftrace_print_filter(struct rb_root *root);
-int uftrace_count_filter(struct rb_root *root, unsigned long flag);
+void uftrace_print_filter(struct uftrace_triggers_info *filters);
+int uftrace_count_filter(struct uftrace_triggers_info *filters, unsigned long flag);
 
 bool uftrace_eval_cond(struct uftrace_filter_cond *cond, long val);
 
