@@ -1228,7 +1228,7 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 		 * it might set TRACE trigger, which shows
 		 * function even if it's less than the time filter.
 		 */
-		uftrace_match_filter(real_addr, &sess->filters, &tr);
+		uftrace_match_filter(real_addr, &sess->filter_info.root, &tr);
 
 		if (curr->type == UFTRACE_ENTRY) {
 			if (size_filter) {

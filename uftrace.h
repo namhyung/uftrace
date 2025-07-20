@@ -365,8 +365,8 @@ struct uftrace_session {
 	uint64_t start_time;
 	int pid, tid;
 	struct uftrace_sym_info sym_info;
-	struct rb_root filters;
-	struct rb_root fixups;
+	struct uftrace_triggers_info filter_info;
+	struct uftrace_triggers_info fixups;
 	struct list_head dlopen_libs;
 	int namelen;
 	char exename[];
@@ -383,7 +383,7 @@ struct uftrace_dlopen_list {
 	uint64_t time;
 	unsigned long base;
 	struct uftrace_module *mod;
-	struct rb_root filters;
+	struct uftrace_triggers_info filter_info;
 };
 
 struct uftrace_task {

@@ -225,7 +225,6 @@ void create_session(struct uftrace_session_link *sessions, struct uftrace_msg_se
 	s->namelen = msg->namelen;
 	memcpy(s->exename, exename, s->namelen);
 	s->exename[s->namelen] = 0;
-	s->filters = RB_ROOT;
 	INIT_LIST_HEAD(&s->dlopen_libs);
 
 	pr_dbg2("new session: pid = %d, session = %.*s\n", s->pid, SESSION_ID_LEN, s->sid);
@@ -360,7 +359,7 @@ void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp, unsign
 	udl->mod = load_module_symtab(&sess->sym_info, libname, build_id);
 	load_module_debug_info(udl->mod, sess->sym_info.symdir, needs_srcline);
 
-	udl->filters = RB_ROOT;
+	udl->filter_info.root = RB_ROOT;
 
 	list_for_each_entry(pos, &sess->dlopen_libs, list) {
 		if (pos->time > timestamp)
@@ -427,14 +426,14 @@ void delete_session(struct uftrace_session *sess)
 
 	list_for_each_entry_safe(udl, tmp, &sess->dlopen_libs, list) {
 		list_del(&udl->list);
-		uftrace_cleanup_filter(&udl->filters);
+		uftrace_cleanup_filter(&udl->filter_info.root);
 		free(udl);
 	}
 
 	finish_debug_info(&sess->sym_info);
 	delete_session_map(&sess->sym_info);
-	uftrace_cleanup_filter(&sess->filters);
-	uftrace_cleanup_filter(&sess->fixups);
+	uftrace_cleanup_filter(&sess->filter_info.root);
+	uftrace_cleanup_filter(&sess->fixups.root);
 	free(sess);
 }
 
@@ -826,9 +825,6 @@ void session_setup_dlopen_argspec(struct uftrace_session *sess,
 				  struct uftrace_filter_setting *setting, bool is_retval)
 {
 	struct uftrace_dlopen_list *udl;
-	struct uftrace_triggers_info triggers = {
-		.root = RB_ROOT,
-	};
 
 	list_for_each_entry(udl, &sess->dlopen_libs, list) {
 		struct uftrace_sym_info dl_info;
@@ -840,12 +836,14 @@ void session_setup_dlopen_argspec(struct uftrace_session *sess,
 		dl_info = sess->sym_info;
 		dl_info.maps = &dl_map;
 
-		triggers.root = udl->filters;
-		if (is_retval)
-			uftrace_setup_retval(setting->info_str, &dl_info, &triggers, setting);
-		else
-			uftrace_setup_argument(setting->info_str, &dl_info, &triggers, setting);
-		udl->filters = triggers.root;
+		if (is_retval) {
+			uftrace_setup_retval(setting->info_str, &dl_info, &udl->filter_info,
+					     setting);
+		}
+		else {
+			uftrace_setup_argument(setting->info_str, &dl_info, &udl->filter_info,
+					       setting);
+		}
 	}
 }
 
@@ -855,7 +853,7 @@ struct uftrace_filter *session_find_filter(struct uftrace_session *sess, struct 
 	struct uftrace_filter *ret;
 	struct uftrace_dlopen_list *udl;
 
-	ret = uftrace_match_filter(rec->addr, &sess->filters, tr);
+	ret = uftrace_match_filter(rec->addr, &sess->filter_info.root, tr);
 	if (ret)
 		return ret;
 
@@ -863,7 +861,7 @@ struct uftrace_filter *session_find_filter(struct uftrace_session *sess, struct 
 	if (udl == NULL)
 		return NULL;
 
-	return uftrace_match_filter(rec->addr, &udl->filters, tr);
+	return uftrace_match_filter(rec->addr, &udl->filter_info.root, tr);
 }
 
 #ifdef UNIT_TEST
