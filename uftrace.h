@@ -494,8 +494,8 @@ struct uftrace_dlopen_list *session_find_dlopen(struct uftrace_session *sess, ui
 						unsigned long addr);
 struct uftrace_symbol *session_find_dlsym(struct uftrace_session *sess, uint64_t timestamp,
 					  unsigned long addr);
-struct uftrace_filter *session_find_filter(struct uftrace_session *sess, struct uftrace_record *rec,
-					   struct uftrace_trigger *tr);
+const struct uftrace_filter *session_find_filter(struct uftrace_session *sess,
+						 struct uftrace_record *rec);
 void delete_sessions(struct uftrace_session_link *sess);
 
 struct uftrace_record;

@@ -414,11 +414,11 @@ extern void mcount_arch_get_arg(struct mcount_arg_context *ctx, struct uftrace_a
 extern void mcount_arch_get_retval(struct mcount_arg_context *ctx, struct uftrace_arg_spec *spec);
 
 extern enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp,
-						    unsigned long child, struct uftrace_trigger *tr,
-						    struct mcount_regs *regs);
+						    unsigned long child, struct mcount_regs *regs,
+						    const struct uftrace_filter **pfilter);
 extern void mcount_entry_filter_record(struct mcount_thread_data *mtdp,
-				       struct mcount_ret_stack *rstack, struct uftrace_trigger *tr,
-				       struct mcount_regs *regs);
+				       struct mcount_ret_stack *rstack, struct mcount_regs *regs,
+				       const struct uftrace_filter *filter);
 extern void mcount_exit_filter_record(struct mcount_thread_data *mtdp,
 				      struct mcount_ret_stack *rstack, long *retval);
 extern int record_trace_data(struct mcount_thread_data *mtdp, struct mcount_ret_stack *mrstack,

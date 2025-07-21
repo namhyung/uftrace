@@ -151,13 +151,12 @@ static bool match_ip(struct uftrace_filter *filter, uint64_t addr)
 }
 
 /**
- * uftrace_match_filter - try to match @ip with filters in @root
- * @addr - instruction address to match
+ * uftrace_match_filter - try to match @ip with filters in @filters
  * @filters - filter information
- * @tr   - trigger data
+ * @addr - instruction address to match
  */
-struct uftrace_filter *uftrace_match_filter(uint64_t addr, struct uftrace_triggers_info *filters,
-					    struct uftrace_trigger *tr)
+const struct uftrace_filter *uftrace_match_filter(struct uftrace_triggers_info *filters,
+						  uint64_t addr)
 {
 	struct rb_node *parent = NULL;
 	struct rb_node **p = &filters->root.rb_node;
@@ -168,11 +167,9 @@ struct uftrace_filter *uftrace_match_filter(uint64_t addr, struct uftrace_trigge
 		iter = rb_entry(parent, struct uftrace_filter, node);
 
 		if (match_ip(iter, addr)) {
-			*tr = iter->trigger;
-
 			pr_dbg2("filter match: %s\n", iter->name);
 			if (dbg_domain[DBG_FILTER] >= 3)
-				print_trigger(tr);
+				print_trigger(&iter->trigger);
 			return iter;
 		}
 
@@ -307,7 +304,7 @@ void update_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr, b
 		filter->trigger.size = tr->size;
 }
 
-bool uftrace_eval_cond(struct uftrace_filter_cond *cond, long val)
+bool uftrace_eval_cond(const struct uftrace_filter_cond *cond, const long val)
 {
 	switch (cond->op) {
 	case FILTER_OP_EQ:
@@ -1751,10 +1748,10 @@ TEST_CASE(filter_match)
 		.root = RB_ROOT,
 		.filter_count = 0,
 	};
-	struct uftrace_trigger tr;
 	struct uftrace_filter_setting setting = {
 		.ptype = PATT_REGEX,
 	};
+	const struct uftrace_filter *filter;
 
 	filter_test_load_symtabs(&sinfo);
 
@@ -1764,24 +1761,19 @@ TEST_CASE(filter_match)
 	TEST_EQ(get_filter_mode(triggers.filter_count), FILTER_MODE_IN);
 
 	pr_dbg("check addresses inside the symbol\n");
-	memset(&tr, 0, sizeof(tr));
-	TEST_NE(uftrace_match_filter(0x1000, &triggers, &tr), NULL);
-	TEST_EQ(tr.flags, TRIGGER_FL_FILTER);
-	TEST_EQ(tr.fmode, FILTER_MODE_IN);
+	filter = uftrace_match_filter(&triggers, 0x1000);
+	TEST_NE(filter, NULL);
+	TEST_EQ(filter->trigger.flags, TRIGGER_FL_FILTER);
+	TEST_EQ(filter->trigger.fmode, FILTER_MODE_IN);
 
-	memset(&tr, 0, sizeof(tr));
-	TEST_NE(uftrace_match_filter(0x1fff, &triggers, &tr), NULL);
-	TEST_EQ(tr.flags, TRIGGER_FL_FILTER);
-	TEST_EQ(tr.fmode, FILTER_MODE_IN);
+	filter = uftrace_match_filter(&triggers, 0x1fff);
+	TEST_NE(filter, NULL);
+	TEST_EQ(filter->trigger.flags, TRIGGER_FL_FILTER);
+	TEST_EQ(filter->trigger.fmode, FILTER_MODE_IN);
 
 	pr_dbg("addresses out of the symbol should not have FILTER flags\n");
-	memset(&tr, 0, sizeof(tr));
-	TEST_EQ(uftrace_match_filter(0xfff, &triggers, &tr), NULL);
-	TEST_NE(tr.flags, TRIGGER_FL_FILTER);
-
-	memset(&tr, 0, sizeof(tr));
-	TEST_EQ(uftrace_match_filter(0x2000, &triggers, &tr), NULL);
-	TEST_NE(tr.flags, TRIGGER_FL_FILTER);
+	TEST_EQ(uftrace_match_filter(&triggers, 0xfff), NULL);
+	TEST_EQ(uftrace_match_filter(&triggers, 0x2000), NULL);
 
 	uftrace_cleanup_triggers(&triggers);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), true);
@@ -1797,11 +1789,11 @@ TEST_CASE(trigger_setup_actions)
 	struct uftrace_triggers_info triggers = {
 		.root = RB_ROOT,
 	};
-	struct uftrace_trigger tr;
 	struct uftrace_filter_setting setting = {
 		.ptype = PATT_REGEX,
 		.lp64 = host_is_lp64(),
 	};
+	const struct uftrace_filter *filter;
 
 	filter_test_load_symtabs(&sinfo);
 
@@ -1809,35 +1801,35 @@ TEST_CASE(trigger_setup_actions)
 	uftrace_setup_trigger("foo::bar@depth=2", &sinfo, &triggers, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), false);
 
-	memset(&tr, 0, sizeof(tr));
-	TEST_NE(uftrace_match_filter(0x2500, &triggers, &tr), NULL);
-	TEST_EQ(tr.flags, TRIGGER_FL_DEPTH);
-	TEST_EQ(tr.depth, 2);
+	filter = uftrace_match_filter(&triggers, 0x2500);
+	TEST_NE(filter, NULL);
+	TEST_EQ(filter->trigger.flags, TRIGGER_FL_DEPTH);
+	TEST_EQ(filter->trigger.depth, 2);
 
 	pr_dbg("checking backtrace trigger\n");
 	uftrace_setup_trigger("foo::bar@backtrace", &sinfo, &triggers, &setting);
-	memset(&tr, 0, sizeof(tr));
-	TEST_NE(uftrace_match_filter(0x2500, &triggers, &tr), NULL);
-	TEST_EQ(tr.flags, TRIGGER_FL_DEPTH | TRIGGER_FL_BACKTRACE);
+	filter = uftrace_match_filter(&triggers, 0x2500);
+	TEST_NE(filter, NULL);
+	TEST_EQ(filter->trigger.flags, TRIGGER_FL_DEPTH | TRIGGER_FL_BACKTRACE);
 
 	pr_dbg("checking trace-on trigger\n");
 	uftrace_setup_trigger("foo::baz1@traceon", &sinfo, &triggers, &setting);
-	memset(&tr, 0, sizeof(tr));
-	TEST_NE(uftrace_match_filter(0x3000, &triggers, &tr), NULL);
-	TEST_EQ(tr.flags, TRIGGER_FL_TRACE_ON);
+	filter = uftrace_match_filter(&triggers, 0x3000);
+	TEST_NE(filter, NULL);
+	TEST_EQ(filter->trigger.flags, TRIGGER_FL_TRACE_ON);
 
 	pr_dbg("checking trace-off trigger and overwrite the depth\n");
 	uftrace_setup_trigger("foo::baz3@trace_off,depth=1", &sinfo, &triggers, &setting);
-	memset(&tr, 0, sizeof(tr));
-	TEST_NE(uftrace_match_filter(0x5000, &triggers, &tr), NULL);
-	TEST_EQ(tr.flags, TRIGGER_FL_TRACE_OFF | TRIGGER_FL_DEPTH);
-	TEST_EQ(tr.depth, 1);
+	filter = uftrace_match_filter(&triggers, 0x5000);
+	TEST_NE(filter, NULL);
+	TEST_EQ(filter->trigger.flags, TRIGGER_FL_TRACE_OFF | TRIGGER_FL_DEPTH);
+	TEST_EQ(filter->trigger.depth, 1);
 
 	pr_dbg("checking caller trigger\n");
 	uftrace_setup_trigger("foo::baz2@caller", &sinfo, &triggers, &setting);
-	memset(&tr, 0, sizeof(tr));
-	TEST_NE(uftrace_match_filter(0x4200, &triggers, &tr), NULL);
-	TEST_EQ(tr.flags, TRIGGER_FL_CALLER);
+	filter = uftrace_match_filter(&triggers, 0x4200);
+	TEST_NE(filter, NULL);
+	TEST_EQ(filter->trigger.flags, TRIGGER_FL_CALLER);
 
 	uftrace_cleanup_triggers(&triggers);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), true);
@@ -1854,11 +1846,11 @@ TEST_CASE(trigger_setup_filters)
 		.root = RB_ROOT,
 		.filter_count = 0,
 	};
-	struct uftrace_trigger tr;
 	struct uftrace_filter_setting setting = {
 		.ptype = PATT_REGEX,
 		.lp64 = host_is_lp64(),
 	};
+	const struct uftrace_filter *filter;
 
 	filter_test_load_symtabs(&sinfo);
 
@@ -1867,34 +1859,34 @@ TEST_CASE(trigger_setup_filters)
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), false);
 	TEST_EQ(get_filter_mode(triggers.filter_count), FILTER_MODE_OUT);
 
-	memset(&tr, 0, sizeof(tr));
-	TEST_NE(uftrace_match_filter(0x2500, &triggers, &tr), NULL);
-	TEST_EQ(tr.flags, TRIGGER_FL_DEPTH | TRIGGER_FL_FILTER);
-	TEST_EQ(tr.depth, 2);
-	TEST_EQ(tr.fmode, FILTER_MODE_OUT);
+	filter = uftrace_match_filter(&triggers, 0x2500);
+	TEST_NE(filter, NULL);
+	TEST_EQ(filter->trigger.flags, TRIGGER_FL_DEPTH | TRIGGER_FL_FILTER);
+	TEST_EQ(filter->trigger.depth, 2);
+	TEST_EQ(filter->trigger.fmode, FILTER_MODE_OUT);
 
 	pr_dbg("compare regular filter setting with trigger\n");
 	uftrace_setup_filter("foo::baz1", &sinfo, &triggers, &setting);
 	TEST_EQ(get_filter_mode(triggers.filter_count), FILTER_MODE_IN);
 
-	memset(&tr, 0, sizeof(tr));
-	TEST_NE(uftrace_match_filter(0x3000, &triggers, &tr), NULL);
-	TEST_EQ(tr.flags, TRIGGER_FL_FILTER);
-	TEST_EQ(tr.fmode, FILTER_MODE_IN);
+	filter = uftrace_match_filter(&triggers, 0x3000);
+	TEST_NE(filter, NULL);
+	TEST_EQ(filter->trigger.flags, TRIGGER_FL_FILTER);
+	TEST_EQ(filter->trigger.fmode, FILTER_MODE_IN);
 
 	uftrace_setup_trigger("foo::baz2@notrace", &sinfo, &triggers, &setting);
 	TEST_EQ(get_filter_mode(triggers.filter_count), FILTER_MODE_IN);
 
-	memset(&tr, 0, sizeof(tr));
-	TEST_NE(uftrace_match_filter(0x4100, &triggers, &tr), NULL);
-	TEST_EQ(tr.flags, TRIGGER_FL_FILTER);
-	TEST_EQ(tr.fmode, FILTER_MODE_OUT);
+	filter = uftrace_match_filter(&triggers, 0x4100);
+	TEST_NE(filter, NULL);
+	TEST_EQ(filter->trigger.flags, TRIGGER_FL_FILTER);
+	TEST_EQ(filter->trigger.fmode, FILTER_MODE_OUT);
 
 	pr_dbg("check caller filter setting\n");
 	uftrace_setup_caller_filter("foo::baz3", &sinfo, &triggers, &setting);
-	memset(&tr, 0, sizeof(tr));
-	TEST_NE(uftrace_match_filter(0x5000, &triggers, &tr), NULL);
-	TEST_EQ(tr.flags, TRIGGER_FL_CALLER);
+	filter = uftrace_match_filter(&triggers, 0x5000);
+	TEST_NE(filter, NULL);
+	TEST_EQ(filter->trigger.flags, TRIGGER_FL_CALLER);
 
 	uftrace_cleanup_triggers(&triggers);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), true);
@@ -1967,13 +1959,13 @@ TEST_CASE(trigger_setup_args)
 	struct uftrace_triggers_info triggers = {
 		.root = RB_ROOT,
 	};
-	struct uftrace_trigger tr;
 	struct uftrace_arg_spec *spec;
 	struct uftrace_filter_setting setting = {
 		.ptype = PATT_REGEX,
 		.lp64 = host_is_lp64(),
 		.arch = UFT_CPU_X86_64,
 	};
+	const struct uftrace_filter *filter;
 	int count;
 
 	filter_test_load_symtabs(&sinfo);
@@ -1982,20 +1974,20 @@ TEST_CASE(trigger_setup_args)
 	uftrace_setup_argument("foo::bar@arg1", &sinfo, &triggers, &setting);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), false);
 
-	memset(&tr, 0, sizeof(tr));
-	TEST_NE(uftrace_match_filter(0x2500, &triggers, &tr), NULL);
-	TEST_EQ(tr.flags, TRIGGER_FL_ARGUMENT);
-	TEST_NE(tr.pargs, NULL);
+	filter = uftrace_match_filter(&triggers, 0x2500);
+	TEST_NE(filter, NULL);
+	TEST_EQ(filter->trigger.flags, TRIGGER_FL_ARGUMENT);
+	TEST_NE(filter->trigger.pargs, NULL);
 
 	pr_dbg("compare argument setting via trigger\n");
 	uftrace_setup_trigger("foo::bar@arg2/s", &sinfo, &triggers, &setting);
-	memset(&tr, 0, sizeof(tr));
-	TEST_NE(uftrace_match_filter(0x2500, &triggers, &tr), NULL);
-	TEST_EQ(tr.flags, TRIGGER_FL_ARGUMENT);
-	TEST_NE(tr.pargs, NULL);
+	filter = uftrace_match_filter(&triggers, 0x2500);
+	TEST_NE(filter, NULL);
+	TEST_EQ(filter->trigger.flags, TRIGGER_FL_ARGUMENT);
+	TEST_NE(filter->trigger.pargs, NULL);
 
 	count = 0;
-	list_for_each_entry(spec, tr.pargs, list) {
+	list_for_each_entry(spec, &filter->args, list) {
 		count++;
 		pr_dbg("arg%d: fmt = %d, type = %d\n", spec->idx, spec->fmt, spec->type);
 
@@ -2015,12 +2007,12 @@ TEST_CASE(trigger_setup_args)
 	pr_dbg("check argument format, type and size\n");
 	uftrace_setup_argument("foo::baz1@arg1/i32,arg2/x64,fparg1/32,fparg2", &sinfo, &triggers,
 			       &setting);
-	memset(&tr, 0, sizeof(tr));
-	TEST_NE(uftrace_match_filter(0x3999, &triggers, &tr), NULL);
-	TEST_EQ(tr.flags, TRIGGER_FL_ARGUMENT);
+	filter = uftrace_match_filter(&triggers, 0x3999);
+	TEST_NE(filter, NULL);
+	TEST_EQ(filter->trigger.flags, TRIGGER_FL_ARGUMENT);
 
 	count = 0;
-	list_for_each_entry(spec, tr.pargs, list) {
+	list_for_each_entry(spec, &filter->args, list) {
 		pr_dbg("arg%d: fmt = %d, type = %d, size = %d\n", spec->idx, spec->fmt, spec->type,
 		       spec->size);
 
@@ -2060,12 +2052,12 @@ TEST_CASE(trigger_setup_args)
 	pr_dbg("check argument location\n");
 	uftrace_setup_trigger("foo::baz2@arg1/c,arg2/x32%rdi,arg3%stack+4,retval/f64", &sinfo,
 			      &triggers, &setting);
-	memset(&tr, 0, sizeof(tr));
-	TEST_NE(uftrace_match_filter(0x4000, &triggers, &tr), NULL);
-	TEST_EQ(tr.flags, TRIGGER_FL_ARGUMENT | TRIGGER_FL_RETVAL);
+	filter = uftrace_match_filter(&triggers, 0x4000);
+	TEST_NE(filter, NULL);
+	TEST_EQ(filter->trigger.flags, TRIGGER_FL_ARGUMENT | TRIGGER_FL_RETVAL);
 
 	count = 0;
-	list_for_each_entry(spec, tr.pargs, list) {
+	list_for_each_entry(spec, &filter->args, list) {
 		pr_dbg("arg%d: fmt = %d, type = %d, size = %d\n", spec->idx, spec->fmt, spec->type,
 		       spec->size);
 
@@ -2624,10 +2616,10 @@ TEST_CASE(locfilter_match)
 		.root = RB_ROOT,
 		.loc_count = 0,
 	};
-	struct uftrace_trigger tr;
 	struct uftrace_filter_setting setting = {
 		.ptype = PATT_REGEX,
 	};
+	const struct uftrace_filter *filter;
 
 	locfilter_test_load_symtabs(&sinfo);
 
@@ -2637,24 +2629,19 @@ TEST_CASE(locfilter_match)
 	TEST_EQ(get_filter_mode(triggers.filter_count), FILTER_MODE_IN);
 
 	pr_dbg("check addresses inside the symbol\n");
-	memset(&tr, 0, sizeof(tr));
-	TEST_NE(uftrace_match_filter(0x2000, &triggers, &tr), NULL);
-	TEST_EQ(tr.flags, TRIGGER_FL_FILTER);
-	TEST_EQ(tr.fmode, FILTER_MODE_IN);
+	filter = uftrace_match_filter(&triggers, 0x2000);
+	TEST_NE(filter, NULL);
+	TEST_EQ(filter->trigger.flags, TRIGGER_FL_FILTER);
+	TEST_EQ(filter->trigger.fmode, FILTER_MODE_IN);
 
-	memset(&tr, 0, sizeof(tr));
-	TEST_NE(uftrace_match_filter(0x2fff, &triggers, &tr), NULL);
-	TEST_EQ(tr.flags, TRIGGER_FL_FILTER);
-	TEST_EQ(tr.fmode, FILTER_MODE_IN);
+	filter = uftrace_match_filter(&triggers, 0x2fff);
+	TEST_NE(filter, NULL);
+	TEST_EQ(filter->trigger.flags, TRIGGER_FL_FILTER);
+	TEST_EQ(filter->trigger.fmode, FILTER_MODE_IN);
 
 	pr_dbg("addresses out of the symbol should not have FILTER flags\n");
-	memset(&tr, 0, sizeof(tr));
-	TEST_EQ(uftrace_match_filter(0x1fff, &triggers, &tr), NULL);
-	TEST_NE(tr.flags, TRIGGER_FL_FILTER);
-
-	memset(&tr, 0, sizeof(tr));
-	TEST_EQ(uftrace_match_filter(0xa000, &triggers, &tr), NULL);
-	TEST_NE(tr.flags, TRIGGER_FL_FILTER);
+	TEST_EQ(uftrace_match_filter(&triggers, 0x1fff), NULL);
+	TEST_EQ(uftrace_match_filter(&triggers, 0xa000), NULL);
 
 	uftrace_cleanup_triggers(&triggers);
 	TEST_EQ(RB_EMPTY_ROOT(&triggers.root), true);

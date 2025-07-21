@@ -1196,7 +1196,8 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 	while (read_kernel_cpu_data(kernel, cpu) == 0) {
 		struct uftrace_session *sess = handle->sessions.first;
 		struct uftrace_task_reader *task;
-		struct uftrace_trigger tr = {};
+		const struct uftrace_filter *filter;
+		enum trigger_flag flags = 0;
 		uint64_t real_addr;
 		uint64_t time_filter = handle->time_filter;
 		uint64_t size_filter = handle->size_filter;
@@ -1228,7 +1229,9 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 		 * it might set TRACE trigger, which shows
 		 * function even if it's less than the time filter.
 		 */
-		uftrace_match_filter(real_addr, &sess->filter_info, &tr);
+		filter = uftrace_match_filter(&sess->filter_info, real_addr);
+		if (filter)
+			flags = filter->trigger.flags;
 
 		if (curr->type == UFTRACE_ENTRY) {
 			if (size_filter) {
@@ -1245,17 +1248,19 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 
 			add_kfunc_addr(&kfunc_tree, real_addr);
 
-			if (tr.flags & (TRIGGER_FL_TIME_FILTER | TRIGGER_FL_SIZE_FILTER)) {
+			if (flags & (TRIGGER_FL_TIME_FILTER | TRIGGER_FL_SIZE_FILTER)) {
 				struct uftrace_task_filter_stack *tfs;
 
 				tfs = xmalloc(sizeof(*tfs));
 				tfs->next = task->filter.stack;
 				tfs->depth = curr->depth;
 				tfs->context = FSTACK_CTX_KERNEL;
-				tfs->threshold = (tr.flags & TRIGGER_FL_TIME_FILTER) ? tr.time :
-										       time_filter;
-				tfs->size = (tr.flags & TRIGGER_FL_SIZE_FILTER) ? tr.size :
-										  size_filter;
+				tfs->threshold = (flags & TRIGGER_FL_TIME_FILTER) ?
+							 filter->trigger.time :
+							 time_filter;
+				tfs->size = (flags & TRIGGER_FL_SIZE_FILTER) ?
+						    filter->trigger.size :
+						    size_filter;
 
 				task->filter.stack = tfs;
 			}
@@ -1293,7 +1298,7 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 					continue;
 			}
 
-			if (rstack_list->count == 0 || tr.flags & TRIGGER_FL_TRACE) {
+			if (rstack_list->count == 0 || (flags & TRIGGER_FL_TRACE)) {
 				/*
 				 * it's already exceeded time filter or
 				 * it might set TRACE trigger, just return.
@@ -1316,7 +1321,7 @@ static int read_kernel_cpu(struct uftrace_data *handle, int cpu)
 				filtered = true;
 
 			if (handle->caller_filter)
-				filtered |= !(tr.flags & TRIGGER_FL_CALLER);
+				filtered |= !(flags & TRIGGER_FL_CALLER);
 
 			if (filtered) {
 				/* also delete matching entry (at the last) */

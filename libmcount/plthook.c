@@ -830,9 +830,7 @@ static unsigned long __plthook_entry(unsigned long *ret_addr, unsigned long chil
 	struct plthook_special_func *func;
 	unsigned long special_flag = 0;
 	unsigned long real_addr = 0;
-	struct uftrace_trigger tr;
-
-	mcount_memset4(&tr, 0, sizeof(tr));
+	const struct uftrace_filter *filter;
 
 	// if necessary, implement it by architecture.
 	if (mcount_arch_ops.child_idx)
@@ -887,7 +885,7 @@ static unsigned long __plthook_entry(unsigned long *ret_addr, unsigned long chil
 		return 0;
 	}
 
-	filtered = mcount_entry_filter_check(mtdp, sym->addr, &tr, regs);
+	filtered = mcount_entry_filter_check(mtdp, sym->addr, regs, &filter);
 	if (filtered != FILTER_IN) {
 		/*
 		 * Skip recording but still hook the return address,
@@ -929,7 +927,7 @@ static unsigned long __plthook_entry(unsigned long *ret_addr, unsigned long chil
 			mcount_auto_restore(mtdp);
 	}
 
-	mcount_entry_filter_record(mtdp, rstack, &tr, regs);
+	mcount_entry_filter_record(mtdp, rstack, regs, filter);
 
 	if (unlikely(special_flag)) {
 		/* force flush rstack on some special functions */
