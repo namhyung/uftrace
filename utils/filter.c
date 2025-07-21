@@ -55,7 +55,7 @@ static void print_trigger(struct uftrace_trigger *tr)
 		else if (tr->fmode == FILTER_MODE_OUT)
 			pr_dbg("\ttrigger: filter OUT");
 
-		if (tr->cond.idx) {
+		if (tr->flags & TRIGGER_FL_CONDITION) {
 			char buf[64];
 
 			snprintf_trigger_cond(buf, sizeof(buf), &tr->cond);
@@ -269,16 +269,19 @@ void update_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr, b
 		filter->trigger.flags &= ~tr->clear_flags;
 		if (tr->clear_flags & TRIGGER_FL_FILTER) {
 			tr->fmode = filter->trigger.fmode; /* read from tree before deleting */
-			memset(&filter->trigger.cond, 0, sizeof(tr->cond));
+			/* updating filter also updates condition */
+			tr->clear_flags |= TRIGGER_FL_CONDITION;
 		}
+		if (tr->clear_flags & TRIGGER_FL_CONDITION)
+			memset(&filter->trigger.cond, 0, sizeof(tr->cond));
 	}
 
 	if (tr->flags & TRIGGER_FL_DEPTH)
 		filter->trigger.depth = tr->depth;
-	if (tr->flags & TRIGGER_FL_FILTER) {
+	if (tr->flags & TRIGGER_FL_FILTER)
 		filter->trigger.fmode = tr->fmode;
+	if (tr->flags & TRIGGER_FL_CONDITION)
 		memcpy(&filter->trigger.cond, &tr->cond, sizeof(tr->cond));
-	}
 	if (tr->flags & TRIGGER_FL_LOC)
 		filter->trigger.lmode = tr->lmode;
 
@@ -827,6 +830,7 @@ static int parse_cond_action(char *action, struct uftrace_trigger *tr,
 	tr->cond.idx = idx;
 	tr->cond.op = op;
 	tr->cond.val = val;
+	tr->flags |= TRIGGER_FL_CONDITION;
 
 	return 0;
 }
@@ -881,6 +885,8 @@ static int parse_clear_action(char *action, struct uftrace_trigger *tr,
 			tr->clear_flags |= TRIGGER_FL_BACKTRACE;
 		else if (!strcmp(pos, "recover"))
 			tr->clear_flags |= TRIGGER_FL_RECOVER;
+		else if (!strcmp(pos, "if"))
+			tr->clear_flags |= TRIGGER_FL_CONDITION;
 		else
 			pr_use("skipping invalid clear argument: %s\n", pos);
 	}

@@ -652,7 +652,7 @@ int fstack_entry(struct uftrace_task_reader *task, struct uftrace_record *rstack
 			tr = &(*pfilter)->trigger;
 		}
 
-		if ((flags & TRIGGER_FL_FILTER) && tr->cond.idx && task->args.args &&
+		if ((flags & TRIGGER_FL_CONDITION) && task->args.args &&
 		    !list_empty(task->args.args)) {
 			struct list_head *arg_list = task->args.args;
 			struct uftrace_arg_spec *spec;

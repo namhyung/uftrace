@@ -1032,7 +1032,7 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 		tr ? tr->fmode : FILTER_MODE_NONE, mtdp->filter.in_count, mtdp->filter.out_count,
 		mtdp->filter.depth);
 
-	if ((flags & TRIGGER_FL_FILTER) && tr->cond.idx && regs) {
+	if ((flags & TRIGGER_FL_CONDITION) && regs) {
 		struct mcount_arg_context ctx;
 		struct uftrace_arg_spec spec = {
 			.idx = tr->cond.idx,
