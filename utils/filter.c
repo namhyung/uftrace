@@ -1106,7 +1106,7 @@ static int update_trigger_entry(struct rb_root *root, struct uftrace_pattern *pa
  * @flags      - trigger flags to apply
  * @setting    - filter settings
  */
-static void setup_trigger(char *filter_str, struct uftrace_sym_info *sinfo,
+static void setup_trigger(const char *filter_str, struct uftrace_sym_info *sinfo,
 			  struct uftrace_triggers_info *triggers, unsigned long flags,
 			  struct uftrace_filter_setting *setting)
 {
@@ -1242,11 +1242,10 @@ next:
  * uftrace_setup_filter - construct rbtree of filters
  * @filter_str - CSV of filter string
  * @sinfo      - symbol information to find symbol address
- * @root       - root of filters rbtree
- * @count      - opt-in filter count
+ * @triggers   - root of filters rbtree
  * @setting    - filter settings
  */
-void uftrace_setup_filter(char *filter_str, struct uftrace_sym_info *sinfo,
+void uftrace_setup_filter(const char *filter_str, struct uftrace_sym_info *sinfo,
 			  struct uftrace_triggers_info *triggers,
 			  struct uftrace_filter_setting *setting)
 {
@@ -1257,11 +1256,10 @@ void uftrace_setup_filter(char *filter_str, struct uftrace_sym_info *sinfo,
  * uftrace_setup_trigger - construct rbtree of triggers
  * @trigger_str - CSV of trigger string (FUNC @ act)
  * @sinfo       - symbol information to find symbol address
- * @root        - root of resulting rbtree
- * @count       - registered opt-in filter count
+ * @triggers    - root of resulting rbtree
  * @setting     - filter settings
  */
-void uftrace_setup_trigger(char *trigger_str, struct uftrace_sym_info *sinfo,
+void uftrace_setup_trigger(const char *trigger_str, struct uftrace_sym_info *sinfo,
 			   struct uftrace_triggers_info *triggers,
 			   struct uftrace_filter_setting *setting)
 {
@@ -1272,10 +1270,10 @@ void uftrace_setup_trigger(char *trigger_str, struct uftrace_sym_info *sinfo,
  * uftrace_setup_argument - construct rbtree of argument
  * @args_str   - CSV of argument string (FUNC @ arg)
  * @sinfo      - symbol information to find symbol address
- * @root       - root of resulting rbtree
+ * @triggers   - root of resulting rbtree
  * @setting    - filter settings
  */
-void uftrace_setup_argument(char *args_str, struct uftrace_sym_info *sinfo,
+void uftrace_setup_argument(const char *args_str, struct uftrace_sym_info *sinfo,
 			    struct uftrace_triggers_info *triggers,
 			    struct uftrace_filter_setting *setting)
 {
@@ -1291,10 +1289,10 @@ void uftrace_setup_argument(char *args_str, struct uftrace_sym_info *sinfo,
  * uftrace_setup_retval - construct rbtree of retval
  * @retval_str - CSV of return value string (FUNC @ arg)
  * @sinfo      - symbol information to find symbol address
- * @root       - root of resulting rbtree
+ * @triggers   - root of resulting rbtree
  * @setting    - filter settings
  */
-void uftrace_setup_retval(char *retval_str, struct uftrace_sym_info *sinfo,
+void uftrace_setup_retval(const char *retval_str, struct uftrace_sym_info *sinfo,
 			  struct uftrace_triggers_info *triggers,
 			  struct uftrace_filter_setting *setting)
 {
@@ -1310,11 +1308,10 @@ void uftrace_setup_retval(char *retval_str, struct uftrace_sym_info *sinfo,
  * uftrace_setup_caller_filter - add caller filters to rbtree
  * @filter_str - CSV of filter string
  * @sinfo      - symbol information to find symbol address
- * @root       - root of resulting rbtree
- * @count      - counter for registered caller filters
+ * @triggers   - root of resulting rbtree
  * @setting    - filter settings
  */
-void uftrace_setup_caller_filter(char *filter_str, struct uftrace_sym_info *sinfo,
+void uftrace_setup_caller_filter(const char *filter_str, struct uftrace_sym_info *sinfo,
 				 struct uftrace_triggers_info *triggers,
 				 struct uftrace_filter_setting *setting)
 {
@@ -1325,10 +1322,10 @@ void uftrace_setup_caller_filter(char *filter_str, struct uftrace_sym_info *sinf
  * uftrace_setup_hide_filter - add hide filters to rbtree
  * @filter_str - CSV of filter string
  * @sinfo      - symbol information to find symbol address
- * @root       - root of resulting rbtree
+ * @triggers   - root of resulting rbtree
  * @setting    - filter settings
  */
-void uftrace_setup_hide_filter(char *filter_str, struct uftrace_sym_info *sinfo,
+void uftrace_setup_hide_filter(const char *filter_str, struct uftrace_sym_info *sinfo,
 			       struct uftrace_triggers_info *triggers,
 			       struct uftrace_filter_setting *setting)
 {
@@ -1339,11 +1336,10 @@ void uftrace_setup_hide_filter(char *filter_str, struct uftrace_sym_info *sinfo,
  * uftrace_setup_loc_filter - add source location filters to rbtree
  * @filter_str - CSV of filter string
  * @sinfo      - symbol information to find symbol address
- * @root       - root of resulting rbtree
- * @count      - opt-in loc filter count
+ * @triggers   - root of resulting rbtree
  * @setting    - filter settings
  */
-void uftrace_setup_loc_filter(char *filter_str, struct uftrace_sym_info *sinfo,
+void uftrace_setup_loc_filter(const char *filter_str, struct uftrace_sym_info *sinfo,
 			      struct uftrace_triggers_info *triggers,
 			      struct uftrace_filter_setting *setting)
 {

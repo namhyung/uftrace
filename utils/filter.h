@@ -150,25 +150,25 @@ typedef void (*trigger_fn_t)(struct uftrace_trigger *tr, void *arg);
 
 struct uftrace_sym_info;
 
-void uftrace_setup_filter(char *filter_str, struct uftrace_sym_info *sinfo,
+void uftrace_setup_filter(const char *filter_str, struct uftrace_sym_info *sinfo,
 			  struct uftrace_triggers_info *triggers,
 			  struct uftrace_filter_setting *setting);
-void uftrace_setup_trigger(char *trigger_str, struct uftrace_sym_info *sinfo,
+void uftrace_setup_trigger(const char *trigger_str, struct uftrace_sym_info *sinfo,
 			   struct uftrace_triggers_info *triggers,
 			   struct uftrace_filter_setting *setting);
-void uftrace_setup_argument(char *args_str, struct uftrace_sym_info *sinfo,
+void uftrace_setup_argument(const char *args_str, struct uftrace_sym_info *sinfo,
 			    struct uftrace_triggers_info *triggers,
 			    struct uftrace_filter_setting *setting);
-void uftrace_setup_retval(char *retval_str, struct uftrace_sym_info *sinfo,
+void uftrace_setup_retval(const char *retval_str, struct uftrace_sym_info *sinfo,
 			  struct uftrace_triggers_info *triggers,
 			  struct uftrace_filter_setting *setting);
-void uftrace_setup_caller_filter(char *filter_str, struct uftrace_sym_info *sinfo,
+void uftrace_setup_caller_filter(const char *filter_str, struct uftrace_sym_info *sinfo,
 				 struct uftrace_triggers_info *triggers,
 				 struct uftrace_filter_setting *setting);
-void uftrace_setup_hide_filter(char *filter_str, struct uftrace_sym_info *sinfo,
+void uftrace_setup_hide_filter(const char *filter_str, struct uftrace_sym_info *sinfo,
 			       struct uftrace_triggers_info *triggers,
 			       struct uftrace_filter_setting *setting);
-void uftrace_setup_loc_filter(char *filter_str, struct uftrace_sym_info *sinfo,
+void uftrace_setup_loc_filter(const char *filter_str, struct uftrace_sym_info *sinfo,
 			      struct uftrace_triggers_info *triggers,
 			      struct uftrace_filter_setting *setting);
 
