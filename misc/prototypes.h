@@ -40,6 +40,7 @@ enum uft_mmap_prot { PROT_NONE, PROT_READ, PROT_WRITE, PROT_EXEC = 4, };
 enum uft_mmap_flag {
 	MAP_SHARED      = 0x1,
 	MAP_PRIVATE     = 0x2,
+	MAP_SHARED_VALIDATE = 0x3,
 	MAP_FIXED       = 0x10,
 	MAP_ANON        = 0x20,
 	MAP_GROWSDOWN   = 0x100,
@@ -51,6 +52,8 @@ enum uft_mmap_flag {
 	MAP_NONBLOCK    = 0x10000,
 	MAP_STACK       = 0x20000,
 	MAP_HUGETLB     = 0x40000,
+	MAP_SYNC        = 0x80000,
+	MAP_FIXED_NOREPLACE = 0x100000,
 };
 void *mmap(void *addr, size_t length, enum uft_mmap_prot prot, enum uft_mmap_flag flags, int fd, off_t offset);
 void *mmap64(void *addr, size_t length, enum uft_mmap_prot prot, enum uft_mmap_flag flags, int fd, off64_t offset);
@@ -73,6 +76,14 @@ enum uft_madvise {
     MADV_NOHUGEPAGE  = 15,
     MADV_DONTDUMP    = 16,
     MADV_DODUMP      = 17,
+    MADV_WIPEONFORK  = 18,
+    MADV_KEEPONFORK  = 19,
+    MADV_COLD        = 20,
+    MADV_PAGEOUT     = 21,
+    MADV_POPULATE_READ   = 22,
+    MADV_POPULATE_WRITE  = 23,
+    MADV_POPULATE_LOCKED = 24,
+    MADV_COLLAPSE    = 25,
     MADV_HWPOISON    = 100,
 };
 int madvise(void *addr, size_t length, enum uft_madvise advice);
@@ -207,6 +218,7 @@ enum uft_open_flag {
 	O_CLOEXEC   = 02000000,
 	O_SYNC      = 04010000,
 	O_PATH      = 010000000,
+	O_TMPFILE   = 020200000,
 };
 int open(const char* pathname, enum uft_open_flag flags);
 int open64(const char* pathname, enum uft_open_flag flags);
@@ -220,6 +232,11 @@ enum uft_fcntl_cmd {
 	F_SETOWN, F_GETOWN, F_SEGSIG, F_GETSIG,
 	F_GETLK64, F_SETLK64, F_SETLKW64,
 	F_SETOWN_EX, F_GETOWN_EX,
+	F_SETLEASE = 1024, F_GETLEASE, F_NOTIFY,
+	F_DUPFD_CLOEXEC = 1030,
+	F_SETPIPE_SZ = 1031, F_GETPIPE_SZ, F_ADD_SEALS, F_GET_SEALS,
+	F_GET_RW_HINT = 1035, F_SET_RW_HINT,
+	F_GET_FILE_RW_HINT = 1037, F_SET_FILE_RW_HINT,
 };
 int fcntl(int fd, enum uft_fcntl_cmd);
 int fcntl64(int fd, enum uft_fcntl_cmd);
@@ -366,7 +383,7 @@ enum uft_socket_domain {
 	AF_NETLINK = 16, AF_PACKET, AF_ASH, AF_ECONET, AF_ATMSVC, AF_RDS, AF_SNA, AF_IRDA,
 	AF_PPPOX = 24, AF_WANPIPE, AF_LLC, AF_IB, AF_MPLS, AF_CAN, AF_TPIC, AF_BLUETOOTH,
 	AF_IUCV = 32, AF_RXRPC, AF_ISDN, AF_PHONET, AF_IEEE802154, AF_CAIF, AF_ALG, AF_NFC,
-	AF_VSOCK = 40, AF_KCM, AF_QIPCRTR, AF_SMC,
+	AF_VSOCK = 40, AF_KCM, AF_QIPCRTR, AF_SMC, AF_XDP, AF_MCTP,
 };
 enum uft_socket_type {
 	SOCK_STREAM = 1, SOCK_DGRAM, SOCK_RAW, SOCK_RDM, SOCK_SEQPACKET, SOCK_DCCP,
@@ -447,6 +464,19 @@ enum uft_prctl_op {
 	PR_SET_THP_DISABLE = 41, PR_GET_THP_DISABLE,
 	PR_MPX_ENABLE_MANAGEMENT = 43, PR_MPX_DISABLE_MANAGEMENT,
 	PR_SET_FP_MODE = 45, PR_GET_FP_MODE, PR_CAP_AMBIENT,
+	PR_SVE_SET_VL = 50, PR_SVE_GET_VL,
+	PR_GET_SPECULATION_CTRL = 52, PR_SET_SPECULATION_CTRL, PR_PAC_RESET_KEYS,
+	PR_SET_TAGGED_ADDR_CTRL = 55, PR_GET_TAGGED_ADDR_CTRL,
+	PR_SET_IO_FLUSHER = 57, PR_GET_IO_FLUSHER, PR_SET_SYSCALL_USER_DISPATCH,
+	PR_PAC_SET_ENABLED_KEYS = 60, PR_PAC_GET_ENABLED_KEYS, PR_SCHED_CORE,
+	PR_SME_SET_VL = 63, PR_SME_GET_VL, PR_SET_MDWE, PR_GET_MDWE,
+	PR_SET_MEMORY_MERGE = 67, PR_GET_MEMORY_MERGE,
+	PR_RISCV_V_SET_CONTROL = 69, PR_RISCV_V_GET_CONTROL, PR_RISCV_SET_ICACHE_FLUSH_CTX,
+	PR_PPC_GET_DEXCR = 72, PR_PPC_SET_DEXCR,
+	PR_GET_SHADOW_STACK_STATUS = 74, PR_SET_SHADOW_STACK_STATUS, PR_LOCK_SHADOW_STACK_STATUS,
+	PR_TIMER_CREATE_RESTORE_IDS = 77,
+	PR_GET_AUXV = 0x41555856,
+	PR_SET_VMA = 0x53564d41,
 };
 int prctl(enum uft_prctl_op option, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5);
 
