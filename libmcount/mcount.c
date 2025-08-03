@@ -1000,17 +1000,12 @@ static void mcount_save_filter(struct mcount_thread_data *mtdp)
 
 /* update filter state from trigger result */
 enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, unsigned long child,
-					     struct mcount_regs *regs,
-					     const struct uftrace_filter **pfilter)
+					     struct uftrace_trigger *tr, struct mcount_regs *regs)
 {
 	int max_depth = mtdp->filter.max_depth;
-	enum trigger_flag flags = 0;
-	const struct uftrace_trigger *tr = NULL;
 
 	if (max_depth == FILTER_NO_MAX_DEPTH)
 		max_depth = mcount_depth;
-
-	*pfilter = NULL;
 
 	pr_dbg3("<%d> enter %lx\n", mtdp->idx, child);
 	if (mcount_check_rstack(mtdp))
@@ -1022,17 +1017,12 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 	if (mtdp->filter.out_count > 0)
 		return FILTER_OUT;
 
-	*pfilter = uftrace_match_filter(mcount_triggers, child);
-	if (*pfilter) {
-		tr = &(*pfilter)->trigger;
-		flags = tr->flags; /* !0 means tr is not NULL */
-	}
+	uftrace_match_filter(child, mcount_triggers, tr);
 
-	pr_dbg3(" tr->flags: %x, filter mode: %d, count: %d/%d, depth: %d\n", flags,
-		tr ? tr->fmode : FILTER_MODE_NONE, mtdp->filter.in_count, mtdp->filter.out_count,
-		mtdp->filter.depth);
+	pr_dbg3(" tr->flags: %x, filter mode: %d, count: %d/%d, depth: %d\n", tr->flags, tr->fmode,
+		mtdp->filter.in_count, mtdp->filter.out_count, mtdp->filter.depth);
 
-	if ((flags & TRIGGER_FL_CONDITION) && regs) {
+	if ((tr->flags & TRIGGER_FL_CONDITION) && regs) {
 		struct mcount_arg_context ctx;
 		struct uftrace_arg_spec spec = {
 			.idx = tr->cond.idx,
@@ -1048,11 +1038,11 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 		mcount_arch_get_arg(&ctx, &spec);
 
 		/* keep the filter only if the condition is met */
-		if (!uftrace_eval_cond(&(*pfilter)->trigger.cond, ctx.val.i))
-			flags &= ~TRIGGER_FL_FILTER;
+		if (!uftrace_eval_cond(&tr->cond, ctx.val.i))
+			tr->flags &= ~TRIGGER_FL_FILTER;
 	}
 
-	if (flags & TRIGGER_FL_FILTER) {
+	if (tr->flags & TRIGGER_FL_FILTER) {
 		if (tr->fmode == FILTER_MODE_IN)
 			mtdp->filter.in_count++;
 		else if (tr->fmode == FILTER_MODE_OUT)
@@ -1067,7 +1057,7 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 			return FILTER_OUT;
 	}
 
-	if (flags & TRIGGER_FL_LOC) {
+	if (tr->flags & TRIGGER_FL_LOC) {
 		if (tr->lmode == FILTER_MODE_OUT)
 			return FILTER_OUT;
 	}
@@ -1079,20 +1069,20 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 #define FLAGS_TO_CHECK                                                                             \
 	(TRIGGER_FL_DEPTH | TRIGGER_FL_TRACE_ON | TRIGGER_FL_TRACE_OFF | TRIGGER_FL_TIME_FILTER |  \
 	 TRIGGER_FL_SIZE_FILTER)
-	if (flags & FLAGS_TO_CHECK) {
-		if (flags & TRIGGER_FL_DEPTH) {
+	if (tr->flags & FLAGS_TO_CHECK) {
+		if (tr->flags & TRIGGER_FL_DEPTH) {
 			mtdp->filter.depth = 0;
 			mtdp->filter.max_depth = max_depth = tr->depth;
 		}
-		if (flags & TRIGGER_FL_TRACE_ON)
+		if (tr->flags & TRIGGER_FL_TRACE_ON)
 			mcount_enabled = true;
-		if (flags & TRIGGER_FL_TRACE_OFF)
+		if (tr->flags & TRIGGER_FL_TRACE_OFF)
 			mcount_enabled = false;
 
-		if (flags & TRIGGER_FL_TIME_FILTER)
+		if (tr->flags & TRIGGER_FL_TIME_FILTER)
 			mtdp->filter.time = tr->time;
 
-		if (flags & TRIGGER_FL_SIZE_FILTER)
+		if (tr->flags & TRIGGER_FL_SIZE_FILTER)
 			mtdp->filter.size = tr->size;
 	}
 
@@ -1136,16 +1126,15 @@ static int script_save_context(struct script_context *sc_ctx, struct mcount_thre
 }
 
 static void script_hook_entry(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
-			      const struct uftrace_filter *filter)
+			      struct uftrace_trigger *tr)
 {
 	struct script_context sc_ctx;
 	unsigned long entry_addr = rstack->child_ip;
 	struct uftrace_symbol *sym = find_symtabs(&mcount_sym_info, entry_addr);
 	char *symname = symbol_getname(sym, entry_addr);
 
-	if (script_save_context(&sc_ctx, mtdp, rstack, symname,
-				filter ? (filter->trigger.flags & TRIGGER_FL_ARGUMENT) : 0,
-				filter ? filter->trigger.pargs : NULL) < 0)
+	if (script_save_context(&sc_ctx, mtdp, rstack, symname, tr->flags & TRIGGER_FL_ARGUMENT,
+				tr->pargs) < 0)
 		goto skip;
 
 	/* accessing argument in script might change arch-context */
@@ -1193,10 +1182,8 @@ static void filter_save_to_rstack(struct mcount_thread_data *mtdp, struct mcount
 }
 
 void mcount_entry_filter_record(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
-				struct mcount_regs *regs, const struct uftrace_filter *filter)
+				struct uftrace_trigger *tr, struct mcount_regs *regs)
 {
-	enum trigger_flag flags = filter ? filter->trigger.flags : 0;
-
 	if (mtdp->filter.out_count > 0 ||
 	    (mtdp->filter.in_count == 0 && mcount_get_filter_mode() == FILTER_MODE_IN) ||
 	    (mtdp->filter.size > 0 &&
@@ -1209,27 +1196,27 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp, struct mcount_r
 	(TRIGGER_FL_FILTER | TRIGGER_FL_RETVAL | TRIGGER_FL_TRACE | TRIGGER_FL_FINISH |            \
 	 TRIGGER_FL_CALLER)
 
-	if (flags & FLAGS_TO_CHECK) {
-		if (flags & TRIGGER_FL_FILTER) {
-			if (filter->trigger.fmode == FILTER_MODE_IN)
+	if (tr->flags & FLAGS_TO_CHECK) {
+		if (tr->flags & TRIGGER_FL_FILTER) {
+			if (tr->fmode == FILTER_MODE_IN)
 				rstack->flags |= MCOUNT_FL_FILTERED;
 			else
 				rstack->flags |= MCOUNT_FL_NOTRACE;
 		}
 
 		/* check if it has to keep arg_spec for retval */
-		if (flags & TRIGGER_FL_RETVAL) {
-			rstack->pargs = filter->trigger.pargs;
+		if (tr->flags & TRIGGER_FL_RETVAL) {
+			rstack->pargs = tr->pargs;
 			rstack->flags |= MCOUNT_FL_RETVAL;
 		}
 
-		if (flags & TRIGGER_FL_TRACE)
+		if (tr->flags & TRIGGER_FL_TRACE)
 			rstack->flags |= MCOUNT_FL_TRACE;
 
-		if (flags & TRIGGER_FL_CALLER)
+		if (tr->flags & TRIGGER_FL_CALLER)
 			rstack->flags |= MCOUNT_FL_CALLER;
 
-		if (flags & TRIGGER_FL_FINISH) {
+		if (tr->flags & TRIGGER_FL_FINISH) {
 			record_trace_data(mtdp, rstack, NULL);
 			mcount_finish_trigger();
 			return;
@@ -1253,10 +1240,10 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp, struct mcount_r
 				record_trace_data(mtdp, rstack, NULL);
 		}
 		else {
-			if (regs && (flags & TRIGGER_FL_ARGUMENT))
-				save_argument(mtdp, rstack, filter->trigger.pargs, regs);
-			if (flags & TRIGGER_FL_READ) {
-				save_trigger_read(mtdp, rstack, filter->trigger.read, false);
+			if (tr->flags & TRIGGER_FL_ARGUMENT)
+				save_argument(mtdp, rstack, tr->pargs, regs);
+			if (tr->flags & TRIGGER_FL_READ) {
+				save_trigger_read(mtdp, rstack, tr->read, false);
 				rstack->flags |= MCOUNT_FL_READ;
 			}
 			if (mcount_watchpoints)
@@ -1281,17 +1268,17 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp, struct mcount_r
 
 		/* script hooking for function entry */
 		if (SCRIPT_ENABLED && script_str)
-			script_hook_entry(mtdp, rstack, filter);
+			script_hook_entry(mtdp, rstack, tr);
 
 #define FLAGS_TO_CHECK (TRIGGER_FL_RECOVER | TRIGGER_FL_TRACE_ON | TRIGGER_FL_TRACE_OFF)
 
-		if (flags & FLAGS_TO_CHECK) {
-			if ((flags & TRIGGER_FL_RECOVER) && !mcount_estimate_return) {
+		if (tr->flags & FLAGS_TO_CHECK) {
+			if ((tr->flags & TRIGGER_FL_RECOVER) && !mcount_estimate_return) {
 				mcount_rstack_restore(mtdp);
 				*rstack->parent_loc = mcount_return_fn;
 				rstack->flags |= MCOUNT_FL_RECOVER;
 			}
-			if (flags & (TRIGGER_FL_TRACE_ON | TRIGGER_FL_TRACE_OFF))
+			if (tr->flags & (TRIGGER_FL_TRACE_ON | TRIGGER_FL_TRACE_OFF))
 				mtdp->enable_cached = mcount_enabled;
 		}
 	}
@@ -1346,24 +1333,22 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp, struct mcount_re
 			return;
 
 		if (rstack->flags & MCOUNT_FL_RETVAL) {
-			const struct uftrace_filter *filter;
+			struct uftrace_trigger tr;
 
 			/* update args as trigger might be updated due to dlopen() */
-			filter = uftrace_match_filter(mcount_triggers, rstack->child_ip);
-			if (filter)
-				rstack->pargs = filter->trigger.pargs;
+			uftrace_match_filter(rstack->child_ip, mcount_triggers, &tr);
+			rstack->pargs = tr.pargs;
 		}
 		else {
 			retval = NULL;
 		}
 
 		if (rstack->flags & MCOUNT_FL_READ) {
-			const struct uftrace_filter *filter;
+			struct uftrace_trigger tr;
 
 			/* there's a possibility of overwriting by return value */
-			filter = uftrace_match_filter(mcount_triggers, rstack->child_ip);
-			if (filter)
-				save_trigger_read(mtdp, rstack, filter->trigger.read, true);
+			uftrace_match_filter(rstack->child_ip, mcount_triggers, &tr);
+			save_trigger_read(mtdp, rstack, tr.read, true);
 		}
 
 		if (mcount_watchpoints)
@@ -1409,11 +1394,8 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp, struct mcount_re
  */
 
 enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, unsigned long child,
-					     struct mcount_regs *regs,
-					     const struct uftrace_filter **pfilter)
+					     struct uftrace_trigger *tr, struct mcount_regs *regs)
 {
-	*pfilter = NULL;
-
 	if (mcount_check_rstack(mtdp))
 		return FILTER_RSTACK;
 
@@ -1424,7 +1406,7 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 }
 
 void mcount_entry_filter_record(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
-				struct mcount_regs *regs, const struct uftrace_filter *filter)
+				struct uftrace_trigger *tr, struct mcount_regs *regs)
 {
 	mtdp->record_idx++;
 }
@@ -1519,7 +1501,7 @@ static int __mcount_entry(unsigned long *parent_loc, unsigned long child, struct
 	enum filter_result filtered;
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
-	const struct uftrace_filter *filter;
+	struct uftrace_trigger tr;
 
 	/* Access the mtd through TSD pointer to reduce TLS overhead */
 	mtdp = get_thread_data();
@@ -1533,7 +1515,9 @@ static int __mcount_entry(unsigned long *parent_loc, unsigned long child, struct
 			return -1;
 	}
 
-	filtered = mcount_entry_filter_check(mtdp, child, regs, &filter);
+	tr.flags = 0;
+	tr.cond.idx = 0;
+	filtered = mcount_entry_filter_check(mtdp, child, &tr, regs);
 	if (filtered != FILTER_IN) {
 		mcount_unguard_recursion(mtdp);
 		return -1;
@@ -1581,7 +1565,7 @@ static int __mcount_entry(unsigned long *parent_loc, unsigned long child, struct
 			mcount_auto_restore(mtdp);
 	}
 
-	mcount_entry_filter_record(mtdp, rstack, regs, filter);
+	mcount_entry_filter_record(mtdp, rstack, &tr, regs);
 	mcount_unguard_recursion(mtdp);
 	return 0;
 }
@@ -1658,7 +1642,9 @@ static int __cygprof_entry(unsigned long parent, unsigned long child)
 	enum filter_result filtered;
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
-	const struct uftrace_filter *filter;
+	struct uftrace_trigger tr = {
+		.flags = 0,
+	};
 
 	/* Access the mtd through TSD pointer to reduce TLS overhead */
 	mtdp = get_thread_data();
@@ -1672,7 +1658,7 @@ static int __cygprof_entry(unsigned long parent, unsigned long child)
 			return -1;
 	}
 
-	filtered = mcount_entry_filter_check(mtdp, child, NULL, &filter);
+	filtered = mcount_entry_filter_check(mtdp, child, &tr, NULL);
 
 	if (unlikely(mtdp->in_exception)) {
 		unsigned long *frame_ptr;
@@ -1691,6 +1677,12 @@ static int __cygprof_entry(unsigned long parent, unsigned long child)
 
 	if (mcount_estimate_return)
 		mcount_rstack_inject_return(mtdp, (void *)~0UL, child);
+
+	/*
+	 * recording arguments and return value is not supported.
+	 * also 'recover' trigger is only work for -pg entry.
+	 */
+	tr.flags &= ~(TRIGGER_FL_ARGUMENT | TRIGGER_FL_RETVAL | TRIGGER_FL_RECOVER);
 
 	rstack = &mtdp->rstack[mtdp->idx++];
 
@@ -1721,7 +1713,7 @@ static int __cygprof_entry(unsigned long parent, unsigned long child)
 		rstack->flags = MCOUNT_FL_CYGPROF | MCOUNT_FL_NORECORD;
 	}
 
-	mcount_entry_filter_record(mtdp, rstack, NULL, filter);
+	mcount_entry_filter_record(mtdp, rstack, &tr, NULL);
 	mcount_unguard_recursion(mtdp);
 	return 0;
 }
@@ -1797,7 +1789,9 @@ static void _xray_entry(unsigned long parent, unsigned long child, struct mcount
 	enum filter_result filtered;
 	struct mcount_thread_data *mtdp;
 	struct mcount_ret_stack *rstack;
-	const struct uftrace_filter *filter;
+	struct uftrace_trigger tr = {
+		.flags = 0,
+	};
 
 	/* Access the mtd through TSD pointer to reduce TLS overhead */
 	mtdp = get_thread_data();
@@ -1811,7 +1805,7 @@ static void _xray_entry(unsigned long parent, unsigned long child, struct mcount
 			return;
 	}
 
-	filtered = mcount_entry_filter_check(mtdp, child, NULL, &filter);
+	filtered = mcount_entry_filter_check(mtdp, child, &tr, NULL);
 
 	if (unlikely(mtdp->in_exception)) {
 		unsigned long *frame_ptr;
@@ -1830,6 +1824,9 @@ static void _xray_entry(unsigned long parent, unsigned long child, struct mcount
 
 	if (mcount_estimate_return)
 		mcount_rstack_inject_return(mtdp, (void *)~0UL, child);
+
+	/* 'recover' trigger is only for -pg entry */
+	tr.flags &= ~TRIGGER_FL_RECOVER;
 
 	rstack = &mtdp->rstack[mtdp->idx++];
 
@@ -1851,7 +1848,7 @@ static void _xray_entry(unsigned long parent, unsigned long child, struct mcount
 		rstack->flags = MCOUNT_FL_NORECORD;
 	}
 
-	mcount_entry_filter_record(mtdp, rstack, regs, filter);
+	mcount_entry_filter_record(mtdp, rstack, &tr, regs);
 	mcount_unguard_recursion(mtdp);
 }
 

@@ -42,17 +42,15 @@ static int run_script_for_rstack(struct uftrace_data *handle, struct uftrace_tas
 			0,
 		};
 		struct uftrace_fstack *fstack;
-		const struct uftrace_filter *filter;
-		enum trigger_flag flags = 0;
+		struct uftrace_trigger tr = {
+			.flags = 0,
+		};
 		int depth;
 		int ret;
 
-		ret = fstack_entry(task, rstack, &filter);
+		ret = fstack_entry(task, rstack, &tr);
 		if (ret < 0)
 			goto out;
-
-		if (filter)
-			flags = filter->trigger.flags;
 
 		/* display depth is set in fstack_entry() */
 		depth = task->display_depth;
@@ -69,7 +67,7 @@ static int run_script_for_rstack(struct uftrace_data *handle, struct uftrace_tas
 		sc_ctx.address = rstack->addr;
 		sc_ctx.name = symname;
 
-		if ((flags & TRIGGER_FL_ARGUMENT) && opts->show_args) {
+		if (tr.flags & TRIGGER_FL_ARGUMENT && opts->show_args) {
 			sc_ctx.argbuf = task->args.data;
 			sc_ctx.arglen = task->args.len;
 			sc_ctx.argspec = task->args.args;

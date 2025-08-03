@@ -175,14 +175,14 @@ void uftrace_setup_loc_filter(const char *filter_str, struct uftrace_sym_info *s
 			      struct uftrace_filter_setting *setting);
 
 struct uftrace_triggers_info uftrace_deep_copy_triggers(struct uftrace_triggers_info *src);
-const struct uftrace_filter *uftrace_match_filter(struct uftrace_triggers_info *filters,
-						  uint64_t ip);
+struct uftrace_filter *uftrace_match_filter(uint64_t ip, struct uftrace_triggers_info *filters,
+					    struct uftrace_trigger *tr);
 void uftrace_cleanup_filter(struct uftrace_triggers_info *filters);
 void uftrace_cleanup_triggers(struct uftrace_triggers_info *triggers);
 void uftrace_print_filter(struct uftrace_triggers_info *filters);
 int uftrace_count_filter(struct uftrace_triggers_info *filters, unsigned long flag);
 
-bool uftrace_eval_cond(const struct uftrace_filter_cond *cond, const long val);
+bool uftrace_eval_cond(struct uftrace_filter_cond *cond, long val);
 
 void init_filter_pattern(enum uftrace_pattern_type type, struct uftrace_pattern *p, char *str);
 bool match_filter_pattern(struct uftrace_pattern *p, char *name);
