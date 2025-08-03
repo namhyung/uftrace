@@ -23,6 +23,6 @@ class TestCase(TestBase):
         return TestBase.build_libmain(self, name, 's-libexcept-main.cpp', ['libexcept.so'],
                                       cflags, ldflags)
 
-    def fixup(self, cflags, result):
-        return result.replace("""   6.353 us [423633] |   std::runtime_error:~runtime_error();
-""", '')
+    def setup(self):
+        # Destructor is non-deterministric, let's skip it.
+        self.option = '-N "~runtime_error$"'

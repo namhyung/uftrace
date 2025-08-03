@@ -26,11 +26,5 @@ class TestCase(TestBase):
 """)
 
     def setup(self):
-        self.option = '-N personality_v.'
-
-    def fixup(self, cflags, result):
-        r = result.replace("} /* oops */", """} /* oops */
-   0.088 us [10827] |     std::exception::~exception();""")
-        r = r.replace("} /* main */", """} /* main */
- 108.818 us [10827] | std::ios_base::Init::~Init();""")
-        return r
+        # Destructors are non-deterministric, let's skip them.
+        self.option = '-N personality_v. -N "~Init$" -N "~exception$"'
