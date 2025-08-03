@@ -38,7 +38,9 @@ enum trigger_flag {
 	TRIGGER_FL_HIDE = (1U << 17),
 	TRIGGER_FL_LOC = (1U << 18),
 	TRIGGER_FL_SIZE_FILTER = (1U << 19),
-	TRIGGER_FL_CLEAR = (1U << 20), /* Reverse other flags when set */
+	TRIGGER_FL_CONDITION = (1U << 20),
+
+	TRIGGER_FL_CLEAR = (1U << 30), /* Reverse other flags when set */
 };
 
 /**
@@ -150,37 +152,37 @@ typedef void (*trigger_fn_t)(struct uftrace_trigger *tr, void *arg);
 
 struct uftrace_sym_info;
 
-void uftrace_setup_filter(char *filter_str, struct uftrace_sym_info *sinfo,
+void uftrace_setup_filter(const char *filter_str, struct uftrace_sym_info *sinfo,
 			  struct uftrace_triggers_info *triggers,
 			  struct uftrace_filter_setting *setting);
-void uftrace_setup_trigger(char *trigger_str, struct uftrace_sym_info *sinfo,
+void uftrace_setup_trigger(const char *trigger_str, struct uftrace_sym_info *sinfo,
 			   struct uftrace_triggers_info *triggers,
 			   struct uftrace_filter_setting *setting);
-void uftrace_setup_argument(char *args_str, struct uftrace_sym_info *sinfo,
+void uftrace_setup_argument(const char *args_str, struct uftrace_sym_info *sinfo,
 			    struct uftrace_triggers_info *triggers,
 			    struct uftrace_filter_setting *setting);
-void uftrace_setup_retval(char *retval_str, struct uftrace_sym_info *sinfo,
+void uftrace_setup_retval(const char *retval_str, struct uftrace_sym_info *sinfo,
 			  struct uftrace_triggers_info *triggers,
 			  struct uftrace_filter_setting *setting);
-void uftrace_setup_caller_filter(char *filter_str, struct uftrace_sym_info *sinfo,
+void uftrace_setup_caller_filter(const char *filter_str, struct uftrace_sym_info *sinfo,
 				 struct uftrace_triggers_info *triggers,
 				 struct uftrace_filter_setting *setting);
-void uftrace_setup_hide_filter(char *filter_str, struct uftrace_sym_info *sinfo,
+void uftrace_setup_hide_filter(const char *filter_str, struct uftrace_sym_info *sinfo,
 			       struct uftrace_triggers_info *triggers,
 			       struct uftrace_filter_setting *setting);
-void uftrace_setup_loc_filter(char *filter_str, struct uftrace_sym_info *sinfo,
+void uftrace_setup_loc_filter(const char *filter_str, struct uftrace_sym_info *sinfo,
 			      struct uftrace_triggers_info *triggers,
 			      struct uftrace_filter_setting *setting);
 
 struct uftrace_triggers_info uftrace_deep_copy_triggers(struct uftrace_triggers_info *src);
-struct uftrace_filter *uftrace_match_filter(uint64_t ip, struct rb_root *root,
-					    struct uftrace_trigger *tr);
-void uftrace_cleanup_filter(struct rb_root *root);
+const struct uftrace_filter *uftrace_match_filter(struct uftrace_triggers_info *filters,
+						  uint64_t ip);
+void uftrace_cleanup_filter(struct uftrace_triggers_info *filters);
 void uftrace_cleanup_triggers(struct uftrace_triggers_info *triggers);
-void uftrace_print_filter(struct rb_root *root);
-int uftrace_count_filter(struct rb_root *root, unsigned long flag);
+void uftrace_print_filter(struct uftrace_triggers_info *filters);
+int uftrace_count_filter(struct uftrace_triggers_info *filters, unsigned long flag);
 
-bool uftrace_eval_cond(struct uftrace_filter_cond *cond, long val);
+bool uftrace_eval_cond(const struct uftrace_filter_cond *cond, const long val);
 
 void init_filter_pattern(enum uftrace_pattern_type type, struct uftrace_pattern *p, char *str);
 bool match_filter_pattern(struct uftrace_pattern *p, char *name);

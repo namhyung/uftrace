@@ -144,7 +144,7 @@ int fstack_setup_filters(struct uftrace_opts *opts, struct uftrace_data *handle)
 
 struct uftrace_fstack *fstack_get(struct uftrace_task_reader *task, int idx);
 int fstack_entry(struct uftrace_task_reader *task, struct uftrace_record *rstack,
-		 struct uftrace_trigger *tr);
+		 const struct uftrace_filter **filter);
 void fstack_exit(struct uftrace_task_reader *task);
 int fstack_update(int type, struct uftrace_task_reader *task, struct uftrace_fstack *fstack);
 struct uftrace_task_reader *fstack_skip(struct uftrace_data *handle,

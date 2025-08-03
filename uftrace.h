@@ -365,8 +365,8 @@ struct uftrace_session {
 	uint64_t start_time;
 	int pid, tid;
 	struct uftrace_sym_info sym_info;
-	struct rb_root filters;
-	struct rb_root fixups;
+	struct uftrace_triggers_info filter_info;
+	struct uftrace_triggers_info fixups;
 	struct list_head dlopen_libs;
 	int namelen;
 	char exename[];
@@ -383,7 +383,7 @@ struct uftrace_dlopen_list {
 	uint64_t time;
 	unsigned long base;
 	struct uftrace_module *mod;
-	struct rb_root filters;
+	struct uftrace_triggers_info filter_info;
 };
 
 struct uftrace_task {
@@ -494,8 +494,8 @@ struct uftrace_dlopen_list *session_find_dlopen(struct uftrace_session *sess, ui
 						unsigned long addr);
 struct uftrace_symbol *session_find_dlsym(struct uftrace_session *sess, uint64_t timestamp,
 					  unsigned long addr);
-struct uftrace_filter *session_find_filter(struct uftrace_session *sess, struct uftrace_record *rec,
-					   struct uftrace_trigger *tr);
+const struct uftrace_filter *session_find_filter(struct uftrace_session *sess,
+						 struct uftrace_record *rec);
 void delete_sessions(struct uftrace_session_link *sess);
 
 struct uftrace_record;

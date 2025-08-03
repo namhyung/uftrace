@@ -83,7 +83,6 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name, size_t nod
 	}
 
 	if (list_no_entry(node, &curr->head, list)) {
-		struct uftrace_trigger tr;
 		struct uftrace_session *sess = tg->graph->sess;
 
 		node = xzalloc(node_size);
@@ -99,7 +98,7 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name, size_t nod
 
 		node->loc = loc;
 
-		if (sess && uftrace_match_filter(fstack->addr, &sess->fixups, &tr)) {
+		if (sess && uftrace_match_filter(&sess->fixups, fstack->addr)) {
 			struct uftrace_symbol *sym;
 			struct uftrace_special_node *snode;
 			enum uftrace_graph_node_type type = NODE_T_NORMAL;
