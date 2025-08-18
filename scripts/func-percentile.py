@@ -5,28 +5,52 @@
 # given function's total execution time
 #
 #  Usage: func-percentile.py [-- -u <unit>] <function>
-#    Unit is one of ns, us, ms, s, m
+#    Unit is one of ns, us, ms, s, m, h or auto (default)
 #
 #  $ uftrace script -S scripts/func-percentile.py foobar
-#  P90:   1052.519 us
-#  P95:   1052.710 us
-#  P99:   1053.223 us
-#  MIN:      5.600 us
-#  AVG:    329.921 us
-#  MAX:   1058.343 us
-
+#  P90:     1.052 ms
+#  P95:     1.052 ms
+#  P99:     1.053 ms
+#  MIN:     5.600 us
+#  AVG:   329.921 us
+#  MAX:     1.058 ms
 
 func = ''
-unit = 'us'
+unit = 'auto'
+unit_opts = [ 'us', 'ms', 's', 'm', 'h', 'auto' ]
 durations = []
 
-divider = {
-    'ns': 1,
-    'us': 1000,
-    'ms': 1000000,
-    's':  1000000000,
-    'm':  60000000000,
-}
+RESET = "\033[0m"
+RED = "\033[91m"
+GREEN = "\033[32m"
+YELLOW = "\033[33m"
+
+unit_us = f"{RESET}us{RESET}"
+unit_ms = f"{GREEN}ms{RESET}"
+unit_s = f"{YELLOW} s{RESET}"
+unit_m = f"{RED} m{RESET}"
+unit_h = f"{RED} h{RESET}"
+units = [ unit_us, unit_ms, unit_s, unit_m, unit_h ]
+
+INT_MAX = 2**31 - 1
+limit = [ 1000, 1000, 1000, 60, 24, INT_MAX ]
+
+def time_with_unit(time_ns, selected_unit):
+    delta = time_ns
+    unit_idx = 0
+
+    for idx in range(len(limit) - 1):
+        divider = limit[idx]
+        unit_idx = idx
+        delta_small = int(delta % divider)
+        delta = int(delta / limit[idx])
+        if selected_unit is not None:
+            if idx == selected_unit:
+                break
+        elif delta < limit[idx + 1]:
+            break
+
+    return f"{delta:>5}.{delta_small:03d} {units[unit_idx]}"
 
 def percentile(data, p):
     n = len(data)
@@ -47,19 +71,23 @@ def print_percentile():
 
     sorted_durations = sorted(durations)
 
-    p90 = percentile(sorted_durations, 90) / divider[unit]
-    p95 = percentile(sorted_durations, 95) / divider[unit]
-    p99 = percentile(sorted_durations, 99) / divider[unit]
-    minimum = sorted_durations[0] / divider[unit]
-    maximum = sorted_durations[-1] / divider[unit]
-    avg = sum(durations) / len(durations) / divider[unit]
+    selected_unit = None
+    if unit != 'auto' and unit in unit_opts:
+        selected_unit = unit_opts.index(unit)
 
-    print(f"P90: {p90:10.3f} {unit}")
-    print(f"P95: {p95:10.3f} {unit}")
-    print(f"P99: {p99:10.3f} {unit}")
-    print(f"MIN: {minimum:10.3f} {unit}")
-    print(f"AVG: {avg:10.3f} {unit}")
-    print(f"MAX: {maximum:10.3f} {unit}")
+    p90 = time_with_unit(percentile(sorted_durations, 90), selected_unit)
+    p95 = time_with_unit(percentile(sorted_durations, 95), selected_unit)
+    p99 = time_with_unit(percentile(sorted_durations, 99), selected_unit)
+    minimum = time_with_unit(sorted_durations[0], selected_unit)
+    maximum = time_with_unit(sorted_durations[-1], selected_unit)
+    avg = time_with_unit(sum(durations) / len(durations), selected_unit)
+
+    print(f"P90: {p90}")
+    print(f"P95: {p95}")
+    print(f"P99: {p99}")
+    print(f"MIN: {minimum}")
+    print(f"AVG: {avg}")
+    print(f"MAX: {maximum}")
 
 def parse_args(args):
     global func, unit
@@ -77,11 +105,11 @@ def uftrace_begin(ctx):
     args = ctx["cmds"]
     if len(args) == 0:
         print("Usage: func-percentile.py [-- -u <unit>] <function>")
-        print("  Unit is one of ns, us, ms, s or m")
+        print("  Unit is one of ns, us, ms, s, m, h or auto (dufault)")
         return
     parse_args(ctx["cmds"])
-    if unit not in divider:
-        print(f"Usage: invalid unit: {unit}")
+    if unit not in unit_opts:
+        print(f"WARN: invalid unit: {unit}. fallback to default unit: auto.")
         return
 
 def uftrace_entry(ctx):
