@@ -180,11 +180,12 @@ static const char *graph_field_names[NUM_GRAPH_FIELD] = { "TOTAL TIME", "SELF TI
 							  "TOTAL AVG",	"SELF AVG",  "TOTAL MAX",
 							  "TOTAL MIN",	"SELF MAX",  "SELF MIN" };
 
-#define NUM_REPORT_FIELD 12
+#define NUM_REPORT_FIELD 16
 
 static const char *report_field_names[NUM_REPORT_FIELD] = {
-	"TOTAL TIME", "TOTAL AVG", "TOTAL MIN", "TOTAL MAX", "SELF TIME",  "SELF AVG",
-	"SELF MIN",   "SELF MAX",  "CALL",	"SIZE",	     "TOTAL STDV", "SELF STDV",
+	"TOTAL TIME",	"TOTAL AVG",	"TOTAL MIN",   "TOTAL MAX",   "SELF TIME",  "SELF AVG",
+	"SELF MIN",	"SELF MAX",	"CALL",	       "SIZE",	      "TOTAL STDV", "SELF STDV",
+	"TOTAL MIN TS", "TOTAL MAX TS", "SELF MIN TS", "SELF MAX TS",
 };
 
 static const char *field_help[] = {
@@ -456,6 +457,17 @@ static void print_report_##_func(struct field_data *fd)                         
 }                                                                                                  \
 REPORT_FIELD_STRUCT(_id, _name, _func, _header, 10)
 
+#define REPORT_FIELD_TIMESTAMP(_id, _name, _field, _func, _header)                                 \
+	static void print_report_##_func(struct field_data *fd)                                        \
+	{                                                                                          \
+		struct uftrace_report_node *node = fd->arg;                                        	   \
+		uint64_t timestamp = node->_field;													   \
+		uint64_t sec = timestamp / NSEC_PER_SEC;											   \
+		uint64_t nsec = timestamp % NSEC_PER_SEC;											   \
+		printw("%8lu.%09lu", sec, nsec);                                          		   	   \
+	}                                                                                          \
+	REPORT_FIELD_STRUCT(_id, _name, _func, _header, 18)
+
 #define REPORT_FIELD_PERCENTAGE(_id, _name, _field, _func, _header)                                \
 static void print_report_##_func(struct field_data *fd)                                            \
 {                                                                                                  \
@@ -477,10 +489,14 @@ REPORT_FIELD_TIME(REPORT_F_TOTAL_TIME, total, total.sum, total, "TOTAL TIME");
 REPORT_FIELD_TIME(REPORT_F_TOTAL_TIME_AVG, total-avg, total.avg, total_avg, "TOTAL AVG");
 REPORT_FIELD_TIME(REPORT_F_TOTAL_TIME_MIN, total-min, total.min, total_min, "TOTAL MIN");
 REPORT_FIELD_TIME(REPORT_F_TOTAL_TIME_MAX, total-max, total.max, total_max, "TOTAL MAX");
+REPORT_FIELD_TIMESTAMP(REPORT_F_TOTAL_TIME_MIN_TS, total-min-ts, total.min_ts, total_min_ts, "TOTAL MIN TS");
+REPORT_FIELD_TIMESTAMP(REPORT_F_TOTAL_TIME_MAX_TS, total-max-ts, total.max_ts, total_max_ts, "TOTAL MAX TS");
 REPORT_FIELD_TIME(REPORT_F_SELF_TIME, self, self.sum, self, "SELF TIME");
 REPORT_FIELD_TIME(REPORT_F_SELF_TIME_AVG, self-avg, self.avg, self_avg, "SELF AVG");
 REPORT_FIELD_TIME(REPORT_F_SELF_TIME_MIN, self-min, self.min, self_min, "SELF MIN");
 REPORT_FIELD_TIME(REPORT_F_SELF_TIME_MAX, self-max, self.max, self_max, "SELF MAX");
+REPORT_FIELD_TIMESTAMP(REPORT_F_SELF_TIME_MIN_TS, self-min-ts, self.min_ts, self_min_ts, "SELF MIN TS");
+REPORT_FIELD_TIMESTAMP(REPORT_F_SELF_TIME_MAX_TS, self-max-ts, self.max_ts, self_max_ts, "SELF MAX TS");
 REPORT_FIELD_UINT(REPORT_F_CALL, call, call, call, "CALL");
 REPORT_FIELD_UINT(REPORT_F_SIZE, size, size, size, "SIZE");
 REPORT_FIELD_PERCENTAGE(REPORT_F_TOTAL_TIME_STDV, total-stdv, total.stdv, total_stdv, "TOTAL STDV");
@@ -489,10 +505,12 @@ REPORT_FIELD_PERCENTAGE(REPORT_F_SELF_TIME_STDV, self-stdv, self.stdv, self_stdv
 /* clang-format on */
 
 static struct display_field *report_field_table[] = {
-	&report_field_total,	 &report_field_total_avg,  &report_field_total_min,
-	&report_field_total_max, &report_field_self,	   &report_field_self_avg,
-	&report_field_self_min,	 &report_field_self_max,   &report_field_call,
-	&report_field_size,	 &report_field_total_stdv, &report_field_self_stdv,
+	&report_field_total,	    &report_field_total_avg,	&report_field_total_min,
+	&report_field_total_max,    &report_field_self,		&report_field_self_avg,
+	&report_field_self_min,	    &report_field_self_max,	&report_field_call,
+	&report_field_size,	    &report_field_total_stdv,	&report_field_self_stdv,
+	&report_field_total_min_ts, &report_field_total_max_ts, &report_field_self_min_ts,
+	&report_field_self_max_ts,
 };
 
 static void setup_default_graph_field(struct list_head *fields, struct uftrace_opts *opts,
