@@ -24,23 +24,32 @@ REPORT 옵션
 ===========
 -f *FIELD*, \--output-fields=*FIELD*
 :   결과로 보여지는 필드를 사용자가 지정한다.  가능한 값들로는 `total`, `total-avg`,
-    `total-min`, `total-max`, `self`, `self-avg`, `self-min`, `self-max`, `size` 그리고
-    `call`이 있다.  여러 필드를 갖는 경우 콤마로 구분된다.
+    `total-min`, `total-max`, `total-stdv`, `self`, `self-avg`, `self-min`, `self-max`, `size`, `call` 그리고
+    `all`이 있다.  여러 필드를 갖는 경우 콤마로 구분된다.
     모든 필드를 감추기 위한 (단일하게 사용되는) 'none' 특수 필드가 있으며
     기본적으로 'total,self,call' 이 사용된다.  상세한 설명은 *FIELDS* 를 참고한다.
+    `stdv` 는 표준편차를 평균의 백분율로 표현한 상대표준편차(RSD)를 나타낸다.
+
+    상대표준편차는 아래의 공식을 사용하여 계산된다.
+
+    \[ RSD = \left( \frac{\sigma}{\mu} \right) \times 100\% \]
+
+    이때:
+    - \( \sigma \) 는 표준편차를 나타낸다.
+    - \( \mu \) 는 함수의 시간의 평균을 나타낸다.
 
 -s *KEYS*[,*KEYS*,...], \--sort=*KEYS*[,*KEYS*,...]
 :   주어진 키를 기반으로 함수들을 정렬한다. 여러 키들을 적용할 경우, 키들을 쉼표(,)로 나누어 표현한다.
-    `total` (time), `total-avg`, `total-min`, `total-max`, `self` (time), `self-avg`, `self-min`,
+    `total` (time), `total-avg`, `total-min`, `total-max`, `self-stdv`, `self` (time), `self-avg`, `self-min`,
     `self-max`, `size`, `call`, `func`를 키로 이용할 수 있다. 그러나 `--avg-total` 또는 `--avg-self`
     옵션이 사용된 경우, 총 시간(total time) 또는 자체 시간(self time에)에 적용되는
     `avg`, `min`, `max`를 키로 이용할 수 있다.
 
 \--avg-total
-:   각 함수의 총 시간(total time)의 평균, 최소, 최대 시간을 보여준다.
+:   각 함수의 총 시간(total time)의 평균, 최소, 최대, 상대표준편차 시간을 보여준다.
 
 \--avg-self
-:   각 함수의 자체 시간(self time)의 평균, 최소, 최대 시간을 보여준다.
+:   각 함수의 자체 시간(self time)의 평균, 최소, 최대, 상대표춘편차 시간을 보여준다.
 
 \--task
 :   함수의 통계자료가 아닌 태스크를 요약해서 보고한다.
@@ -170,43 +179,37 @@ REPORT 옵션
 
 예제
 ====
-이 명령어는 아래와 같은 정보들을 출력한다.
+이 명령어는 아래와 같은 정보들을 출력한다:
 
-    $ uftrace record abc
+    $ uftrace record fibonacci
     $ uftrace report
       Total time   Self time       Calls  Function
       ==========  ==========  ==========  ====================
-      150.829 us  150.829 us           1  __cxa_atexit
-       27.289 us    1.243 us           1  main
-       26.046 us    0.939 us           1  a
-       25.107 us    0.934 us           1  b
-       24.173 us    1.715 us           1  c
-       22.458 us   22.458 us           1  getpid
+        3.781 us    0.124 us           1  main
+        3.657 us    3.657 us          41  fib
+        0.345 us    0.345 us           1  __monstartup
+        0.269 us    0.269 us           1  __cxa_atexit
 
     $ uftrace report -s call,self
       Total time   Self time       Calls  Function
       ==========  ==========  ==========  ====================
-      150.829 us  150.829 us           1  __cxa_atexit
-       22.458 us   22.458 us           1  getpid
-       24.173 us    1.715 us           1  c
-       27.289 us    1.243 us           1  main
-       26.046 us    0.939 us           1  a
-       25.107 us    0.934 us           1  b
+        3.657 us    3.657 us          41  fib
+        0.345 us    0.345 us           1  __monstartup
+        0.269 us    0.269 us           1  __cxa_atexit
+        3.781 us    0.124 us           1  main
 
     $ uftrace report --avg-self
-        Avg self    Min self    Max self  Function
-      ==========  ==========  ==========  ====================
-      150.829 us  150.829 us  150.829 us  __cxa_atexit
-       22.458 us   22.458 us   22.458 us  getpid
-        1.715 us    1.715 us    1.715 us  c
-        1.243 us    1.243 us    1.243 us  main
-        0.939 us    0.939 us    0.939 us  a
-        0.934 us    0.934 us    0.934 us  b
+        Self avg    Self min    Self max   Self stdv  Function
+      ==========  ==========  ==========  ==========  ====================
+        0.414 us    0.414 us    0.414 us       0.00%   __monstartup
+        0.356 us    0.356 us    0.356 us       0.00%   __cxa_atexit
+        0.113 us    0.113 us    0.113 us       0.00%   main
+        0.087 us    0.032 us    0.369 us      78.13%   fib
 
     $ uftrace report --task
-      Total time   Self time   Num funcs     TID  Task name
-      ==========  ==========  ==========  ======  ================
-       22.178 us   22.178 us           7   29955  t-abc
+      Total time   Self time     TID   Num funcs  Task name
+      ==========  ==========  ======  ==========  ====================
+        4.395 us    4.395 us   28662          44  fibonacci
 
     $ uftrace record --srcline abc
     $ uftrace report --srcline
