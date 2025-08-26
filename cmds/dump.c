@@ -68,6 +68,7 @@ struct uftrace_chrome_dump {
 	struct uftrace_dump_ops ops;
 	unsigned lost_event_cnt;
 	bool last_comma;
+	struct uftrace_opts *opts;
 };
 
 struct uftrace_flame_dump {
@@ -877,6 +878,11 @@ static void dump_chrome_task_rstack(struct uftrace_dump_ops *ops, struct uftrace
 	char *p = name_buf;
 	size_t len = sizeof(name_buf) - 1;
 	size_t i;
+	struct uftrace_dbg_loc *loc = NULL;
+
+	if (chrome->opts && chrome->opts->srcline) {
+		loc = task_find_loc_addr(&task->h->sessions, task, frs->time, frs->addr);
+	}
 
 	if (rec_type == UFTRACE_EVENT) {
 		switch (frs->addr) {
@@ -920,13 +926,26 @@ static void dump_chrome_task_rstack(struct uftrace_dump_ops *ops, struct uftrace
 			       task->tid, name_buf);
 		}
 
-		if (frs->more && show_args) {
-			str_mode |= NEEDS_PAREN | HAS_MORE;
-			get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
-			pr_out(",\"args\":{\"arguments\":\"%s\"}}", spec_buf);
+		if ((loc != NULL) || (frs->more && show_args)) {
+			pr_out(",\"args\":{");
+
+			if ((loc != NULL)) {
+				pr_out("\"srcline\":\"%s:%d\"", loc->file->name, loc->line);
+				if ((frs->more && show_args))
+					pr_out(",");
+			}
+
+			if ((frs->more && show_args)) {
+				str_mode |= NEEDS_PAREN | HAS_MORE;
+				get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
+				pr_out("\"arguments\":\"%s\"", spec_buf);
+			}
+
+			pr_out("}}");
 		}
-		else
+		else {
 			pr_out("}");
+		}
 	}
 	else if (rec_type == UFTRACE_EXIT) {
 		ph = 'E';
@@ -942,13 +961,26 @@ static void dump_chrome_task_rstack(struct uftrace_dump_ops *ops, struct uftrace
 			       task->tid, name_buf);
 		}
 
-		if (frs->more && show_args) {
-			str_mode |= IS_RETVAL | HAS_MORE;
-			get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
-			pr_out(",\"args\":{\"retval\":\"%s\"}}", spec_buf);
+		if ((loc != NULL) || (frs->more && show_args)) {
+			pr_out(",\"args\":{");
+
+			if ((loc != NULL)) {
+				pr_out("\"srcline\":\"%s:%d\"", loc->file->name, loc->line);
+				if ((frs->more && show_args))
+					pr_out(",");
+			}
+
+			if ((frs->more && show_args)) {
+				str_mode |= IS_RETVAL | HAS_MORE;
+				get_argspec_string(task, spec_buf, sizeof(spec_buf), str_mode);
+				pr_out("\"retval\":\"%s\"", spec_buf);
+			}
+
+			pr_out("}}");
 		}
-		else
+		else {
 			pr_out("}");
+		}
 	}
 	else if (rec_type == UFTRACE_LOST)
 		chrome->lost_event_cnt++;
@@ -1752,6 +1784,7 @@ int command_dump(int argc, char *argv[], struct uftrace_opts *opts)
 				.perf_event     = dump_chrome_perf_event,
 				.footer         = dump_chrome_footer,
 			},
+			.opts = opts,
 		};
 
 		do_dump_replay(&dump.ops, opts, &handle);
