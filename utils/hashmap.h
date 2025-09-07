@@ -21,7 +21,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#if defined(__amd64__) || defined(__aarch64__)
+#if __SIZEOF_POINTER__ >= 8
 #define ARCH64
 #else
 #define ARCH32
