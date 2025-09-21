@@ -926,6 +926,19 @@ static const struct trigger_action_parser actions[] = {
 	},
 };
 
+static int contains_ci(const char *hay, const char *needle) {
+    if (!hay || !needle) return 0;
+    size_t n = strlen(needle);
+    for (const char *p = hay; *p; p++) {
+        size_t i = 0;
+        while (i < n &&
+               tolower((unsigned char)p[i]) == tolower((unsigned char)needle[i]))
+            i++;
+        if (i == n) return 1;
+    }
+    return 0;
+}
+
 
 int setup_trigger_action(char *str, struct uftrace_trigger *tr, char **module,
 			 unsigned long orig_flags, struct uftrace_filter_setting *setting)
@@ -942,12 +955,10 @@ int setup_trigger_action(char *str, struct uftrace_trigger *tr, char **module,
 		return 0;
 
 	*pos++ = '\0';
-	
-	mask_commas_in_braces(pos);  
 	strv_split(&acts, pos, ",");
 
 	strv_for_each(&acts, pos, j) {
-		unmask_commas(pos);  
+		
 		for (i = 0; i < ARRAY_SIZE(actions); i++) {
 			const struct trigger_action_parser *action = &actions[i];
 

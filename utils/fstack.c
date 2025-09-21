@@ -204,9 +204,9 @@ setup:
 				break;
 			}
 		}
+		
 		if (!found) {
 			task->done = true;
-
 			/* need to read the data to check elapsed time */
 			if (task->fp) {
 				if (!__read_task_ustack(task)) {
@@ -1566,12 +1566,12 @@ int read_task_ustack(struct uftrace_data *handle, struct uftrace_task_reader *ta
 {
 	if (task->valid)
 		return 0;
-
 	if (task->done || task->fp == NULL)
 		return -1;
 	
 	// does not matter : read from the file pointer --> fp of task 
 	// task -> ustack = task->fp ; 
+	
 	if (__read_task_ustack(task) < 0) {
 		task->done = true;
 		return -1;

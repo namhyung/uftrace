@@ -355,6 +355,62 @@ The `tui` command is for interactive text-based user interface using ncurses.
 It provides basic functionality of `graph`, `report` and `info` commands as of
 now.
 
+# Resolving struct fields passed by reference (experimental)
+
+With `--auto-args`, uftrace can expand **fields of a struct passed by reference** (e.g., a parameter of type `struct S*`) and pretty-print the member values inside the synthesized argument string.
+
+### Supported
+
+* **Base types:** `int`, `unsigned`, `bool`, `float`, `double`, `long double`
+* **Pointers to base types:** e.g., `int*` (dereferenced once and shown)
+* **`char*` members:** printed as bounded C strings
+
+### Not yet supported
+
+* **Nested aggregates** (members that are `struct/union/class`, or pointers to those): currently only the pointer value to other base type is shown
+
+### Example
+
+```c
+struct Person {
+    int    *age;
+    long long ll;
+    float   height;
+    char   *name;
+};
+
+int print_person(struct Person *p) {
+    printf("address of struct is : %p\n", p);
+    printf("Person with address %p : Name: %s, Age: %p, Height: %.5f meters\n",
+           p, p->name, p->age, p->height);
+    return 0;
+}
+```
+
+Run with dynamic patching and auto-args:
+
+```bash
+$ uftrace -P . --auto-args arg_struct_person
+address of struct is : 0x7fff3079f540
+Person with address 0x7fff3079f540 : Name: John Don, Age: 0x7fff3079f52c, Height: 180.45000 meters
+# DURATION     TID      FUNCTION
+            [  94376] | main() {
+            [  94376] |   print_person("Person {\n  age : 33\n  ll : 33\n  height : 180.4500000\n  name : John Don\n}") {
+ 185.720 us [  94376] |     printf("address of struct is : %p\n") = 38;
+   4.597 us [  94376] |     printf("Person with address %p : Name: %s, Age: %p, Height: %.5f meters\n") = 99;
+ 199.957 us [  94376] |   } = 0; /* print_person */
+ 202.433 us [  94376] | } = 0; /* main */
+```
+
+In the synthesized argument string, the `Person{...}` block shows:
+
+* `age : 33` (value read via the `int*` member),
+* `ll : 33`,
+* `height : 180.4500000`,
+* `name : John Don`.
+
+> **Note:** This feature relies on DWARF debug info to discover member layouts and types. If debug info is missing or incomplete, uftrace falls back to the regular behavior.
+
 
 Limitations
 ===========
