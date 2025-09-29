@@ -879,6 +879,16 @@ static void dump_chrome_task_rstack(struct uftrace_dump_ops *ops, struct uftrace
 	size_t len = sizeof(name_buf) - 1;
 	size_t i;
 	struct uftrace_dbg_loc *loc = NULL;
+	uint64_t timestamp;
+	static uint64_t utc_offset_ns = 0;
+
+	/* Initialize the UTC offset */
+	if (utc_offset_ns == 0 && task->h->info.utc_offset) {
+		long offset_sec = strtol(task->h->info.utc_offset, NULL, 10);
+		utc_offset_ns = (uint64_t)offset_sec * 1000000000ULL;
+	}
+
+	timestamp = frs->time + utc_offset_ns;
 
 	if (chrome->opts && chrome->opts->srcline) {
 		loc = task_find_loc_addr(&task->h->sessions, task, frs->time, frs->addr);
@@ -917,12 +927,12 @@ static void dump_chrome_task_rstack(struct uftrace_dump_ops *ops, struct uftrace
 		if (is_process) {
 			/* no need to add "tid" field */
 			pr_out("{\"ts\":%" PRIu64 ".%03d,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
-			       frs->time / 1000, (int)(frs->time % 1000), ph, task->tid, name_buf);
+			       timestamp / 1000, (int)(timestamp % 1000), ph, task->tid, name_buf);
 		}
 		else {
 			pr_out("{\"ts\":%" PRIu64
 			       ".%03d,\"ph\":\"%c\",\"pid\":%d,\"tid\":%d,\"name\":\"%s\"",
-			       frs->time / 1000, (int)(frs->time % 1000), ph, task->t->pid,
+			       timestamp / 1000, (int)(timestamp % 1000), ph, task->t->pid,
 			       task->tid, name_buf);
 		}
 
@@ -952,12 +962,12 @@ static void dump_chrome_task_rstack(struct uftrace_dump_ops *ops, struct uftrace
 		if (is_process) {
 			/* no need to add "tid" field */
 			pr_out("{\"ts\":%" PRIu64 ".%03d,\"ph\":\"%c\",\"pid\":%d,\"name\":\"%s\"",
-			       frs->time / 1000, (int)(frs->time % 1000), ph, task->tid, name_buf);
+			       timestamp / 1000, (int)(timestamp % 1000), ph, task->tid, name_buf);
 		}
 		else {
 			pr_out("{\"ts\":%" PRIu64
 			       ".%03d,\"ph\":\"%c\",\"pid\":%d,\"tid\":%d,\"name\":\"%s\"",
-			       frs->time / 1000, (int)(frs->time % 1000), ph, task->t->pid,
+			       timestamp / 1000, (int)(timestamp % 1000), ph, task->t->pid,
 			       task->tid, name_buf);
 		}
 
