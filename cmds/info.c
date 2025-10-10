@@ -544,15 +544,23 @@ static int read_taskinfo(void *arg)
 
 			while (*endp != '\n') {
 				int tid = strtol(tids_str, &endp, 10);
-				tids[nr_tid++] = tid;
-
-				if (*endp != ',' && *endp != '\n') {
+				if (tid && (nr_tid < info->nr_tid) &&
+				    (*endp == ',' || *endp == '\n')) {
+					tids[nr_tid++] = tid;
+				}
+				else {
 					free(tids);
 					goto out;
 				}
 
 				tids_str = endp + 1;
 			}
+
+			if (nr_tid < info->nr_tid) {
+				free(tids);
+				goto out;
+			}
+
 			info->tids = tids;
 
 			ASSERT(nr_tid == info->nr_tid);
