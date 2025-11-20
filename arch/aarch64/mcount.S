@@ -1,5 +1,32 @@
 #include "utils/asm.h"
 
+/*
+Integer registers
+  The AArch64 architecture supports 32 integer registers:
+
+    Regster  |   Volatile?  | Role
+  -----------+--------------+---------------------------------------------------
+    x0       |     Volatile | Parameter/scratch register 1, result register
+    x1 - x7  |     Volatile | Parameter/scratch register 2-8
+    x8 - x15 |     Volatile | Scratch registers
+   x16 - x17 |     Volatile | Intra-procedure-call scratch registers
+   x18       | Non-Volatile | Platform register: in kernel mode, points to KPCR
+             |              | for the current processor; in user mode, points to TEB
+   x19 - x28 | Non-Volatile | Scratch registers
+   x29 / fp  | Non-Volatile | Frame pointer
+   x30 / lr  | Non-Volatile | Link register
+
+Floating-point/SIMD registers
+  The AArch64 architecture also supports 32 floating-point/SIMD registers:
+
+    Regster  |   Volatile?  | Role
+  -----------+--------------+---------------------------------------------------
+    v0       |     Volatile | Parameter/scratch register 1, result register
+    v1 - v7  |     Volatile | Parameter/scratch registers 2-8
+    v8 - v15 | Non-Volatile | Scratch registers (only the low 64 bits are non-volatile)
+   v16 - v31 |     Volatile | Scratch registers
+*/
+
 .text
 
 /* universal stack constraint: (SP mod 16) == 0 */
