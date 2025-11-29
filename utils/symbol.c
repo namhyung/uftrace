@@ -601,6 +601,8 @@ int load_elf_dynsymtab(struct uftrace_symtab *dsymtab, struct uftrace_elf_data *
 		plt_entsize += 12;
 	}
 	else if (elf->ehdr.e_machine == EM_X86_64) {
+		if (flags & SYMTAB_FL_MOLD_PLT)
+			plt_addr += 16;
 		plt_entsize = 16; /* lld (of LLVM) seems to miss setting it */
 	}
 	else if (elf->ehdr.e_machine == EM_RISCV) {

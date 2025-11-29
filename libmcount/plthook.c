@@ -157,7 +157,7 @@ static unsigned long mcount_plthook_addr(struct plthook_data *pd, int idx)
  * The `mcount` (and its friends) are part of uftrace itself,
  * so no need to use PLT hook for them.
  */
-static void restore_plt_functions(struct plthook_data *pd)
+static void restore_plt_functions(struct plthook_data *pd, unsigned long flags)
 {
 	unsigned i, k;
 	struct uftrace_symtab *dsymtab = &pd->dsymtab;
@@ -213,7 +213,7 @@ static void restore_plt_functions(struct plthook_data *pd)
 
 		resolved_addr = pd->pltgot_ptr[got_idx];
 		plthook_addr = mcount_plthook_addr(pd, i);
-		if (resolved_addr != plthook_addr) {
+		if (resolved_addr != plthook_addr && !(flags & SYMTAB_FL_MOLD_PLT)) {
 			char *symname;
 
 			/* save already resolved address and hook it */
@@ -248,6 +248,7 @@ static int find_got(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter,
 	size_t jmprel_ent_size = 0;
 	struct plthook_data *pd;
 	const char *fname;
+	unsigned long symtab_flags = 0;
 
 	elf_for_each_shdr(elf, iter) {
 		if (iter->shdr.sh_type == SHT_DYNAMIC)
@@ -294,6 +295,23 @@ static int find_got(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter,
 			pr_dbg("cannot find REL(A)ENT size\n");
 			return 0;
 		}
+	}
+
+	/* MOLD linker has a different PLT format */
+	elf_for_each_shdr(elf, &sec_iter) {
+		typeof(sec_iter.shdr) *shdr = &sec_iter.shdr;
+		const char *shstr = elf_get_name(elf, &sec_iter, shdr->sh_name);
+
+		if (strcmp(shstr, ".comment"))
+			continue;
+
+		elf_for_each_comment(elf, &sec_iter) {
+			if (!strncmp(sec_iter.comment, "mold ", 5)) {
+				symtab_flags |= SYMTAB_FL_MOLD_PLT;
+				break;
+			}
+		}
+		break;
 	}
 
 	elf_for_each_shdr(elf, &sec_iter) {
@@ -365,7 +383,7 @@ static int find_got(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter,
 
 	memset(&pd->dsymtab, 0, sizeof(pd->dsymtab));
 	/* do not demangle symbol names since it might call dlsym() */
-	load_elf_dynsymtab(&pd->dsymtab, elf, pd->base_addr, 0);
+	load_elf_dynsymtab(&pd->dsymtab, elf, pd->base_addr, symtab_flags);
 
 	pd->resolved_addr = xcalloc(pd->dsymtab.nr_sym, sizeof(long));
 	pd->special_funcs = NULL;
@@ -395,7 +413,7 @@ static int find_got(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter,
 		(unsigned long)pd->pltgot_ptr - pd->base_addr);
 	pr_dbg2("module id = %#lx, PLT resolver = %#lx\n", pd->module_id, plthook_resolver_addr);
 
-	restore_plt_functions(pd);
+	restore_plt_functions(pd, symtab_flags);
 
 	overwrite_pltgot(pd, ARCH_PLTGOT_RESOLVE, mcount_arch_ops.entry[UFT_ARCH_OPS_PLTHOOK]);
 

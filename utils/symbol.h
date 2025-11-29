@@ -104,6 +104,7 @@ enum uftrace_symtab_flag {
 	SYMTAB_FL_SKIP_NORMAL = (1U << 3),
 	SYMTAB_FL_SKIP_DYNAMIC = (1U << 4),
 	SYMTAB_FL_SYMS_DIR = (1U << 5),
+	SYMTAB_FL_MOLD_PLT = (1U << 6),
 };
 
 struct uftrace_sym_info {
