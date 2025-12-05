@@ -94,6 +94,17 @@ In case argument information is not available, argument specifications like
 (`-A udev_new@arg1/s`) can be passed on the command line or an options file.
 
 Example:
+## Minimal Usage Example
+
+For users who want to quickly try uftrace:
+
+```bash
+# Record function calls of a simple command
+uftrace record ls >/dev/null
+
+# Replay recorded function calls
+uftrace replay
+
 ```py
 $ uftrace record -la -A udev_new@arg1/s lsusb >/dev/null
 $ uftrace replay -f+module
