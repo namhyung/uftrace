@@ -1475,7 +1475,16 @@ int main(int argc, char *argv[])
 		debug = 1;
 
 	if (opts.logfile) {
-		logfp = fopen(opts.logfile, "a");
+		char *logfile_path = NULL;
+		if (create_directory(opts.dirname) < 0) {
+			ret = -1;
+			goto cleanup;
+		}
+
+		xasprintf(&logfile_path, "%s/%s", opts.dirname, opts.logfile);
+		logfp = fopen(logfile_path, "a");
+		free(logfile_path);
+
 		if (logfp == NULL) {
 			logfp = stderr;
 			pr_err("cannot open log file");
@@ -1584,9 +1593,15 @@ int main(int argc, char *argv[])
 	wait_for_pager();
 
 cleanup:
-	if (opts.logfile)
+	if (opts.logfile) {
+		char *logfile_path = NULL;
 		fclose(logfp);
 
+		xasprintf(&logfile_path, "%s/%s", opts.dirname, opts.logfile);
+		copy_file(opts.logfile, logfile_path);
+
+		free(logfile_path);
+	}
 	if (opts.opt_file)
 		free_parsed_cmdline(argv - opts.idx);
 
