@@ -111,7 +111,10 @@ RECORD OPTIONS
 
 -P *FUNC*, \--patch=*FUNC*
 :   Patch FUNC dynamically.  This is only applicable binaries built by
-    gcc with `-pg -mfentry -mnop-mcount` or clang with `-fxray-instrument`.
+    gcc with `-pg`, `-mfentry`, `-mnop-mcount` or by clang with `-fxray-instrument`.
+    By default, *FUNC* is a regex. For example `-P.` matches every function to patch
+    every function in the program, so it is a quick shorthand to patch all functions.
+    Alternativley, `--match=glob` can be used to to switch to wildcard-based function matching.
     This option can be used more than once.  See *DYNAMIC TRACING*.
 
 -U *FUNC*, \--unpatch=*FUNC*
