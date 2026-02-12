@@ -65,6 +65,7 @@ struct uftrace_elf_iter {
 		Elf_Dyn dyn;
 		Elf_Rel rel;
 		Elf_Rela rela;
+		const char *comment;
 	};
 
 	void *note_name;
@@ -160,6 +161,13 @@ struct uftrace_elf_iter {
 	     ((iter)->note_desc = (iter)->note_name + ALIGN((iter)->nhdr.n_namesz, 4));            \
 	     (iter)->i += sizeof((iter)->nhdr) + ALIGN((iter)->nhdr.n_namesz, 4) +                 \
 			  ALIGN((iter)->nhdr.n_descsz, 4))
+
+/* iter->shdr must point ".comment" section */
+#define elf_for_each_comment(elf, iter)                                                            \
+	for (elf_get_secdata((elf), (iter)), (iter)->i = 0, (iter)->nr = (iter)->shdr.sh_size,     \
+					     (iter)->comment = (iter)->data;                       \
+	     (iter)->i < (iter)->nr;                                                               \
+	     (iter)->i += strcmp((iter)->comment) + 1, (iter)->comment = (iter)->data + (iter)->i)
 
 int elf_init(const char *filename, struct uftrace_elf_data *elf);
 void elf_finish(struct uftrace_elf_data *elf);

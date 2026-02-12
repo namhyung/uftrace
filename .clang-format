@@ -68,6 +68,7 @@ FixNamespaceComments: false
 #   | sed "s,^#define \([^[:space:]]*for_each[^[:space:]]*\)(.*$,  - '\1'," \
 #   | LC_ALL=C sort -u
 ForEachMacros:
+  - 'elf_for_each_comment'
   - 'elf_for_each_dynamic'
   - 'elf_for_each_dynamic_symbol'
   - 'elf_for_each_note'

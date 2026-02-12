@@ -601,6 +601,8 @@ int load_elf_dynsymtab(struct uftrace_symtab *dsymtab, struct uftrace_elf_data *
 		plt_entsize += 12;
 	}
 	else if (elf->ehdr.e_machine == EM_X86_64) {
+		if (flags & SYMTAB_FL_MOLD_PLT)
+			plt_addr += 16;
 		plt_entsize = 16; /* lld (of LLVM) seems to miss setting it */
 	}
 	else if (elf->ehdr.e_machine == EM_RISCV) {
@@ -711,6 +713,7 @@ static int load_dynsymtab(struct uftrace_symtab *dsymtab, const char *filename,
 			  unsigned long offset, unsigned long flags)
 {
 	struct uftrace_elf_data elf;
+	struct uftrace_elf_iter sec_iter;
 
 	if (elf_init(filename, &elf) < 0) {
 		pr_dbg("error during open symbol file: %s: %m\n", filename);
@@ -718,6 +721,21 @@ static int load_dynsymtab(struct uftrace_symtab *dsymtab, const char *filename,
 	}
 
 	pr_dbg3("loading dynamic symbols from %s (offset: %#lx)\n", filename, offset);
+	/* MOLD linker has a different PLT format */
+	elf_for_each_shdr(&elf, &sec_iter) {
+		typeof(sec_iter.shdr) *shdr = &sec_iter.shdr;
+		const char *shstr = elf_get_name(&elf, &sec_iter, shdr->sh_name);
+
+		if (!strcmp(shstr, ".comment")) {
+			elf_for_each_comment(&elf, &sec_iter) {
+				if (!strncmp(sec_iter.comment, "mold ", 5)) {
+					flags |= SYMTAB_FL_MOLD_PLT;
+					break;
+				}
+			}
+			break;
+		}
+	}
 	load_elf_dynsymtab(dsymtab, &elf, offset, flags);
 	if (uftrace_arch_ops.load_dynsymtab) {
 		struct uftrace_symtab dsymtab_noplt = {};
