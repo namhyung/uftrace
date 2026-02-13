@@ -270,24 +270,24 @@ config: $(srcdir)/configure
 	$(QUIET_GEN)$(srcdir)/configure --objdir=$(objdir) $(MAKEOVERRIDES)
 
 $(LIBMCOUNT_UTILS_OBJS): $(objdir)/libmcount/%.op: $(srcdir)/utils/%.c $(LIBMCOUNT_DEPS)
-	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
+	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -MMD -MP -MF $(@:.op=.d) -c -o $@ $<
 
 $(objdir)/libmcount/mcount.op: $(objdir)/version.h
 
 $(LIBMCOUNT_OBJS): $(objdir)/%.op: $(srcdir)/%.c $(LIBMCOUNT_DEPS)
-	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
+	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -MMD -MP -MF $(@:.op=.d) -c -o $@ $<
 
 $(LIBMCOUNT_FAST_OBJS): $(objdir)/%-fast.op: $(srcdir)/%.c $(LIBMCOUNT_DEPS)
-	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) $(LIBMCOUNT_FAST_CFLAGS) -c -o $@ $<
+	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) $(LIBMCOUNT_FAST_CFLAGS) -MMD -MP -MF $(@:.op=.d) -c -o $@ $<
 
 $(LIBMCOUNT_SINGLE_OBJS): $(objdir)/%-single.op: $(srcdir)/%.c $(LIBMCOUNT_DEPS)
-	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) $(LIBMCOUNT_SINGLE_CFLAGS) -c -o $@ $<
+	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) $(LIBMCOUNT_SINGLE_CFLAGS) -MMD -MP -MF $(@:.op=.d) -c -o $@ $<
 
 $(LIBMCOUNT_FAST_SINGLE_OBJS): $(objdir)/%-fast-single.op: $(srcdir)/%.c $(LIBMCOUNT_DEPS)
-	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) $(LIBMCOUNT_FAST_SINGLE_CFLAGS) -c -o $@ $<
+	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) $(LIBMCOUNT_FAST_SINGLE_CFLAGS) -MMD -MP -MF $(@:.op=.d) -c -o $@ $<
 
 $(LIBMCOUNT_NOP_OBJS): $(objdir)/%.op: $(srcdir)/%.c $(LIBMCOUNT_DEPS)
-	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -c -o $@ $<
+	$(QUIET_CC_FPIC)$(CC) $(LIB_CFLAGS) -MMD -MP -MF $(@:.op=.d) -c -o $@ $<
 
 $(objdir)/libmcount/libmcount.so: $(LIBMCOUNT_OBJS) $(LIBMCOUNT_UTILS_OBJS) $(LIBMCOUNT_ARCH_OBJS)
 	$(QUIET_LINK)$(CC) -shared -o $@ $^ $(LIB_LDFLAGS)
@@ -311,26 +311,26 @@ $(UFTRACE_ARCH_OBJS): $(wildcard $(srcdir)/arch/$(ARCH)/*.[cS]) $(COMMON_DEPS)
 	@$(MAKE) -B -C $(srcdir)/arch/$(ARCH) $@
 
 $(objdir)/uftrace.o: $(srcdir)/uftrace.c $(objdir)/version.h $(COMMON_DEPS)
-	$(QUIET_CC)$(CC) $(UFTRACE_CFLAGS) -c -o $@ $<
+	$(QUIET_CC)$(CC) $(UFTRACE_CFLAGS) -MMD -MP -MF $(@:.o=.d) -c -o $@ $<
 
 $(objdir)/misc/demangler.o: $(srcdir)/misc/demangler.c $(objdir)/version.h $(COMMON_DEPS)
-	$(QUIET_CC)$(CC) $(DEMANGLER_CFLAGS) -c -o $@ $<
+	$(QUIET_CC)$(CC) $(DEMANGLER_CFLAGS) -MMD -MP -MF $(@:.o=.d) -c -o $@ $<
 
 $(objdir)/misc/symbols.o: $(srcdir)/misc/symbols.c $(objdir)/version.h $(COMMON_DEPS)
-	$(QUIET_CC)$(CC) $(SYMBOLS_CFLAGS) -c -o $@ $<
+	$(QUIET_CC)$(CC) $(SYMBOLS_CFLAGS) -MMD -MP -MF $(@:.o=.d) -c -o $@ $<
 
 $(objdir)/misc/dbginfo.o: $(srcdir)/misc/dbginfo.c $(objdir)/version.h $(COMMON_DEPS)
-	$(QUIET_CC)$(CC) $(DBGINFO_CFLAGS) -c -o $@ $<
+	$(QUIET_CC)$(CC) $(DBGINFO_CFLAGS) -MMD -MP -MF $(@:.o=.d) -c -o $@ $<
 
 $(objdir)/misc/bench.o: $(srcdir)/misc/bench.c
-	$(QUIET_CC)$(CC) $(BENCH_CFLAGS) -c -o $@ $<
+	$(QUIET_CC)$(CC) $(BENCH_CFLAGS) -MMD -MP -MF $(@:.o=.d) -c -o $@ $<
 
 $(objdir)/cmds/dump.o: $(C_STR_OBJS)
 
 $(UFTRACE_OBJS_VERSION): $(objdir)/version.h
 
 $(filter-out $(objdir)/uftrace.o, $(UFTRACE_OBJS)): $(objdir)/%.o: $(srcdir)/%.c $(COMMON_DEPS)
-	$(QUIET_CC)$(CC) $(UFTRACE_CFLAGS) -c -o $@ $<
+	$(QUIET_CC)$(CC) $(UFTRACE_CFLAGS) -MMD -MP -MF $(@:.o=.d) -c -o $@ $<
 
 $(objdir)/version.h: PHONY
 	@$(srcdir)/misc/version.sh $@ $(VERSION_GIT) $(ARCH) $(objdir)
@@ -358,7 +358,7 @@ ifneq ($(findstring HAVE_LIBPYTHON, $(COMMON_CFLAGS)), )
 PYTHON_CFLAGS := $(filter-out -DHAVE_LIBELF,$(PYTHON_CFLAGS))
 
 $(PYTHON_OBJS): $(objdir)/%.oy: $(srcdir)/%.c $(COMMON_DEPS)
-	$(QUIET_CC_FPIC)$(CC) $(PYTHON_CFLAGS) -c -o $@ $<
+	$(QUIET_CC_FPIC)$(CC) $(PYTHON_CFLAGS) -MMD -MP -MF $(@:.oy=.d) -c -o $@ $<
 
 $(objdir)/python/uftrace_python.so: $(PYTHON_OBJS)
 	$(QUIET_LINK)$(CC) -shared $(PYTHON_CFLAGS) -o $@ $(PYTHON_OBJS) $(PYTHON_LDFLAGS)
@@ -450,6 +450,8 @@ clean:
 	$(Q)$(RM) $(objdir)/uftrace-*.tar.gz $(objdir)/version.h
 	$(Q)find -name "*\.gcda" -o -name "*\.gcno" | xargs $(RM)
 	$(Q)$(RM) coverage.info $(C_STR_OBJS)
+	$(Q)$(RM) $(UFTRACE_OBJS:.o=.d) $(DEMANGLER_OBJS:.o=.d) $(SYMBOLS_OBJS:.o=.d) $(DBGINFO_OBJS:.o=.d) $(BENCH_OBJS:.o=.d)
+	$(Q)$(RM) $(PYTHON_OBJS:.oy=.d) $(LIBMCOUNT_OBJS:.op=.d) $(LIBMCOUNT_UTILS_OBJS:.op=.d) $(LIBMCOUNT_NOP_OBJS:.op=.d)
 	@$(MAKE) -sC $(srcdir)/arch/$(ARCH) clean
 	@$(MAKE) -sC $(srcdir)/tests ARCH=$(ARCH) clean
 	@$(MAKE) -sC $(docdir) clean
@@ -492,6 +494,17 @@ help:
 	@echo ""
 
 $(C_STR_OBJS): $(objdir)/%.$(C_STR_EXTENSION): $(srcdir)/%
-	$(QUIET_GEN)sed -e 's#\\#\\\\#g;s#\"#\\"#g;s#$$#\\n\"#;s#^#\"#' $< > $@
+	$(QUIET_GEN)sed -e 's#\\#\\\\#g;s#\"#\\"#g;s#$$#\\n"#;s#^#"#' $< > $@
+
+# Include automatically generated dependencies
+-include $(UFTRACE_OBJS:.o=.d)
+-include $(DEMANGLER_OBJS:.o=.d)
+-include $(SYMBOLS_OBJS:.o=.d)
+-include $(DBGINFO_OBJS:.o=.d)
+-include $(BENCH_OBJS:.o=.d)
+-include $(PYTHON_OBJS:.oy=.d)
+-include $(LIBMCOUNT_OBJS:.op=.d)
+-include $(LIBMCOUNT_UTILS_OBJS:.op=.d)
+-include $(LIBMCOUNT_NOP_OBJS:.op=.d)
 
 .PHONY: all config clean test dist doc ctags help PHONY
