@@ -47,6 +47,14 @@
  * when no filter is specified in the command line and/or single-thread only.
  */
 
+struct {
+	uint64_t start_ns;
+	uint64_t end_ns;
+	bool enabled;
+} mcount_time_filter = { 0, 0, false };
+
+uint64_t mcount_global_timer;
+
 /* time filter in nsec */
 uint64_t mcount_threshold;
 
@@ -1496,6 +1504,43 @@ void mcount_rstack_inject_return(struct mcount_thread_data *mtdp, unsigned long 
 	mcount_save_filter(mtdp);
 }
 
+static void start_mcount_timer(void)
+{
+	struct timespec ts;
+
+	if (clock_gettime(CLOCK_MONOTONIC, &ts) == -1) {
+		return;
+	}
+
+	mcount_global_timer = (uint64_t)ts.tv_sec * 1000000000ULL + ts.tv_nsec;
+}
+
+static uint64_t mcount_global_timer_gettime(void)
+{
+	struct timespec now_ts;
+	uint64_t current_time_ns;
+
+	clock_gettime(CLOCK_MONOTONIC, &now_ts);
+
+	current_time_ns = (uint64_t)now_ts.tv_sec * 1000000000ULL + now_ts.tv_nsec;
+
+	return current_time_ns - mcount_global_timer;
+}
+
+static void check_time_range_tracing(void)
+{
+	if (unlikely(mcount_time_filter.enabled)) {
+		uint64_t now = mcount_global_timer_gettime();
+
+		if (now >= mcount_time_filter.start_ns && now < mcount_time_filter.end_ns) {
+			mcount_enabled = true;
+		}
+		else {
+			mcount_enabled = false;
+		}
+	}
+}
+
 static int __mcount_entry(unsigned long *parent_loc, unsigned long child, struct mcount_regs *regs)
 {
 	enum filter_result filtered;
@@ -1522,6 +1567,9 @@ static int __mcount_entry(unsigned long *parent_loc, unsigned long child, struct
 		mcount_unguard_recursion(mtdp);
 		return -1;
 	}
+
+	/*if using --trace=time~time check to entry */
+	check_time_range_tracing();
 
 	if (unlikely(mtdp->in_exception)) {
 		unsigned long frame_addr;
@@ -1659,6 +1707,9 @@ static int __cygprof_entry(unsigned long parent, unsigned long child)
 	}
 
 	filtered = mcount_entry_filter_check(mtdp, child, &tr, NULL);
+
+	/*if using --trace=time~time check to entry */
+	check_time_range_tracing();
 
 	if (unlikely(mtdp->in_exception)) {
 		unsigned long *frame_ptr;
@@ -1806,6 +1857,9 @@ static void _xray_entry(unsigned long parent, unsigned long child, struct mcount
 	}
 
 	filtered = mcount_entry_filter_check(mtdp, child, &tr, NULL);
+
+	/*if using --trace=time~time check to entry */
+	check_time_range_tracing();
 
 	if (unlikely(mtdp->in_exception)) {
 		unsigned long *frame_ptr;
@@ -1998,6 +2052,7 @@ static __used void mcount_startup(void)
 	char *pattern_str;
 	char *clock_str;
 	char *symdir_str;
+	char *time_filter_str;
 	struct stat statbuf;
 	bool nest_libcall;
 
@@ -2028,6 +2083,7 @@ static __used void mcount_startup(void)
 	pattern_str = getenv("UFTRACE_PATTERN");
 	clock_str = getenv("UFTRACE_CLOCK");
 	symdir_str = getenv("UFTRACE_SYMBOL_DIR");
+	time_filter_str = getenv("UFTRACE_TIME_FILTER");
 
 	page_size_in_kb = getpagesize() / KB;
 
@@ -2113,6 +2169,27 @@ static __used void mcount_startup(void)
 	if (event_str)
 		mcount_setup_events(dirname, event_str, mcount_filter_setting.ptype);
 
+	if (time_filter_str) {
+		char *start_str = time_filter_str;
+		char *end_str = strchr(time_filter_str, '~');
+		uint64_t end_val = -1;
+
+		if (end_str) {
+			*end_str++ = '\0';
+			if (*end_str != '\0') {
+				end_val = parse_time(end_str, 3);
+			}
+		}
+
+		mcount_time_filter.start_ns = parse_time(start_str, 3);
+		mcount_time_filter.end_ns = end_val;
+		mcount_time_filter.enabled = true;
+
+		if (mcount_time_filter.start_ns > 0) {
+			mcount_enabled = false;
+		}
+	}
+
 	if (getenv("UFTRACE_KERNEL_PID_UPDATE"))
 		kernel_pid_update = true;
 
@@ -2140,6 +2217,8 @@ static __used void mcount_startup(void)
 
 	compiler_barrier();
 	pr_dbg("mcount setup done\n");
+
+	start_mcount_timer();
 
 	mcount_global_flags &= ~MCOUNT_GFL_SETUP;
 	mtd.recursion_marker = false;
