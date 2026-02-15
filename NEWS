@@ -1,3 +1,18 @@
+uftrace v0.19
+=============
+* New features
+  Add func-percentile.py script for latency percentiles (#1982)
+  Support srcline info in the chrome dump output
+  Convert timestamp to real time (UTC) in the chrome dump output
+
+* Bug fixes
+  Fix segfaults on binaries built with mold linker (#1951)
+  Update some C++ exception test cases
+
+And some other fixes and improvements.  Thanks all contributors:
+  Kaveh Shahedi, Kwangjin Ko, Seunghyeok Park, SoJin Jang
+
+
 uftrace v0.18
 =============
 * New features
