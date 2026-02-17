@@ -25,6 +25,12 @@
 #define KEY_ESCAPE 27
 #define BLANK 32
 
+/* ncurses format - octal number */
+#define KEY_CTRL_D 0004
+#define KEY_CTRL_E 0005
+#define KEY_CTRL_U 0025
+#define KEY_CTRL_Y 0031
+
 #define TUI_ASSERT(cond)                                                                           \
 	do {                                                                                       \
 		endwin();                                                                          \
@@ -150,6 +156,8 @@ static const char *help[] = {
 	"ARROW         Navigation",
 	"PgUp/Dn",
 	"Home/End",
+	"Ctrl + u/d    Move half page up/down",
+	"Ctrl + e/y    Scroll line up/down",
 	"Enter         Fold/unfold graph or Select session",
 	"G             Show (full) call graph",
 	"g             Show call graph for this function",
@@ -2190,6 +2198,170 @@ static void tui_window_move_end(struct tui_window *win)
 	}
 }
 
+static void tui_window_move_scroll_line_up(struct tui_window *win)
+{
+	void *node = win->ops->next(win, win->top, true);
+
+	/* cannot go top next */
+	if (node == NULL)
+		return;
+
+	/* can go top next */
+	win->top_index++;
+	if (win->ops->needs_blank(win, win->top, node))
+		win->top_index++;
+
+	/* update win->top */
+	win->top = node;
+
+	/* update win->curr - out of cursor line case*/
+	if (win->top_index > win->curr_index) {
+		win->curr = win->top;
+		win->curr_index = win->top_index;
+	}
+}
+
+static void tui_window_move_scroll_line_down(struct tui_window *win)
+{
+	void *node = win->ops->prev(win, win->top, true);
+
+	/* cannot go top prev */
+	if (node == NULL)
+		return;
+
+	/* can go top prev */
+	win->top_index--;
+	if (win->ops->needs_blank(win, node, win->top)) // (win, prev_node, curr_node)
+		win->top_index--;
+
+	/* update win->top */
+	win->top = node;
+
+	/* update win->curr - out of cursor line case, cursor must follow top in ranges */
+	while (win->curr_index - win->top_index >= LINES - 2) {
+		/* find prev node */
+		node = win->ops->prev(win, win->curr, false);
+		win->curr_index--;
+
+		/* blank check */
+		if (win->ops->needs_blank(win, node, win->curr))
+			win->curr_index--;
+
+		/* update win->curr */
+		win->curr = node;
+	}
+}
+
+static void tui_window_move_halfpage_up(struct tui_window *win)
+{
+	void *node;
+	int move_cnt = 0;
+
+	/* move win->top */
+	while (move_cnt < (LINES - 2) / 2 - 1) {
+		/* find prev node */
+		node = win->ops->prev(win, win->top, true);
+
+		/* cannot go top prev */
+		if (node == NULL)
+			break;
+
+		/* can go top prev */
+		win->top_index--;
+		move_cnt++;
+
+		/* blank check */
+		if (win->ops->needs_blank(win, node, win->top)) {
+			win->top_index--;
+			move_cnt++;
+		}
+
+		/* update win->top */
+		win->top = node;
+	}
+
+	/* init move_cnt */
+	move_cnt = 0;
+
+	/* move win->curr */
+	while (move_cnt < (LINES - 2) / 2 - 1) {
+		/* find prev node */
+		node = win->ops->prev(win, win->curr, false);
+
+		/* cannot go curr prev */
+		if (node == NULL)
+			break;
+
+		/* can go curr prev */
+		win->curr_index--;
+		move_cnt++;
+
+		/* blank check */
+		if (win->ops->needs_blank(win, node, win->curr)) {
+			win->curr_index--;
+			move_cnt++;
+		}
+
+		/* update win->curr */
+		win->curr = node;
+	}
+}
+
+static void tui_window_move_halfpage_down(struct tui_window *win)
+{
+	void *node;
+	int move_cnt = 0;
+
+	/* move win->top */
+	while (move_cnt < (LINES - 2) / 2 - 1) {
+		/* find next node */
+		node = win->ops->next(win, win->top, true);
+
+		/* cannot go top next */
+		if (node == NULL)
+			break;
+
+		/* can go top next */
+		win->top_index++;
+		move_cnt++;
+
+		/* blank check */
+		if (win->ops->needs_blank(win, win->top, node)) {
+			win->top_index++;
+			move_cnt++;
+		}
+
+		/* update win->top */
+		win->top = node;
+	}
+
+	/* init move_cnt */
+	move_cnt = 0;
+
+	/* move win->curr */
+	while (move_cnt < (LINES - 2) / 2 - 1) {
+		/* find next node */
+		node = win->ops->next(win, win->curr, false);
+
+		/* cannot go curr next */
+		if (node == NULL)
+			break;
+
+		/* can go curr next */
+		win->curr_index++;
+		move_cnt++;
+
+		/* blank check */
+		if (win->ops->needs_blank(win, win->curr, node)) {
+			win->curr_index++;
+			move_cnt++;
+		}
+
+		/* update win->curr */
+		win->curr = node;
+	}
+}
+
 /* move to the previous sibling */
 static bool tui_window_move_prev(struct tui_window *win)
 {
@@ -2880,6 +3052,22 @@ static void tui_main_loop(struct uftrace_opts *opts, struct uftrace_data *handle
 		case KEY_END:
 			cancel_search();
 			tui_window_move_end(win);
+			break;
+		case KEY_CTRL_U:
+			cancel_search();
+			tui_window_move_halfpage_up(win);
+			break;
+		case KEY_CTRL_D:
+			cancel_search();
+			tui_window_move_halfpage_down(win);
+			break;
+		case KEY_CTRL_E:
+			cancel_search();
+			tui_window_move_scroll_line_up(win);
+			break;
+		case KEY_CTRL_Y:
+			cancel_search();
+			tui_window_move_scroll_line_down(win);
 			break;
 		case KEY_ENTER:
 		case '\n':
