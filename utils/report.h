@@ -23,6 +23,8 @@ struct report_time_stat {
 	double stdv;
 	uint64_t min;
 	uint64_t max;
+	uint64_t min_ts;
+	uint64_t max_ts;
 };
 
 struct uftrace_report_node {
