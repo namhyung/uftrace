@@ -583,15 +583,29 @@ static bool check_unsupported(struct mcount_disasm_engine *disasm, cs_insn *insn
 	return true;
 }
 
+/**
+ * check_endbr64 - check if instruction at @addr is endbr64
+ * @addr   - address to check for endbr64
+ * @return - 1 if found, 0 if not
+ */
+int check_endbr64(unsigned long addr)
+{
+	uint8_t endbr64[] = { 0xf3, 0x0f, 0x1e, 0xfa };
+
+	return !memcmp((void *)addr, endbr64, sizeof(endbr64));
+}
+
 int disasm_check_insns(struct mcount_disasm_engine *disasm, struct mcount_dynamic_info *mdi,
 		       struct mcount_disasm_info *info)
 {
 	int status;
 	cs_insn *insn = NULL;
 	uint32_t count, i, size;
-	uint8_t endbr64[] = { 0xf3, 0x0f, 0x1e, 0xfa };
+	void *trampoline_addr;
+	uint8_t *operand;
 	struct dynamic_bad_symbol *badsym;
 	unsigned long addr = info->addr;
+	bool is_call, is_trampoline;
 
 	badsym = mcount_find_badsym(mdi, info->addr);
 	if (badsym != NULL) {
@@ -609,9 +623,9 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm, struct mcount_dynami
 		return INSTRUMENT_SKIPPED;
 
 	size = info->sym->size;
-	if (!memcmp((void *)info->addr, endbr64, sizeof(endbr64))) {
-		addr += sizeof(endbr64);
-		size -= sizeof(endbr64);
+	if (check_endbr64(info->addr)) {
+		addr += ENDBR_INSN_SIZE;
+		size -= ENDBR_INSN_SIZE;
 
 		if (size <= CALL_INSN_SIZE)
 			return INSTRUMENT_SKIPPED;
@@ -622,6 +636,20 @@ int disasm_check_insns(struct mcount_disasm_engine *disasm, struct mcount_dynami
 	count = cs_disasm(disasm->engine, (void *)addr, size, addr, 0, &insn);
 	if (count == 0)
 		return INSTRUMENT_FAILED;
+
+	/* Check for pre-existing dynamic instrumentation
+	  1. check if opcode is call
+	  2. check operand is trampoline address */
+	operand = &((uint8_t *)info->addr)[1];
+	trampoline_addr = (void *)mdi->trampoline - (info->addr + CALL_INSN_SIZE);
+	is_call = ((uint8_t *)info->addr)[0] == 0xe8;
+	if (is_call) {
+		is_trampoline = !memcmp(operand, &trampoline_addr, CALL_INSN_SIZE - 1);
+		if (is_trampoline) {
+			pr_dbg2("skip dynamically patched func: %s\n", info->sym->name);
+			return INSTRUMENT_SKIPPED;
+		}
+	}
 
 	for (i = 0; i < count; i++) {
 		uint8_t insns_byte[32] = {
