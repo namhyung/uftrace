@@ -400,8 +400,10 @@ void strv_append(struct strv *strv, const char *str);
 void strv_replace(struct strv *strv, int idx, const char *str);
 char *strv_join(struct strv *strv, const char *delim);
 void strv_free(struct strv *strv);
+char *str_trim(char *str);
 char *str_ltrim(char *str);
 char *str_rtrim(char *str);
+char *str_mtrim(char *str);
 
 char **parse_cmdline(char *cmd, int *argc);
 void free_parsed_cmdline(char **argv);
