@@ -61,8 +61,12 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name, size_t nod
 {
 	struct uftrace_graph_node *node = NULL;
 	struct uftrace_graph_node *curr = tg->node;
+	struct uftrace_graph_node *search_curr = NULL;
+	struct uftrace_graph_node *recursive_src = NULL;
+	struct uftrace_graph_node *add_calls_tgt = NULL;
 	struct uftrace_fstack *fstack;
 	static uint32_t next_id = 1;
+	static bool skip = false;
 
 	if (tg->lost)
 		return 1; /* ignore kernel functions after LOST */
@@ -76,6 +80,18 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name, size_t nod
 	fstack = fstack_get(tg->task, tg->task->stack_count - 1);
 	if (curr == NULL || fstack == NULL)
 		return -1;
+
+	if (name) {
+		if (curr && curr->name && curr->parent && curr->parent->name) {
+			skip = !strcmp(name, curr->name) && !strcmp(name, curr->parent->name);
+		}
+
+		search_curr = curr;
+		while (search_curr && search_curr->name && !strcmp(name, search_curr->name)) {
+			recursive_src = search_curr;
+			search_curr = search_curr->parent;
+		}
+	}
 
 	list_for_each_entry(node, &curr->head, list) {
 		if (name && !strcmp(name, node->name))
@@ -91,6 +107,7 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name, size_t nod
 		node->id = next_id++;
 		node->addr = fstack->addr;
 		node->name = xstrdup(name ?: "none");
+		node->skip = skip;
 		INIT_LIST_HEAD(&node->head);
 
 		node->parent = curr;
@@ -128,6 +145,13 @@ static int add_graph_entry(struct uftrace_task_graph *tg, char *name, size_t nod
 
 out:
 	node->nr_calls++;
+	if (skip && recursive_src) {
+		list_for_each_entry(add_calls_tgt, &recursive_src->head, list) {
+			if (name && !strcmp(name, add_calls_tgt->name))
+				break;
+		}
+		add_calls_tgt->nr_calls++;
+	}
 	tg->node = node;
 
 	if (entry_cb)
