@@ -14,9 +14,8 @@
 #include "utils/utils.h"
 
 #define LIVE_NAME "uftrace-live-XXXXXX"
-#define TMP_LIVE_NAME "/tmp/" LIVE_NAME
 
-#define TMP_DIR_NAME_SIZE 32
+#define TMP_DIR_NAME_SIZE 256
 
 static char tmp_dirname[TMP_DIR_NAME_SIZE];
 static void cleanup_tempdir(void)
@@ -428,7 +427,9 @@ int command_live(int argc, char *argv[], struct uftrace_opts *opts)
 	int ret;
 
 	if (!opts->record) {
-		snprintf(tmp_dirname, sizeof(tmp_dirname), "%s", TMP_LIVE_NAME);
+		const char *tmpdir = getenv("TMPDIR") ?: "/tmp";
+
+		snprintf(tmp_dirname, sizeof(tmp_dirname), "%s/" LIVE_NAME, tmpdir);
 		umask(022);
 		fd = mkstemp(tmp_dirname);
 		if (fd < 0) {
