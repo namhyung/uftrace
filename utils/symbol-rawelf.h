@@ -167,7 +167,7 @@ struct uftrace_elf_iter {
 	for (elf_get_secdata((elf), (iter)), (iter)->i = 0, (iter)->nr = (iter)->shdr.sh_size,     \
 					     (iter)->comment = (iter)->data;                       \
 	     (iter)->i < (iter)->nr;                                                               \
-	     (iter)->i += strcmp((iter)->comment) + 1, (iter)->comment = (iter)->data + (iter)->i)
+	     (iter)->i += strlen((iter)->comment) + 1, (iter)->comment = (iter)->data + (iter)->i)
 
 int elf_init(const char *filename, struct uftrace_elf_data *elf);
 void elf_finish(struct uftrace_elf_data *elf);
