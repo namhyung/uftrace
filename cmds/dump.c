@@ -1679,6 +1679,76 @@ static void dump_replay_event(struct uftrace_dump_ops *ops, struct uftrace_task_
 	}
 }
 
+/*
+ * dump_replay_func_before_range - emit synthetic entry events for functions
+ *                                 active at the start of --time-range
+ *
+ * When --time-range is used, functions entered before the range start but
+ * exiting within the range would produce orphaned exit events with no matching
+ * entry.  This emits synthetic entry events at range_start for all such active
+ * functions, so the trace viewer shows complete, well-formed call stacks.
+ *
+ * This is called for all dump modes that use do_dump_replay().
+ */
+static void dump_replay_func_before_range(struct uftrace_dump_ops *ops, struct uftrace_opts *opts,
+					  struct uftrace_task_reader *task)
+{
+	uint64_t range_start = task->h->time_range.start;
+	struct uftrace_record *saved_rstack = task->rstack;
+	struct uftrace_record saved_content = *task->rstack;
+	struct uftrace_session *fsess = task->h->sessions.first;
+	int top;
+	int i;
+
+	/*
+	 * Determine how many frames need synthetic entry events.
+	 *
+	 * For ENTRY: stack_count was already incremented for the just-entered
+	 * function, which will get a natural entry event from the main loop;
+	 * only emit synthetic events for the frames below it (0..stack_count-2).
+	 *
+	 * For EXIT: fstack_account_time() corrects stack_count to include the
+	 * exiting function's slot, so one extra frame covers it (0..stack_count).
+	 *
+	 * For EVENT and other types: all frames on the stack (0..stack_count-1)
+	 * need synthetic entry events.
+	 */
+	if (saved_rstack->type == UFTRACE_ENTRY)
+		top = task->stack_count - 1;
+	else if (saved_rstack->type == UFTRACE_EXIT)
+		top = task->stack_count + 1;
+	else
+		top = task->stack_count;
+
+	for (i = 0; i < top; i++) {
+		struct uftrace_fstack *fstack = fstack_get(task, i);
+
+		if (fstack == NULL || fstack->addr == 0)
+			continue;
+
+		if (fstack->flags & FSTACK_FL_NORECORD)
+			continue;
+
+		/* use task->kstack or task->ustack so that is_kernel_record()
+		 * and is_user_record() pointer-equality checks work correctly */
+		if (is_kernel_address(&fsess->sym_info, fstack->addr))
+			task->rstack = &task->kstack;
+		else
+			task->rstack = &task->ustack;
+
+		task->rstack->time = range_start;
+		task->rstack->type = UFTRACE_ENTRY;
+		task->rstack->more = 0;
+		task->rstack->magic = RECORD_MAGIC;
+		task->rstack->depth = i;
+		task->rstack->addr = fstack->addr;
+		dump_replay_func(ops, task, opts);
+	}
+
+	task->rstack = saved_rstack;
+	*task->rstack = saved_content;
+}
+
 static void do_dump_replay(struct uftrace_dump_ops *ops, struct uftrace_opts *opts,
 			   struct uftrace_data *handle)
 {
@@ -1690,6 +1760,14 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct uftrace_opts *op
 
 	while (!read_rstack(handle, &task) && !uftrace_done) {
 		struct uftrace_record *frs = task->rstack;
+		/*
+		 * Save display_depth_set before check_task_rstack() because
+		 * for EXIT records fstack_update() sets it inside that call.
+		 * display_depth_set is initialized to false when time_range.start
+		 * is set, so !display_depth_set reliably identifies the first
+		 * in-range record for each task without extra allocation.
+		 */
+		bool first_event = handle->time_range.start && !task->display_depth_set;
 
 		task->timestamp_last = frs->time;
 
@@ -1699,6 +1777,9 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct uftrace_opts *op
 		if (prev_time > frs->time)
 			call_if_nonull(ops->inverted_time, ops, task);
 		prev_time = frs->time;
+
+		if (first_event)
+			dump_replay_func_before_range(ops, opts, task);
 
 		if (task->rstack->type == UFTRACE_EVENT)
 			dump_replay_event(ops, task);
