@@ -202,10 +202,10 @@ enum tui_mode {
 	TUI_MODE_OTHER,
 };
 
-static char *report_sort_key[] = {
-	OPT_SORT_KEYS, "total_avg", "total_min", "total_max", "self",	    "self_avg",
-	"self_min",    "self_max",  "call",	 "size",      "total_stdv", "self_stdv",
-};
+static char *report_sort_key[] = { OPT_SORT_KEYS,  "total_avg",	   "total_min",	  "total_max",
+				   "self",	   "self_avg",	   "self_min",	  "self_max",
+				   "call",	   "size",	   "total_stdv",  "self_stdv",
+				   "total_min_ts", "total_max_ts", "self_min_ts", "self_max_ts" };
 
 static char *selected_report_sort_key[NUM_REPORT_FIELD];
 

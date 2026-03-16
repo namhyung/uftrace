@@ -191,6 +191,10 @@ SORT_KEY(self_max, self.max);
 SORT_KEY(self_stdv, self.stdv);
 SORT_KEY(call, call);
 SORT_KEY(size, size);
+SORT_KEY(total_min_ts, total.min_ts);
+SORT_KEY(total_max_ts, total.max_ts);
+SORT_KEY(self_min_ts, self.min_ts);
+SORT_KEY(self_max_ts, self.max_ts);
 
 static int cmp_func(struct uftrace_report_node *a, struct uftrace_report_node *b)
 {
@@ -204,9 +208,11 @@ static struct sort_key sort_func = {
 };
 
 static struct sort_key *all_sort_keys[] = {
-	&sort_total,	&sort_total_avg,  &sort_total_min, &sort_total_max, &sort_self,
-	&sort_self_avg, &sort_self_min,	  &sort_self_max,  &sort_call,	    &sort_func,
-	&sort_size,	&sort_total_stdv, &sort_self_stdv,
+	&sort_total,	   &sort_total_avg,    &sort_total_min,	   &sort_total_max,
+	&sort_self,	   &sort_self_avg,     &sort_self_min,	   &sort_self_max,
+	&sort_call,	   &sort_func,	       &sort_size,	   &sort_total_stdv,
+	&sort_self_stdv,   &sort_total_min_ts, &sort_total_max_ts, &sort_self_min_ts,
+	&sort_self_max_ts,
 };
 
 /* list of used sort keys */
