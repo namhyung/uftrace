@@ -1429,7 +1429,7 @@ static void dump_mermaid_footer(struct uftrace_dump_ops *ops, struct uftrace_dat
 	pr_out("var config = {\n");
 	pr_out("	startOnLoad: true,\n");
 	pr_out("	maxTextSize: 99999999,\n");
-	pr_out("	flowchart: { useMaxWidth: false, curve : \'basis\', htmlLabels: \'false\'},\n");
+	pr_out("	flowchart: { useMaxWidth: false, curve : \'basis\', htmlLabels: true},\n");
 	pr_out("	securityLevel:\'loose\'\n");
 	pr_out("};\n");
 	pr_out("mermaid.initialize(config);\n");
