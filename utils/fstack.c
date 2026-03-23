@@ -1663,8 +1663,21 @@ static struct uftrace_record *get_task_ustack(struct uftrace_data *handle, int i
 		/* prevent ustack from invalid access */
 		task->valid = false;
 
-		if (!check_time_range(&handle->time_range, curr->time))
+		if (!check_time_range(&handle->time_range, curr->time)) {
+			/*
+			 * Record is outside the time range.  For pre-range ENTRY
+			 * records (time < range_start), track the address in
+			 * func_stack so that synthetic entry events can be emitted
+			 * for functions still active at range_start.  Only ENTRY
+			 * records matter since a sibling call at the same depth
+			 * naturally overwrites the slot.
+			 */
+			if (handle->time_range.start && curr->time < handle->time_range.start &&
+			    curr->type == UFTRACE_ENTRY && task->func_stack &&
+			    curr->depth < handle->hdr.max_stack)
+				task->func_stack[curr->depth].addr = curr->addr;
 			continue;
+		}
 
 		sess = find_task_session(sessions, task->t, curr->time);
 
@@ -1890,6 +1903,53 @@ static bool convert_perf_event(struct uftrace_task_reader *task, struct uftrace_
 	}
 }
 
+/*
+ * apply_existing_fstack_filter - reconstruct filter state for pre-range frames
+ *
+ * When time_range.start is set, ENTRY records before the range are skipped so
+ * fstack_entry() is never called for them.  This function mirrors what
+ * fstack_entry() would have done: it walks the pre-range frames whose
+ * addresses were saved by get_task_ustack() and updates in_count / out_count
+ * and the per-frame FSTACK_FL_* flags so that filters like -F work correctly
+ * for functions called within the time range.
+ */
+static void apply_existing_fstack_filter(struct uftrace_task_reader *task,
+					 struct uftrace_record *rstack)
+{
+	struct uftrace_session_link *sessions = &task->h->sessions;
+	struct uftrace_fstack *fstack;
+	struct uftrace_session *sess;
+	int i;
+
+	sess = find_task_session(sessions, task->t, rstack->time);
+	if (!sess)
+		return;
+
+	for (i = 0; i < task->stack_count; i++) {
+		struct uftrace_trigger tr = {};
+
+		fstack = fstack_get(task, i);
+		if (fstack == NULL || fstack->addr == 0)
+			continue;
+
+		uftrace_match_filter(fstack->addr, &sess->filter_info, &tr);
+
+		if (tr.flags & TRIGGER_FL_FILTER) {
+			if (tr.fmode == FILTER_MODE_IN) {
+				task->filter.in_count++;
+				fstack->flags |= FSTACK_FL_FILTERED;
+			}
+			else {
+				task->filter.out_count++;
+				fstack->flags |= FSTACK_FL_NOTRACE | FSTACK_FL_NORECORD;
+			}
+		}
+		else if (fstack_get_filter_mode() == FILTER_MODE_IN && task->filter.in_count == 0) {
+			fstack->flags |= FSTACK_FL_NORECORD;
+		}
+	}
+}
+
 static void fstack_account_time(struct uftrace_task_reader *task)
 {
 	struct uftrace_fstack *fstack;
@@ -1908,8 +1968,25 @@ static void fstack_account_time(struct uftrace_task_reader *task)
 	if (!task->fstack_set) {
 		/* inherit stack count after [v]fork() or recover from lost */
 		task->stack_count = rstack->depth;
-		if (rstack->type == UFTRACE_EXIT)
+		if (rstack->type == UFTRACE_EXIT) {
 			task->stack_count++;
+
+			/*
+			 * Some tracers (e.g. the QEMU plugin) record EXIT with
+			 * depth = ENTRY_depth - 1 because they decrement the
+			 * depth counter before writing the EXIT record, whereas
+			 * mcount-based instrumentation uses the same depth for
+			 * both ENTRY and EXIT.
+			 *
+			 * Note: a fix for the QEMU plugin has been reported and merged
+			 * (https://gitlab.com/qemu-project/qemu/-/commit/48221e3716)
+			 * but until it is widely adopted, keep this heuristic to
+			 * handle existing recorded data.
+			 */
+			if (task->func_stack && task->stack_count < task->h->hdr.max_stack &&
+			    task->func_stack[task->stack_count].addr == rstack->addr)
+				task->stack_count++;
+		}
 
 		task->fstack_set = true;
 
@@ -1950,6 +2027,10 @@ static void fstack_account_time(struct uftrace_task_reader *task)
 				fstack->valid = true;
 			}
 		}
+
+		/* Reconstruct filter state for frames entered before time_range.start. */
+		if (task->func_stack)
+			apply_existing_fstack_filter(task, rstack);
 
 		task->filter.depth = task->h->depth;
 	}
