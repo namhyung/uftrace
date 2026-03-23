@@ -77,7 +77,7 @@ RECORD 옵션
 
 \--clock=*CLOCK*
 :   타임스탬프를 읽는 클럭 소스를 설정한다.  *CLOCK* 은 'mono', 'mono_raw',
-    'boot' 중의 하나로 설정 가능하고, 기본 설정은 'mono' 이다.
+    'boot', 'realtime' 중의 하나로 설정 가능하고, 기본 설정은 'mono' 이다.
 
 \--host=*HOST*
 :   파일에 쓰지 않고, 주어진 호스트에게 추적 데이터를 네트워크 상으로 전송한다.

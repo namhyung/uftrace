@@ -387,6 +387,7 @@ static const struct {
 	{ "mono", CLOCK_MONOTONIC },
 	{ "mono_raw", CLOCK_MONOTONIC_RAW },
 	{ "boot", CLOCK_BOOTTIME },
+	{ "realtime", CLOCK_REALTIME },
 };
 
 void setup_clock_id(const char *clock_str)

@@ -71,7 +71,8 @@ RECORD OPTIONS
 
 \--clock=*CLOCK*
 :   Set clock source for timestamp recording.
-    *CLOCK* can be one of 'mono', 'mono_raw', or 'boot'.  Default is 'mono'.
+    *CLOCK* can be one of 'mono', 'mono_raw', 'boot' or 'realtime'.
+    Default is 'mono'.
 
 \--host=*HOST*
 :   Send trace data to given host via the network, not writing to files.
