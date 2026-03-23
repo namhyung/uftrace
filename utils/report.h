@@ -7,6 +7,8 @@
 #include "uftrace.h"
 #include "utils/rbtree.h"
 
+#define CPU_STR_MAX_LEN 20
+
 enum avg_mode {
 	AVG_NONE,
 	AVG_TOTAL,
@@ -33,6 +35,8 @@ struct uftrace_report_node {
 	struct report_time_stat self;
 	struct uftrace_dbg_loc *loc;
 	uint64_t call;
+	uint64_t *cpu_mask;
+	int nr_cpus;
 	struct rb_node name_link;
 	struct rb_node sort_link;
 	unsigned size;
@@ -77,5 +81,9 @@ void report_sort_tasks(struct uftrace_data *handle, struct rb_root *name_root,
 
 void setup_report_field(struct list_head *output_fields, struct uftrace_opts *opts,
 			enum avg_mode avg_mode);
+
+int make_cpu_str(uint64_t *mask, int nr_cpus, char *buf, int bufsize, char sep);
+void set_cpu_field_width(int width);
+int report_calc_cpu_width(struct rb_root *root);
 
 #endif /* UFTRACE_REPORT_H */

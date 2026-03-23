@@ -62,6 +62,7 @@ struct uftrace_task_reader {
 	int column_index;
 	int event_color;
 	int sched_cpu;
+	int current_cpu;
 	enum uftrace_fstack_context ctx;
 	uint64_t timestamp;
 	uint64_t timestamp_last;
