@@ -1086,7 +1086,8 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 		break;
 
 	case OPT_clock:
-		if (strcmp(arg, "mono") && strcmp(arg, "mono_raw") && strcmp(arg, "boot")) {
+		if (strcmp(arg, "mono") && strcmp(arg, "mono_raw") && strcmp(arg, "boot") &&
+		    strcmp(arg, "realtime")) {
 			pr_use("invalid clock source: '%s' "
 			       "(force to use 'mono')\n",
 			       arg);

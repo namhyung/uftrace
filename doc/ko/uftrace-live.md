@@ -154,7 +154,7 @@ RECORD 옵션
 
 \--clock=*CLOCK*
 :   타임스탬프를 읽는 클럭 소스를 설정한다.  *CLOCK* 은 'mono', 'mono_raw',
-    'boot' 중의 하나로 설정 가능하고, 기본 설정은 'mono' 이다.
+    'boot', 'realtime' 중의 하나로 설정 가능하고, 기본 설정은 'mono' 이다.
 
 \--signal=*TRG*
 :   함수가 아닌 선택한 시그널에 트리거를 설정한다.

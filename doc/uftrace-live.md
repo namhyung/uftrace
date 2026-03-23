@@ -149,7 +149,8 @@ RECORD OPTIONS
 
 \--clock=*CLOCK*
 :   Set clock source for timestamp recording.
-    *CLOCK* can be one of 'mono', 'mono_raw', or 'boot'.  Default is 'mono'.
+    *CLOCK* can be one of 'mono', 'mono_raw', 'boot' or 'realtime'.
+    Default is 'mono'.
 
 \--signal=*TRG*
 :   Set trigger on selected signals rather than functions.  But there are
