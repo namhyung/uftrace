@@ -1548,4 +1548,52 @@ TEST_CASE(report_diff)
 	return TEST_OK;
 }
 
+TEST_CASE(report_cpu_str)
+{
+	char buf[64];
+	uint64_t mask[2];
+
+	pr_dbg("null mask returns '-'\n");
+	TEST_EQ(make_cpu_str(NULL, 0, buf, sizeof(buf), ','), 1);
+	TEST_STREQ(buf, "-");
+
+	pr_dbg("single CPU 0\n");
+	mask[0] = 0x1UL;
+	TEST_EQ(make_cpu_str(mask, 1, buf, sizeof(buf), ','), 1);
+	TEST_STREQ(buf, "0");
+
+	pr_dbg("two adjacent CPUs rendered individually (no range)\n");
+	mask[0] = 0x3UL; /* CPUs 0,1 */
+	TEST_EQ(make_cpu_str(mask, 2, buf, sizeof(buf), ','), 3);
+	TEST_STREQ(buf, "0,1");
+
+	pr_dbg("range of 3+ CPUs compressed\n");
+	mask[0] = 0xFUL; /* CPUs 0-3 */
+	TEST_EQ(make_cpu_str(mask, 4, buf, sizeof(buf), ','), 3);
+	TEST_STREQ(buf, "0-3");
+
+	pr_dbg("non-consecutive CPUs\n");
+	mask[0] = 0x15UL; /* CPUs 0,2,4 */
+	TEST_EQ(make_cpu_str(mask, 5, buf, sizeof(buf), ','), 5);
+	TEST_STREQ(buf, "0,2,4");
+
+	pr_dbg("large CPU number (CPU 63)\n");
+	mask[0] = 1ULL << 63;
+	TEST_EQ(make_cpu_str(mask, 64, buf, sizeof(buf), ','), 2);
+	TEST_STREQ(buf, "63");
+
+	pr_dbg("CSV separator\n");
+	mask[0] = 0x15UL; /* CPUs 0,2,4 */
+	make_cpu_str(mask, 5, buf, sizeof(buf), '/');
+	TEST_STREQ(buf, "0/2/4");
+
+	pr_dbg("truncation with ellipsis\n");
+	/* CPUs 0,2,4,6,8 - with bufsize=11 (width=10) */
+	mask[0] = 0x155UL;
+	make_cpu_str(mask, 9, buf, 11, ',');
+	TEST_STREQ(buf, "0,2...(+3)");
+
+	return TEST_OK;
+}
+
 #endif /* UNIT_TEST */
