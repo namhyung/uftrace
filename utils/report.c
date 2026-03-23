@@ -1153,6 +1153,11 @@ void set_cpu_field_width(int width)
 	cpu_field_width = width;
 }
 
+int get_cpu_field_width(void)
+{
+	return cpu_field_width;
+}
+
 int report_calc_cpu_width(struct rb_root *root)
 {
 	struct uftrace_report_node *node;

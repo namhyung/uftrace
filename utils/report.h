@@ -84,6 +84,7 @@ void setup_report_field(struct list_head *output_fields, struct uftrace_opts *op
 
 int make_cpu_str(uint64_t *mask, int nr_cpus, char *buf, int bufsize, char sep);
 void set_cpu_field_width(int width);
+int get_cpu_field_width(void);
 int report_calc_cpu_width(struct rb_root *root);
 
 #endif /* UFTRACE_REPORT_H */
