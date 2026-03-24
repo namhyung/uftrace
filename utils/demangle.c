@@ -1706,12 +1706,20 @@ static char *demangle_simple(char *str)
 		.len = strlen(str),
 		.first_name = true,
 	};
-	bool has_prefix = false;
+	static const char *demangle_prefixes[] = {
+		"_GLOBAL__sub_I_",
+		"__device_stub_",
+	};
+	size_t prefix_idx = 0;
 
-	if (!strncmp(str, "_GLOBAL__sub_I_", 15)) {
-		has_prefix = true;
-		dd.old += 15;
-		dd.len -= 15;
+	for (; prefix_idx < ARRAY_SIZE(demangle_prefixes); prefix_idx++) {
+		const size_t len = strlen(demangle_prefixes[prefix_idx]);
+
+		if (strncmp(demangle_prefixes[prefix_idx], str, len) == 0) {
+			dd.old += len;
+			dd.len -= len;
+			break;
+		}
 	}
 
 	/* a mangled name should start with "_Z" */
@@ -1736,10 +1744,10 @@ static char *demangle_simple(char *str)
 		}
 	}
 
-	if (has_prefix) {
+	if (prefix_idx < ARRAY_SIZE(demangle_prefixes)) {
 		char *p = NULL;
 
-		xasprintf(&p, "_GLOBAL__sub_I_%s", dd.new);
+		xasprintf(&p, "%s%s", demangle_prefixes[prefix_idx], dd.new);
 		free(dd.new);
 		dd.new = p;
 	}
@@ -1952,6 +1960,8 @@ TEST_CASE(demangle_simple8)
 	DEMANGLE_TEST(
 		"_ZTCNSt7__cxx1119basic_istringstreamIwSt11char_traitsIwESaIwEEE0_St13basic_istreamIwS2_E",
 		"__construction_vtable__std::__cxx11::basic_istringstream::std::std::allocator");
+	DEMANGLE_TEST("__device_stub__Z13mul_mat_vec_qIL9ggml_type13ELi2EEvPKvS2_Pfiiii",
+		      "__device_stub_mul_mat_vec_q");
 
 	return TEST_OK;
 }
