@@ -1019,6 +1019,7 @@ static int dd_type(struct demangle_data *dd)
 	char cv_qual[] = "rVK"; /* restrict, volatile, const */
 	char prefix[] = "PROCG"; /* pointer, references, complex, ... */
 	char D_types[] = "defhisacnu";
+	char D_bit_types[] = "FBU";
 	char scue[] = "sue"; /* struct, class, union, enum */
 	int done = 0;
 	int ret = -1;
@@ -1073,6 +1074,20 @@ static int dd_type(struct demangle_data *dd)
 			if (strchr(D_types, c)) {
 				dd_consume_n(dd, 2);
 				ret = 0;
+			}
+			else if (strchr(D_bit_types, c)) {
+				dd_consume_n(dd, 2);
+				/* bitwise int/float type: DF64_ */
+				while (!dd_eof(dd) && isdigit(dd_curr(dd)))
+					dd_consume(dd);
+				c = dd_curr(dd);
+				if (c == '_' || c == 'x' || c == 'b') {
+					dd_consume(dd);
+					ret = 0;
+				}
+				else {
+					ret = -1;
+				}
 			}
 			else if (c == 'p') {
 				/* pack expansion */
@@ -1940,6 +1955,7 @@ TEST_CASE(demangle_simple7)
 	DEMANGLE_TEST("_ZGVNSt7__cxx117collateIcE2idE",
 		      "__guard_variable__std::__cxx11::collate::id");
 	DEMANGLE_TEST("_ZNSbIwSt11char_traitsIwESaIwEE4nposE", "std::basic_string::npos");
+	DEMANGLE_TEST("_ZTSPDF32_", "__typeinfo__");
 
 	return TEST_OK;
 }
