@@ -1016,8 +1016,8 @@ static int dd_vector_type(struct demangle_data *dd)
 static int dd_type(struct demangle_data *dd)
 {
 	unsigned i;
-	char cv_qual[] = "rVK";
-	char prefix[] = "PROCG";
+	char cv_qual[] = "rVK"; /* restrict, volatile, const */
+	char prefix[] = "PROCG"; /* pointer, references, complex, ... */
 	char D_types[] = "defhisacnu";
 	char scue[] = "sue"; /* struct, class, union, enum */
 	int done = 0;
