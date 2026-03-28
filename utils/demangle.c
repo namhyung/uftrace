@@ -223,7 +223,7 @@ static const struct {
 	{ { 'o', 'o' }, "||" },	       { { 'p', 'p' }, "++" },	   { { 'm', 'm' }, "--" },
 	{ { 'c', 'm' }, "," },	       { { 'p', 'm' }, "->*" },	   { { 'p', 't' }, "->" },
 	{ { 'c', 'l' }, "()" },	       { { 'i', 'x' }, "[]" },	   { { 'q', 'u' }, "?" },
-	{ { 'c', 'v' }, "(cast)" },    { { 'l', 'i' }, "\"\"" },
+	{ { 'c', 'v' }, "(cast)" },    { { 'l', 'i' }, "\"\"" },   { { 's', 's' }, "<=>" },
 };
 
 static const struct {
@@ -1016,9 +1016,10 @@ static int dd_vector_type(struct demangle_data *dd)
 static int dd_type(struct demangle_data *dd)
 {
 	unsigned i;
-	char cv_qual[] = "rVK";
-	char prefix[] = "PROCG";
+	char cv_qual[] = "rVK"; /* restrict, volatile, const */
+	char prefix[] = "PROCG"; /* pointer, references, complex, ... */
 	char D_types[] = "defhisacnu";
+	char D_bit_types[] = "FBU";
 	char scue[] = "sue"; /* struct, class, union, enum */
 	int done = 0;
 	int ret = -1;
@@ -1074,6 +1075,20 @@ static int dd_type(struct demangle_data *dd)
 				dd_consume_n(dd, 2);
 				ret = 0;
 			}
+			else if (strchr(D_bit_types, c)) {
+				dd_consume_n(dd, 2);
+				/* bitwise int/float type: DF64_ */
+				while (!dd_eof(dd) && isdigit(dd_curr(dd)))
+					dd_consume(dd);
+				c = dd_curr(dd);
+				if (c == '_' || c == 'x' || c == 'b') {
+					dd_consume(dd);
+					ret = 0;
+				}
+				else {
+					ret = -1;
+				}
+			}
 			else if (c == 'p') {
 				/* pack expansion */
 				dd_consume_n(dd, 2);
@@ -1083,8 +1098,30 @@ static int dd_type(struct demangle_data *dd)
 				dd_vector_type(dd);
 				continue;
 			}
-			else if (c == 't' || c == 'T')
+			else if (c == 't' || c == 'T') {
 				ret = dd_decltype(dd);
+			}
+			else if (c == 'x' || c == 'o') {
+				/* transaction-safe or noexcept */
+				dd_consume_n(dd, 2);
+				continue;
+			}
+			else if (c == 'O') {
+				/* noexcept? */
+				dd_consume_n(dd, 2);
+				if (dd_expression(dd) < 0)
+					return -1;
+				__DD_DEBUG_CONSUME(dd, 'E');
+				continue;
+			}
+			else if (c == 'w') {
+				/* throw */
+				dd_consume_n(dd, 2);
+				while (dd_type(dd) == 0)
+					continue;
+				__DD_DEBUG_CONSUME(dd, 'E');
+				continue;
+			}
 			done = 1;
 		}
 		else if (c == 'S') {
@@ -1477,6 +1514,74 @@ out:
 	return 0;
 }
 
+/*
+ * From GCC libiberty cp-demangle.c
+ *
+ * <template-head> ::= <template-head>? <template-parm>
+ * <template-parm> ::= Ty
+ *                 ::= Tn <type>
+ *                 ::= Tt <template-head> E
+ *                 ::= Tp <template-parm>
+ */
+static int dd_template_head(struct demangle_data *dd);
+
+static int dd_template_parm(struct demangle_data *dd)
+{
+	char c = dd_peek(dd, 1);
+
+	if (dd_curr(dd) != 'T')
+		return -1;
+
+	if (c == 'y') {
+		/* typename */
+		dd_consume_n(dd, 2);
+		return 0;
+	}
+
+	if (c == 'n') {
+		/* non-type */
+		dd_consume_n(dd, 2);
+
+		if (dd_type(dd) < 0)
+			return -1;
+	}
+
+	if (c == 't') {
+		/* template */
+		dd_consume_n(dd, 2);
+
+		if (dd_template_head(dd) < 0)
+			DD_DEBUG(dd, "template head", 0);
+
+		DD_DEBUG_CONSUME(dd, 'E');
+		return 0;
+	}
+
+	if (c == 'p') {
+		/* pack */
+		dd_consume_n(dd, 2);
+
+		if (dd_template_parm(dd) < 0) {
+			return -1;
+		}
+
+		return 0;
+	}
+
+	return -1;
+}
+
+static int dd_template_head(struct demangle_data *dd)
+{
+	if (dd_curr(dd) != 'T')
+		return -1;
+
+	while (dd_template_parm(dd) == 0)
+		continue;
+
+	return 0;
+}
+
 static int dd_unqualified_name(struct demangle_data *dd)
 {
 	char c0 = dd_curr(dd);
@@ -1505,6 +1610,8 @@ static int dd_unqualified_name(struct demangle_data *dd)
 
 			/* closure type name (or lambda) */
 			dd_consume_n(dd, 2);
+
+			dd_template_head(dd); /* optional */
 
 			dd->level++;
 			while (dd_curr(dd) != 'E') {
@@ -1706,12 +1813,20 @@ static char *demangle_simple(char *str)
 		.len = strlen(str),
 		.first_name = true,
 	};
-	bool has_prefix = false;
+	static const char *demangle_prefixes[] = {
+		"_GLOBAL__sub_I_",
+		"__device_stub_",
+	};
+	size_t prefix_idx = 0;
 
-	if (!strncmp(str, "_GLOBAL__sub_I_", 15)) {
-		has_prefix = true;
-		dd.old += 15;
-		dd.len -= 15;
+	for (; prefix_idx < ARRAY_SIZE(demangle_prefixes); prefix_idx++) {
+		const size_t len = strlen(demangle_prefixes[prefix_idx]);
+
+		if (strncmp(demangle_prefixes[prefix_idx], str, len) == 0) {
+			dd.old += len;
+			dd.len -= len;
+			break;
+		}
 	}
 
 	/* a mangled name should start with "_Z" */
@@ -1736,10 +1851,10 @@ static char *demangle_simple(char *str)
 		}
 	}
 
-	if (has_prefix) {
+	if (prefix_idx < ARRAY_SIZE(demangle_prefixes)) {
 		char *p = NULL;
 
-		xasprintf(&p, "_GLOBAL__sub_I_%s", dd.new);
+		xasprintf(&p, "%s%s", demangle_prefixes[prefix_idx], dd.new);
 		free(dd.new);
 		dd.new = p;
 	}
@@ -1830,6 +1945,12 @@ TEST_CASE(demangle_simple2)
 		      "IS6_IS1_ISsS4_EEEEDTcl12_S_constructfp_fp0_"
 		      "spcl7forwardIT0_Efp1_EEERS7_PT_DpOSB_",
 		      "std::allocator_traits::construct");
+	DEMANGLE_TEST("_ZSt16__introsort_loopIN9__gnu_cxx17__normal_iteratorIPNSt6chrono"
+		      "14time_zone_linkESt6vectorIS3_SaIS3_EEEElNS0_5__ops15_Iter_comp_iter"
+		      "IZNSt6ranges8__detail16__make_comp_projINSB_4lessE"
+		      "MS3_KDoFSt17basic_string_viewIcSt11char_traitsIcEEvEEE"
+		      "DaRT_RT0_EUlOSL_OSN_E_EEEvSL_SL_SN_T1_",
+		      "std::__introsort_loop");
 
 	return TEST_OK;
 }
@@ -1932,6 +2053,12 @@ TEST_CASE(demangle_simple7)
 	DEMANGLE_TEST("_ZGVNSt7__cxx117collateIcE2idE",
 		      "__guard_variable__std::__cxx11::collate::id");
 	DEMANGLE_TEST("_ZNSbIwSt11char_traitsIwESaIwEE4nposE", "std::basic_string::npos");
+	DEMANGLE_TEST("_ZTSPDF32_", "__typeinfo__");
+	DEMANGLE_TEST(
+		"_ZZNSt6chrono12_GLOBAL__N_114do_locate_zoneERKSt6vectorINS_9time_zoneESaIS2_EE"
+		"RKS1_INS_14time_zone_linkESaIS7_EESt17basic_string_viewIcSt11char_traitsIcEEE"
+		"NKUlTyRKT_SF_E_clIS9_EEDaSI_SF_.isra.0",
+		"std::chrono::_GLOBAL__N_1::do_locate_zone::$_0::operator()");
 
 	return TEST_OK;
 }
@@ -1952,6 +2079,8 @@ TEST_CASE(demangle_simple8)
 	DEMANGLE_TEST(
 		"_ZTCNSt7__cxx1119basic_istringstreamIwSt11char_traitsIwESaIwEEE0_St13basic_istreamIwS2_E",
 		"__construction_vtable__std::__cxx11::basic_istringstream::std::std::allocator");
+	DEMANGLE_TEST("__device_stub__Z13mul_mat_vec_qIL9ggml_type13ELi2EEvPKvS2_Pfiiii",
+		      "__device_stub_mul_mat_vec_q");
 
 	return TEST_OK;
 }
