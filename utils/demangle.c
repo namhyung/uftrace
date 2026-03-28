@@ -1098,8 +1098,30 @@ static int dd_type(struct demangle_data *dd)
 				dd_vector_type(dd);
 				continue;
 			}
-			else if (c == 't' || c == 'T')
+			else if (c == 't' || c == 'T') {
 				ret = dd_decltype(dd);
+			}
+			else if (c == 'x' || c == 'o') {
+				/* transaction-safe or noexcept */
+				dd_consume_n(dd, 2);
+				continue;
+			}
+			else if (c == 'O') {
+				/* noexcept? */
+				dd_consume_n(dd, 2);
+				if (dd_expression(dd) < 0)
+					return -1;
+				__DD_DEBUG_CONSUME(dd, 'E');
+				continue;
+			}
+			else if (c == 'w') {
+				/* throw */
+				dd_consume_n(dd, 2);
+				while (dd_type(dd) == 0)
+					continue;
+				__DD_DEBUG_CONSUME(dd, 'E');
+				continue;
+			}
 			done = 1;
 		}
 		else if (c == 'S') {
@@ -1923,6 +1945,12 @@ TEST_CASE(demangle_simple2)
 		      "IS6_IS1_ISsS4_EEEEDTcl12_S_constructfp_fp0_"
 		      "spcl7forwardIT0_Efp1_EEERS7_PT_DpOSB_",
 		      "std::allocator_traits::construct");
+	DEMANGLE_TEST("_ZSt16__introsort_loopIN9__gnu_cxx17__normal_iteratorIPNSt6chrono"
+		      "14time_zone_linkESt6vectorIS3_SaIS3_EEEElNS0_5__ops15_Iter_comp_iter"
+		      "IZNSt6ranges8__detail16__make_comp_projINSB_4lessE"
+		      "MS3_KDoFSt17basic_string_viewIcSt11char_traitsIcEEvEEE"
+		      "DaRT_RT0_EUlOSL_OSN_E_EEEvSL_SL_SN_T1_",
+		      "std::__introsort_loop");
 
 	return TEST_OK;
 }
