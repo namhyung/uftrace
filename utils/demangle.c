@@ -1492,6 +1492,74 @@ out:
 	return 0;
 }
 
+/*
+ * From GCC libiberty cp-demangle.c
+ *
+ * <template-head> ::= <template-head>? <template-parm>
+ * <template-parm> ::= Ty
+ *                 ::= Tn <type>
+ *                 ::= Tt <template-head> E
+ *                 ::= Tp <template-parm>
+ */
+static int dd_template_head(struct demangle_data *dd);
+
+static int dd_template_parm(struct demangle_data *dd)
+{
+	char c = dd_peek(dd, 1);
+
+	if (dd_curr(dd) != 'T')
+		return -1;
+
+	if (c == 'y') {
+		/* typename */
+		dd_consume_n(dd, 2);
+		return 0;
+	}
+
+	if (c == 'n') {
+		/* non-type */
+		dd_consume_n(dd, 2);
+
+		if (dd_type(dd) < 0)
+			return -1;
+	}
+
+	if (c == 't') {
+		/* template */
+		dd_consume_n(dd, 2);
+
+		if (dd_template_head(dd) < 0)
+			DD_DEBUG(dd, "template head", 0);
+
+		DD_DEBUG_CONSUME(dd, 'E');
+		return 0;
+	}
+
+	if (c == 'p') {
+		/* pack */
+		dd_consume_n(dd, 2);
+
+		if (dd_template_parm(dd) < 0) {
+			return -1;
+		}
+
+		return 0;
+	}
+
+	return -1;
+}
+
+static int dd_template_head(struct demangle_data *dd)
+{
+	if (dd_curr(dd) != 'T')
+		return -1;
+
+	while (dd_template_parm(dd) == 0)
+		continue;
+
+	return 0;
+}
+
 static int dd_unqualified_name(struct demangle_data *dd)
 {
 	char c0 = dd_curr(dd);
@@ -1520,6 +1588,8 @@ static int dd_unqualified_name(struct demangle_data *dd)
 
 			/* closure type name (or lambda) */
 			dd_consume_n(dd, 2);
+
+			dd_template_head(dd); /* optional */
 
 			dd->level++;
 			while (dd_curr(dd) != 'E') {
@@ -1956,6 +2026,11 @@ TEST_CASE(demangle_simple7)
 		      "__guard_variable__std::__cxx11::collate::id");
 	DEMANGLE_TEST("_ZNSbIwSt11char_traitsIwESaIwEE4nposE", "std::basic_string::npos");
 	DEMANGLE_TEST("_ZTSPDF32_", "__typeinfo__");
+	DEMANGLE_TEST(
+		"_ZZNSt6chrono12_GLOBAL__N_114do_locate_zoneERKSt6vectorINS_9time_zoneESaIS2_EE"
+		"RKS1_INS_14time_zone_linkESaIS7_EESt17basic_string_viewIcSt11char_traitsIcEEE"
+		"NKUlTyRKT_SF_E_clIS9_EEDaSI_SF_.isra.0",
+		"std::chrono::_GLOBAL__N_1::do_locate_zone::$_0::operator()");
 
 	return TEST_OK;
 }
