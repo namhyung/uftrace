@@ -8,6 +8,7 @@
 #include "uftrace.h"
 #include "utils/argspec.h"
 #include "utils/auto-args.h"
+#include "utils/demangle.h"
 #include "utils/dwarf.h"
 #include "utils/filter.h"
 #include "utils/list.h"

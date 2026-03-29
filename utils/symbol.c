@@ -20,6 +20,7 @@
 #define PR_DOMAIN DBG_SYMBOL
 
 #include "uftrace.h"
+#include "utils/demangle.h"
 #include "utils/filter.h"
 #include "utils/rbtree.h"
 #include "utils/symbol.h"

@@ -20,6 +20,7 @@
 
 #include "libmcount/mcount.h"
 #include "uftrace.h"
+#include "utils/demangle.h"
 #include "utils/filter.h"
 #include "utils/kernel.h"
 #include "utils/list.h"
