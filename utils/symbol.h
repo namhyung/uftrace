@@ -221,40 +221,6 @@ void setup_skip_idx(struct uftrace_sym_info *sinfo);
 void destroy_skip_idx(void);
 bool should_skip_idx(unsigned idx);
 
-enum symbol_demangler {
-	DEMANGLE_ERROR = -2,
-	DEMANGLE_NOT_SUPPORTED,
-	DEMANGLE_NONE,
-	DEMANGLE_SIMPLE,
-	DEMANGLE_FULL,
-};
-
-extern enum symbol_demangler demangler;
-
-char *demangle(char *str);
-
-#ifdef HAVE_CXA_DEMANGLE
-/* copied from /usr/include/c++/4.7.2/cxxabi.h */
-extern char *__cxa_demangle(const char *mangled_name, char *output_buffer, size_t *length,
-			    int *status);
-
-static inline bool support_full_demangle(void)
-{
-	return true;
-}
-#else
-static inline bool support_full_demangle(void)
-{
-	return false;
-}
-
-static inline char *demangle_full(char *str)
-{
-	pr_warn("full demangle is not supported\n");
-	return str;
-}
-#endif /* HAVE_CXA_DEMANGLE */
-
 int read_build_id(const char *filename, char *buf, int len);
 
 #endif /* UFTRACE_SYMBOL_H */

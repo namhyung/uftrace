@@ -9,6 +9,7 @@
 
 #include "uftrace.h"
 #include "utils/arch.h"
+#include "utils/demangle.h"
 #include "utils/symbol.h"
 #include "utils/utils.h"
 

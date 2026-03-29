@@ -25,6 +25,7 @@
 #include "libmcount/internal.h"
 #include "libmcount/mcount.h"
 #include "mcount-arch.h"
+#include "utils/demangle.h"
 #include "utils/filter.h"
 #include "utils/script.h"
 #include "utils/socket.h"

@@ -31,6 +31,7 @@
 #define PR_FMT "uftrace"
 
 #include "uftrace.h"
+#include "utils/demangle.h"
 #include "utils/script.h"
 #include "utils/utils.h"
 #include "version.h"
