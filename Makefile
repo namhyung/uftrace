@@ -186,17 +186,18 @@ UFTRACE_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(UFTRACE_SRCS))
 UFTRACE_OBJS_VERSION := $(objdir)/cmds/script.o $(objdir)/cmds/tui.o
 UFTRACE_OBJS_VERSION += $(objdir)/cmds/dump.o $(objdir)/cmds/info.o
 
-DEMANGLER_SRCS := $(srcdir)/misc/demangler.c $(srcdir)/utils/demangle.c
+DEMANGLER_SRCS := $(srcdir)/misc/demangler.c
 DEMANGLER_SRCS += $(srcdir)/utils/debug.c $(srcdir)/utils/utils.c
+DEMANGLER_SRCS += $(wildcard $(srcdir)/utils/demangle*.c)
 DEMANGLER_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(DEMANGLER_SRCS))
 
 SYMBOLS_SRCS := $(srcdir)/misc/symbols.c $(srcdir)/utils/session.c
-SYMBOLS_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/rbtree.c
+SYMBOLS_SRCS += $(srcdir)/utils/rbtree.c $(srcdir)/utils/argspec.c
 SYMBOLS_SRCS += $(srcdir)/utils/utils.c $(srcdir)/utils/debug.c
 SYMBOLS_SRCS += $(srcdir)/utils/filter.c $(srcdir)/utils/dwarf.c
 SYMBOLS_SRCS += $(srcdir)/utils/auto-args.c $(srcdir)/utils/regs.c
-SYMBOLS_SRCS += $(srcdir)/utils/argspec.c
 SYMBOLS_SRCS += $(srcdir)/arch/$(ARCH)/common.c
+SYMBOLS_SRCS += $(wildcard $(srcdir)/utils/demangle*.c)
 SYMBOLS_SRCS += $(wildcard $(srcdir)/utils/symbol*.c)
 SYMBOLS_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(SYMBOLS_SRCS))
 
@@ -204,8 +205,9 @@ DBGINFO_SRCS := $(srcdir)/misc/dbginfo.c $(srcdir)/utils/dwarf.c
 DBGINFO_SRCS += $(srcdir)/utils/auto-args.c $(srcdir)/utils/regs.c
 DBGINFO_SRCS += $(srcdir)/utils/utils.c $(srcdir)/utils/debug.c
 DBGINFO_SRCS += $(srcdir)/utils/argspec.c $(srcdir)/utils/rbtree.c
-DBGINFO_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/filter.c
+DBGINFO_SRCS += $(srcdir)/utils/filter.c
 DBGINFO_SRCS += $(srcdir)/arch/$(ARCH)/common.c
+DBGINFO_SRCS += $(wildcard $(srcdir)/utils/demangle*.c)
 DBGINFO_SRCS += $(wildcard $(srcdir)/utils/symbol*.c)
 DBGINFO_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(DBGINFO_SRCS))
 
@@ -214,6 +216,7 @@ BENCH_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.o,$(BENCH_SRCS))
 
 PYTHON_SRCS := $(srcdir)/python/trace-python.c $(srcdir)/utils/debug.c
 PYTHON_SRCS += $(srcdir)/utils/utils.c $(srcdir)/utils/rbtree.c $(srcdir)/utils/shmem.c
+PYTHON_SRCS += $(wildcard $(srcdir)/utils/demangle*.c)
 PYTHON_SRCS += $(wildcard $(srcdir)/utils/symbol-*.c)
 PYTHON_OBJS := $(patsubst $(srcdir)/%.c,$(objdir)/%.oy,$(PYTHON_SRCS))
 
@@ -230,12 +233,12 @@ LIBMCOUNT_FAST_SINGLE_OBJS := $(patsubst $(objdir)/%.op,$(objdir)/%-fast-single.
 
 LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/debug.c $(srcdir)/utils/regs.c
 LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/rbtree.c $(srcdir)/utils/filter.c
-LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/demangle.c $(srcdir)/utils/utils.c
+LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/shmem.c $(srcdir)/utils/utils.c
 LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/script.c $(srcdir)/utils/script-python.c $(srcdir)/utils/script-luajit.c
 LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/auto-args.c $(srcdir)/utils/dwarf.c
 LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/hashmap.c $(srcdir)/utils/argspec.c
 LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/tracefs.c $(srcdir)/utils/socket.c
-LIBMCOUNT_UTILS_SRCS += $(srcdir)/utils/shmem.c
+LIBMCOUNT_UTILS_SRCS += $(wildcard $(srcdir)/utils/demangle*.c)
 LIBMCOUNT_UTILS_SRCS += $(wildcard $(srcdir)/utils/symbol*.c)
 LIBMCOUNT_UTILS_OBJS := $(patsubst $(srcdir)/utils/%.c,$(objdir)/libmcount/%.op,$(LIBMCOUNT_UTILS_SRCS))
 
