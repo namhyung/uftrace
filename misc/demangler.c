@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "uftrace.h"
+#include "utils/demangle.h"
 #include "utils/utils.h"
 #include "version.h"
 

@@ -14,6 +14,7 @@
 
 #include "mcount-arch.h"
 #include "uftrace.h"
+#include "utils/demangle.h"
 #include "utils/dwarf.h"
 #include "utils/filter.h"
 #include "utils/symbol.h"
