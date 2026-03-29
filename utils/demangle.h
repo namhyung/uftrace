@@ -166,6 +166,8 @@ static inline int dd_append_separator(struct demangle_data *dd, const char *str)
 	return 0;
 }
 
+char *demangle_rust_v0(char *str);
+
 /* main API for symbol name demangling */
 char *demangle(char *str);
 

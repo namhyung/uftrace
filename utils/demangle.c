@@ -1655,12 +1655,6 @@ static int dd_encoding(struct demangle_data *dd)
 	return 0;
 }
 
-/* TODO: implement demangling of Rust v0 mangling */
-static char *demangle_rust_v0(char *str)
-{
-	return xstrdup(str);
-}
-
 static char *demangle_simple(char *str)
 {
 	struct demangle_data dd = {
