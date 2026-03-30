@@ -137,7 +137,7 @@ static inline char __dd_consume(struct demangle_data *dd, const char *dbg)
 
 void dd_debug_print(struct demangle_data *dd);
 
-static inline int dd_append_len(struct demangle_data *dd, char *str, int size)
+static inline int dd_append_len(struct demangle_data *dd, const char *str, int size)
 {
 	if (dd->newpos + size >= dd->alloc) {
 		dd->alloc = ALIGN(dd->newpos + size + 1, 16);
@@ -152,12 +152,12 @@ static inline int dd_append_len(struct demangle_data *dd, char *str, int size)
 	return 0;
 }
 
-static inline int dd_append(struct demangle_data *dd, char *str)
+static inline int dd_append(struct demangle_data *dd, const char *str)
 {
 	return dd_append_len(dd, str, strlen(str));
 }
 
-static inline int dd_append_separator(struct demangle_data *dd, char *str)
+static inline int dd_append_separator(struct demangle_data *dd, const char *str)
 {
 	if (!dd->first_name)
 		dd_append(dd, str);
