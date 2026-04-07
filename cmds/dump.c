@@ -1594,12 +1594,7 @@ footer:
 
 static bool check_task_rstack(struct uftrace_task_reader *task, struct uftrace_opts *opts)
 {
-	struct uftrace_record *frs = task->rstack;
-
 	if (!fstack_check_opts(task, opts))
-		return false;
-
-	if (!check_time_range(&task->h->time_range, frs->time))
 		return false;
 
 	if (!fstack_check_filter(task))
@@ -1800,9 +1795,6 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct uftrace_opts *op
 
 		last_time = task->timestamp_last;
 
-		if (handle->time_range.stop && handle->time_range.stop < last_time)
-			last_time = handle->time_range.stop;
-
 		while (--task->stack_count >= 0) {
 			struct uftrace_fstack *fstack;
 			struct uftrace_session *fsess = handle->sessions.first;
@@ -1812,9 +1804,6 @@ static void do_dump_replay(struct uftrace_dump_ops *ops, struct uftrace_opts *op
 				continue;
 
 			if (fstack->addr == 0)
-				continue;
-
-			if (fstack->total_time > last_time)
 				continue;
 
 			fstack->total_time = last_time - fstack->total_time;
