@@ -98,6 +98,7 @@ enum color_setting {
 enum format_mode {
 	FORMAT_NORMAL,
 	FORMAT_HTML,
+	FORMAT_CSV,
 };
 
 #define COLOR_CODE_NORMAL '.'

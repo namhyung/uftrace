@@ -788,7 +788,10 @@ void report_sort_tasks(struct uftrace_data *handle, struct rb_root *name_root,
 	static void print_##_func(struct field_data *fd)                                           \
 	{                                                                                          \
 		struct uftrace_report_node *node = fd->arg;                                        \
-		print_time_unit(node->_field);                                                     \
+		if (format_mode == FORMAT_CSV)                                                     \
+			pr_out("%" PRIu64, node->_field);                                          \
+		else                                                                               \
+			print_time_unit(node->_field);                                             \
 	}                                                                                          \
 	FIELD_STRUCT(_id, _name, _func, _header, 10)
 
@@ -804,7 +807,10 @@ void report_sort_tasks(struct uftrace_data *handle, struct rb_root *name_root,
 	static void print_##_func(struct field_data *fd)                                           \
 	{                                                                                          \
 		struct uftrace_report_node *node = fd->arg;                                        \
-		pr_out("%10" PRIu64 "", node->_field);                                             \
+		if (format_mode == FORMAT_CSV)                                                     \
+			pr_out("%" PRIu64, node->_field);                                          \
+		else                                                                               \
+			pr_out("%10" PRIu64 "", node->_field);                                     \
 	}                                                                                          \
 	FIELD_STRUCT(_id, _name, _func, _header, 10)
 
@@ -812,7 +818,10 @@ void report_sort_tasks(struct uftrace_data *handle, struct rb_root *name_root,
 	static void print_##_func(struct field_data *fd)                                           \
 	{                                                                                          \
 		struct uftrace_report_node *node = fd->arg;                                        \
-		pr_out("%9.2f%%", node->_field);                                                   \
+		if (format_mode == FORMAT_CSV)                                                     \
+			pr_out("%.2f", node->_field);                                              \
+		else                                                                               \
+			pr_out("%9.2f%%", node->_field);                                           \
 	}                                                                                          \
 	FIELD_STRUCT(_id, _name, _func, _header, 10)
 

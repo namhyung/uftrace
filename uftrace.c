@@ -158,7 +158,7 @@ __used static const char uftrace_help[] =
 "      --flame-graph          Dump recorded data in FlameGraph format\n"
 "      --flat                 Use flat output format\n"
 "      --force                Trace even if executable is not instrumented\n"
-"      --format=FORMAT        Use FORMAT for output: normal, html (default: normal)\n"
+"      --format=FORMAT        Use FORMAT for output: normal, html, csv (default: normal)\n"
 "  -f, --output-fields=FIELD  Show FIELDs in the replay or graph output\n"
 "  -F, --filter=FUNC          Only trace those FUNCs\n"
 "  -g  --agent                Start an agent in mcount to listen to commands\n"
@@ -947,6 +947,9 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 			format_mode = FORMAT_HTML;
 			if (opts->color == COLOR_AUTO)
 				opts->color = COLOR_ON;
+		}
+		else if (!strcmp(arg, "csv")) {
+			format_mode = FORMAT_CSV;
 		}
 		else {
 			pr_use("invalid format argument: %s\n", arg);

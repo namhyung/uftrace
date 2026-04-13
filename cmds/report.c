@@ -26,6 +26,44 @@ static void print_field(struct uftrace_report_node *node, int space)
 	print_field_data(&output_fields, &fd, space);
 }
 
+static bool print_csv_field(struct uftrace_report_node *node)
+{
+	struct field_data fd = {
+		.arg = node,
+	};
+	struct display_field *field;
+	bool first = true;
+
+	if (list_empty(&output_fields))
+		return false;
+
+	list_for_each_entry(field, &output_fields, list) {
+		pr_out("%s", first ? "" : ",");
+		field->print(&fd);
+		first = false;
+	}
+
+	return true;
+}
+
+static void print_csv_header(const char *postfix)
+{
+	struct display_field *field;
+	bool first = true;
+
+	if (list_empty(&output_fields)) {
+		pr_out("#%s\n", postfix);
+		return;
+	}
+
+	list_for_each_entry(field, &output_fields, list) {
+		pr_out("%s%s", first ? "#" : ",", field->header);
+		first = false;
+	}
+
+	pr_out(",%s\n", postfix);
+}
+
 static void insert_node(struct rb_root *root, struct uftrace_task_reader *task, char *symname,
 			struct uftrace_dbg_loc *loc)
 {
@@ -233,6 +271,19 @@ static void print_function(struct uftrace_report_node *node, void *unused, int s
 	pr_out("\n");
 }
 
+static void print_function_csv(struct uftrace_report_node *node, void *unused, int space)
+{
+	if (print_csv_field(node))
+		pr_out(",%s", node->name);
+	else
+		pr_out("%s", node->name);
+
+	if (node->loc)
+		pr_out(" [%s:%d]", node->loc->file->name, node->loc->line);
+
+	pr_out("\n");
+}
+
 static void print_line(struct list_head *output_fields, int space)
 {
 	struct display_field *field;
@@ -265,6 +316,12 @@ static void report_functions(struct uftrace_data *handle, struct uftrace_opts *o
 		return;
 
 	setup_report_field(&output_fields, opts, avg_mode);
+
+	if (format_mode == FORMAT_CSV) {
+		print_csv_header("Function");
+		print_and_delete(&sort_root, true, NULL, print_function_csv, field_space);
+		return;
+	}
 
 	print_header_align(&output_fields, "  ", "Function", field_space, ALIGN_RIGHT, false);
 	if (!list_empty(&output_fields)) {
@@ -364,6 +421,21 @@ static void print_task(struct uftrace_report_node *node, void *arg, int space)
 	pr_out("%-*s\n", TASK_COMM_LEN, t->comm);
 }
 
+static void print_task_csv(struct uftrace_report_node *node, void *arg, int space)
+{
+	int pid;
+	struct uftrace_task *t;
+	struct uftrace_data *handle = arg;
+
+	pid = strtol(node->name, NULL, 10);
+	t = find_task(&handle->sessions, pid);
+
+	if (print_csv_field(node))
+		pr_out(",%s\n", t->comm);
+	else
+		pr_out("%s\n", t->comm);
+}
+
 static void report_task(struct uftrace_data *handle, struct uftrace_opts *opts)
 {
 	struct uftrace_record *rstack;
@@ -415,6 +487,12 @@ static void report_task(struct uftrace_data *handle, struct uftrace_opts *opts)
 	report_sort_tasks(handle, &task_tree, &sort_tree);
 
 	setup_report_field(&output_fields, opts, avg_mode);
+
+	if (format_mode == FORMAT_CSV) {
+		print_csv_header("Task name");
+		print_and_delete(&sort_tree, true, handle, print_task_csv, field_space);
+		return;
+	}
 
 	print_header_align(&output_fields, "  ", "Task name", field_space, ALIGN_RIGHT, true);
 
@@ -469,6 +547,12 @@ static void report_diff(struct uftrace_data *handle, struct uftrace_opts *opts)
 	pr_out("#\n");
 
 	setup_report_field(&output_fields, opts, avg_mode);
+
+	if (format_mode == FORMAT_CSV) {
+		print_csv_header("Function");
+		print_and_delete(&diff_tree, true, NULL, print_function_csv, field_space);
+		goto out;
+	}
 
 	print_header_align(&output_fields, "  ", "Function", field_space, ALIGN_RIGHT, false);
 	if (!list_empty(&output_fields)) {

@@ -84,7 +84,7 @@ REPORT OPTIONS
 :   Show source location of each function if available.
 
 \--format=*TYPE*
-:   Show format style output. Currently, normal and html styles are supported.
+:   Show format style output. Currently, normal, html and csv styles are supported.
 
 
 COMMON OPTIONS
