@@ -788,25 +788,43 @@ static int parse_cond_action(char *action, struct uftrace_trigger *tr,
 {
 	const char *op_str[] = { "==", "!=", ">", ">=", "<", "<=" };
 	char *expr = action + 3;
-	char *pos;
-	int idx;
+	char *pos, *pos1;
+	char orig;
 	int op = -1;
+	int ret = -1;
 	long val;
+	struct uftrace_arg_spec *arg;
 
-	if (strncmp(expr, "arg", 3)) {
+	pos = strpbrk(expr, "!<=>");
+	if (pos == NULL) {
+		pr_use("cannot find condition op\n");
+		return -1;
+	}
+	/* parse_argspec() expects known suffices only */
+	orig = *pos;
+	*pos = '\0';
+
+	pos1 = pos - 1;
+	while (pos1 > expr && *pos1 == ' ')
+		*pos1-- = '\0';
+
+	arg = parse_argspec(expr, setting);
+	if (arg == NULL) {
 		pr_use("ignoring invalid arg: %s\n", expr);
 		return -1;
 	}
 
-	idx = strtol(expr + 3, &pos, 0);
-	if (idx < 1 || idx > 6) { /* don't support retval */
+	if (arg->idx < 1 || arg->idx > 6) { /* don't support retval */
 		pr_use("only support up to 6 argument for now\n");
-		return -1;
+		goto out;
 	}
 
-	while (*pos == ' ')
-		pos++;
+	if (arg->type != ARG_FMT_AUTO) {
+		pr_use("not supported argument type\n");
+		goto out;
+	}
 
+	*pos = orig;
 	/* reverse order match to find "<=" before "<" */
 	for (size_t k = ARRAY_SIZE(op_str) - 1; k < ARRAY_SIZE(op_str); k--) {
 		if (strncmp(pos, op_str[k], strlen(op_str[k])))
@@ -818,7 +836,7 @@ static int parse_cond_action(char *action, struct uftrace_trigger *tr,
 	}
 	if (op == -1) {
 		pr_use("ignoring invalid op: %.3s\n", pos);
-		return -1;
+		goto out;
 	}
 
 	while (*pos == ' ')
@@ -826,12 +844,16 @@ static int parse_cond_action(char *action, struct uftrace_trigger *tr,
 
 	val = strtol(pos, NULL, 0);
 
-	tr->cond.idx = idx;
+	tr->cond.idx = arg->idx;
 	tr->cond.op = op;
 	tr->cond.val = val;
 	tr->flags |= TRIGGER_FL_CONDITION;
 
-	return 0;
+	ret = 0;
+
+out:
+	free_arg_spec(arg);
+	return ret;
 }
 
 static int parse_clear_action(char *action, struct uftrace_trigger *tr,
