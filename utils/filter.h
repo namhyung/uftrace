@@ -81,6 +81,7 @@ enum filter_cond_op {
 	FILTER_OP_GE,
 	FILTER_OP_LT,
 	FILTER_OP_LE,
+	FILTER_OP_AND,
 };
 
 struct uftrace_filter_cond {

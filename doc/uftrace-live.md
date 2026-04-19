@@ -538,13 +538,13 @@ The BNF for trigger specification is as follows:
     <action>     :=  "depth="<num> | "backtrace" | "trace" | "trace_on" | "trace_off" |
                      "recover" | "color="<color> | "time="<time_spec> | "read="<read_spec> |
                      "finish" | "filter" | "notrace" | "hide" | "clear" [ "="<clear_spec> ] |
-		     "if:"<cond_spec>
+                     "if:"<cond_spec>
     <time_spec>  :=  <num> [ <time_unit> ]
     <time_unit>  :=  "ns" | "nsec" | "us" | "usec" | "ms" | "msec" | "s" | "sec" | "m" | "min"
     <read_spec>  :=  "proc/statm" | "page-fault" | "pmu-cycle" | "pmu-cache" | "pmu-branch"
     <clear_spec> :=  <action> | <action> "+" <action>
     <cond_spec>  :=  "arg"<num> <cond_op> <num>
-    <cond_op>    :=  "==" | "!=" | ">" | ">=" | "<" | "<="
+    <cond_op>    :=  "==" | "!=" | ">" | ">=" | "<" | "<=" | "&"
 
 The `depth` trigger is to change filter depth during execution of the function.
 It can be used to apply different filter depths for different functions.  And

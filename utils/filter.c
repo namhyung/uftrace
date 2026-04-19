@@ -39,7 +39,7 @@ static void snprintf_trigger_read(char *buf, size_t len, enum trigger_read_type 
 
 static void snprintf_trigger_cond(char *buf, size_t len, struct uftrace_filter_cond *cond)
 {
-	const char *op_str[] = { "==", "!=", ">", ">=", "<", "<=" };
+	const char *op_str[] = { "==", "!=", ">", ">=", "<", "<=", "&" };
 	const char *op = "??";
 
 	if (cond->op < (int)ARRAY_SIZE(op_str))
@@ -345,6 +345,11 @@ bool uftrace_eval_cond(struct uftrace_filter_cond *cond, union uftrace_arg_val *
 			return val->i <= cond->val.i;
 		else
 			return val->u <= cond->val.u;
+	case FILTER_OP_AND:
+		if (cond->type == COND_ARG_TYPE_SINT)
+			return val->i & cond->val.i;
+		else
+			return val->u & cond->val.u;
 	default:
 		return false;
 	}
@@ -821,7 +826,7 @@ static uint8_t convert_arg_condtype(struct uftrace_arg_spec *arg)
 static int parse_cond_action(char *action, struct uftrace_trigger *tr,
 			     struct uftrace_filter_setting *setting)
 {
-	const char *op_str[] = { "==", "!=", ">", ">=", "<", "<=" };
+	const char *op_str[] = { "==", "!=", ">", ">=", "<", "<=", "&" };
 	char *expr = action + 3;
 	char *pos, *pos1;
 	char orig;
@@ -829,7 +834,7 @@ static int parse_cond_action(char *action, struct uftrace_trigger *tr,
 	int ret = -1;
 	struct uftrace_arg_spec *arg;
 
-	pos = strpbrk(expr, "!<=>");
+	pos = strpbrk(expr, "!<=>&");
 	if (pos == NULL) {
 		pr_use("cannot find condition op\n");
 		return -1;
@@ -2743,6 +2748,7 @@ TEST_CASE(filter_setup_cond)
 	char val_str_ok4[] = "foo@filter,if:arg4 < 9876";
 	char val_str_ok5[] = "foo@filter,if:arg5/i32 == 9876";
 	char val_str_ok6[] = "foo@filter,if:arg6/x != 0x1234";
+	char val_str_ok7[] = "foo@filter,if:arg1/u & 0x1000";
 	char val_str_ng1[] = "foo@filter,if:name==1234"; /* named arg not supported */
 	char val_str_ng2[] = "foo@filter,if:fparg1==1234"; /* fparg not supported */
 	char val_str_ng3[] = "foo@filter,if:arg1~=1234"; /* op not supported */
@@ -2786,6 +2792,12 @@ TEST_CASE(filter_setup_cond)
 	TEST_EQ(tr.cond.idx, 6);
 	TEST_EQ(tr.cond.op, FILTER_OP_NE);
 	TEST_EQ(tr.cond.val.u, 0x1234);
+
+	pr_dbg("check filter cond: %s\n", val_str_ok7);
+	TEST_EQ(setup_trigger_action(val_str_ok7, &tr, NULL, 0, &setting), 0);
+	TEST_EQ(tr.cond.idx, 1);
+	TEST_EQ(tr.cond.op, FILTER_OP_AND);
+	TEST_EQ(tr.cond.val.u, 0x1000);
 
 	memset(&tr, 0, sizeof(tr));
 	/* suppress usage error messages */
@@ -2910,6 +2922,19 @@ TEST_CASE(filter_eval_cond)
 	TEST_EQ(uftrace_eval_cond(&cond, &val), false);
 	val.u = 9;
 	TEST_EQ(uftrace_eval_cond(&cond, &val), false);
+
+	pr_dbg("check filter cond: arg/x16 & 0x80\n");
+	cond.op = FILTER_OP_AND;
+	cond.val.u = 0x80;
+	cond.type = COND_ARG_TYPE_UINT;
+	cond.size = 2;
+
+	val.u = 0x7f;
+	TEST_EQ(uftrace_eval_cond(&cond, &val), false);
+	val.u = 0x80;
+	TEST_EQ(uftrace_eval_cond(&cond, &val), true);
+	val.u = 0x81;
+	TEST_EQ(uftrace_eval_cond(&cond, &val), true);
 
 	return TEST_OK;
 }
