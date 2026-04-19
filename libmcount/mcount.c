@@ -1039,7 +1039,7 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 		mcount_arch_get_arg(&ctx, &spec);
 
 		/* keep the filter only if the condition is met */
-		if (!uftrace_eval_cond(&tr->cond, ctx.val.i))
+		if (!uftrace_eval_cond(&tr->cond, &ctx.val))
 			tr->flags &= ~TRIGGER_FL_FILTER;
 	}
 

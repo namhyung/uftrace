@@ -649,14 +649,14 @@ int fstack_entry(struct uftrace_task_reader *task, struct uftrace_record *rstack
 			struct list_head *arg_list = task->args.args;
 			struct uftrace_arg_spec *spec;
 			void *data = task->args.data;
-			long val = 0;
+			union uftrace_arg_val val = { .v = {} };
 			bool found = false;
 
 			list_for_each_entry(spec, arg_list, list) {
 				int size = spec->size;
 
 				if (spec->idx == tr->cond.idx) {
-					memcpy(&val, data, spec->size);
+					memcpy(&val.v, data, spec->size);
 					found = true;
 					break;
 				}
@@ -672,7 +672,7 @@ int fstack_entry(struct uftrace_task_reader *task, struct uftrace_record *rstack
 				data += ALIGN(size, 4);
 			}
 
-			if (found && !uftrace_eval_cond(&tr->cond, val))
+			if (found && !uftrace_eval_cond(&tr->cond, &val))
 				tr->flags &= ~TRIGGER_FL_FILTER;
 		}
 	}

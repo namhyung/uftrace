@@ -182,7 +182,7 @@ void uftrace_cleanup_triggers(struct uftrace_triggers_info *triggers);
 void uftrace_print_filter(struct uftrace_triggers_info *filters);
 int uftrace_count_filter(struct uftrace_triggers_info *filters, unsigned long flag);
 
-bool uftrace_eval_cond(struct uftrace_filter_cond *cond, long val);
+bool uftrace_eval_cond(struct uftrace_filter_cond *cond, union uftrace_arg_val *val);
 
 void init_filter_pattern(enum uftrace_pattern_type type, struct uftrace_pattern *p, char *str);
 bool match_filter_pattern(struct uftrace_pattern *p, char *name);
