@@ -18,6 +18,8 @@
 #include "utils/symbol.h"
 #include "utils/utils.h"
 
+#define STR_LEN_MAX 100
+
 static void snprintf_trigger_read(char *buf, size_t len, enum trigger_read_type type)
 {
 	buf[0] = '\0';
@@ -49,6 +51,8 @@ static void snprintf_trigger_cond(char *buf, size_t len, struct uftrace_filter_c
 		snprintf(buf, len, "arg%d %s %ld", cond->idx, op, cond->val.i);
 	else if (cond->type == COND_ARG_TYPE_UINT)
 		snprintf(buf, len, "arg%d %s %lu", cond->idx, op, cond->val.u);
+	else if (cond->type == COND_ARG_TYPE_STR)
+		snprintf(buf, len, "arg%d %s %s", cond->idx, op, cond->val.s);
 }
 
 static void print_trigger(struct uftrace_trigger *tr)
@@ -176,6 +180,15 @@ struct uftrace_filter *uftrace_match_filter(uint64_t addr, struct uftrace_trigge
 		iter = rb_entry(parent, struct uftrace_filter, node);
 
 		if (match_ip(iter, addr)) {
+			/*
+			 * This can be a problem when agent replaces the filter
+			 * while this thread is preempted.  Especially when it
+			 * uses dynamic contents like arguments and condition
+			 * (for a string).
+			 *
+			 * It can deep-copy the trigger but it'd be terrible for
+			 * performance.
+			 */
 			*tr = iter->trigger;
 
 			pr_dbg2("filter match: %s\n", iter->name);
@@ -269,10 +282,16 @@ static void add_arg_spec(struct list_head *arg_list, struct uftrace_arg_spec *ar
 static void copy_filter_cond(struct uftrace_filter_cond *dst, struct uftrace_filter_cond *src)
 {
 	memcpy(dst, src, sizeof(*dst));
+
+	if (src->type == COND_ARG_TYPE_STR)
+		dst->val.s = xstrdup(src->val.s);
 }
 
 static void clear_filter_cond(struct uftrace_filter_cond *cond)
 {
+	if (cond->type == COND_ARG_TYPE_STR)
+		free(cond->val.s);
+
 	memset(cond, 0, sizeof(*cond));
 }
 
@@ -337,37 +356,48 @@ bool uftrace_eval_cond(struct uftrace_filter_cond *cond, union uftrace_arg_val *
 {
 	switch (cond->op) {
 	case FILTER_OP_EQ:
+		if (cond->type == COND_ARG_TYPE_STR)
+			return !strcmp(val->s, cond->val.s);
 		return !memcmp(val->v, cond->val.v, cond->size);
 	case FILTER_OP_NE:
+		if (cond->type == COND_ARG_TYPE_STR)
+			return !!strcmp(val->s, cond->val.s);
 		return !!memcmp(val->v, cond->val.v, cond->size);
 	case FILTER_OP_GT:
 		if (cond->type == COND_ARG_TYPE_SINT)
 			return val->i > cond->val.i;
-		else
+		else if (cond->type == COND_ARG_TYPE_UINT)
 			return val->u > cond->val.u;
+		break;
 	case FILTER_OP_GE:
 		if (cond->type == COND_ARG_TYPE_SINT)
 			return val->i >= cond->val.i;
-		else
+		else if (cond->type == COND_ARG_TYPE_UINT)
 			return val->u >= cond->val.u;
+		break;
 	case FILTER_OP_LT:
 		if (cond->type == COND_ARG_TYPE_SINT)
 			return val->i < cond->val.i;
-		else
+		else if (cond->type == COND_ARG_TYPE_UINT)
 			return val->u < cond->val.u;
+		break;
 	case FILTER_OP_LE:
 		if (cond->type == COND_ARG_TYPE_SINT)
 			return val->i <= cond->val.i;
-		else
+		else if (cond->type == COND_ARG_TYPE_UINT)
 			return val->u <= cond->val.u;
+		break;
 	case FILTER_OP_AND:
 		if (cond->type == COND_ARG_TYPE_SINT)
 			return val->i & cond->val.i;
-		else
+		else if (cond->type == COND_ARG_TYPE_UINT)
 			return val->u & cond->val.u;
+		break;
 	default:
-		return false;
+		break;
 	}
+
+	return false;
 }
 
 /**
@@ -832,6 +862,9 @@ static uint8_t convert_arg_condtype(struct uftrace_arg_spec *arg)
 		return COND_ARG_TYPE_UINT;
 	case ARG_FMT_FLOAT:
 		return COND_ARG_TYPE_FLOAT;
+	case ARG_FMT_STR:
+	case ARG_FMT_STD_STRING:
+		return COND_ARG_TYPE_STR;
 	default:
 		return COND_ARG_TYPE_NONE;
 	}
@@ -873,6 +906,9 @@ static int parse_cond_action(char *action, struct uftrace_trigger *tr,
 		goto out;
 	}
 
+	if (tr->flags & TRIGGER_FL_CONDITION)
+		clear_filter_cond(&tr->cond);
+
 	tr->cond.type = convert_arg_condtype(arg);
 	tr->cond.size = arg->size;
 
@@ -906,6 +942,16 @@ static int parse_cond_action(char *action, struct uftrace_trigger *tr,
 		break;
 	case COND_ARG_TYPE_UINT:
 		tr->cond.val.u = strtoul(pos, NULL, 0);
+		break;
+	case COND_ARG_TYPE_STR:
+		if (op == FILTER_OP_EQ || op == FILTER_OP_NE) {
+			tr->cond.val.s = xstrndup(pos, STR_LEN_MAX);
+			tr->cond.size = strlen(tr->cond.val.s);
+		}
+		else {
+			pr_use("invalid op for string: %d\n", op);
+			goto out;
+		}
 		break;
 	default:
 		/* should not reach here */
@@ -2771,6 +2817,7 @@ TEST_CASE(filter_setup_cond)
 	char val_str_ok5[] = "foo@filter,if:arg5/i32 == 9876";
 	char val_str_ok6[] = "foo@filter,if:arg6/x != 0x1234";
 	char val_str_ok7[] = "foo@filter,if:arg1/u & 0x1000";
+	char val_str_ok8[] = "foo@filter,if:arg2/s==abcd";
 	char val_str_ng1[] = "foo@filter,if:name==1234"; /* named arg not supported */
 	char val_str_ng2[] = "foo@filter,if:fparg1==1234"; /* fparg not supported */
 	char val_str_ng3[] = "foo@filter,if:arg1~=1234"; /* op not supported */
@@ -2821,6 +2868,14 @@ TEST_CASE(filter_setup_cond)
 	TEST_EQ(tr.cond.op, FILTER_OP_AND);
 	TEST_EQ(tr.cond.val.u, 0x1000);
 
+	pr_dbg("check filter cond: %s\n", val_str_ok8);
+	TEST_EQ(setup_trigger_action(val_str_ok8, &tr, NULL, 0, &setting), 0);
+	TEST_EQ(tr.cond.idx, 2);
+	TEST_EQ(tr.cond.op, FILTER_OP_EQ);
+	TEST_EQ(tr.cond.type, COND_ARG_TYPE_STR);
+	TEST_STREQ(tr.cond.val.s, "abcd");
+
+	clear_filter_cond(&tr.cond);
 	memset(&tr, 0, sizeof(tr));
 	/* suppress usage error messages */
 	if (!debug)
@@ -2956,6 +3011,28 @@ TEST_CASE(filter_eval_cond)
 	val.u = 0x80;
 	TEST_EQ(uftrace_eval_cond(&cond, &val), true);
 	val.u = 0x81;
+	TEST_EQ(uftrace_eval_cond(&cond, &val), true);
+
+	pr_dbg("check filter cond: arg/s == abcd\n");
+	cond.op = FILTER_OP_EQ;
+	cond.val.s = "abcd";
+	cond.type = COND_ARG_TYPE_STR;
+	cond.size = 4;
+
+	val.s = "abcd";
+	TEST_EQ(uftrace_eval_cond(&cond, &val), true);
+	val.s = "ABCD";
+	TEST_EQ(uftrace_eval_cond(&cond, &val), false);
+
+	pr_dbg("check filter cond: arg/s != abcd\n");
+	cond.op = FILTER_OP_NE;
+	cond.val.s = "abcd";
+	cond.type = COND_ARG_TYPE_STR;
+	cond.size = 4;
+
+	val.s = "abcd";
+	TEST_EQ(uftrace_eval_cond(&cond, &val), false);
+	val.s = "ABCD";
 	TEST_EQ(uftrace_eval_cond(&cond, &val), true);
 
 	return TEST_OK;

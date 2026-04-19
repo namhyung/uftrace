@@ -72,6 +72,7 @@ enum filter_cond_arg_type {
 	COND_ARG_TYPE_SINT,
 	COND_ARG_TYPE_UINT,
 	COND_ARG_TYPE_FLOAT,
+	COND_ARG_TYPE_STR,
 };
 
 enum filter_cond_op {

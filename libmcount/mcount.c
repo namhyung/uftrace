@@ -1030,6 +1030,7 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 			.fmt = ARG_FMT_AUTO,
 			.type = ARG_TYPE_INDEX,
 		};
+		char buf[ARG_STR_MAX + 1];
 
 		mcount_memset4(&ctx, 0, sizeof(ctx));
 		ctx.regs = regs;
@@ -1037,6 +1038,11 @@ enum filter_result mcount_entry_filter_check(struct mcount_thread_data *mtdp, un
 		ctx.arch = &mtdp->arch;
 
 		mcount_arch_get_arg(&ctx, &spec);
+
+		if (tr->cond.type == COND_ARG_TYPE_STR) {
+			copy_str_arg(buf, sizeof(buf), &spec, &ctx);
+			ctx.val.s = buf;
+		}
 
 		/* keep the filter only if the condition is met */
 		if (!uftrace_eval_cond(&tr->cond, &ctx.val))

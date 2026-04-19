@@ -656,7 +656,11 @@ int fstack_entry(struct uftrace_task_reader *task, struct uftrace_record *rstack
 				int size = spec->size;
 
 				if (spec->idx == tr->cond.idx) {
-					memcpy(&val.v, data, spec->size);
+					if (spec->fmt == ARG_FMT_STR ||
+					    spec->fmt == ARG_FMT_STD_STRING)
+						val.s = data;
+					else
+						memcpy(&val.v, data, spec->size);
 					found = true;
 					break;
 				}
