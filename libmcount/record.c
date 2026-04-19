@@ -23,8 +23,6 @@
 
 #define SHMEM_SESSION_FMT "/uftrace-%s-%d-%03d" /* session-id, tid, seq */
 
-#define ARG_STR_MAX 98
-
 static struct mcount_shmem_buffer *allocate_shmem_buffer(char *sess_id, size_t size, int tid,
 							 int idx)
 {
@@ -405,6 +403,65 @@ void finish_mem_region(struct mcount_mem_regions *regions)
 	}
 }
 
+int copy_str_arg(char *dst, size_t size, struct uftrace_arg_spec *spec,
+		 struct mcount_arg_context *ctx)
+{
+	int len;
+	char *str = ctx->val.s;
+
+	if (spec->fmt == ARG_FMT_STD_STRING) {
+		/*
+		 * This is libstdc++ implementation dependent.
+		 * So doesn't work on others such as libc++.
+		 */
+		long *base = ctx->val.p;
+		long *_M_string_length = base + 1;
+		if (check_mem_region(ctx, (unsigned long)base)) {
+			char *_M_dataplus = (char *)(*base);
+			len = *_M_string_length;
+			str = _M_dataplus;
+		}
+	}
+
+	if (str) {
+		unsigned i;
+		char buf[32];
+
+		if (!check_mem_region(ctx, (unsigned long)str)) {
+			len = snprintf(buf, sizeof(buf), "<%p>", str);
+			str = buf;
+		}
+
+		/*
+		 * Calling strlen() might clobber floating-point
+		 * registers (on x86) depends on the internal
+		 * implementation.  Do it manually.
+		 */
+		len = 0;
+		for (i = 0; i < size; i++) {
+			dst[i] = str[i];
+
+			/* truncate long string */
+			if (i == ARG_STR_MAX) {
+				dst[i - 3] = '.';
+				dst[i - 2] = '.';
+				dst[i - 1] = '.';
+				dst[i] = '\0';
+			}
+			if (!dst[i])
+				break;
+			len++;
+		}
+	}
+	else {
+		const char null_str[4] = { 'N', 'U', 'L', 'L' };
+
+		len = sizeof(null_str);
+		mcount_memcpy1(dst, null_str, len);
+	}
+	return len;
+}
+
 static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 			       struct mcount_arg_context *ctx)
 {
@@ -435,62 +492,10 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 
 		if (spec->fmt == ARG_FMT_STR || spec->fmt == ARG_FMT_STD_STRING) {
 			unsigned short len;
-			char *str = ctx->val.s;
 
-			if (spec->fmt == ARG_FMT_STD_STRING) {
-				/*
-				 * This is libstdc++ implementation dependent.
-				 * So doesn't work on others such as libc++.
-				 */
-				long *base = ctx->val.p;
-				long *_M_string_length = base + 1;
-				if (check_mem_region(ctx, (unsigned long)base)) {
-					char *_M_dataplus = (char *)(*base);
-					len = *_M_string_length;
-					str = _M_dataplus;
-				}
-			}
-
-			if (str) {
-				unsigned i;
-				char *dst = ptr + 2;
-				char buf[32];
-
-				if (!check_mem_region(ctx, (unsigned long)str)) {
-					len = snprintf(buf, sizeof(buf), "<%p>", str);
-					str = buf;
-				}
-
-				/*
-				 * Calling strlen() might clobber floating-point
-				 * registers (on x86) depends on the internal
-				 * implementation.  Do it manually.
-				 */
-				len = 0;
-				for (i = 0; i < max_size - total_size; i++) {
-					dst[i] = str[i];
-
-					/* truncate long string */
-					if (i == ARG_STR_MAX) {
-						dst[i - 3] = '.';
-						dst[i - 2] = '.';
-						dst[i - 1] = '.';
-						dst[i] = '\0';
-					}
-					if (!dst[i])
-						break;
-					len++;
-				}
-				/* store 2-byte length before string */
-				*(unsigned short *)ptr = len;
-			}
-			else {
-				const char null_str[4] = { 'N', 'U', 'L', 'L' };
-
-				len = sizeof(null_str);
-				mcount_memcpy1(ptr, &len, sizeof(len));
-				mcount_memcpy1(ptr + 2, null_str, len);
-			}
+			len = copy_str_arg(ptr + 2, max_size - total_size, spec, ctx);
+			/* store 2-byte length before string */
+			*(unsigned short *)ptr = len;
 			size = ALIGN(len + 2, 4);
 		}
 		else if (spec->fmt == ARG_FMT_STRUCT) {

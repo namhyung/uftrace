@@ -80,6 +80,7 @@ struct mcount_shmem {
 #define ARGBUF_SIZE 1024
 #define EVTBUF_SIZE (ARGBUF_SIZE - 16)
 #define EVTBUF_HDR (offsetof(struct mcount_event, data))
+#define ARG_STR_MAX 98
 
 struct mcount_event {
 	uint64_t time;
@@ -427,6 +428,8 @@ void save_retval(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstac
 void save_trigger_read(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
 		       enum trigger_read_type type, bool diff);
 struct uftrace_triggers_info *mcount_trigger_init(struct uftrace_filter_setting *filter_setting);
+int copy_str_arg(char *dst, size_t size, struct uftrace_arg_spec *spec,
+		 struct mcount_arg_context *ctx);
 #endif /* DISABLE_MCOUNT_FILTER */
 
 bool check_mem_region(struct mcount_arg_context *ctx, unsigned long addr);
