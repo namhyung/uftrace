@@ -464,7 +464,7 @@ The BNF for trigger specification is as follows:
     <time_unit>  :=  "ns" | "nsec" | "us" | "usec" | "ms" | "msec" | "s" | "sec" | "m" | "min"
     <read_spec>  :=  "proc/statm" | "page-fault" | "pmu-cycle" | "pmu-cache" | "pmu-branch"
     <cond_spec>  :=  "arg"<num> <cond_op> <num>
-    <cond_op>    :=  "==" | "!=" | ">" | ">=" | "<" | "<="
+    <cond_op>    :=  "==" | "!=" | ">" | ">=" | "<" | "<=" | "&"
 
 The `depth` trigger is to change filter depth during execution of the function.
 It can be used to apply different filter depths for different functions.
