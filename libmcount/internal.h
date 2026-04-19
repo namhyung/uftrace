@@ -395,17 +395,8 @@ struct mcount_regs;
 struct mcount_arg_context {
 	struct mcount_regs *regs;
 	unsigned long *stack_base;
+	union uftrace_arg_val val __align(16);
 	long *retval;
-	union {
-		unsigned long i;
-		void *p;
-		double f;
-		struct {
-			long lo;
-			long hi;
-		} ll;
-		unsigned char v[16];
-	} __align(16) val;
 	struct mcount_mem_regions *regions;
 	struct mcount_arch_context *arch;
 };

@@ -79,7 +79,7 @@ enum filter_cond_op {
 struct uftrace_filter_cond {
 	int idx; /* argument index, 0 if disabled */
 	enum filter_cond_op op;
-	long val;
+	union uftrace_arg_val val;
 };
 
 struct uftrace_trigger {

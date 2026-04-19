@@ -66,6 +66,21 @@ void finish_auto_args(void);
 
 void free_arg_spec(struct uftrace_arg_spec *arg);
 
+/* possible argument value types */
+union uftrace_arg_val {
+	long i;
+	unsigned long u;
+	char *s;
+	void *p;
+	float f;
+	double d;
+	struct {
+		long lo;
+		long hi;
+	} ll;
+	unsigned char v[16];
+};
+
 struct uftrace_dbg_info;
 struct uftrace_filter;
 struct uftrace_trigger;

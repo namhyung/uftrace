@@ -435,7 +435,7 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 
 		if (spec->fmt == ARG_FMT_STR || spec->fmt == ARG_FMT_STD_STRING) {
 			unsigned short len;
-			char *str = ctx->val.p;
+			char *str = ctx->val.s;
 
 			if (spec->fmt == ARG_FMT_STD_STRING) {
 				/*

@@ -41,7 +41,7 @@ static void snprintf_trigger_cond(char *buf, size_t len, struct uftrace_filter_c
 {
 	const char *op_str[] = { "==", "!=", ">", ">=", "<", "<=" };
 
-	snprintf(buf, len, "arg%d %s %ld", cond->idx, op_str[cond->op], cond->val);
+	snprintf(buf, len, "arg%d %s %ld", cond->idx, op_str[cond->op], cond->val.i);
 }
 
 static void print_trigger(struct uftrace_trigger *tr)
@@ -315,17 +315,17 @@ bool uftrace_eval_cond(struct uftrace_filter_cond *cond, long val)
 {
 	switch (cond->op) {
 	case FILTER_OP_EQ:
-		return val == cond->val;
+		return val == cond->val.i;
 	case FILTER_OP_NE:
-		return val != cond->val;
+		return val != cond->val.i;
 	case FILTER_OP_GT:
-		return val > cond->val;
+		return val > cond->val.i;
 	case FILTER_OP_GE:
-		return val >= cond->val;
+		return val >= cond->val.i;
 	case FILTER_OP_LT:
-		return val < cond->val;
+		return val < cond->val.i;
 	case FILTER_OP_LE:
-		return val <= cond->val;
+		return val <= cond->val.i;
 	default:
 		return false;
 	}
@@ -846,7 +846,7 @@ static int parse_cond_action(char *action, struct uftrace_trigger *tr,
 
 	tr->cond.idx = arg->idx;
 	tr->cond.op = op;
-	tr->cond.val = val;
+	tr->cond.val.i = val;
 	tr->flags |= TRIGGER_FL_CONDITION;
 
 	ret = 0;
@@ -2705,25 +2705,25 @@ TEST_CASE(filter_setup_cond)
 	TEST_EQ(setup_trigger_action(val_str_ok1, &tr, NULL, 0, &setting), 0);
 	TEST_EQ(tr.cond.idx, 1);
 	TEST_EQ(tr.cond.op, FILTER_OP_EQ);
-	TEST_EQ(tr.cond.val, 1234);
+	TEST_EQ(tr.cond.val.i, 1234);
 
 	pr_dbg("check filter cond: %s\n", val_str_ok2);
 	TEST_EQ(setup_trigger_action(val_str_ok2, &tr, NULL, 0, &setting), 0);
 	TEST_EQ(tr.cond.idx, 2);
 	TEST_EQ(tr.cond.op, FILTER_OP_NE);
-	TEST_EQ(tr.cond.val, 100);
+	TEST_EQ(tr.cond.val.i, 100);
 
 	pr_dbg("check filter cond: %s\n", val_str_ok3);
 	TEST_EQ(setup_trigger_action(val_str_ok3, &tr, NULL, 0, &setting), 0);
 	TEST_EQ(tr.cond.idx, 3);
 	TEST_EQ(tr.cond.op, FILTER_OP_GE);
-	TEST_EQ(tr.cond.val, 5678);
+	TEST_EQ(tr.cond.val.i, 5678);
 
 	pr_dbg("check filter cond: %s\n", val_str_ok4);
 	TEST_EQ(setup_trigger_action(val_str_ok4, &tr, NULL, 0, &setting), 0);
 	TEST_EQ(tr.cond.idx, 4);
 	TEST_EQ(tr.cond.op, FILTER_OP_LT);
-	TEST_EQ(tr.cond.val, 9876);
+	TEST_EQ(tr.cond.val.i, 9876);
 
 	memset(&tr, 0, sizeof(tr));
 	/* suppress usage error messages */
@@ -2741,7 +2741,7 @@ TEST_CASE(filter_setup_cond)
 	/* failed function should not set any fields */
 	TEST_EQ(tr.cond.idx, 0);
 	TEST_EQ(tr.cond.op, 0);
-	TEST_EQ(tr.cond.val, 0);
+	TEST_EQ(tr.cond.val.i, 0);
 
 	return TEST_OK;
 }
@@ -2752,28 +2752,28 @@ TEST_CASE(filter_eval_cond)
 
 	pr_dbg("check filter cond: arg == 1\n");
 	cond.op = FILTER_OP_EQ;
-	cond.val = 1;
+	cond.val.i = 1;
 
 	TEST_EQ(uftrace_eval_cond(&cond, 1), true);
 	TEST_EQ(uftrace_eval_cond(&cond, 2), false);
 
 	pr_dbg("check filter cond: arg == -1\n");
 	cond.op = FILTER_OP_EQ;
-	cond.val = -1;
+	cond.val.i = -1;
 
 	TEST_EQ(uftrace_eval_cond(&cond, 1), false);
 	TEST_EQ(uftrace_eval_cond(&cond, -1), true);
 
 	pr_dbg("check filter cond: arg != 1\n");
 	cond.op = FILTER_OP_NE;
-	cond.val = 1;
+	cond.val.i = 1;
 
 	TEST_EQ(uftrace_eval_cond(&cond, 1), false);
 	TEST_EQ(uftrace_eval_cond(&cond, 0), true);
 
 	pr_dbg("check filter cond: arg > 10\n");
 	cond.op = FILTER_OP_GT;
-	cond.val = 10;
+	cond.val.i = 10;
 
 	TEST_EQ(uftrace_eval_cond(&cond, 11), true);
 	TEST_EQ(uftrace_eval_cond(&cond, 10), false);
@@ -2781,7 +2781,7 @@ TEST_CASE(filter_eval_cond)
 
 	pr_dbg("check filter cond: arg >= 10\n");
 	cond.op = FILTER_OP_GE;
-	cond.val = 10;
+	cond.val.i = 10;
 
 	TEST_EQ(uftrace_eval_cond(&cond, 11), true);
 	TEST_EQ(uftrace_eval_cond(&cond, 10), true);
@@ -2789,7 +2789,7 @@ TEST_CASE(filter_eval_cond)
 
 	pr_dbg("check filter cond: arg < 0\n");
 	cond.op = FILTER_OP_LT;
-	cond.val = 0;
+	cond.val.i = 0;
 
 	TEST_EQ(uftrace_eval_cond(&cond, 1), false);
 	TEST_EQ(uftrace_eval_cond(&cond, 0), false);
@@ -2797,7 +2797,7 @@ TEST_CASE(filter_eval_cond)
 
 	pr_dbg("check filter cond: arg <= 0\n");
 	cond.op = FILTER_OP_LE;
-	cond.val = 0;
+	cond.val.i = 0;
 
 	TEST_EQ(uftrace_eval_cond(&cond, 1), false);
 	TEST_EQ(uftrace_eval_cond(&cond, 0), true);
