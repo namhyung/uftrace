@@ -67,6 +67,13 @@ enum trigger_read_type {
 	TRIGGER_READ_PMU_BRANCH = 16,
 };
 
+enum filter_cond_arg_type {
+	COND_ARG_TYPE_NONE = 0,
+	COND_ARG_TYPE_SINT,
+	COND_ARG_TYPE_UINT,
+	COND_ARG_TYPE_FLOAT,
+};
+
 enum filter_cond_op {
 	FILTER_OP_EQ,
 	FILTER_OP_NE,
@@ -77,7 +84,9 @@ enum filter_cond_op {
 };
 
 struct uftrace_filter_cond {
-	int idx; /* argument index, 0 if disabled */
+	uint16_t idx; /* argument index, 0 if disabled */
+	uint8_t type; /* enum filter_cond_arg_type */
+	uint8_t size;
 	enum filter_cond_op op;
 	union uftrace_arg_val val;
 };

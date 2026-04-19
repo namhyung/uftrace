@@ -40,8 +40,15 @@ static void snprintf_trigger_read(char *buf, size_t len, enum trigger_read_type 
 static void snprintf_trigger_cond(char *buf, size_t len, struct uftrace_filter_cond *cond)
 {
 	const char *op_str[] = { "==", "!=", ">", ">=", "<", "<=" };
+	const char *op = "??";
 
-	snprintf(buf, len, "arg%d %s %ld", cond->idx, op_str[cond->op], cond->val.i);
+	if (cond->op < (int)ARRAY_SIZE(op_str))
+		op = op_str[cond->op];
+
+	if (cond->type == COND_ARG_TYPE_SINT)
+		snprintf(buf, len, "arg%d %s %ld", cond->idx, op, cond->val.i);
+	else if (cond->type == COND_ARG_TYPE_UINT)
+		snprintf(buf, len, "arg%d %s %lu", cond->idx, op, cond->val.u);
 }
 
 static void print_trigger(struct uftrace_trigger *tr)
@@ -315,17 +322,29 @@ bool uftrace_eval_cond(struct uftrace_filter_cond *cond, union uftrace_arg_val *
 {
 	switch (cond->op) {
 	case FILTER_OP_EQ:
-		return val->i == cond->val.i;
+		return !memcmp(val->v, cond->val.v, cond->size);
 	case FILTER_OP_NE:
-		return val->i != cond->val.i;
+		return !!memcmp(val->v, cond->val.v, cond->size);
 	case FILTER_OP_GT:
-		return val->i > cond->val.i;
+		if (cond->type == COND_ARG_TYPE_SINT)
+			return val->i > cond->val.i;
+		else
+			return val->u > cond->val.u;
 	case FILTER_OP_GE:
-		return val->i >= cond->val.i;
+		if (cond->type == COND_ARG_TYPE_SINT)
+			return val->i >= cond->val.i;
+		else
+			return val->u >= cond->val.u;
 	case FILTER_OP_LT:
-		return val->i < cond->val.i;
+		if (cond->type == COND_ARG_TYPE_SINT)
+			return val->i < cond->val.i;
+		else
+			return val->u < cond->val.u;
 	case FILTER_OP_LE:
-		return val->i <= cond->val.i;
+		if (cond->type == COND_ARG_TYPE_SINT)
+			return val->i <= cond->val.i;
+		else
+			return val->u <= cond->val.u;
 	default:
 		return false;
 	}
@@ -782,6 +801,22 @@ static int parse_hide_action(char *action, struct uftrace_trigger *tr,
 	return 0;
 }
 
+static uint8_t convert_arg_condtype(struct uftrace_arg_spec *arg)
+{
+	switch (arg->fmt) {
+	case ARG_FMT_AUTO:
+	case ARG_FMT_SINT:
+		return COND_ARG_TYPE_SINT;
+	case ARG_FMT_HEX:
+	case ARG_FMT_UINT:
+		return COND_ARG_TYPE_UINT;
+	case ARG_FMT_FLOAT:
+		return COND_ARG_TYPE_FLOAT;
+	default:
+		return COND_ARG_TYPE_NONE;
+	}
+}
+
 /* if:arg1==1234, single condition only */
 static int parse_cond_action(char *action, struct uftrace_trigger *tr,
 			     struct uftrace_filter_setting *setting)
@@ -792,7 +827,6 @@ static int parse_cond_action(char *action, struct uftrace_trigger *tr,
 	char orig;
 	int op = -1;
 	int ret = -1;
-	long val;
 	struct uftrace_arg_spec *arg;
 
 	pos = strpbrk(expr, "!<=>");
@@ -819,8 +853,12 @@ static int parse_cond_action(char *action, struct uftrace_trigger *tr,
 		goto out;
 	}
 
-	if (arg->type != ARG_FMT_AUTO) {
-		pr_use("not supported argument type\n");
+	tr->cond.type = convert_arg_condtype(arg);
+	tr->cond.size = arg->size;
+
+	if (tr->cond.type == COND_ARG_TYPE_NONE || tr->cond.type == COND_ARG_TYPE_FLOAT) {
+		/* floating-point is not supported as it can clobber FP registers */
+		pr_use("not supported argument format: %d\n", arg->fmt);
 		goto out;
 	}
 
@@ -842,11 +880,20 @@ static int parse_cond_action(char *action, struct uftrace_trigger *tr,
 	while (*pos == ' ')
 		pos++;
 
-	val = strtol(pos, NULL, 0);
+	switch (tr->cond.type) {
+	case COND_ARG_TYPE_SINT:
+		tr->cond.val.i = strtol(pos, NULL, 0);
+		break;
+	case COND_ARG_TYPE_UINT:
+		tr->cond.val.u = strtoul(pos, NULL, 0);
+		break;
+	default:
+		/* should not reach here */
+		break;
+	}
 
 	tr->cond.idx = arg->idx;
 	tr->cond.op = op;
-	tr->cond.val.i = val;
 	tr->flags |= TRIGGER_FL_CONDITION;
 
 	ret = 0;
@@ -2694,10 +2741,13 @@ TEST_CASE(filter_setup_cond)
 	char val_str_ok2[] = "foo@filter,if:arg2 !=100";
 	char val_str_ok3[] = "foo@filter,if:arg3>= 5678";
 	char val_str_ok4[] = "foo@filter,if:arg4 < 9876";
+	char val_str_ok5[] = "foo@filter,if:arg5/i32 == 9876";
+	char val_str_ok6[] = "foo@filter,if:arg6/x != 0x1234";
 	char val_str_ng1[] = "foo@filter,if:name==1234"; /* named arg not supported */
 	char val_str_ng2[] = "foo@filter,if:fparg1==1234"; /* fparg not supported */
 	char val_str_ng3[] = "foo@filter,if:arg1~=1234"; /* op not supported */
 	char val_str_ng4[] = "foo@value,if:arg-1==1234"; /* negative arg index */
+	char val_str_ng5[] = "foo@filter,if:arg7==1234"; /* only support up to 6 args for now */
 	FILE *null_fp = fopen("/dev/null", "w");
 	FILE *saved_fp = outfp;
 
@@ -2725,6 +2775,18 @@ TEST_CASE(filter_setup_cond)
 	TEST_EQ(tr.cond.op, FILTER_OP_LT);
 	TEST_EQ(tr.cond.val.i, 9876);
 
+	pr_dbg("check filter cond: %s\n", val_str_ok5);
+	TEST_EQ(setup_trigger_action(val_str_ok5, &tr, NULL, 0, &setting), 0);
+	TEST_EQ(tr.cond.idx, 5);
+	TEST_EQ(tr.cond.op, FILTER_OP_EQ);
+	TEST_EQ(tr.cond.val.i, 9876);
+
+	pr_dbg("check filter cond: %s\n", val_str_ok6);
+	TEST_EQ(setup_trigger_action(val_str_ok6, &tr, NULL, 0, &setting), 0);
+	TEST_EQ(tr.cond.idx, 6);
+	TEST_EQ(tr.cond.op, FILTER_OP_NE);
+	TEST_EQ(tr.cond.val.u, 0x1234);
+
 	memset(&tr, 0, sizeof(tr));
 	/* suppress usage error messages */
 	if (!debug)
@@ -2734,6 +2796,7 @@ TEST_CASE(filter_setup_cond)
 	TEST_NE(setup_trigger_action(val_str_ng2, &tr, NULL, 0, &setting), 0);
 	TEST_NE(setup_trigger_action(val_str_ng3, &tr, NULL, 0, &setting), 0);
 	TEST_NE(setup_trigger_action(val_str_ng4, &tr, NULL, 0, &setting), 0);
+	TEST_NE(setup_trigger_action(val_str_ng5, &tr, NULL, 0, &setting), 0);
 
 	if (!debug)
 		outfp = saved_fp;
@@ -2754,6 +2817,8 @@ TEST_CASE(filter_eval_cond)
 	pr_dbg("check filter cond: arg == 1\n");
 	cond.op = FILTER_OP_EQ;
 	cond.val.i = 1;
+	cond.size = sizeof(long);
+	cond.type = COND_ARG_TYPE_SINT;
 
 	val.i = 1;
 	TEST_EQ(uftrace_eval_cond(&cond, &val), true);
@@ -2821,6 +2886,30 @@ TEST_CASE(filter_eval_cond)
 	TEST_EQ(uftrace_eval_cond(&cond, &val), true);
 	val.i = -1;
 	TEST_EQ(uftrace_eval_cond(&cond, &val), true);
+
+	pr_dbg("check filter cond: arg/i32 < 0\n");
+	cond.op = FILTER_OP_LT;
+	cond.val.i = 0;
+	cond.size = 4;
+
+	val.i = 1;
+	TEST_EQ(uftrace_eval_cond(&cond, &val), false);
+	val.i = 0;
+	TEST_EQ(uftrace_eval_cond(&cond, &val), false);
+	val.i = -1;
+	TEST_EQ(uftrace_eval_cond(&cond, &val), true);
+
+	pr_dbg("check filter cond: arg/u32 > 10\n");
+	cond.op = FILTER_OP_GT;
+	cond.val.u = 10;
+	cond.type = COND_ARG_TYPE_UINT;
+
+	val.u = 11;
+	TEST_EQ(uftrace_eval_cond(&cond, &val), true);
+	val.u = 10;
+	TEST_EQ(uftrace_eval_cond(&cond, &val), false);
+	val.u = 9;
+	TEST_EQ(uftrace_eval_cond(&cond, &val), false);
 
 	return TEST_OK;
 }
