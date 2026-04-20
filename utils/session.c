@@ -1301,8 +1301,6 @@ TEST_CASE(session_map_build_id)
 TEST_CASE(session_autoarg_dlopen)
 {
 	struct uftrace_session *sess;
-	struct uftrace_filter *filter;
-	struct uftrace_trigger tr = {};
 	struct uftrace_record rec = {
 		.time = 234,
 		.addr = 0x7003456,
@@ -1370,13 +1368,18 @@ TEST_CASE(session_autoarg_dlopen)
 	session_setup_dlopen_argspec(sess, &setting, true);
 
 #ifdef HAVE_LIBDW
-	pr_dbg("try to find a filter for the dlopen address\n");
-	filter = session_find_filter(sess, &rec, &tr);
+	{
+		struct uftrace_filter *filter;
+		struct uftrace_trigger tr = {};
 
-	TEST_NE(filter, NULL);
-	TEST_EQ(filter->trigger.flags, TRIGGER_FL_ARGUMENT | TRIGGER_FL_RETVAL);
-	TEST_NE(filter->trigger.pargs, NULL);
-	TEST_STREQ(filter->name, "foo");
+		pr_dbg("try to find a filter for the dlopen address\n");
+		filter = session_find_filter(sess, &rec, &tr);
+
+		TEST_NE(filter, NULL);
+		TEST_EQ(filter->trigger.flags, TRIGGER_FL_ARGUMENT | TRIGGER_FL_RETVAL);
+		TEST_NE(filter->trigger.pargs, NULL);
+		TEST_STREQ(filter->name, "foo");
+	}
 #endif /* HAVE_LIBDW */
 
 	delete_sessions(&test_sessions);
