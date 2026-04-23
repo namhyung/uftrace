@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
+#include <syscall.h>
 #include <unistd.h>
 
 #ifdef HAVE_LIBUNWIND
@@ -1030,6 +1031,121 @@ int copy_file(const char *path_in, const char *path_out)
 	fclose(ifp);
 	fclose(ofp);
 	return 0;
+}
+
+#ifndef gettid
+/**
+ * gettid - gettid syscall wrapper (glibc < 2.30)
+  * @return - thread id
+ */
+pid_t gettid()
+{
+	return syscall(__NR_gettid);
+}
+#endif
+
+#ifndef tgkill
+/**
+ * tgkill - tgkill syscall wrapper (glibc < 2.30)
+ * @tgid   - thread group id
+ * @tid    - thread id
+ * @signal - signal to send
+ * @return - 0 on success, -1 on error
+ */
+int tgkill(pid_t tgid, pid_t tid, int signal)
+{
+	return syscall(SYS_tgkill, tgid, tid, signal);
+}
+#endif
+
+/**
+ * find_unused_sigrt - find a real-time signal with no associated action
+ * @return - unused RT signal, or -1 if none found
+ */
+int find_unused_sigrt()
+{
+	int sig;
+	struct sigaction oldact;
+
+	for (sig = SIGRTMIN; sig <= SIGRTMAX; sig++) {
+		if (sigaction(sig, NULL, &oldact) < 0) {
+			pr_dbg3("failed to check RT signal handler\n");
+			continue;
+		}
+
+		if (!oldact.sa_handler)
+			return sig;
+	}
+
+	pr_dbg2("failed to find unused SIGRT\n");
+	return -1;
+}
+
+/**
+ * thread_broadcast_signal - send a signal to all the other running threads in
+ * the process
+ * @sig - signal to send
+ * @return - number of signals sent, -1 on error
+ */
+int thread_broadcast_signal(int sig)
+{
+	char path[32];
+	DIR *dir;
+	struct dirent *dirent;
+	pid_t pid, tid, task;
+	int signal_count = 0;
+
+	pid = getpid();
+	tid = gettid();
+
+	snprintf(path, 32, "/proc/%u/task", pid);
+	dir = opendir(path);
+	if (!dir) {
+		pr_dbg("failed to open directory '%s'\n", path);
+		goto fail_open_dir;
+	}
+
+	errno = 0;
+	for (dirent = readdir(dir); dirent != NULL; dirent = readdir(dir)) {
+		/* skip "." and ".." directories */
+		if (dirent->d_name[0] == '.')
+			continue;
+
+		task = strtol(dirent->d_name, NULL, 10);
+		if (errno != 0 || task < 0) {
+			pr_dbg("failed to parse TID '%s'\n", dirent->d_name);
+			continue;
+		}
+
+		/* ignore our TID */
+		if (task == tid)
+			continue;
+
+		/*
+		 * By reading /proc/<pid>/task directory, there is the possibility of
+		 * a race condition where a thread exits before we send the signal.
+		 */
+		pr_dbg4("send SIGRT%d to %u\n", sig, task);
+		if (tgkill(pid, task, sig) < 0) {
+			if (errno != ESRCH) {
+				pr_dbg2("cannot signal thread %u: %s\n", task, strerror(errno));
+				errno = 0;
+			}
+		}
+		else
+			signal_count++;
+	}
+
+	if (errno != 0)
+		pr_dbg("failed to read directory entry\n");
+
+	if (closedir(dir) < 0)
+		pr_dbg2("failed to close directory\n");
+
+	return signal_count;
+
+fail_open_dir:
+	return -1;
 }
 
 #ifdef UNIT_TEST
