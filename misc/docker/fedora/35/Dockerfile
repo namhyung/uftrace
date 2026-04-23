@@ -1,4 +1,4 @@
-FROM fedora:34
+FROM fedora:35
 ARG test
 RUN yum install -y git gcc make libasan libubsan
 RUN mkdir -p /usr/src
