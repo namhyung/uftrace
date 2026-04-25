@@ -95,6 +95,7 @@ class TestBase:
     def __init__(self, name, result, lang='C', cflags='', ldflags='', sort='task', serial=False):
         _tmp = tempfile.mkdtemp(prefix='test_%s_' % name)
         self.keep = False
+        self.debug = False
         os.chdir(_tmp)
         self.test_dir = _tmp
         self.name = name
@@ -763,7 +764,7 @@ def check_serial_case(case):
     return tc.serial
 
 
-def run_python_case(T, case, timeout):
+def run_python_case(T, case, arg, timeout):
     tc = T.TestCase()
     tc.set_debug(arg.debug)
     tc.set_keep(arg.keep)
@@ -797,7 +798,7 @@ def run_single_case(case, flags, opts, arg, compilers):
 
     for compiler in compilers:
         if compiler == 'python':
-            ret, dif = run_python_case(T, case, timeout)
+            ret, dif = run_python_case(T, case, arg, timeout)
             result.append((ret, dif))
             continue
 
