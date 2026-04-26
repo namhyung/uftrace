@@ -57,6 +57,7 @@ static void snprintf_trigger_cond(char *buf, size_t len, struct uftrace_filter_c
 		else
 			snprintf(buf, len, "arg%d %s %s", cond->idx, op, cond->val.patt.patt);
 	}
+	buf[len - 1] = '\0';
 }
 
 static void print_trigger(struct uftrace_trigger *tr)
@@ -67,17 +68,16 @@ static void print_trigger(struct uftrace_trigger *tr)
 		pr_dbg("\ttrigger: depth %d\n", tr->depth);
 	if (tr->flags & TRIGGER_FL_FILTER) {
 		if (tr->fmode == FILTER_MODE_IN)
-			pr_dbg("\ttrigger: filter IN");
+			pr_dbg("\ttrigger: filter IN\n");
 		else if (tr->fmode == FILTER_MODE_OUT)
-			pr_dbg("\ttrigger: filter OUT");
+			pr_dbg("\ttrigger: filter OUT\n");
 
 		if (tr->flags & TRIGGER_FL_CONDITION) {
-			char buf[64];
+			char buf[STR_LEN_MAX + 10];
 
 			snprintf_trigger_cond(buf, sizeof(buf), &tr->cond);
-			pr_dbg("\tif %s", buf);
+			pr_dbg("\ttrigger:   if %s\n", buf);
 		}
-		pr_dbg("\n");
 	}
 	if (tr->flags & TRIGGER_FL_LOC) {
 		if (tr->lmode == FILTER_MODE_IN)
