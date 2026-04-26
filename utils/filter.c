@@ -476,13 +476,8 @@ void init_locfilter_pattern(enum uftrace_pattern_type type, struct uftrace_patte
 	}
 
 	if (p->type == PATT_REGEX) {
-		/* to handle full demangled operator new and delete specially */
-		const char *str_operator = "operator ";
-		if (!strncmp(p->patt, str_operator, 9)) {
-			p->type = PATT_SIMPLE;
-		}
-		else if (regcomp(&p->re, p->patt, REG_NOSUB | REG_EXTENDED)) {
-			pr_dbg("regex pattern failed: %s\n", p->patt);
+		if (regcomp(&p->re, p->patt, REG_NOSUB | REG_EXTENDED)) {
+			pr_warn("regex pattern failed: %s\n", p->patt);
 			p->type = PATT_SIMPLE;
 		}
 	}
@@ -503,7 +498,7 @@ void init_filter_pattern(enum uftrace_pattern_type type, struct uftrace_pattern 
 			p->type = PATT_SIMPLE;
 		}
 		else if (regcomp(&p->re, str, REG_NOSUB | REG_EXTENDED)) {
-			pr_dbg("regex pattern failed: %s\n", str);
+			pr_warn("regex pattern failed: %s\n", str);
 			p->type = PATT_SIMPLE;
 		}
 	}
