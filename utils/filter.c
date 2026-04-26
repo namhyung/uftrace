@@ -266,6 +266,16 @@ static void add_arg_spec(struct list_head *arg_list, struct uftrace_arg_spec *ar
 	}
 }
 
+static void copy_filter_cond(struct uftrace_filter_cond *dst, struct uftrace_filter_cond *src)
+{
+	memcpy(dst, src, sizeof(*dst));
+}
+
+static void clear_filter_cond(struct uftrace_filter_cond *cond)
+{
+	memset(cond, 0, sizeof(*cond));
+}
+
 /**
  * update_trigger - update the trigger flags and related filter data
  * @filter - trigger tree entry holding filter parameters
@@ -274,6 +284,8 @@ static void add_arg_spec(struct list_head *arg_list, struct uftrace_arg_spec *ar
  */
 void update_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr, bool exact_match)
 {
+	bool had_condition = (filter->trigger.flags & TRIGGER_FL_CONDITION);
+
 	filter->trigger.flags |= tr->flags;
 
 	if (tr->flags & TRIGGER_FL_CLEAR) {
@@ -283,16 +295,19 @@ void update_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr, b
 			/* updating filter also updates condition */
 			tr->clear_flags |= TRIGGER_FL_CONDITION;
 		}
-		if (tr->clear_flags & TRIGGER_FL_CONDITION)
-			memset(&filter->trigger.cond, 0, sizeof(tr->cond));
+		if (had_condition && (tr->clear_flags & TRIGGER_FL_CONDITION))
+			clear_filter_cond(&filter->trigger.cond);
 	}
 
 	if (tr->flags & TRIGGER_FL_DEPTH)
 		filter->trigger.depth = tr->depth;
 	if (tr->flags & TRIGGER_FL_FILTER)
 		filter->trigger.fmode = tr->fmode;
-	if (tr->flags & TRIGGER_FL_CONDITION)
-		memcpy(&filter->trigger.cond, &tr->cond, sizeof(tr->cond));
+	if (tr->flags & TRIGGER_FL_CONDITION) {
+		if (had_condition)
+			clear_filter_cond(&filter->trigger.cond);
+		copy_filter_cond(&filter->trigger.cond, &tr->cond);
+	}
 	if (tr->flags & TRIGGER_FL_LOC)
 		filter->trigger.lmode = tr->lmode;
 
@@ -1450,6 +1465,10 @@ static struct uftrace_filter *deep_copy_filter(struct uftrace_filter *old)
 	/* deep copy nested trigger.pargs */
 	new->trigger.pargs = &new->args;
 
+	/* deep copy filter condition */
+	if (old->trigger.flags & TRIGGER_FL_CONDITION)
+		copy_filter_cond(&new->trigger.cond, &old->trigger.cond);
+
 	return new;
 }
 
@@ -1513,6 +1532,9 @@ void uftrace_cleanup_filter(struct uftrace_triggers_info *filters)
 		filter = rb_entry(node, struct uftrace_filter, node);
 
 		rb_erase(node, root);
+
+		if (filter->trigger.flags & TRIGGER_FL_CONDITION)
+			clear_filter_cond(&filter->trigger.cond);
 
 		list_for_each_entry_safe(arg, tmp, &filter->args, list) {
 			list_del(&arg->list);
