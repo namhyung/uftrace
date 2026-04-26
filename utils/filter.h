@@ -1,7 +1,6 @@
 #ifndef UFTRACE_FILTER_H
 #define UFTRACE_FILTER_H
 
-#include <regex.h>
 #include <stdint.h>
 #include <stdio.h>
 
@@ -83,6 +82,8 @@ enum filter_cond_op {
 	FILTER_OP_LT,
 	FILTER_OP_LE,
 	FILTER_OP_AND,
+	FILTER_OP_PATT_EQ,
+	FILTER_OP_PATT_NE,
 };
 
 struct uftrace_filter_cond {
@@ -114,19 +115,6 @@ struct uftrace_filter {
 	uint64_t end;
 	struct list_head args;
 	struct uftrace_trigger trigger;
-};
-
-enum uftrace_pattern_type {
-	PATT_NONE,
-	PATT_SIMPLE,
-	PATT_REGEX,
-	PATT_GLOB,
-};
-
-struct uftrace_pattern {
-	enum uftrace_pattern_type type;
-	char *patt;
-	regex_t re;
 };
 
 enum uftrace_trace_state {

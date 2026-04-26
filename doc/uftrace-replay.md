@@ -388,7 +388,7 @@ without filters.  Currently supported triggers are `depth`, `backtrace`,
     <time_spec>  :=  <num> [ <time_unit> ]
     <time_unit>  :=  "ns" | "nsec" | "us" | "usec" | "ms" | "msec" | "s" | "sec" | "m" | "min"
     <cond_spec>  :=  "arg"<num> <cond_op> <num>
-    <cond_op>    :=  "==" | "!=" | ">" | ">=" | "<" | "<=" | "&"
+    <cond_op>    :=  "==" | "!=" | ">" | ">=" | "<" | "<=" | "&" | "=~" | "!~"
 
 The `depth` trigger is to change filter depth during execution of the function.
 It can be used to apply different filter depths for different functions.  And

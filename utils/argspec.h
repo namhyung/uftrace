@@ -3,6 +3,7 @@
 
 #include "utils/list.h"
 #include "utils/rbtree.h"
+#include <regex.h>
 #include <stdbool.h>
 #include <stdio.h>
 
@@ -66,6 +67,19 @@ void finish_auto_args(void);
 
 void free_arg_spec(struct uftrace_arg_spec *arg);
 
+enum uftrace_pattern_type {
+	PATT_NONE,
+	PATT_SIMPLE,
+	PATT_REGEX,
+	PATT_GLOB,
+};
+
+struct uftrace_pattern {
+	enum uftrace_pattern_type type;
+	char *patt;
+	regex_t re;
+};
+
 /* possible argument value types */
 union uftrace_arg_val {
 	long i;
@@ -79,6 +93,7 @@ union uftrace_arg_val {
 		long hi;
 	} ll;
 	unsigned char v[16];
+	struct uftrace_pattern patt;
 };
 
 struct uftrace_dbg_info;

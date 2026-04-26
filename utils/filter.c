@@ -41,7 +41,7 @@ static void snprintf_trigger_read(char *buf, size_t len, enum trigger_read_type 
 
 static void snprintf_trigger_cond(char *buf, size_t len, struct uftrace_filter_cond *cond)
 {
-	const char *op_str[] = { "==", "!=", ">", ">=", "<", "<=", "&" };
+	const char *op_str[] = { "==", "!=", ">", ">=", "<", "<=", "&", "=~", "!~" };
 	const char *op = "??";
 
 	if (cond->op < (int)ARRAY_SIZE(op_str))
@@ -51,8 +51,12 @@ static void snprintf_trigger_cond(char *buf, size_t len, struct uftrace_filter_c
 		snprintf(buf, len, "arg%d %s %ld", cond->idx, op, cond->val.i);
 	else if (cond->type == COND_ARG_TYPE_UINT)
 		snprintf(buf, len, "arg%d %s %lu", cond->idx, op, cond->val.u);
-	else if (cond->type == COND_ARG_TYPE_STR)
-		snprintf(buf, len, "arg%d %s %s", cond->idx, op, cond->val.s);
+	else if (cond->type == COND_ARG_TYPE_STR) {
+		if (cond->op == FILTER_OP_EQ || cond->op == FILTER_OP_NE)
+			snprintf(buf, len, "arg%d %s %s", cond->idx, op, cond->val.s);
+		else
+			snprintf(buf, len, "arg%d %s %s", cond->idx, op, cond->val.patt.patt);
+	}
 }
 
 static void print_trigger(struct uftrace_trigger *tr)
@@ -283,15 +287,22 @@ static void copy_filter_cond(struct uftrace_filter_cond *dst, struct uftrace_fil
 {
 	memcpy(dst, src, sizeof(*dst));
 
-	if (src->type == COND_ARG_TYPE_STR)
-		dst->val.s = xstrdup(src->val.s);
+	if (src->type == COND_ARG_TYPE_STR) {
+		if (src->op == FILTER_OP_EQ || src->op == FILTER_OP_NE)
+			dst->val.s = xstrdup(src->val.s);
+		else if (src->op == FILTER_OP_PATT_EQ || src->op == FILTER_OP_PATT_NE)
+			init_filter_pattern(src->val.patt.type, &dst->val.patt, src->val.patt.patt);
+	}
 }
 
 static void clear_filter_cond(struct uftrace_filter_cond *cond)
 {
-	if (cond->type == COND_ARG_TYPE_STR)
-		free(cond->val.s);
-
+	if (cond->type == COND_ARG_TYPE_STR) {
+		if (cond->op == FILTER_OP_EQ || cond->op == FILTER_OP_NE)
+			free(cond->val.s);
+		else if (cond->op == FILTER_OP_PATT_EQ || cond->op == FILTER_OP_PATT_NE)
+			free_filter_pattern(&cond->val.patt);
+	}
 	memset(cond, 0, sizeof(*cond));
 }
 
@@ -392,6 +403,14 @@ bool uftrace_eval_cond(struct uftrace_filter_cond *cond, union uftrace_arg_val *
 			return val->i & cond->val.i;
 		else if (cond->type == COND_ARG_TYPE_UINT)
 			return val->u & cond->val.u;
+		break;
+	case FILTER_OP_PATT_EQ:
+		if (cond->type == COND_ARG_TYPE_STR)
+			return match_filter_pattern(&cond->val.patt, val->s);
+		break;
+	case FILTER_OP_PATT_NE:
+		if (cond->type == COND_ARG_TYPE_STR)
+			return !match_filter_pattern(&cond->val.patt, val->s);
 		break;
 	default:
 		break;
@@ -874,7 +893,7 @@ static uint8_t convert_arg_condtype(struct uftrace_arg_spec *arg)
 static int parse_cond_action(char *action, struct uftrace_trigger *tr,
 			     struct uftrace_filter_setting *setting)
 {
-	const char *op_str[] = { "==", "!=", ">", ">=", "<", "<=", "&" };
+	const char *op_str[] = { "==", "!=", ">", ">=", "<", "<=", "&", "=~", "!~" };
 	char *expr = action + 3;
 	char *pos, *pos1;
 	char orig;
@@ -938,15 +957,26 @@ static int parse_cond_action(char *action, struct uftrace_trigger *tr,
 
 	switch (tr->cond.type) {
 	case COND_ARG_TYPE_SINT:
+		if (op == FILTER_OP_PATT_EQ || op == FILTER_OP_PATT_NE) {
+			pr_use("pattern match is only for strings\n");
+			goto out;
+		}
 		tr->cond.val.i = strtol(pos, NULL, 0);
 		break;
 	case COND_ARG_TYPE_UINT:
+		if (op == FILTER_OP_PATT_EQ || op == FILTER_OP_PATT_NE) {
+			pr_use("pattern match is only for strings\n");
+			goto out;
+		}
 		tr->cond.val.u = strtoul(pos, NULL, 0);
 		break;
 	case COND_ARG_TYPE_STR:
 		if (op == FILTER_OP_EQ || op == FILTER_OP_NE) {
 			tr->cond.val.s = xstrndup(pos, STR_LEN_MAX);
 			tr->cond.size = strlen(tr->cond.val.s);
+		}
+		else if (op == FILTER_OP_PATT_EQ || op == FILTER_OP_PATT_NE) {
+			init_filter_pattern(setting->ptype, &tr->cond.val.patt, pos);
 		}
 		else {
 			pr_use("invalid op for string: %d\n", op);
@@ -2809,7 +2839,7 @@ TEST_CASE(locfilter_match)
 TEST_CASE(filter_setup_cond)
 {
 	struct uftrace_trigger tr = {};
-	struct uftrace_filter_setting setting = {};
+	struct uftrace_filter_setting setting = { .ptype = PATT_REGEX };
 	char val_str_ok1[] = "foo@filter,if:arg1==1234";
 	char val_str_ok2[] = "foo@filter,if:arg2 !=100";
 	char val_str_ok3[] = "foo@filter,if:arg3>= 5678";
@@ -2818,6 +2848,7 @@ TEST_CASE(filter_setup_cond)
 	char val_str_ok6[] = "foo@filter,if:arg6/x != 0x1234";
 	char val_str_ok7[] = "foo@filter,if:arg1/u & 0x1000";
 	char val_str_ok8[] = "foo@filter,if:arg2/s==abcd";
+	char val_str_ok9[] = "foo@filter,if:arg3/s =~ ^a";
 	char val_str_ng1[] = "foo@filter,if:name==1234"; /* named arg not supported */
 	char val_str_ng2[] = "foo@filter,if:fparg1==1234"; /* fparg not supported */
 	char val_str_ng3[] = "foo@filter,if:arg1~=1234"; /* op not supported */
@@ -2875,6 +2906,14 @@ TEST_CASE(filter_setup_cond)
 	TEST_EQ(tr.cond.type, COND_ARG_TYPE_STR);
 	TEST_STREQ(tr.cond.val.s, "abcd");
 
+	pr_dbg("check filter cond: %s\n", val_str_ok9);
+	TEST_EQ(setup_trigger_action(val_str_ok9, &tr, NULL, 0, &setting), 0);
+	TEST_EQ(tr.cond.idx, 3);
+	TEST_EQ(tr.cond.op, FILTER_OP_PATT_EQ);
+	TEST_EQ(tr.cond.type, COND_ARG_TYPE_STR);
+	TEST_EQ(tr.cond.val.patt.type, PATT_REGEX);
+	TEST_STREQ(tr.cond.val.patt.patt, "^a");
+
 	clear_filter_cond(&tr.cond);
 	memset(&tr, 0, sizeof(tr));
 	/* suppress usage error messages */
@@ -2907,7 +2946,7 @@ TEST_CASE(filter_eval_cond)
 	cond.op = FILTER_OP_EQ;
 	cond.val.i = 1;
 	cond.size = sizeof(long);
-	cond.type = COND_ARG_TYPE_SINT;
+	cond.type = COND_ARG_TYPE_UINT;
 
 	val.i = 1;
 	TEST_EQ(uftrace_eval_cond(&cond, &val), true);
@@ -2915,6 +2954,7 @@ TEST_CASE(filter_eval_cond)
 	TEST_EQ(uftrace_eval_cond(&cond, &val), false);
 
 	pr_dbg("check filter cond: arg == -1\n");
+	cond.type = COND_ARG_TYPE_SINT;
 	cond.op = FILTER_OP_EQ;
 	cond.val.i = -1;
 
@@ -3034,6 +3074,28 @@ TEST_CASE(filter_eval_cond)
 	TEST_EQ(uftrace_eval_cond(&cond, &val), false);
 	val.s = "ABCD";
 	TEST_EQ(uftrace_eval_cond(&cond, &val), true);
+
+	pr_dbg("check filter cond: arg/s =~ ^abc\n");
+	cond.op = FILTER_OP_PATT_EQ;
+	cond.type = COND_ARG_TYPE_STR;
+	init_filter_pattern(PATT_REGEX, &cond.val.patt, "^abc");
+
+	val.s = "abcd";
+	TEST_EQ(uftrace_eval_cond(&cond, &val), true);
+	val.s = "ABCD";
+	TEST_EQ(uftrace_eval_cond(&cond, &val), false);
+	free_filter_pattern(&cond.val.patt);
+
+	pr_dbg("check filter cond: arg/s !~ ^abc\n");
+	cond.op = FILTER_OP_PATT_NE;
+	cond.type = COND_ARG_TYPE_STR;
+	init_filter_pattern(PATT_REGEX, &cond.val.patt, "^abc");
+
+	val.s = "abcd";
+	TEST_EQ(uftrace_eval_cond(&cond, &val), false);
+	val.s = "ABCD";
+	TEST_EQ(uftrace_eval_cond(&cond, &val), true);
+	free_filter_pattern(&cond.val.patt);
 
 	return TEST_OK;
 }
