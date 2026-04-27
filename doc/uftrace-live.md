@@ -270,7 +270,7 @@ REPLAY OPTIONS
 :   Show source location of each function if available.
 
 \--format=*TYPE*
-:   Show format style output. Currently, normal and html styles are supported.
+:   Select the output format.  Supported values are `normal` (default) and `html`.
 
 \--no-args
 :   Do not show function arguments and return value.
