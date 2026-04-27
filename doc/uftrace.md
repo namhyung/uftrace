@@ -151,6 +151,7 @@ The manual for *uftrace-live*(1) is special: The subcommand `live` does
 
 \--chrome
 :   Dump recorded data in chrome trace format
+    (deprecated, use `--format=chrome` instead)
 
 \--clock
 :   Set clock source for timestamp (default: mono)
@@ -192,6 +193,7 @@ The manual for *uftrace-live*(1) is special: The subcommand `live` does
 
 \--flame-graph
 :   Dump recorded data in FlameGraph format
+    (deprecated, use `--format=flame-graph` instead)
 
 \--flat
 :   Use flat output format
@@ -201,7 +203,8 @@ The manual for *uftrace-live*(1) is special: The subcommand `live` does
 
 \--format=*FORMAT*
 :   Use *FORMAT* for output: one of `normal`, `html`, `csv`, `chrome`,
-    `flame-graph`, `graphviz`, `mermaid` (default: `normal`).
+    `flame-graph`, `graphviz`, `mermaid`.  The set of supported values
+    depends on the command (default: `normal`).
 
 -f, \--output-fields=*FIELD*
 :   Show FIELDs in the replay or graph output
@@ -214,6 +217,7 @@ The manual for *uftrace-live*(1) is special: The subcommand `live` does
 
 \--graphviz
 :   Dump recorded data in *DOT* format
+    (deprecated, use `--format=graphviz` instead)
 
 -H, \--hide=*FUNC*
 :   Hide FUNCs from trace

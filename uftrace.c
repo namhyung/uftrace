@@ -139,6 +139,7 @@ __used static const char uftrace_help[] =
 "  -b, --buffer=SIZE          Size of tracing buffer (default: "
 	stringify(SHMEM_BUFFER_SIZE_KB) "K)\n"
 "      --chrome               Dump recorded data in chrome trace format\n"
+"                             (deprecated, use --format=chrome instead)\n"
 "      --clock                Set clock source for timestamp (default: mono)\n"
 "      --color=SET            Use color for output: yes, no, auto (default: auto)\n"
 "      --column-offset=DEPTH  Offset of each column (default: "
@@ -158,6 +159,7 @@ __used static const char uftrace_help[] =
 "      --event-full           Show all events outside of function\n"
 "  -E, --Event=EVENT          Enable EVENT to save more information\n"
 "      --flame-graph          Dump recorded data in FlameGraph format\n"
+"                             (deprecated, use --format=flame-graph instead)\n"
 "      --flat                 Use flat output format\n"
 "      --force                Trace even if executable is not instrumented\n"
 "      --format=FORMAT        Use FORMAT for output: normal, html, csv,\n"
@@ -167,6 +169,7 @@ __used static const char uftrace_help[] =
 "  -F, --filter=FUNC          Only trace those FUNCs\n"
 "  -g  --agent                Start an agent in mcount to listen to commands\n"
 "      --graphviz             Dump recorded data in DOT format\n"
+"                             (deprecated, use --format=graphviz instead)\n"
 "  -H, --hide=FUNC            Hide FUNCs from trace\n"
 "      --host=HOST            Send trace data to HOST instead of write to file\n"
 "  -k, --kernel               Trace kernel functions also (if supported)\n"
@@ -930,16 +933,19 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 		break;
 
 	case OPT_chrome_trace:
+		pr_warn("--chrome is deprecated, use --format=chrome instead\n");
 		opts->chrome_trace = true;
 		format_mode = FORMAT_CHROME;
 		break;
 
 	case OPT_flame_graph:
+		pr_warn("--flame-graph is deprecated, use --format=flame-graph instead\n");
 		opts->flame_graph = true;
 		format_mode = FORMAT_FLAME_GRAPH;
 		break;
 
 	case OPT_graphviz:
+		pr_warn("--graphviz is deprecated, use --format=graphviz instead\n");
 		opts->graphviz = true;
 		format_mode = FORMAT_GRAPHVIZ;
 		break;
@@ -1119,6 +1125,7 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 		break;
 
 	case OPT_mermaid:
+		pr_warn("--mermaid is deprecated, use --format=mermaid instead\n");
 		opts->mermaid = true;
 		format_mode = FORMAT_MERMAID;
 		break;
