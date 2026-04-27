@@ -15,11 +15,21 @@ uftrace dump [*options*]
 설명
 ====
 데이터 파일에 기록된 데이터를 보여주는 명령어이다. 출력 형식은
---chrome, --flame-graph 또는 --graphviz 와 같은 옵션으로 설정할 수 있다.
+--format 옵션으로 선택할 수 있다.
 
 
 DUMP 옵션
 =========
+\--format=*TYPE*
+:   `uftrace dump` 의 출력 형식을 선택한다.  지원되는 값은 `normal` (기본, 원본
+    덤프), `chrome`, `flame-graph`, `graphviz`, `mermaid` 이다.
+
+    - `chrome`: 구글 크롬 추적 기능에서 사용되는 JSON 형식.
+    - `flame-graph`: 최신 웹 브라우저에서 볼 수 있는 FlameGraph 형식
+      (FlameGraph 툴로 처리 필요).
+    - `graphviz`: Graphviz 툴킷에서 사용되는 DOT 형식.
+    - `mermaid`: mermaid 플로우차트 다이어그램. 브라우저에서 렌더링될 수 있다.
+
 \--chrome
 :   구글 크롬 추적 기능에서 사용되는 JSON 형식의 결과물을 표시한다.
 
@@ -172,7 +182,7 @@ DUMP 옵션
     105430.415355943  23043: [exit ] a(4006b2) depth: 1
     105430.415356109  23043: [exit ] main(400512) depth: 0
 
-    $ uftrace dump --chrome -F main
+    $ uftrace dump --format=chrome -F main
     {"traceEvents":[
     {"ts":105430415353,"ph":"B","pid":23043,"name":"main"},
     {"ts":105430415353,"ph":"B","pid":23043,"name":"a"},
@@ -189,11 +199,11 @@ DUMP 옵션
     "recorded_time":"Tue May 24 19:44:54 2016"
     } }
 
-    $ uftrace dump --flame-graph --sample-time 1us
+    $ uftrace dump --format=flame-graph --sample-time 1us
     main 1
     main;a;b;c 1
 
-    $ uftrace dump --graphviz
+    $ uftrace dump --format=graphviz
     \# command_line "uftrace record tests/t-abc"
     digraph "/home/m/git/uftrace/tests/t-abc" {
             \# Attributes

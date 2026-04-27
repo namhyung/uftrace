@@ -200,7 +200,8 @@ The manual for *uftrace-live*(1) is special: The subcommand `live` does
 :   Trace even if executable is not instrumented
 
 \--format=*FORMAT*
-:   Use *FORMAT* for output: normal, html (default: normal)
+:   Use *FORMAT* for output: one of `normal`, `html`, `csv`, `chrome`,
+    `flame-graph`, `graphviz`, `mermaid` (default: `normal`).
 
 -f, \--output-fields=*FIELD*
 :   Show FIELDs in the replay or graph output

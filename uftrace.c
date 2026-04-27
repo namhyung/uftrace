@@ -160,7 +160,9 @@ __used static const char uftrace_help[] =
 "      --flame-graph          Dump recorded data in FlameGraph format\n"
 "      --flat                 Use flat output format\n"
 "      --force                Trace even if executable is not instrumented\n"
-"      --format=FORMAT        Use FORMAT for output: normal, html, csv (default: normal)\n"
+"      --format=FORMAT        Use FORMAT for output: normal, html, csv,\n"
+"                             chrome, flame-graph, graphviz, mermaid\n"
+"                             (default: normal)\n"
 "  -f, --output-fields=FIELD  Show FIELDs in the replay or graph output\n"
 "  -F, --filter=FUNC          Only trace those FUNCs\n"
 "  -g  --agent                Start an agent in mcount to listen to commands\n"
@@ -929,14 +931,17 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 
 	case OPT_chrome_trace:
 		opts->chrome_trace = true;
+		format_mode = FORMAT_CHROME;
 		break;
 
 	case OPT_flame_graph:
 		opts->flame_graph = true;
+		format_mode = FORMAT_FLAME_GRAPH;
 		break;
 
 	case OPT_graphviz:
 		opts->graphviz = true;
+		format_mode = FORMAT_GRAPHVIZ;
 		break;
 
 	case OPT_diff:
@@ -955,9 +960,16 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 			if (opts->color == COLOR_AUTO)
 				opts->color = COLOR_ON;
 		}
-		else if (!strcmp(arg, "csv")) {
+		else if (!strcmp(arg, "csv"))
 			format_mode = FORMAT_CSV;
-		}
+		else if (!strcmp(arg, "chrome"))
+			format_mode = FORMAT_CHROME;
+		else if (!strcmp(arg, "flame-graph"))
+			format_mode = FORMAT_FLAME_GRAPH;
+		else if (!strcmp(arg, "graphviz"))
+			format_mode = FORMAT_GRAPHVIZ;
+		else if (!strcmp(arg, "mermaid"))
+			format_mode = FORMAT_MERMAID;
 		else {
 			pr_use("invalid format argument: %s\n", arg);
 			format_mode = FORMAT_NORMAL;
@@ -1108,6 +1120,7 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 
 	case OPT_mermaid:
 		opts->mermaid = true;
+		format_mode = FORMAT_MERMAID;
 		break;
 
 	default:

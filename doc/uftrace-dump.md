@@ -15,12 +15,21 @@ uftrace dump [*options*]
 DESCRIPTION
 ===========
 This command shows raw tracing data recorded in the data file.  The dump format
-can be configured by additional options such as --chrome, --flame-graph,
-or --graphviz.
+can be selected by the --format option.
 
 
 DUMP OPTIONS
 ============
+\--format=*TYPE*
+:   Select the output format for `uftrace dump`.  Supported types are `normal`
+    (default), `chrome`, `flame-graph`, `graphviz` and `mermaid`.
+
+    - `chrome`: JSON style output used by the Google Chrome tracing facility.
+    - `flame-graph`: FlameGraph style output viewable by modern web browsers
+      (after processing by the FlameGraph tool).
+    - `graphviz`: DOT style output used by the graphviz toolkit.
+    - `mermaid`: mermaid flowchart diagram. It can be rendered in the browser.
+
 \--chrome
 :   Show JSON style output as used by the Google Chrome tracing facility.
 
@@ -174,7 +183,7 @@ This command dumps data like below:
     105430.415355943  23043: [exit ] a(4006b2) depth: 1
     105430.415356109  23043: [exit ] main(400512) depth: 0
 
-    $ uftrace dump --chrome -F main
+    $ uftrace dump --format=chrome -F main
     {"traceEvents":[
     {"ts":105430415353,"ph":"B","pid":23043,"name":"main"},
     {"ts":105430415353,"ph":"B","pid":23043,"name":"a"},
@@ -191,11 +200,11 @@ This command dumps data like below:
     "recorded_time":"Tue May 24 19:44:54 2016"
     } }
 
-    $ uftrace dump --flame-graph --sample-time 1us
+    $ uftrace dump --format=flame-graph --sample-time 1us
     main 1
     main;a;b;c 1
 
-    $ uftrace dump --graphviz
+    $ uftrace dump --format=graphviz
     \# command_line "uftrace record tests/t-abc"
     digraph "/home/m/git/uftrace/tests/t-abc" {
             \# Attributes
