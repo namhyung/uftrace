@@ -164,7 +164,7 @@ __used static const char uftrace_help[] =
 "      --force                Trace even if executable is not instrumented\n"
 "      --format=FORMAT        Use FORMAT for output: normal, html, csv,\n"
 "                             chrome, flame-graph, graphviz, mermaid\n"
-"                             (default: normal)\n"
+"                             (default: normal; supported values depend on command)\n"
 "  -f, --output-fields=FIELD  Show FIELDs in the replay or graph output\n"
 "  -F, --filter=FUNC          Only trace those FUNCs\n"
 "  -g  --agent                Start an agent in mcount to listen to commands\n"
@@ -977,8 +977,10 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 		else if (!strcmp(arg, "mermaid"))
 			format_mode = FORMAT_MERMAID;
 		else {
-			pr_use("invalid format argument: %s\n", arg);
-			format_mode = FORMAT_NORMAL;
+			pr_use("invalid format argument: %s "
+			       "(valid: normal, html, csv, chrome, flame-graph, graphviz, mermaid)\n",
+			       arg);
+			return -1;
 		}
 		break;
 
@@ -1353,6 +1355,74 @@ static void free_opts(struct uftrace_opts *opts)
 	free_parsed_cmdline(opts->run_cmd);
 }
 
+static const char *format_mode_name(enum format_mode mode)
+{
+	switch (mode) {
+	case FORMAT_NORMAL:
+		return "normal";
+	case FORMAT_HTML:
+		return "html";
+	case FORMAT_CSV:
+		return "csv";
+	case FORMAT_CHROME:
+		return "chrome";
+	case FORMAT_FLAME_GRAPH:
+		return "flame-graph";
+	case FORMAT_GRAPHVIZ:
+		return "graphviz";
+	case FORMAT_MERMAID:
+		return "mermaid";
+	default:
+		return "unknown";
+	}
+}
+
+static bool is_valid_format(int mode, enum format_mode fmt)
+{
+	if (fmt == FORMAT_NORMAL)
+		return true;
+
+	switch (mode) {
+	case UFTRACE_MODE_REPLAY:
+	case UFTRACE_MODE_LIVE:
+	case UFTRACE_MODE_GRAPH:
+		return fmt == FORMAT_HTML;
+	case UFTRACE_MODE_REPORT:
+		return fmt == FORMAT_HTML || fmt == FORMAT_CSV;
+	case UFTRACE_MODE_DUMP:
+		return fmt == FORMAT_CHROME || fmt == FORMAT_FLAME_GRAPH ||
+		       fmt == FORMAT_GRAPHVIZ || fmt == FORMAT_MERMAID;
+	default:
+		return false;
+	}
+}
+
+static const char *supported_formats_for(int mode)
+{
+	switch (mode) {
+	case UFTRACE_MODE_REPLAY:
+	case UFTRACE_MODE_LIVE:
+	case UFTRACE_MODE_GRAPH:
+		return "normal, html";
+	case UFTRACE_MODE_REPORT:
+		return "normal, html, csv";
+	case UFTRACE_MODE_DUMP:
+		return "normal, chrome, flame-graph, graphviz, mermaid";
+	default:
+		return "normal";
+	}
+}
+
+__used static int validate_format_mode(struct uftrace_opts *opts)
+{
+	if (is_valid_format(opts->mode, format_mode))
+		return 0;
+
+	pr_use("--format=%s is not supported by this command (supported: %s)\n",
+	       format_mode_name(format_mode), supported_formats_for(opts->mode));
+	return -1;
+}
+
 static int parse_options(int argc, char **argv, struct uftrace_opts *opts)
 {
 	/* initial option parsing index */
@@ -1501,6 +1571,11 @@ int main(int argc, char *argv[])
 
 	if (opts.mode == UFTRACE_MODE_INVALID)
 		opts.mode = UFTRACE_MODE_DEFAULT;
+
+	if (validate_format_mode(&opts) < 0) {
+		ret = 1;
+		goto cleanup;
+	}
 
 	if (dbg_domain_set && !debug)
 		debug = 1;
