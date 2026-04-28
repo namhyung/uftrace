@@ -253,6 +253,7 @@ static void print_and_delete(struct rb_root *root, bool sorted, void *arg,
 			node = rb_entry(n, typeof(*node), name_link);
 
 		print_func(node, arg, space);
+		free(node->cpu_mask);
 		free(node->name);
 		free(node);
 	}
@@ -315,6 +316,7 @@ static void report_functions(struct uftrace_data *handle, struct uftrace_opts *o
 	if (uftrace_done)
 		return;
 
+	set_cpu_field_width(report_calc_cpu_width(&name_root));
 	setup_report_field(&output_fields, opts, avg_mode);
 
 	if (format_mode == FORMAT_CSV) {

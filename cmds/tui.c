@@ -180,12 +180,12 @@ static const char *graph_field_names[NUM_GRAPH_FIELD] = { "TOTAL TIME", "SELF TI
 							  "TOTAL AVG",	"SELF AVG",  "TOTAL MAX",
 							  "TOTAL MIN",	"SELF MAX",  "SELF MIN" };
 
-#define NUM_REPORT_FIELD 16
+#define NUM_REPORT_FIELD 17
 
 static const char *report_field_names[NUM_REPORT_FIELD] = {
 	"TOTAL TIME",	"TOTAL AVG",	"TOTAL MIN",   "TOTAL MAX",   "SELF TIME",  "SELF AVG",
 	"SELF MIN",	"SELF MAX",	"CALL",	       "SIZE",	      "TOTAL STDV", "SELF STDV",
-	"TOTAL MIN TS", "TOTAL MAX TS", "SELF MIN TS", "SELF MAX TS",
+	"TOTAL MIN TS", "TOTAL MAX TS", "SELF MIN TS", "SELF MAX TS", "CPU",
 };
 
 static const char *field_help[] = {
@@ -205,7 +205,8 @@ enum tui_mode {
 static char *report_sort_key[] = { OPT_SORT_KEYS,  "total_avg",	   "total_min",	  "total_max",
 				   "self",	   "self_avg",	   "self_min",	  "self_max",
 				   "call",	   "size",	   "total_stdv",  "self_stdv",
-				   "total_min_ts", "total_max_ts", "self_min_ts", "self_max_ts" };
+				   "total_min_ts", "total_max_ts", "self_min_ts", "self_max_ts",
+				   "cpu" };
 
 static char *selected_report_sort_key[NUM_REPORT_FIELD];
 
@@ -501,6 +502,24 @@ REPORT_FIELD_TIMESTAMP(REPORT_F_TOTAL_MIN_TS, total-min-ts, total.min_ts, total_
 REPORT_FIELD_TIMESTAMP(REPORT_F_TOTAL_MAX_TS, total-max-ts, total.max_ts, total_max_ts, "TOTAL MAX TS");
 REPORT_FIELD_TIMESTAMP(REPORT_F_SELF_MIN_TS, self-min-ts, self.min_ts, self_min_ts, "SELF MIN TS");
 REPORT_FIELD_TIMESTAMP(REPORT_F_SELF_MAX_TS, self-max-ts, self.max_ts, self_max_ts, "SELF MAX TS");
+
+static void print_report_cpu(struct field_data *fd)
+{
+	struct uftrace_report_node *node = fd->arg;
+	char buf[CPU_STR_MAX_LEN + 1];
+	int slen, lpad, rpad;
+	int width = get_cpu_field_width();
+
+	slen = make_cpu_str(node->cpu_mask, node->nr_cpus, buf, width + 1, ',');
+	lpad = (width - slen) / 2;
+	rpad = width - slen - lpad;
+	if (lpad < 0)
+		lpad = 0;
+	if (rpad < 0)
+		rpad = 0;
+	printw("%*s%s%*s", lpad, "", buf, rpad, "");
+}
+REPORT_FIELD_STRUCT(REPORT_F_CPU, cpu, cpu, "   CPU    ", 10);
 /* clang-format on */
 
 static struct display_field *report_field_table[] = {
@@ -509,7 +528,7 @@ static struct display_field *report_field_table[] = {
 	&report_field_self_min,	    &report_field_self_max,	&report_field_call,
 	&report_field_size,	    &report_field_total_stdv,	&report_field_self_stdv,
 	&report_field_total_min_ts, &report_field_total_max_ts, &report_field_self_min_ts,
-	&report_field_self_max_ts,
+	&report_field_self_max_ts,  &report_field_cpu,
 };
 
 static void setup_default_graph_field(struct list_head *fields, struct uftrace_opts *opts,
@@ -1604,6 +1623,9 @@ static struct tui_report *tui_report_init(struct uftrace_opts *opts)
 		free(sort_keys);
 	}
 	report_sort_nodes(&tui_report.name_tree, &tui_report.sort_tree);
+
+	set_cpu_field_width(report_calc_cpu_width(&tui_report.name_tree));
+	report_field_cpu.length = get_cpu_field_width();
 
 	tui_window_init(win, &report_ops);
 
