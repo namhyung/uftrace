@@ -304,12 +304,12 @@ fprintf()호출 내부에서 page fault 핸들러와 write syscall 핸들러가
 
 
 `dump` 명령은 기록된 데이터를 그대로(raw) 출력하여 보여준다.
-`uftrace dump --chrome` 명령을 사용하면 크롬 브라우저에서 결과를 확인할 수 있다.
+`uftrace dump --format=chrome` 명령을 사용하면 크롬 브라우저에서 결과를 확인할 수 있다.
 이하는 작은 C++ template metaprogram을 컴파일하는 clang (LLVM)의 실행 과정을 보여준다.
 
 [![uftrace-chrome-dump](../uftrace-chrome.png)](https://uftrace.github.io/dump/clang.tmp.fib.html)
 
-flame-graph 형식의 결과 또한 지원한다. 해당 데이터는 `uftrace dump --flame-graph`로 실행되어
+flame-graph 형식의 결과 또한 지원한다. 해당 데이터는 `uftrace dump --format=flame-graph`로 실행되어
 [flamegraph.pl](https://github.com/brendangregg/FlameGraph/blob/master/flamegraph.pl)로 넘겨질 수 있다.
 이하는 간단한 C 프로그램을 gcc로 컴파일한 결과에 대한 flame graph이다.
 

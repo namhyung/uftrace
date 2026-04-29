@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-# When using 'uftrace dump --chrome --time-range', functions that were entered
-# before the range start but exit within the range used to produce orphaned E
-# events without matching B events, resulting in malformed traces in Perfetto.
+# When using 'uftrace dump --format=chrome --time-range', functions that were
+# entered before the range start but exit within the range used to produce
+# orphaned E events without matching B events, resulting in malformed traces
+# in Perfetto.
 #
 # This test records the abc call chain (main -> a -> b -> c -> getpid), then
-# dumps with --chrome starting the time range at c's entry.  At that point
+# dumps with --format=chrome starting the time range at c's entry.  At that point
 # main, a, and b are already active, so synthetic B events must be emitted for
 # them at range_start before c's natural B event.
 
@@ -59,4 +60,4 @@ class TestCase(TestBase):
 
     def setup(self):
         self.subcmd = 'dump'
-        self.option = '--chrome -r %s~' % START_TIME
+        self.option = '--format=chrome -r %s~' % START_TIME

@@ -15,30 +15,38 @@ uftrace dump [*options*]
 DESCRIPTION
 ===========
 This command shows raw tracing data recorded in the data file.  The dump format
-can be configured by additional options such as --chrome, --flame-graph,
-or --graphviz.
+can be selected by the --format option.
 
 
 DUMP OPTIONS
 ============
+\--format=*TYPE*
+:   Select the output format for `uftrace dump`.  Supported types are `normal`
+    (default), `chrome`, `flame-graph`, `graphviz` and `mermaid`.
+
+    - `chrome`: JSON style output used by the Google Chrome tracing facility.
+    - `flame-graph`: FlameGraph style output viewable by modern web browsers
+      (after processing by the FlameGraph tool).
+    - `graphviz`: DOT style output used by the graphviz toolkit.
+    - `mermaid`: mermaid flowchart diagram. It can be rendered in the browser.
+
 \--chrome
-:   Show JSON style output as used by the Google Chrome tracing facility.
+:   Deprecated.  Use `--format=chrome` instead.
 
 \--flame-graph
-:   Show FlameGraph style output viewable by modern web browsers (after
-    processing by the FlameGraph tool).
+:   Deprecated.  Use `--format=flame-graph` instead.
 
 \--graphviz
-:   Show DOT style output used by the graphviz toolkit.
+:   Deprecated.  Use `--format=graphviz` instead.
 
 \--mermaid
-:   Show graph as mermaid flowchart diagram. It can be rendered in the browser.
+:   Deprecated.  Use `--format=mermaid` instead.
 
 \--debug
 :   Show hex dump of data as well
 
 \--sample-time=*TIME*
-:   Apply sampling time when generating output for --flame-graph.  By default, it
+:   Apply sampling time when generating output for `--format=flame-graph`.  By default, it
     tries to find a period from 1 usec to 1 sec where it keeps the total number
     of samples under 1 million (in a single-threaded program).  You can override
     the sampling time with this option explicitly.  Note that functions which
@@ -114,15 +122,16 @@ COMMON ANALYSIS OPTIONS
 
 \--kernel-full
 :   Show all kernel functions called outside of user functions.  This option is
-    only meaningful when used with \--chrome, \--flame-graph or \--graphviz
-    options.
+    only meaningful when used with `--format=chrome`, `--format=flame-graph`
+    or `--format=graphviz`.
 
 \--kernel-only
 :   Dump kernel functions only without user functions.
 
 \--event-full
 :   Show all (user) events outside of user functions.  This option is only
-    meaningful when used with \--chrome, \--flame-graph or \--graphviz options.
+    meaningful when used with `--format=chrome`, `--format=flame-graph` or
+    `--format=graphviz`.
 
 \--tid=*TID*[,*TID*,...]
 :   Only print functions called by the given tasks.  To see the list of
@@ -174,7 +183,7 @@ This command dumps data like below:
     105430.415355943  23043: [exit ] a(4006b2) depth: 1
     105430.415356109  23043: [exit ] main(400512) depth: 0
 
-    $ uftrace dump --chrome -F main
+    $ uftrace dump --format=chrome -F main
     {"traceEvents":[
     {"ts":105430415353,"ph":"B","pid":23043,"name":"main"},
     {"ts":105430415353,"ph":"B","pid":23043,"name":"a"},
@@ -191,11 +200,11 @@ This command dumps data like below:
     "recorded_time":"Tue May 24 19:44:54 2016"
     } }
 
-    $ uftrace dump --flame-graph --sample-time 1us
+    $ uftrace dump --format=flame-graph --sample-time 1us
     main 1
     main;a;b;c 1
 
-    $ uftrace dump --graphviz
+    $ uftrace dump --format=graphviz
     \# command_line "uftrace record tests/t-abc"
     digraph "/home/m/git/uftrace/tests/t-abc" {
             \# Attributes

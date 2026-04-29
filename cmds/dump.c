@@ -1855,7 +1855,7 @@ int command_dump(int argc, char *argv[], struct uftrace_opts *opts)
 	if (opts->show_args)
 		show_args = true;
 
-	if (opts->chrome_trace) {
+	if (format_mode == FORMAT_CHROME) {
 		struct uftrace_chrome_dump dump = {
 			.ops = {
 				.header         = dump_chrome_header,
@@ -1869,7 +1869,7 @@ int command_dump(int argc, char *argv[], struct uftrace_opts *opts)
 
 		do_dump_replay(&dump.ops, opts, &handle);
 	}
-	else if (opts->flame_graph) {
+	else if (format_mode == FORMAT_FLAME_GRAPH) {
 		struct uftrace_flame_dump dump = {
 			.ops = {
 				.header         = dump_flame_header,
@@ -1899,7 +1899,7 @@ int command_dump(int argc, char *argv[], struct uftrace_opts *opts)
 		}
 		do_dump_replay(&dump.ops, opts, &handle);
 	}
-	else if (opts->graphviz) {
+	else if (format_mode == FORMAT_GRAPHVIZ) {
 		struct uftrace_graphviz_dump dump = {
 			.ops = {
 				.header         = dump_graphviz_header,
@@ -1911,7 +1911,7 @@ int command_dump(int argc, char *argv[], struct uftrace_opts *opts)
 
 		do_dump_replay(&dump.ops, opts, &handle);
 	}
-	else if (opts->mermaid) {
+	else if (format_mode == FORMAT_MERMAID) {
 		struct uftrace_mermaid_dump dump = {
 			.ops = {
 				.header         = dump_mermaid_header,

@@ -49,7 +49,7 @@ class TestCase(TestBase):
 
     def setup(self):
         self.subcmd = 'dump'
-        self.option = '-F main --chrome'
+        self.option = '-F main --format=chrome'
 
     def runcmd(self):
         cmd = TestBase.runcmd(self)

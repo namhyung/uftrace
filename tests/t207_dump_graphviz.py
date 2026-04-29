@@ -22,7 +22,7 @@ class TestCase(TestBase):
 
     def setup(self):
         self.subcmd = 'dump'
-        self.option = '-F main -D 4 --graphviz'
+        self.option = '-F main -D 4 --format=graphviz'
 
     def sort(self, output):
         """ This function post-processes output of the test to be compared .

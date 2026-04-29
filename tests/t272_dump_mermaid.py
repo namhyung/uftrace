@@ -34,4 +34,4 @@ flowchart TB
 
     def setup(self):
         self.subcmd = 'dump'
-        self.option = '-F main -D 4 --mermaid'
+        self.option = '-F main -D 4 --format=mermaid'
