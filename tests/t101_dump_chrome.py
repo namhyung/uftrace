@@ -28,4 +28,4 @@ class TestCase(TestBase):
 
     def setup(self):
         self.subcmd = 'dump'
-        self.option = '-F main -D 4 --chrome'
+        self.option = '-F main -D 4 --format=chrome'

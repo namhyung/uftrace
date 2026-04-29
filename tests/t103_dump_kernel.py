@@ -63,7 +63,7 @@ class TestCase(TestBase):
 
     def setup(self):
         self.subcmd = 'dump'
-        self.option = '-k --chrome'
+        self.option = '-k --format=chrome'
 
     def fixup(self, cflags, result):
         result = result.replace("""\

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
-# When using 'uftrace dump --chrome --time-range T1~T2', functions that were
-# active at range_stop (i.e. they entered within the range but exit after T2)
-# must produce synthetic E events at T2 so that every B event has a matching E.
+# When using 'uftrace dump --format=chrome --time-range T1~T2', functions that
+# were active at range_stop (i.e. they entered within the range but exit after
+# T2) must produce synthetic E events at T2 so that every B event has a matching E.
 #
 # This test records the abc call chain (main -> a -> b -> c -> getpid), then
-# dumps with --chrome using a time range that starts at c's entry and stops at
+# dumps with --format=chrome using a time range that starts at c's entry and stops at
 # getpid's entry.  Since getpid (and all outer functions) exit after T2, the
 # chrome dump must emit synthetic E events for them at range_stop.
 
@@ -63,4 +63,4 @@ class TestCase(TestBase):
 
     def setup(self):
         self.subcmd = 'dump'
-        self.option = '--chrome -r %s~%s' % (START_TIME, STOP_TIME)
+        self.option = '--format=chrome -r %s~%s' % (START_TIME, STOP_TIME)

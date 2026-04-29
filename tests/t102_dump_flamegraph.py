@@ -14,7 +14,7 @@ main;foo;bar;usleep 1
 
     def setup(self):
         self.subcmd = 'dump'
-        self.option = '--flame-graph --sample-time=2ms'
+        self.option = '--format=flame-graph --sample-time=2ms'
 
     def sort(self, output):
         """ This function post-processes output of the test to be compared .
