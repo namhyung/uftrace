@@ -161,14 +161,20 @@ int remove_directory(const char *dirname)
 {
 	DIR *dp;
 	struct dirent *ent;
-	struct stat statbuf;
 	char buf[PATH_MAX];
 	int saved_errno = 0;
 	int ret = 0;
+	int dfd;
 
 	dp = opendir(dirname);
 	if (dp == NULL)
 		return -1;
+
+	dfd = dirfd(dp);
+	if (dfd < 0) {
+		ret = -1;
+		goto failed;
+	}
 
 	pr_dbg("removing %s directory\n", dirname);
 
@@ -176,15 +182,17 @@ int remove_directory(const char *dirname)
 		if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
 			continue;
 
-		snprintf(buf, sizeof(buf), "%s/%s", dirname, ent->d_name);
-		ret = stat(buf, &statbuf);
-		if (ret < 0)
+		/* attempt to delete files */
+		ret = unlinkat(dfd, ent->d_name, 0);
+		if (ret == 0)
+			continue;
+
+		if (errno != EISDIR && errno != EPERM)
 			goto failed;
 
-		if (S_ISDIR(statbuf.st_mode))
-			ret = remove_directory(buf);
-		else
-			ret = unlink(buf);
+		/* it should be a directory */
+		snprintf(buf, sizeof(buf), "%s/%s", dirname, ent->d_name);
+		ret = remove_directory(buf);
 
 		if (ret < 0) {
 failed:
