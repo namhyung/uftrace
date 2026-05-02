@@ -133,13 +133,15 @@ static int agent_read_option(int fd, int *opt, void **value, size_t read_size)
 {
 	size_t opt_size = sizeof(*opt);
 	size_t value_size = read_size - opt_size;
+	void *new_value;
 
 	if (read_all(fd, opt, opt_size) < 0)
 		return -1;
 
-	*value = realloc(*value, value_size);
-	if (!value)
+	new_value = realloc(*value, value_size);
+	if (new_value == NULL)
 		return -1;
+	*value = new_value;
 
 	if (read_all(fd, *value, value_size) < 0)
 		return -1;
