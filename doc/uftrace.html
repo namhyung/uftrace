@@ -1697,12 +1697,12 @@ template: title-layout
 ---
 ### [Chrome Trace Viewer](https://www.chromium.org/developers/how-tos/trace-event-profiling-tool)
 - Below is a trace of clang (LLVM) compiling a small C++ template metaprogram.
-  - uftrace dump --chrome
+  - uftrace dump --format=chrome
 ---
 ### [Chrome Trace Viewer](https://www.chromium.org/developers/how-tos/trace-event-profiling-tool)
 .footnote[<a href="https://uftrace.github.io/dump/clang.tmp.fib.html" target="_blank">open in chrome trace viewer</a>]
 - Below is a trace of clang (LLVM) compiling a small C++ template metaprogram.
-  - uftrace dump --chrome
+  - uftrace dump --format=chrome
 
 <a href="https://uftrace.github.io/dump/clang.tmp.fib.html" target="_blank">
 <img src="https://raw.githubusercontent.com/namhyung/uftrace/master/doc/uftrace-chrome.png" class="center-image" width="90%">
@@ -1710,7 +1710,7 @@ template: title-layout
 ---
 ### [Chrome Trace Viewer](https://www.chromium.org/developers/how-tos/trace-event-profiling-tool)
 .footnote[[Catapult Project](https://chromium.googlesource.com/catapult)]
-- uftrace dump --chrome generates trace in [JSON format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview).
+- uftrace dump --format=chrome generates trace in [JSON format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview).
   - Catapult's [trace2html](https://chromium.googlesource.com/catapult/+/refs/heads/main/tracing/bin/trace2html) script can convert it to HTML.
 
 ```
@@ -1719,37 +1719,37 @@ template: title-layout
 ---
 ### [Chrome Trace Viewer](https://www.chromium.org/developers/how-tos/trace-event-profiling-tool)
 .footnote[[Catapult Project](https://chromium.googlesource.com/catapult)]
-- uftrace dump --chrome generates trace in [JSON format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview).
+- uftrace dump --format=chrome generates trace in [JSON format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview).
   - Catapult's [trace2html](https://chromium.googlesource.com/catapult/+/refs/heads/main/tracing/bin/trace2html) script can convert it to HTML.
 
 ```
         $ uftrace record a.out
 
-        $ uftrace dump `--chrome` > uftrace-dump-chrome.json
+        $ uftrace dump `--format=chrome` > uftrace-dump-chrome.json
 ```
 ---
 ### [Chrome Trace Viewer](https://www.chromium.org/developers/how-tos/trace-event-profiling-tool)
 .footnote[[Catapult Project](https://chromium.googlesource.com/catapult)]
-- uftrace dump --chrome generates trace in [JSON format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview).
+- uftrace dump --format=chrome generates trace in [JSON format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview).
   - Catapult's [trace2html](https://chromium.googlesource.com/catapult/+/refs/heads/main/tracing/bin/trace2html) script can convert it to HTML.
 
 ```
         $ uftrace record a.out
 
-        $ uftrace dump --chrome > uftrace-dump-chrome.json
+        $ uftrace dump --format=chrome > uftrace-dump-chrome.json
 
         $ `trace2html` uftrace-dump-chrome.json
 ```
 ---
 ### [Chrome Trace Viewer](https://www.chromium.org/developers/how-tos/trace-event-profiling-tool)
 .footnote[[Catapult Project](https://chromium.googlesource.com/catapult)]
-- uftrace dump --chrome generates trace in [JSON format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview).
+- uftrace dump --format=chrome generates trace in [JSON format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview).
   - Catapult's [trace2html](https://chromium.googlesource.com/catapult/+/refs/heads/main/tracing/bin/trace2html) script can convert it to HTML.
 
 ```
         $ uftrace record a.out
 
-        $ uftrace dump --chrome > uftrace-dump-chrome.json
+        $ uftrace dump --format=chrome > uftrace-dump-chrome.json
 
         $ trace2html uftrace-dump-chrome.json
         `uftrace-dump-chrome.html`
@@ -1757,13 +1757,13 @@ template: title-layout
 ---
 ### [Chrome Trace Viewer](https://www.chromium.org/developers/how-tos/trace-event-profiling-tool)
 .footnote[[Catapult Project](https://chromium.googlesource.com/catapult)]
-- uftrace dump --chrome generates trace in [JSON format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview).
+- uftrace dump --format=chrome generates trace in [JSON format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview).
   - Catapult's [trace2html](https://chromium.googlesource.com/catapult/+/refs/heads/main/tracing/bin/trace2html) script can convert it to HTML.
 
 ```
         $ uftrace record a.out
 
-        $ uftrace dump --chrome > uftrace-dump-chrome.json
+        $ uftrace dump --format=chrome > uftrace-dump-chrome.json
 
         $ trace2html uftrace-dump-chrome.json
         uftrace-dump-chrome.html
@@ -1779,12 +1779,12 @@ template: title-layout
 ---
 ### [Flame Graph](http://www.brendangregg.com/flamegraphs.html)
 - Flame graph of gcc compiling a simple c program.
-  - uftrace dump --flame-graph | [flamegraph.pl](https://raw.githubusercontent.com/brendangregg/FlameGraph/master/flamegraph.pl) > out.svg
+  - uftrace dump --format=flame-graph | [flamegraph.pl](https://raw.githubusercontent.com/brendangregg/FlameGraph/master/flamegraph.pl) > out.svg
 ---
 ### [Flame Graph](http://www.brendangregg.com/flamegraphs.html)
 .footnote[<a href="https://honggyukim.github.io/uftrace/v8/octane-splay/trace_splay.js.svg" target="_blank">open in browser</a>]
 - Flame graph of gcc compiling a simple c program.
-  - uftrace dump --flame-graph | [flamegraph.pl](https://raw.githubusercontent.com/brendangregg/FlameGraph/master/flamegraph.pl) > out.svg
+  - uftrace dump --format=flame-graph | [flamegraph.pl](https://raw.githubusercontent.com/brendangregg/FlameGraph/master/flamegraph.pl) > out.svg
 
 <a href="https://uftrace.github.io/dump/gcc.svg" target="_blank">
 <img src="https://uftrace.github.io/dump/gcc.svg" class="center-image" width="90%">

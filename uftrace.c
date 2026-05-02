@@ -139,6 +139,7 @@ __used static const char uftrace_help[] =
 "  -b, --buffer=SIZE          Size of tracing buffer (default: "
 	stringify(SHMEM_BUFFER_SIZE_KB) "K)\n"
 "      --chrome               Dump recorded data in chrome trace format\n"
+"                             (deprecated, use --format=chrome instead)\n"
 "      --clock                Set clock source for timestamp (default: mono)\n"
 "      --color=SET            Use color for output: yes, no, auto (default: auto)\n"
 "      --column-offset=DEPTH  Offset of each column (default: "
@@ -158,13 +159,17 @@ __used static const char uftrace_help[] =
 "      --event-full           Show all events outside of function\n"
 "  -E, --Event=EVENT          Enable EVENT to save more information\n"
 "      --flame-graph          Dump recorded data in FlameGraph format\n"
+"                             (deprecated, use --format=flame-graph instead)\n"
 "      --flat                 Use flat output format\n"
 "      --force                Trace even if executable is not instrumented\n"
-"      --format=FORMAT        Use FORMAT for output: normal, html, csv (default: normal)\n"
+"      --format=FORMAT        Use FORMAT for output: normal, html, csv,\n"
+"                             chrome, flame-graph, graphviz, mermaid\n"
+"                             (default: normal; supported values depend on command)\n"
 "  -f, --output-fields=FIELD  Show FIELDs in the replay or graph output\n"
 "  -F, --filter=FUNC          Only trace those FUNCs\n"
 "  -g  --agent                Start an agent in mcount to listen to commands\n"
 "      --graphviz             Dump recorded data in DOT format\n"
+"                             (deprecated, use --format=graphviz instead)\n"
 "  -H, --hide=FUNC            Hide FUNCs from trace\n"
 "      --host=HOST            Send trace data to HOST instead of write to file\n"
 "  -k, --kernel               Trace kernel functions also (if supported)\n"
@@ -928,15 +933,21 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 		break;
 
 	case OPT_chrome_trace:
+		pr_warn("--chrome is deprecated, use --format=chrome instead\n");
 		opts->chrome_trace = true;
+		format_mode = FORMAT_CHROME;
 		break;
 
 	case OPT_flame_graph:
+		pr_warn("--flame-graph is deprecated, use --format=flame-graph instead\n");
 		opts->flame_graph = true;
+		format_mode = FORMAT_FLAME_GRAPH;
 		break;
 
 	case OPT_graphviz:
+		pr_warn("--graphviz is deprecated, use --format=graphviz instead\n");
 		opts->graphviz = true;
+		format_mode = FORMAT_GRAPHVIZ;
 		break;
 
 	case OPT_diff:
@@ -955,12 +966,21 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 			if (opts->color == COLOR_AUTO)
 				opts->color = COLOR_ON;
 		}
-		else if (!strcmp(arg, "csv")) {
+		else if (!strcmp(arg, "csv"))
 			format_mode = FORMAT_CSV;
-		}
+		else if (!strcmp(arg, "chrome"))
+			format_mode = FORMAT_CHROME;
+		else if (!strcmp(arg, "flame-graph"))
+			format_mode = FORMAT_FLAME_GRAPH;
+		else if (!strcmp(arg, "graphviz"))
+			format_mode = FORMAT_GRAPHVIZ;
+		else if (!strcmp(arg, "mermaid"))
+			format_mode = FORMAT_MERMAID;
 		else {
-			pr_use("invalid format argument: %s\n", arg);
-			format_mode = FORMAT_NORMAL;
+			pr_use("invalid format argument: %s "
+			       "(valid: normal, html, csv, chrome, flame-graph, graphviz, mermaid)\n",
+			       arg);
+			return -1;
 		}
 		break;
 
@@ -1107,7 +1127,9 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 		break;
 
 	case OPT_mermaid:
+		pr_warn("--mermaid is deprecated, use --format=mermaid instead\n");
 		opts->mermaid = true;
+		format_mode = FORMAT_MERMAID;
 		break;
 
 	default:
@@ -1333,6 +1355,74 @@ static void free_opts(struct uftrace_opts *opts)
 	free_parsed_cmdline(opts->run_cmd);
 }
 
+static const char *format_mode_name(enum format_mode mode)
+{
+	switch (mode) {
+	case FORMAT_NORMAL:
+		return "normal";
+	case FORMAT_HTML:
+		return "html";
+	case FORMAT_CSV:
+		return "csv";
+	case FORMAT_CHROME:
+		return "chrome";
+	case FORMAT_FLAME_GRAPH:
+		return "flame-graph";
+	case FORMAT_GRAPHVIZ:
+		return "graphviz";
+	case FORMAT_MERMAID:
+		return "mermaid";
+	default:
+		return "unknown";
+	}
+}
+
+static bool is_valid_format(int mode, enum format_mode fmt)
+{
+	if (fmt == FORMAT_NORMAL)
+		return true;
+
+	switch (mode) {
+	case UFTRACE_MODE_REPLAY:
+	case UFTRACE_MODE_LIVE:
+	case UFTRACE_MODE_GRAPH:
+		return fmt == FORMAT_HTML;
+	case UFTRACE_MODE_REPORT:
+		return fmt == FORMAT_HTML || fmt == FORMAT_CSV;
+	case UFTRACE_MODE_DUMP:
+		return fmt == FORMAT_CHROME || fmt == FORMAT_FLAME_GRAPH ||
+		       fmt == FORMAT_GRAPHVIZ || fmt == FORMAT_MERMAID;
+	default:
+		return false;
+	}
+}
+
+static const char *supported_formats_for(int mode)
+{
+	switch (mode) {
+	case UFTRACE_MODE_REPLAY:
+	case UFTRACE_MODE_LIVE:
+	case UFTRACE_MODE_GRAPH:
+		return "normal, html";
+	case UFTRACE_MODE_REPORT:
+		return "normal, html, csv";
+	case UFTRACE_MODE_DUMP:
+		return "normal, chrome, flame-graph, graphviz, mermaid";
+	default:
+		return "normal";
+	}
+}
+
+__used static int validate_format_mode(struct uftrace_opts *opts)
+{
+	if (is_valid_format(opts->mode, format_mode))
+		return 0;
+
+	pr_use("--format=%s is not supported by this command (supported: %s)\n",
+	       format_mode_name(format_mode), supported_formats_for(opts->mode));
+	return -1;
+}
+
 static int parse_options(int argc, char **argv, struct uftrace_opts *opts)
 {
 	/* initial option parsing index */
@@ -1481,6 +1571,11 @@ int main(int argc, char *argv[])
 
 	if (opts.mode == UFTRACE_MODE_INVALID)
 		opts.mode = UFTRACE_MODE_DEFAULT;
+
+	if (validate_format_mode(&opts) < 0) {
+		ret = 1;
+		goto cleanup;
+	}
 
 	if (dbg_domain_set && !debug)
 		debug = 1;

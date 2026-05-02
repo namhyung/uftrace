@@ -28,4 +28,4 @@ class TestCase(TestBase):
 
     def setup(self):
         self.subcmd = 'dump'
-        self.option = '-t 1ms --chrome'
+        self.option = '-t 1ms --format=chrome'
