@@ -64,7 +64,7 @@ int elf_validate(struct uftrace_elf_data *elf)
 
 	// validate program header offset.
 	size = (long)elf->file_size;
-	offset = ehdr->e_phoff + ehdr->e_phnum * ehdr->e_phentsize;
+	offset = ehdr->e_phoff + (unsigned long)ehdr->e_phnum * ehdr->e_phentsize;
 
 	if (offset > size) {
 		pr_dbg2("Invalid Program Header offset:[%lu], size:[%lu]\n", offset, size);
@@ -72,7 +72,7 @@ int elf_validate(struct uftrace_elf_data *elf)
 	}
 
 	// section header is optional.
-	offset = ehdr->e_shoff + ehdr->e_shnum * ehdr->e_shentsize;
+	offset = ehdr->e_shoff + (unsigned long)ehdr->e_shnum * ehdr->e_shentsize;
 
 	if (offset <= size)
 		elf->has_shdr = true;
