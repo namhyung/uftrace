@@ -1174,18 +1174,19 @@ static void parse_opt_file(int *argc, char ***argv, char *filename, struct uftra
 	char *orig_exename = opts->exename;
 	bool has_subcmd = false;
 
-	if (stat(filename, &stbuf) < 0) {
+	fp = fopen(filename, "r");
+	if (fp == NULL) {
 		pr_use("Cannot use opt-file: %s: %m\n", filename);
 		exit(0);
 	}
+
+	if (fstat(fileno(fp), &stbuf) < 0)
+		pr_err("Stat failed: %s", filename);
 
 	/* prepend dummy string since getopt_long cannot process argv[0] */
 	buf = xmalloc(stbuf.st_size + 9);
 	strncpy(buf, "uftrace ", 9);
 
-	fp = fopen(filename, "r");
-	if (fp == NULL)
-		pr_err("Open failed: %s", filename);
 	fread_all(buf + 8, stbuf.st_size, fp);
 	fclose(fp);
 	buf[stbuf.st_size + 8] = '\0';
