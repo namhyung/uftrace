@@ -6,6 +6,8 @@ on:
 jobs:
   run-uftrace-tests:
     if: github.repository == 'namhyung/uftrace'
+    permissions:
+      contents: read
     strategy:
       max-parallel: 1
       matrix:

@@ -3,6 +3,8 @@ on: pull_request
 
 jobs:
   unit-test-with-asan:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - name: "checkout"
@@ -21,6 +23,8 @@ jobs:
         run: make unittest ASAN=1 DEBUG=1 TESTARG="-v"
 
   pre-commit-check:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - name: "check out uftrace source"
