@@ -24,6 +24,8 @@ on:
 jobs:
   run-uftrace-tests:
     if: github.repository == 'namhyung/uftrace'
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - name: "checkout"
