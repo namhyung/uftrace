@@ -1040,6 +1040,113 @@ int copy_file(const char *path_in, const char *path_out)
 	return 0;
 }
 
+int make_cpulist_str(uint64_t *mask, int nr_cpus, char *buf, int bufsize)
+{
+	int i, run_start = -1;
+	int len = 0;
+	bool first = true;
+
+	if (mask == NULL || nr_cpus == 0)
+		goto empty;
+
+	for (i = 0; i <= nr_cpus; i++) {
+		bool bit = (i < nr_cpus) && (mask[i / 64] & (1ULL << (i % 64)));
+
+		if (bit) {
+			if (run_start < 0)
+				run_start = i;
+			continue;
+		}
+		if (run_start < 0)
+			continue;
+
+		{
+			int run_end = i - 1;
+			char tmp[32];
+			int n, prefix;
+
+			if (run_end == run_start)
+				n = snprintf(tmp, sizeof(tmp), "%d", run_start);
+			else
+				n = snprintf(tmp, sizeof(tmp), "%d-%d", run_start, run_end);
+
+			prefix = first ? 0 : 1;
+
+			if (len + prefix + n + 1 <= bufsize) {
+				if (!first)
+					buf[len++] = '/';
+				memcpy(buf + len, tmp, n);
+				len += n;
+				buf[len] = '\0';
+				first = false;
+				run_start = -1;
+				continue;
+			}
+
+			/* Doesn't fit. Try clean truncation at current position. */
+			if (len + prefix + 4 <= bufsize) {
+				if (!first)
+					buf[len++] = '/';
+				memcpy(buf + len, "...", 4);
+				len += 3;
+				return len;
+			}
+
+			/* Backtrack: scan buf for the latest '/' where "/..." fits. */
+			while (len > 0) {
+				len--;
+				if (buf[len] == '/' && len + 5 <= bufsize) {
+					buf[len++] = '/';
+					memcpy(buf + len, "...", 4);
+					len += 3;
+					return len;
+				}
+			}
+
+			/* No '/' fits; overwrite from the start with "...". */
+			if (4 <= bufsize) {
+				memcpy(buf, "...", 4);
+				return 3;
+			}
+			buf[0] = '\0';
+			return 0;
+		}
+	}
+
+	if (first)
+		goto empty;
+
+	return len;
+
+empty:
+	snprintf(buf, bufsize, "-");
+	return 1;
+}
+
+int make_cpumask_str(uint64_t *mask, int nr_cpus, char *buf, int bufsize)
+{
+	int ngroups = DIV_ROUND_UP(nr_cpus, 32);
+	int len = 0;
+	int i;
+
+	if (mask == NULL || nr_cpus == 0) {
+		snprintf(buf, bufsize, "-");
+		return 1;
+	}
+
+	/* print high groups first (kernel cpumask style) */
+	for (i = ngroups - 1; i >= 0; i--) {
+		uint32_t word = (uint32_t)(mask[i / 2] >> ((i % 2) * 32));
+		int n;
+
+		n = snprintf(buf + len, bufsize - len, "%s%08x", i == ngroups - 1 ? "" : " ", word);
+		if (n < 0 || len + n >= bufsize)
+			break;
+		len += n;
+	}
+	return len;
+}
+
 #ifdef UNIT_TEST
 TEST_CASE(utils_parse_cmdline)
 {
@@ -1155,6 +1262,169 @@ TEST_CASE(utils_parse_timestamp)
 		time = parse_timestamp(tc[i].arg);
 		TEST_EQ(time, tc[i].val);
 	}
+
+	return TEST_OK;
+}
+
+TEST_CASE(utils_make_cpulist_str)
+{
+	char buf[64];
+	uint64_t mask[2];
+
+	pr_dbg("null mask returns '-'\n");
+	TEST_EQ(make_cpulist_str(NULL, 0, buf, sizeof(buf)), 1);
+	TEST_STREQ(buf, "-");
+
+	pr_dbg("single CPU 0\n");
+	mask[0] = 0x1UL;
+	TEST_EQ(make_cpulist_str(mask, 1, buf, sizeof(buf)), 1);
+	TEST_STREQ(buf, "0");
+
+	pr_dbg("two adjacent CPUs rendered as range\n");
+	mask[0] = 0x3UL; /* CPUs 0,1 */
+	TEST_EQ(make_cpulist_str(mask, 2, buf, sizeof(buf)), 3);
+	TEST_STREQ(buf, "0-1");
+
+	pr_dbg("range of 3+ CPUs compressed\n");
+	mask[0] = 0xFUL; /* CPUs 0-3 */
+	TEST_EQ(make_cpulist_str(mask, 4, buf, sizeof(buf)), 3);
+	TEST_STREQ(buf, "0-3");
+
+	pr_dbg("non-consecutive CPUs\n");
+	mask[0] = 0x15UL; /* CPUs 0,2,4 */
+	TEST_EQ(make_cpulist_str(mask, 5, buf, sizeof(buf)), 5);
+	TEST_STREQ(buf, "0/2/4");
+
+	pr_dbg("large CPU number (CPU 63)\n");
+	mask[0] = 1ULL << 63;
+	TEST_EQ(make_cpulist_str(mask, 64, buf, sizeof(buf)), 2);
+	TEST_STREQ(buf, "63");
+
+	pr_dbg("truncation with ellipsis (multi-level backtrack)\n");
+	/* CPUs 0,2,4,6,8 with bufsize=8: writes "0/2/4/6", then "/8" doesn't
+	 * fit; backtrack walks past '/' at index 5 (5+5>8) and uses '/' at
+	 * index 3 to overwrite with "/..."
+	 */
+	mask[0] = 0x155UL;
+	make_cpulist_str(mask, 9, buf, 8);
+	TEST_STREQ(buf, "0/2/...");
+
+	pr_dbg("truncation backtracks the last entry to fit /...\n");
+	/* CPUs 0-32, 34-40, 42-45, 47, 50 with bufsize=21:
+	 * writes "0-32/34-40/42-45/47" then "/50" doesn't fit; backtrack uses
+	 * '/' at index 16 and overwrites the last "/47" entry with "/..."
+	 */
+	mask[0] = ((1ULL << 33) - 1) | (0x7FULL << 34) | (0xFULL << 42) | (1ULL << 47) |
+		  (1ULL << 50);
+	make_cpulist_str(mask, 64, buf, 21);
+	TEST_STREQ(buf, "0-32/34-40/42-45/...");
+
+	pr_dbg("multi-level backtrack with ranges\n");
+	/* Same mask with bufsize=20: '/' at index 16 doesn't fit (16+5>20),
+	 * backtrack continues to '/' at index 10 and overwrites the last two
+	 * range entries.
+	 */
+	make_cpulist_str(mask, 64, buf, 20);
+	TEST_STREQ(buf, "0-32/34-40/...");
+
+	pr_dbg("fallback to '...' when no separator fits\n");
+	/* CPUs 0,2,4 with bufsize=5: writes "0/2", then "/4" doesn't fit;
+	 * the only '/' at index 1 doesn't fit either (1+5>5), so the buffer
+	 * is overwritten with "..." from the start.
+	 */
+	mask[0] = 0x15UL;
+	make_cpulist_str(mask, 5, buf, 5);
+	TEST_STREQ(buf, "...");
+
+	return TEST_OK;
+}
+
+TEST_CASE(utils_make_cpumask_str)
+{
+	char buf[64];
+	uint64_t mask[2];
+	uint64_t big_mask[8];
+	char big_buf[200];
+
+	pr_dbg("null mask returns '-'\n");
+	TEST_EQ(make_cpumask_str(NULL, 0, buf, sizeof(buf)), 1);
+	TEST_STREQ(buf, "-");
+
+	pr_dbg("single group: CPU 0\n");
+	mask[0] = 0x1ULL;
+	make_cpumask_str(mask, 1, buf, sizeof(buf));
+	TEST_STREQ(buf, "00000001");
+
+	pr_dbg("single group: CPUs 0-3\n");
+	mask[0] = 0xFULL;
+	make_cpumask_str(mask, 4, buf, sizeof(buf));
+	TEST_STREQ(buf, "0000000f");
+
+	pr_dbg("two groups: CPU 32 only\n");
+	mask[0] = 1ULL << 32;
+	make_cpumask_str(mask, 33, buf, sizeof(buf));
+	TEST_STREQ(buf, "00000001 00000000");
+
+	pr_dbg("two groups: CPU 0 and CPU 32\n");
+	mask[0] = 1ULL | (1ULL << 32);
+	make_cpumask_str(mask, 33, buf, sizeof(buf));
+	TEST_STREQ(buf, "00000001 00000001");
+
+	pr_dbg("scattered bits within a single group\n");
+	/* CPUs 5, 10, 17 in group 0 */
+	mask[0] = (1ULL << 5) | (1ULL << 10) | (1ULL << 17);
+	make_cpumask_str(mask, 32, buf, sizeof(buf));
+	TEST_STREQ(buf, "00020420");
+
+	pr_dbg("bits crossing group boundary\n");
+	/* CPUs 30, 31, 32, 33 - straddling groups 0 and 1 */
+	mask[0] = (3ULL << 30) | (3ULL << 32);
+	make_cpumask_str(mask, 64, buf, sizeof(buf));
+	TEST_STREQ(buf, "00000003 c0000000");
+
+	pr_dbg("arbitrary 64-bit pattern across two groups\n");
+	mask[0] = 0x123456789abcdef0ULL;
+	make_cpumask_str(mask, 64, buf, sizeof(buf));
+	TEST_STREQ(buf, "12345678 9abcdef0");
+
+	pr_dbg("three groups: CPU 64 only\n");
+	mask[0] = 0ULL;
+	mask[1] = 1ULL;
+	make_cpumask_str(mask, 65, buf, sizeof(buf));
+	TEST_STREQ(buf, "00000001 00000000 00000000");
+
+	pr_dbg("middle group fully set, surrounding groups empty\n");
+	/* CPUs 64-95 (lower 32 bits of mask[1]) */
+	mask[0] = 0ULL;
+	mask[1] = 0xFFFFFFFFULL;
+	make_cpumask_str(mask, 96, buf, sizeof(buf));
+	TEST_STREQ(buf, "ffffffff 00000000 00000000");
+
+	pr_dbg("512 CPUs: CPU 0 only\n");
+	memset(big_mask, 0, sizeof(big_mask));
+	big_mask[0] = 0x1ULL;
+	make_cpumask_str(big_mask, 512, big_buf, sizeof(big_buf));
+	TEST_STREQ(big_buf, "00000000 00000000 00000000 00000000 "
+			    "00000000 00000000 00000000 00000000 "
+			    "00000000 00000000 00000000 00000000 "
+			    "00000000 00000000 00000000 00000001");
+
+	pr_dbg("512 CPUs: CPU 511 only\n");
+	memset(big_mask, 0, sizeof(big_mask));
+	big_mask[7] = 1ULL << 63;
+	make_cpumask_str(big_mask, 512, big_buf, sizeof(big_buf));
+	TEST_STREQ(big_buf, "80000000 00000000 00000000 00000000 "
+			    "00000000 00000000 00000000 00000000 "
+			    "00000000 00000000 00000000 00000000 "
+			    "00000000 00000000 00000000 00000000");
+
+	pr_dbg("512 CPUs: all CPUs set\n");
+	memset(big_mask, 0xff, sizeof(big_mask));
+	make_cpumask_str(big_mask, 512, big_buf, sizeof(big_buf));
+	TEST_STREQ(big_buf, "ffffffff ffffffff ffffffff ffffffff "
+			    "ffffffff ffffffff ffffffff ffffffff "
+			    "ffffffff ffffffff ffffffff ffffffff "
+			    "ffffffff ffffffff ffffffff ffffffff");
 
 	return TEST_OK;
 }

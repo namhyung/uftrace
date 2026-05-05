@@ -387,6 +387,9 @@ uint64_t parse_timestamp(char *arg);
 char *strjoin(char *left, char *right, const char *delim);
 char *json_quote(char *str, int *len);
 
+int make_cpulist_str(uint64_t *mask, int nr_cpus, char *buf, int bufsize);
+int make_cpumask_str(uint64_t *mask, int nr_cpus, char *buf, int bufsize);
+
 /* strv - string vector */
 struct strv {
 	int nr; /* actual allocation is (nr + 1) */
