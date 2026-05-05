@@ -1884,10 +1884,12 @@ static bool convert_perf_event(struct uftrace_task_reader *task, struct uftrace_
 			dummy->type = UFTRACE_ENTRY;
 			task->sched_out_seen = true;
 			task->sched_cpu = task->h->last_perf_idx;
+			task->current_cpu = -1;
 		}
 		else {
 			dummy->type = UFTRACE_EXIT;
 			task->sched_out_seen = false;
+			task->current_cpu = task->h->last_perf_idx;
 		}
 
 		dummy->time = orig->time;

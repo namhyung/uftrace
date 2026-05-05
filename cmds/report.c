@@ -253,6 +253,7 @@ static void print_and_delete(struct rb_root *root, bool sorted, void *arg,
 			node = rb_entry(n, typeof(*node), name_link);
 
 		print_func(node, arg, space);
+		free(node->cpu_mask);
 		free(node->name);
 		free(node);
 	}
@@ -308,6 +309,8 @@ static void report_functions(struct uftrace_data *handle, struct uftrace_opts *o
 	struct rb_root sort_root = RB_ROOT;
 	const int field_space = 2;
 
+	setup_report_field(&output_fields, opts, avg_mode);
+
 	build_function_tree(handle, &name_root, opts);
 	report_calc_avg(&name_root);
 	report_sort_nodes(&name_root, &sort_root);
@@ -315,7 +318,10 @@ static void report_functions(struct uftrace_data *handle, struct uftrace_opts *o
 	if (uftrace_done)
 		return;
 
-	setup_report_field(&output_fields, opts, avg_mode);
+	if (report_cpu_field_used()) {
+		set_cpu_field_width(report_calc_cpu_width(&name_root));
+		set_cpu_mask_field_width(handle->info.nr_cpus_possible);
+	}
 
 	if (format_mode == FORMAT_CSV) {
 		print_csv_header("Function");
