@@ -100,6 +100,7 @@ void report_add_node(struct rb_root *root, const char *name, struct uftrace_repo
 void report_delete_node(struct rb_root *root, struct uftrace_report_node *node)
 {
 	rb_erase(&node->name_link, root);
+	free(node->cpu_mask);
 	free(node->name);
 	free(node);
 }
@@ -142,6 +143,18 @@ void report_update_node(struct uftrace_report_node *node, struct uftrace_task_re
 	node->loc = loc;
 	if (task->func != NULL)
 		node->size = task->func->size;
+	if (report_cpu_field_used() && task->current_cpu >= 0) {
+		int cpu = task->current_cpu;
+		int nr_cpus = task->h->info.nr_cpus_possible;
+
+		if (node->cpu_mask == NULL) {
+			int nr_words = DIV_ROUND_UP(nr_cpus, 64);
+			node->cpu_mask = xcalloc(nr_words, sizeof(uint64_t));
+			node->nr_cpus = nr_cpus;
+		}
+		if (cpu < node->nr_cpus)
+			node->cpu_mask[cpu / 64] |= 1ULL << (cpu % 64);
+	}
 }
 
 void report_calc_avg(struct rb_root *root)
@@ -579,6 +592,7 @@ void destroy_diff_nodes(struct rb_root *orig_root, struct rb_root *pair_root)
 
 		/* name is already freed in print_and_delete */
 		rb_erase(&iter->name_link, orig_root);
+		free(iter->cpu_mask);
 		free(iter);
 	}
 
@@ -591,6 +605,7 @@ void destroy_diff_nodes(struct rb_root *orig_root, struct rb_root *pair_root)
 		/* if it has a pair, only base name was freed */
 		if (iter->pair)
 			free(iter->name);
+		free(iter->cpu_mask);
 		free(iter);
 	}
 }
@@ -987,7 +1002,84 @@ FIELD_TIME(REPORT_F_TASK_TOTAL_TIME, total, total.sum, task_total, "Total time")
 FIELD_TIME(REPORT_F_TASK_SELF_TIME, self, self.sum, task_self, "Self time");
 FIELD_TID(REPORT_F_TASK_TID, tid, task_tid, "TID");
 FIELD_UINT(REPORT_F_TASK_NR_FUNC, func, call, task_nr_func, "Num funcs");
+
+static int cpu_field_width = CPU_LIST_MIN_LEN;
+
+static int count_cpus(uint64_t *mask, int nr_cpus)
+{
+	int i, count = 0;
+
+	for (i = 0; i < nr_cpus; i++) {
+		if (mask[i / 64] & (1ULL << (i % 64)))
+			count++;
+	}
+	return count;
+}
+
+static void print_cpu_count(struct field_data *fd)
+{
+	struct uftrace_report_node *node = fd->arg;
+	int count = node->cpu_mask ? count_cpus(node->cpu_mask, node->nr_cpus) : 0;
+	char buf[16];
+	int slen, lpad, rpad;
+
+	if (format_mode == FORMAT_CSV) {
+		pr_out("%d", count);
+		return;
+	}
+
+	slen = snprintf(buf, sizeof(buf), "%d", count);
+	lpad = (CPU_COUNT_LEN - slen) / 2;
+	rpad = CPU_COUNT_LEN - slen - lpad;
+	pr_out("%*s%s%*s", lpad, "", buf, rpad, "");
+}
+FIELD_STRUCT(REPORT_F_CPU_COUNT, cpu-count, cpu_count, "CPU Count", CPU_COUNT_LEN);
+
+static void print_cpu_mask(struct field_data *fd)
+{
+	struct uftrace_report_node *node = fd->arg;
+	int bufsize = DIV_ROUND_UP(node->nr_cpus, 32) * CPU_MASK_GROUP_LEN;
+	char *buf;
+
+	if (bufsize < 16)
+		bufsize = 16;
+	buf = xmalloc(bufsize);
+
+	make_cpumask_str(node->cpu_mask, node->nr_cpus, buf, bufsize);
+	pr_out("%s", buf);
+	free(buf);
+}
+FIELD_STRUCT(REPORT_F_CPU_MASK, cpu-mask, cpu_mask, "CPU MASK", CPU_MASK_MIN_LEN);
+
+static void print_cpu_list(struct field_data *fd)
+{
+	struct uftrace_report_node *node = fd->arg;
+	char buf[256];
+	int slen, lpad, rpad;
+	int width = cpu_field_width;
+
+	if (format_mode == FORMAT_CSV) {
+		make_cpulist_str(node->cpu_mask, node->nr_cpus, buf, sizeof(buf));
+		pr_out("%s", buf);
+		return;
+	}
+
+	slen = make_cpulist_str(node->cpu_mask, node->nr_cpus, buf, width + 1);
+	lpad = (width - slen) / 2;
+	rpad = width - slen - lpad;
+	if (lpad < 0)
+		lpad = 0;
+	if (rpad < 0)
+		rpad = 0;
+	pr_out("%*s%s%*s", lpad, "", buf, rpad, "");
+}
+FIELD_STRUCT(REPORT_F_CPU_LIST, cpu-list, cpu_list, " CPU LIST ", CPU_LIST_MIN_LEN);
 /* clang-format on */
+
+bool report_cpu_field_used(void)
+{
+	return field_cpu_count.used || field_cpu_mask.used || field_cpu_list.used;
+}
 
 /* index of this table should be matched to display_field_id */
 static struct display_field *field_table[] = {
@@ -995,7 +1087,70 @@ static struct display_field *field_table[] = {
 	&field_self,	     &field_self_avg,	  &field_self_min,    &field_self_max,
 	&field_call,	     &field_size,	  &field_total_stdv,  &field_self_stdv,
 	&field_total_min_ts, &field_total_max_ts, &field_self_min_ts, &field_self_max_ts,
+	&field_cpu_count,    &field_cpu_mask,	  &field_cpu_list,
 };
+
+void set_cpu_mask_field_width(int nr_cpus)
+{
+	static char cpu_mask_header[64];
+	int ngroups = DIV_ROUND_UP(nr_cpus, 32);
+	int width = ngroups * CPU_MASK_GROUP_LEN - 1;
+	int lpad, rpad;
+
+	if (width < CPU_MASK_MIN_LEN)
+		width = CPU_MASK_MIN_LEN;
+
+	lpad = (width - CPU_MASK_MIN_LEN) / 2;
+	rpad = width - CPU_MASK_MIN_LEN - lpad;
+	snprintf(cpu_mask_header, sizeof(cpu_mask_header), "%*sCPU MASK%*s", lpad, "", rpad, "");
+	field_cpu_mask.header = cpu_mask_header;
+	field_cpu_mask.length = width;
+}
+
+void set_cpu_field_width(int width)
+{
+	static char cpu_header[64];
+	int lpad, rpad;
+
+	if (width < CPU_LIST_MIN_LEN)
+		width = CPU_LIST_MIN_LEN;
+	if (width > CPU_LIST_MAX_LEN)
+		width = CPU_LIST_MAX_LEN;
+
+	lpad = (width - CPU_LIST_MIN_LEN) / 2;
+	rpad = width - CPU_LIST_MIN_LEN - lpad;
+	snprintf(cpu_header, sizeof(cpu_header), "%*sCPU LIST%*s", lpad, "", rpad, "");
+	field_cpu_list.header = cpu_header;
+	field_cpu_list.length = width;
+	cpu_field_width = width;
+}
+
+int get_cpu_field_width(void)
+{
+	return cpu_field_width;
+}
+
+int report_calc_cpu_width(struct rb_root *root)
+{
+	struct uftrace_report_node *node;
+	struct rb_node *n = rb_first(root);
+	char buf[256];
+	int max_width = CPU_LIST_MIN_LEN;
+
+	while (n) {
+		int w;
+
+		node = rb_entry(n, typeof(*node), name_link);
+		w = make_cpulist_str(node->cpu_mask, node->nr_cpus, buf, sizeof(buf));
+		if (w > max_width)
+			max_width = w;
+		if (max_width >= CPU_LIST_MAX_LEN)
+			break;
+		n = rb_next(n);
+	}
+
+	return MIN(max_width, CPU_LIST_MAX_LEN);
+}
 
 /* index of this table should be matched to display_field_id */
 static struct display_field *field_diff_table[] = {
