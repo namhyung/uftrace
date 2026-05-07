@@ -360,11 +360,17 @@ Each field has following meaning:
  * self-min: min of self time of each function.
  * self-max: max of self time of each function.
  * call: called count of each function.
+ * cpu-count: number of distinct CPUs the function ran on.
+ * cpu-mask: bitmask of CPUs (in 32-bit hex groups, high-to-low order).
+ * cpu-list: compact range list of CPUs (e.g., "0-3", "0-1/3").
 
 The default value is 'total,self,call'.  If given field name starts with "+",
 then it'll be appended to the default fields.  So "-f +total-avg" is as same as
 "-f total,self,call,total-avg".  And it also accepts a special field name of
 'none' which disables the field display and shows function output only.
+
+The cpu-* fields require perf context-switch events to be recorded
+(do not pass --no-event when recording).
 
 TASK FIELDS
 ======
