@@ -16,7 +16,12 @@ jobs:
       - id: should_run
         name: "check lateset version is less than a day"
         if: ${{ github.event_name == 'schedule' }}
-        run: test -z $(git rev-list --after 1day ${{ github.sha }}) && echo "should_run=false" >> $GITHUB_OUTPUT
+        env:
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          if [ -z "$(git rev-list --after=1day "$HEAD_SHA")" ]; then
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          fi
 
   run-uftrace-tests:
     needs: check_commits
