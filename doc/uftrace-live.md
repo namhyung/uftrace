@@ -537,8 +537,8 @@ The BNF for trigger specification is as follows:
     <actions>    :=  <action>  | <action> "," <actions>
     <action>     :=  "depth="<num> | "backtrace" | "trace" | "trace_on" | "trace_off" |
                      "recover" | "color="<color> | "time="<time_spec> | "read="<read_spec> |
-                     "finish" | "filter" | "notrace" | "hide" | "clear" [ "="<clear_spec> ] |
-		     "if:"<cond_spec>
+                     "callsite" | "finish" | "filter" | "notrace" | "hide" |
+                     "clear" [ "="<clear_spec> ] | "if:"<cond_spec>
     <time_spec>  :=  <num> [ <time_unit> ]
     <time_unit>  :=  "ns" | "nsec" | "us" | "usec" | "ms" | "msec" | "s" | "sec" | "m" | "min"
     <read_spec>  :=  "proc/statm" | "page-fault" | "pmu-cycle" | "pmu-cache" | "pmu-branch"
@@ -609,6 +609,27 @@ The results are printed as events (comments) like below.
                 [ 1234] |     /* diff:proc/statm (size=+4KB, rss=+0KB, shared=+0KB) */
       18.380 us [ 1234] |   } /* a */
       19.537 us [ 1234] | } /* main */
+
+The `callsite` trigger records the return address of the matching function
+call so that the replay output can show where the function was called from.
+The trigger automatically saves debug info too, so a separate `--srcline`
+is not required and the call site is shown by default like below.
+
+    $ uftrace -T 'a@callsite' ./abc
+    # DURATION     TID     FUNCTION
+                [ 1234] | main() {
+                [ 1234] |   a() { /* from tests/s-abc.c:33 */
+                [ 1234] |     b() {
+                ...
+
+Combine it with `--srcline` to also show the callee's definition line:
+
+    $ uftrace -T 'a@callsite' --srcline ./abc
+                [ 1234] |   a() { /* tests/s-abc.c:11 from tests/s-abc.c:33 */
+
+The call site display can be suppressed with `--no-callsite` at replay
+time.  The reported line itself comes from the compiler's dwarf line
+program and is shown as-is.
 
 The `finish` trigger is to end recording.  The process can still run, which
 can be useful to trace non-terminating processes like daemon.

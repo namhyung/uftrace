@@ -459,7 +459,7 @@ The BNF for trigger specification is as follows:
     <actions>    :=  <action>  | <action> "," <actions>
     <action>     :=  "depth="<num> | "trace" | "trace_on" | "trace_off" |
                      "time="<time_spec> | "size="<num> | "read="<read_spec> |
-                     "finish" | "filter" | "notrace" | "recover"
+                     "finish" | "filter" | "notrace" | "recover" | "callsite" |
                      "filter" | "notrace" | "recover" | "if:"<cond_spec>
     <time_unit>  :=  "ns" | "nsec" | "us" | "usec" | "ms" | "msec" | "s" | "sec" | "m" | "min"
     <read_spec>  :=  "proc/statm" | "page-fault" | "pmu-cycle" | "pmu-cache" | "pmu-branch"
@@ -524,6 +524,29 @@ The results are printed as events (comments) like below.
 
 The 'finish' trigger is to end recording.  The process still can run and this
 can be useful to trace unterminated processes like daemon.
+
+The 'callsite' trigger records the return address of the matching function
+call so that the replay command can show where the function was called from.
+The trigger automatically saves debug info too, so a separate `--srcline`
+is not required at record time and `uftrace replay` shows the call site by
+default like below.
+
+    $ uftrace record -T 'a@callsite' ./abc
+    $ uftrace replay
+    # DURATION     TID     FUNCTION
+                [ 1234] | main() {
+                [ 1234] |   a() { /* from tests/s-abc.c:33 */
+                [ 1234] |     b() {
+                ...
+
+Combine it with `--srcline` to also show the callee's definition line:
+
+    $ uftrace replay --srcline
+                [ 1234] |   a() { /* tests/s-abc.c:11 from tests/s-abc.c:33 */
+
+The call site display can be suppressed with `--no-callsite` at replay
+time.  The reported line itself comes from the compiler's dwarf line
+program and is shown as-is.
 
 The 'filter' and 'notrace' triggers have same effect as `-F`/`--filter` and
 `-N`/`--notrace` options respectively.  And it can have a condition.

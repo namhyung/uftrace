@@ -49,7 +49,14 @@ REPLAY OPTIONS
 :   Show libname name along with function name.
 
 \--srcline
-:   Show source location of each function if available.
+:   Show source location (definition line) of each function if available.
+
+\--no-callsite
+:   Do not show the call site location of each function.  Call site info
+    is normally shown by default when the function was recorded with the
+    `callsite` trigger (see *TRIGGERS* in `uftrace-record`(1)).  It is
+    shown as `/* from file.c:33 */`, or combined with `--srcline` as
+    `/* file.c:11 from file.c:33 */`.
 
 \--format=*TYPE*
 :   Select the output format.  Supported values are `normal` (default) and `html`.
