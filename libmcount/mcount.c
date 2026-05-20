@@ -414,6 +414,10 @@ struct uftrace_triggers_info *mcount_trigger_init(struct uftrace_filter_setting 
 	if (getenv("UFTRACE_SRCLINE"))
 		needs_debug_info = true;
 
+	/* @callsite trigger needs dwarf info to resolve callsite addresses */
+	if (trigger_str && strstr(trigger_str, "callsite"))
+		needs_debug_info = true;
+
 	/* use debug info if available */
 	if (needs_debug_info) {
 		prepare_debug_info(&mcount_sym_info, filter_setting->ptype, argument_str,
@@ -1247,6 +1251,8 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp, struct mcount_r
 				save_trigger_read(mtdp, rstack, tr->read, false);
 				rstack->flags |= MCOUNT_FL_READ;
 			}
+			if (tr->flags & TRIGGER_FL_CALLSITE)
+				save_callsite_event(mtdp, rstack);
 			if (mcount_watchpoints)
 				save_watchpoint(mtdp, rstack, mcount_watchpoints);
 

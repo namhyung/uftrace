@@ -1552,6 +1552,18 @@ int read_task_event(struct uftrace_task_reader *task, struct uftrace_record *rec
 		save_task_event(task, &u.watch, len);
 		break;
 
+	case EVENT_ID_CALLSITE: {
+		uint64_t callsite_ip;
+
+		if (read_task_event_size(task, &callsite_ip, sizeof(callsite_ip)) < 0)
+			return -1;
+		if (task->h->needs_byte_swap)
+			callsite_ip = bswap_64(callsite_ip);
+
+		save_task_event(task, &callsite_ip, sizeof(callsite_ip));
+		break;
+	}
+
 	default:
 		pr_err_ns("unknown event has data: %u\n", rec->addr);
 		break;
