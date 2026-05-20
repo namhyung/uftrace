@@ -63,6 +63,8 @@ struct uftrace_task_reader {
 	int event_color;
 	int sched_cpu;
 	int current_cpu;
+	/* return address from a pending CALLSITE event, consumed by next ENTRY */
+	uint64_t callsite_ip;
 	enum uftrace_fstack_context ctx;
 	uint64_t timestamp;
 	uint64_t timestamp_last;

@@ -781,11 +781,57 @@ static int print_graph_rstack(struct uftrace_data *handle, struct uftrace_task_r
 		}
 	}
 
-	if (opts->srcline) {
-		loc = task_find_loc_addr(sessions, task, rstack->time, rstack->addr);
-		if (opts->comment && loc)
+	if (opts->comment) {
+		struct uftrace_dbg_loc csloc;
+		char cs_buf[128];
+		const char *cs_str = NULL;
+
+		if (opts->srcline)
+			loc = task_find_loc_addr(sessions, task, rstack->time, rstack->addr);
+
+		if (!opts->no_callsite && rstack->type == UFTRACE_ENTRY && task->callsite_ip) {
+			if (task_find_exact_loc_addr(sessions, task, rstack->time,
+						     task->callsite_ip, &csloc)) {
+				snprintf(cs_buf, sizeof(cs_buf), "%s:%d", csloc.file->name,
+					 csloc.line);
+				cs_str = cs_buf;
+			}
+			else {
+				/* fallback to function+offset when no dwarf info */
+				struct uftrace_session *cs_sess;
+				struct uftrace_mmap *cs_map;
+
+				cs_sess = find_task_session(sessions, task->t, rstack->time);
+				if (cs_sess) {
+					cs_map = find_map(&cs_sess->sym_info, task->callsite_ip);
+					if (cs_map && cs_map->mod) {
+						uint64_t mod_addr =
+							task->callsite_ip - cs_map->start;
+						struct uftrace_symbol *cs_sym;
+
+						cs_sym = find_sym(&cs_map->mod->symtab, mod_addr);
+						if (cs_sym) {
+							snprintf(cs_buf, sizeof(cs_buf), "%s+%#lx",
+								 cs_sym->name,
+								 (unsigned long)(mod_addr -
+										 cs_sym->addr));
+							cs_str = cs_buf;
+						}
+					}
+				}
+			}
+		}
+
+		if (loc && cs_str)
+			xasprintf(&str_loc, "%s:%d from %s", loc->file->name, loc->line, cs_str);
+		else if (loc)
 			xasprintf(&str_loc, "%s:%d", loc->file->name, loc->line);
+		else if (cs_str)
+			xasprintf(&str_loc, "from %s", cs_str);
 	}
+
+	if (rstack->type == UFTRACE_ENTRY)
+		task->callsite_ip = 0;
 
 	if (rstack->type == UFTRACE_ENTRY) {
 		struct uftrace_task_reader *next = NULL;
@@ -944,6 +990,13 @@ lost:
 		struct uftrace_task_reader *next = NULL;
 		struct uftrace_record rec = *rstack;
 		uint64_t evt_id = rstack->addr;
+
+		/* stash callsite return address for the next ENTRY to consume */
+		if (evt_id == EVENT_ID_CALLSITE) {
+			if (task->args.data && task->args.len >= sizeof(uint64_t))
+				memcpy(&task->callsite_ip, task->args.data, sizeof(uint64_t));
+			goto out;
+		}
 
 		depth = task->display_depth;
 

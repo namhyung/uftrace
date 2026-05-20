@@ -121,6 +121,9 @@ char *event_get_name(struct uftrace_data *handle, unsigned evt_id)
 		case EVENT_ID_WATCH_VAR:
 			xasprintf(&evt_name, "watch:var");
 			break;
+		case EVENT_ID_CALLSITE:
+			xasprintf(&evt_name, "trigger:callsite");
+			break;
 		default:
 			xasprintf(&evt_name, "builtin_event:%u", evt_id);
 			break;
@@ -267,6 +270,16 @@ char *event_get_data_str(struct uftrace_data *handle, unsigned evt_id, void *dat
 			xasprintf(&str, "[%#" PRIx64 "]=%" PRIx64, u.watch.var.addr,
 				  u.watch.var.data);
 		break;
+
+	case EVENT_ID_CALLSITE: {
+		uint64_t callsite_ip = 0;
+
+		if ((size_t)len >= sizeof(callsite_ip))
+			memcpy(&callsite_ip, data, sizeof(callsite_ip));
+
+		xasprintf(&str, "callsite=%#" PRIx64, callsite_ip);
+		break;
+	}
 
 	default:
 		/* kernel tracepoints */

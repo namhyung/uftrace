@@ -97,6 +97,7 @@ enum uftrace_short_options {
 	OPT_match_type,
 	OPT_no_randomize_addr,
 	OPT_no_event,
+	OPT_no_callsite,
 	OPT_no_sched,
 	OPT_no_sched_preempt,
 	OPT_signal,
@@ -327,6 +328,7 @@ static const struct option uftrace_options[] = {
 	REQ_ARG(time-range, 'r'),
 	REQ_ARG(Event, 'E'),
 	NO_ARG(no-event, OPT_no_event),
+	NO_ARG(no-callsite, OPT_no_callsite),
 	NO_ARG(no-sched, OPT_no_sched),
 	NO_ARG(no-sched-preempt, OPT_no_sched_preempt),
 	NO_ARG(list-event, OPT_list_event),
@@ -1093,6 +1095,10 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 
 	case OPT_no_event:
 		opts->no_event = true;
+		break;
+
+	case OPT_no_callsite:
+		opts->no_callsite = true;
 		break;
 
 	case OPT_no_sched:

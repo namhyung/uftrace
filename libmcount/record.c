@@ -821,6 +821,27 @@ void save_watchpoint(struct mcount_thread_data *mtdp, struct mcount_ret_stack *r
 	}
 }
 
+void save_callsite_event(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack)
+{
+	struct mcount_event *event;
+	uint64_t timestamp = rstack->start_time;
+	uint64_t callsite = rstack->parent_ip;
+
+	if (mtdp->nr_events >= MAX_EVENT)
+		return;
+
+	/* place event before the entry record */
+	timestamp -= 1;
+
+	event = &mtdp->event[mtdp->nr_events++];
+	event->id = EVENT_ID_CALLSITE;
+	event->time = timestamp;
+	event->idx = rstack - mtdp->rstack;
+	event->dsize = sizeof(callsite);
+
+	mcount_memcpy1(event->data, &callsite, sizeof(callsite));
+}
+
 #else
 /*
  * These are for fast libmcount libraries without filters.
@@ -842,6 +863,10 @@ void save_trigger_read(struct mcount_thread_data *mtdp, struct mcount_ret_stack 
 
 void save_watchpoint(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
 		     unsigned long watchpoints)
+{
+}
+
+void save_callsite_event(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack)
 {
 }
 
