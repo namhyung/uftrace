@@ -69,6 +69,8 @@ extern void prepare_debug_info(struct uftrace_sym_info *sinfo, enum uftrace_patt
 extern void finish_debug_info(struct uftrace_sym_info *sinfo);
 extern bool debug_info_has_argspec(struct uftrace_dbg_info *dinfo);
 extern bool debug_info_has_location(struct uftrace_dbg_info *dinfo);
+extern bool find_dbg_line_at(struct uftrace_dbg_info *dinfo, uint64_t addr,
+			     struct uftrace_dbg_file **out_file, int *out_line);
 extern char *get_dwarf_argspec(struct uftrace_dbg_info *dinfo, char *name, unsigned long addr);
 extern char *get_dwarf_retspec(struct uftrace_dbg_info *dinfo, char *name, unsigned long addr);
 struct uftrace_dbg_loc *find_file_line(struct uftrace_sym_info *sinfo, uint64_t addr);
