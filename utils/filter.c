@@ -82,6 +82,8 @@ static void print_trigger(struct uftrace_trigger *tr)
 		pr_dbg("\ttrigger: recover\n");
 	if (tr->flags & TRIGGER_FL_FINISH)
 		pr_dbg("\ttrigger: finish\n");
+	if (tr->flags & TRIGGER_FL_CALLSITE)
+		pr_dbg("\ttrigger: callsite\n");
 
 	if (tr->flags & TRIGGER_FL_ARGUMENT) {
 		struct uftrace_arg_spec *arg;
@@ -750,6 +752,13 @@ static int parse_finish_action(char *action, struct uftrace_trigger *tr,
 	return 0;
 }
 
+static int parse_callsite_action(char *action, struct uftrace_trigger *tr,
+				 struct uftrace_filter_setting *setting)
+{
+	tr->flags |= TRIGGER_FL_CALLSITE;
+	return 0;
+}
+
 static int parse_filter_action(char *action, struct uftrace_trigger *tr,
 			       struct uftrace_filter_setting *setting)
 {
@@ -881,6 +890,8 @@ static int parse_clear_action(char *action, struct uftrace_trigger *tr,
 					   TRIGGER_FL_TRACE_OFF;
 		else if (!strcmp(pos, "finish"))
 			tr->clear_flags |= TRIGGER_FL_FINISH;
+		else if (!strcmp(pos, "callsite"))
+			tr->clear_flags |= TRIGGER_FL_CALLSITE;
 		else if (!strcmp(pos, "read"))
 			tr->clear_flags |= TRIGGER_FL_READ;
 		else if (!strcmp(pos, "color"))
@@ -966,6 +977,10 @@ static const struct trigger_action_parser actions[] = {
 		"finish",
 		parse_finish_action,
 		TRIGGER_FL_SIGNAL,
+	},
+	{
+		"callsite",
+		parse_callsite_action,
 	},
 	{
 		"read=",
