@@ -1927,7 +1927,7 @@ void prepare_debug_info(struct uftrace_sym_info *sinfo, enum uftrace_pattern_typ
 	struct strv dwarf_rets = STRV_INIT;
 
 	if (sinfo->flags & SYMTAB_FL_SYMS_DIR) {
-		load_debug_info(sinfo, true);
+		load_debug_info(sinfo, true, false);
 		return;
 	}
 
@@ -2297,7 +2297,8 @@ out:
 	return ret;
 }
 
-void load_module_debug_info(struct uftrace_module *mod, const char *dirname, bool needs_srcline)
+void load_module_debug_info(struct uftrace_module *mod, const char *dirname, bool needs_srcline,
+			    bool needs_callsite)
 {
 	struct uftrace_dbg_info *dinfo;
 
@@ -2307,9 +2308,17 @@ void load_module_debug_info(struct uftrace_module *mod, const char *dirname, boo
 		load_debug_file(dinfo, &mod->symtab, dirname, mod->name, mod->build_id,
 				needs_srcline);
 	}
+
+	/*
+	 * Keep libdw open per-module so PC-precise line lookups (used by the
+	 * @callsite trigger) can query the dwarf line program at replay time.
+	 * finish_debug_info() releases it.
+	 */
+	if (needs_callsite && dinfo->dw == NULL)
+		setup_dwarf_info(mod->name, dinfo, 0, true);
 }
 
-void load_debug_info(struct uftrace_sym_info *sinfo, bool needs_srcline)
+void load_debug_info(struct uftrace_sym_info *sinfo, bool needs_srcline, bool needs_callsite)
 {
 	struct uftrace_mmap *map;
 
@@ -2328,6 +2337,14 @@ void load_debug_info(struct uftrace_sym_info *sinfo, bool needs_srcline)
 			load_debug_file(dinfo, stab, sinfo->symdir, map->libname, map->build_id,
 					needs_srcline);
 		}
+
+		/*
+		 * Keep libdw open per-module so PC-precise line lookups (used
+		 * by the @callsite trigger) can query the dwarf line program
+		 * at replay time.  finish_debug_info() releases it.
+		 */
+		if (needs_callsite && dinfo->dw == NULL)
+			setup_dwarf_info(map->libname, dinfo, map->start, true);
 	}
 }
 

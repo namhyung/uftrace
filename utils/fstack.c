@@ -2767,7 +2767,7 @@ static int fstack_test_setup_exec(struct uftrace_data *handle)
 	};
 	char name[] = "unittest";
 
-	create_session(&handle->sessions, &smsg, "tests", "tests", name, true, false, false);
+	create_session(&handle->sessions, &smsg, "tests", "tests", name, true, false, false, false);
 	create_task(&handle->sessions, &smsg.task, false);
 
 	handle->sessions.first->sym_info.maps = &map;

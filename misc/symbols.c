@@ -140,7 +140,8 @@ static int read_sessions(struct uftrace_session_link *link, char *dirname)
 			smsg.task.time = (uint64_t)sec * NSEC_PER_SEC + nsec;
 			smsg.namelen = strlen(exename);
 
-			create_session(link, &smsg, dirname, dirname, exename, true, true, false);
+			create_session(link, &smsg, dirname, dirname, exename, true, true, false,
+				       false);
 			count++;
 		}
 		else if (!strncmp(line, "DLOP", 4)) {
@@ -162,7 +163,8 @@ static int read_sessions(struct uftrace_session_link *link, char *dirname)
 			dlop.namelen = strlen(exename);
 
 			s = get_session_from_sid(link, dlop.sid);
-			session_add_dlopen(s, dlop.task.time, dlop.base_addr, exename, false);
+			session_add_dlopen(s, dlop.task.time, dlop.base_addr, exename, false,
+					   false);
 		}
 	}
 

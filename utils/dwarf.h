@@ -75,9 +75,10 @@ extern char *get_dwarf_argspec(struct uftrace_dbg_info *dinfo, char *name, unsig
 extern char *get_dwarf_retspec(struct uftrace_dbg_info *dinfo, char *name, unsigned long addr);
 struct uftrace_dbg_loc *find_file_line(struct uftrace_sym_info *sinfo, uint64_t addr);
 extern void save_debug_info(struct uftrace_sym_info *sinfo, const char *dirname);
-extern void load_debug_info(struct uftrace_sym_info *sinfo, bool needs_srcline);
+extern void load_debug_info(struct uftrace_sym_info *sinfo, bool needs_srcline,
+			    bool needs_callsite);
 extern void save_debug_file(FILE *fp, char code, char *str, unsigned long val);
 extern void load_module_debug_info(struct uftrace_module *mod, const char *dirname,
-				   bool needs_srcline);
+				   bool needs_srcline, bool needs_callsite);
 
 #endif /* UFTRACE_DWARF_H */

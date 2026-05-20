@@ -305,6 +305,7 @@ struct uftrace_opts {
 	bool list_event;
 	bool event_skip_out;
 	bool no_event;
+	bool callsite;
 	bool no_sched;
 	bool no_sched_preempt;
 	bool nest_libcall;
@@ -354,9 +355,10 @@ static inline void close_data_file(struct uftrace_opts *opts, struct uftrace_dat
 }
 
 int read_task_file(struct uftrace_session_link *sess, char *dirname, bool needs_symtab,
-		   bool sym_rel_addr, bool needs_srcline);
+		   bool sym_rel_addr, bool needs_srcline, bool needs_callsite);
 int read_task_txt_file(struct uftrace_session_link *sess, char *dirname, char *symdir,
-		       bool needs_symtab, bool sym_rel_addr, bool needs_srcline);
+		       bool needs_symtab, bool sym_rel_addr, bool needs_srcline,
+		       bool needs_callsite);
 
 char *get_libmcount_path(struct uftrace_opts *opts);
 void put_libmcount_path(char *libpath);
@@ -484,7 +486,7 @@ extern struct uftrace_session *first_session;
 
 void create_session(struct uftrace_session_link *sess, struct uftrace_msg_sess *msg, char *dirname,
 		    char *symdir, char *exename, bool sym_rel_addr, bool needs_symtab,
-		    bool needs_srcline);
+		    bool needs_srcline, bool needs_callsite);
 struct uftrace_session *find_task_session(struct uftrace_session_link *sess,
 					  struct uftrace_task *task, uint64_t timestamp);
 void create_task(struct uftrace_session_link *sess, struct uftrace_msg_task *msg, bool fork);
@@ -494,7 +496,7 @@ void delete_session_map(struct uftrace_sym_info *sinfo);
 void update_session_map(const char *filename);
 struct uftrace_session *get_session_from_sid(struct uftrace_session_link *sess, char sid[]);
 void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp, unsigned long base_addr,
-			const char *libname, bool needs_srcline);
+			const char *libname, bool needs_srcline, bool needs_callsite);
 void session_setup_dlopen_argspec(struct uftrace_session *sess,
 				  struct uftrace_filter_setting *setting, bool is_retval);
 struct uftrace_dlopen_list *session_find_dlopen(struct uftrace_session *sess, uint64_t timestamp,
