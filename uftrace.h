@@ -63,6 +63,7 @@ enum uftrace_feat_bits {
 	DEBUG_INFO_BIT,
 	ESTIMATE_RETURN_BIT,
 	SYM_SIZE_BIT,
+	CALLSITE_BIT,
 
 	FEAT_BIT_MAX,
 
@@ -80,6 +81,7 @@ enum uftrace_feat_bits {
 	DEBUG_INFO = (1U << DEBUG_INFO_BIT),
 	ESTIMATE_RETURN = (1U << ESTIMATE_RETURN_BIT),
 	SYM_SIZE = (1U << SYM_SIZE_BIT),
+	CALLSITE = (1U << CALLSITE_BIT),
 };
 
 enum uftrace_info_bits {

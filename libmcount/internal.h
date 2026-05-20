@@ -435,6 +435,7 @@ extern void save_argument(struct mcount_thread_data *mtdp, struct mcount_ret_sta
 void save_retval(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack, long *retval);
 void save_trigger_read(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
 		       enum trigger_read_type type, bool diff);
+void save_callsite_event(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack);
 struct uftrace_triggers_info *mcount_trigger_init(struct uftrace_filter_setting *filter_setting);
 #endif /* DISABLE_MCOUNT_FILTER */
 
