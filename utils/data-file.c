@@ -456,17 +456,25 @@ int open_data_file(struct uftrace_opts *opts, struct uftrace_data *handle)
 
 	if (handle->hdr.feat_mask & TASK_SESSION) {
 		bool sym_rel = false;
+		bool needs_dbg;
 		struct uftrace_session_link *sessions = &handle->sessions;
 		int i;
 
 		if (handle->hdr.feat_mask & SYM_REL_ADDR)
 			sym_rel = true;
 
+		/*
+		 * also load debug info if the trace has it (e.g. from a
+		 * @callsite trigger), unless the user opted out
+		 */
+		needs_dbg = opts->srcline || (opts->loc_filter != NULL);
+		if (!opts->no_callsite && (handle->hdr.feat_mask & DEBUG_INFO))
+			needs_dbg = true;
+
 		/* read old task file first and then try task.txt file */
-		if (read_task_file(sessions, opts->dirname, true, sym_rel, opts->srcline) < 0 &&
+		if (read_task_file(sessions, opts->dirname, true, sym_rel, needs_dbg) < 0 &&
 		    read_task_txt_file(sessions, opts->dirname, opts->with_syms ?: opts->dirname,
-				       true, sym_rel,
-				       opts->srcline | (opts->loc_filter != NULL)) < 0) {
+				       true, sym_rel, needs_dbg) < 0) {
 			if (errno == ENOENT)
 				saved_errno = ENODATA;
 			else

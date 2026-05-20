@@ -1768,7 +1768,81 @@ static void build_dwarf_info(struct uftrace_dbg_info *dinfo, struct uftrace_symt
 	free(ret_patt);
 }
 
+/*
+ * match the trailing path against existing entries so callsite filenames
+ * stay consistent with the --srcline output
+ */
+static struct uftrace_dbg_file *find_or_get_debug_file(struct uftrace_dbg_info *dinfo,
+						       const char *filename)
+{
+	struct rb_node *n;
+
+	for (n = rb_first(&dinfo->files); n != NULL; n = rb_next(n)) {
+		struct uftrace_dbg_file *df = rb_entry(n, struct uftrace_dbg_file, node);
+		size_t flen = strlen(filename);
+		size_t dflen = strlen(df->name);
+
+		if (dflen > flen)
+			continue;
+
+		if (dflen == flen) {
+			if (!strcmp(df->name, filename))
+				return df;
+			continue;
+		}
+
+		/* match suffix preceded by a path separator */
+		if (filename[flen - dflen - 1] == '/' && !strcmp(filename + flen - dflen, df->name))
+			return df;
+	}
+
+	return get_debug_file(dinfo, filename);
+}
+
+/* resolve an instruction address to its source location via libdw */
+bool find_dbg_line_at(struct uftrace_dbg_info *dinfo, uint64_t addr,
+		      struct uftrace_dbg_file **out_file, int *out_line)
+{
+	Dwarf_Die cudie;
+	Dwarf_Line *line;
+	int dline;
+	const char *filename;
+	unsigned long dwarf_addr;
+
+	if (dinfo->dw == NULL)
+		return false;
+
+	dwarf_addr = sym_to_dwarf_addr(dinfo, addr);
+
+	if (dwarf_addrdie(dinfo->dw, dwarf_addr, &cudie) == NULL)
+		return false;
+
+	line = dwarf_getsrc_die(&cudie, dwarf_addr);
+	if (line == NULL)
+		return false;
+
+	filename = dwarf_linesrc(line, NULL, NULL);
+	if (filename == NULL)
+		return false;
+
+	if (dwarf_lineno(line, &dline) != 0)
+		return false;
+
+	*out_file = find_or_get_debug_file(dinfo, filename);
+	if (*out_file == NULL)
+		return false;
+
+	*out_line = dline;
+	return true;
+}
+
 #else /* !HAVE_LIBDW */
+
+bool find_dbg_line_at(struct uftrace_dbg_info *dinfo, uint64_t addr,
+		      struct uftrace_dbg_file **out_file, int *out_line)
+{
+	return false;
+}
 
 static int setup_dwarf_info(const char *filename, struct uftrace_dbg_info *dinfo,
 			    unsigned long offset, bool force)
@@ -1899,6 +1973,7 @@ void finish_debug_info(struct uftrace_sym_info *sinfo)
 		if (map->mod == NULL || !map->mod->dinfo.loaded)
 			continue;
 
+		release_dwarf_info(&map->mod->dinfo);
 		release_debug_info(&map->mod->dinfo);
 	}
 }
@@ -2253,6 +2328,14 @@ void load_debug_info(struct uftrace_sym_info *sinfo, bool needs_srcline)
 			load_debug_file(dinfo, stab, sinfo->symdir, map->libname, map->build_id,
 					needs_srcline);
 		}
+
+		/*
+		 * Keep libdw open per-module so that PC-level line lookups
+		 * (used by the @callsite trigger) can query the dwarf line
+		 * program at replay time.  finish_debug_info() releases it.
+		 */
+		if (needs_srcline && dinfo->dw == NULL)
+			setup_dwarf_info(map->libname, dinfo, map->start, true);
 	}
 }
 

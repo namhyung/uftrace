@@ -512,6 +512,8 @@ struct uftrace_symbol *task_find_sym_addr(struct uftrace_session_link *sess,
 struct uftrace_dbg_loc *task_find_loc_addr(struct uftrace_session_link *sess,
 					   struct uftrace_task_reader *task, uint64_t time,
 					   uint64_t addr);
+bool task_find_exact_loc_addr(struct uftrace_session_link *sess, struct uftrace_task_reader *task,
+			      uint64_t time, uint64_t addr, struct uftrace_dbg_loc *out);
 
 typedef int (*walk_sessions_cb_t)(struct uftrace_session *session, void *arg);
 void walk_sessions(struct uftrace_session_link *sess, walk_sessions_cb_t callback, void *arg);

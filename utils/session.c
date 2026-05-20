@@ -762,17 +762,15 @@ struct uftrace_symbol *task_find_sym_addr(struct uftrace_session_link *sessions,
  * This function returns a debug location of symbol
  * that looked up in symbol table in current session
  */
-struct uftrace_dbg_loc *task_find_loc_addr(struct uftrace_session_link *sessions,
-					   struct uftrace_task_reader *task, uint64_t time,
-					   uint64_t addr)
+/* shared lookup used by task_find_loc_addr() and task_find_exact_loc_addr() */
+static int task_find_addr_module(struct uftrace_session_link *sessions,
+				 struct uftrace_task_reader *task, uint64_t time, uint64_t addr,
+				 struct uftrace_module **out_mod, struct uftrace_symbol **out_sym,
+				 uint64_t *out_mod_addr)
 {
 	struct uftrace_session *sess;
 	struct uftrace_symbol *sym;
 	struct uftrace_mmap *map;
-	struct uftrace_module *mod;
-	struct uftrace_dbg_info *dinfo;
-	struct uftrace_dbg_loc *loc;
-	ptrdiff_t sym_idx;
 
 	sess = find_task_session(sessions, task->t, time);
 
@@ -782,7 +780,7 @@ struct uftrace_dbg_loc *task_find_loc_addr(struct uftrace_session_link *sessions
 		if (is_kernel_address(&fsess->sym_info, addr))
 			sess = fsess;
 		else
-			return NULL;
+			return -1;
 	}
 
 	sym = find_symtabs(&sess->sym_info, addr);
@@ -790,35 +788,75 @@ struct uftrace_dbg_loc *task_find_loc_addr(struct uftrace_session_link *sessions
 		sym = session_find_dlsym(sess, time, addr);
 
 	if (sym == NULL)
-		return NULL;
+		return -1;
 
-	if (sym->type == ST_LOCAL_FUNC || sym->type == ST_GLOBAL_FUNC) {
-		map = find_map(&sess->sym_info, addr);
-		if (map) {
-			mod = map->mod;
-			dinfo = &mod->dinfo;
-		}
-		else {
-			struct uftrace_dlopen_list *udl;
+	if (sym->type != ST_LOCAL_FUNC && sym->type != ST_GLOBAL_FUNC)
+		return -1;
 
-			udl = session_find_dlopen(sess, time, addr);
-			if (udl == NULL)
-				return NULL;
+	map = find_map(&sess->sym_info, addr);
+	if (map) {
+		*out_mod = map->mod;
+		if (out_mod_addr)
+			*out_mod_addr = addr - map->start;
+	}
+	else {
+		struct uftrace_dlopen_list *udl;
 
-			mod = udl->mod;
-			dinfo = &mod->dinfo;
-		}
+		udl = session_find_dlopen(sess, time, addr);
+		if (udl == NULL)
+			return -1;
 
-		if (dinfo == NULL || dinfo->nr_locs_used == 0)
-			return NULL;
-
-		sym_idx = sym - mod->symtab.sym;
-		loc = &dinfo->locs[sym_idx];
-		if (loc->file != NULL)
-			return loc;
+		*out_mod = udl->mod;
+		if (out_mod_addr)
+			*out_mod_addr = addr - udl->base;
 	}
 
+	*out_sym = sym;
+	return 0;
+}
+
+struct uftrace_dbg_loc *task_find_loc_addr(struct uftrace_session_link *sessions,
+					   struct uftrace_task_reader *task, uint64_t time,
+					   uint64_t addr)
+{
+	struct uftrace_module *mod;
+	struct uftrace_symbol *sym;
+	struct uftrace_dbg_info *dinfo;
+	struct uftrace_dbg_loc *loc;
+	ptrdiff_t sym_idx;
+
+	if (task_find_addr_module(sessions, task, time, addr, &mod, &sym, NULL) < 0)
+		return NULL;
+
+	dinfo = &mod->dinfo;
+	if (dinfo->nr_locs_used == 0)
+		return NULL;
+
+	sym_idx = sym - mod->symtab.sym;
+	loc = &dinfo->locs[sym_idx];
+	if (loc->file != NULL)
+		return loc;
+
 	return NULL;
+}
+
+/*
+ * PC-precise variant of task_find_loc_addr() — returns the source line
+ * at the instruction, not the enclosing function's entry
+ */
+bool task_find_exact_loc_addr(struct uftrace_session_link *sessions,
+			      struct uftrace_task_reader *task, uint64_t time, uint64_t addr,
+			      struct uftrace_dbg_loc *out)
+{
+	struct uftrace_module *mod;
+	struct uftrace_symbol *sym;
+	uint64_t mod_addr;
+
+	if (task_find_addr_module(sessions, task, time, addr, &mod, &sym, &mod_addr) < 0)
+		return false;
+
+	out->sym = sym;
+	return find_dbg_line_at(&mod->dinfo, mod_addr, &out->file, &out->line);
 }
 
 void session_setup_dlopen_argspec(struct uftrace_session *sess,
