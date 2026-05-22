@@ -699,7 +699,7 @@ void save_trigger_read(struct mcount_thread_data *mtdp, struct mcount_ret_stack 
 	size_t i;
 
 	if (rstack->flags & (MCOUNT_FL_ARGUMENT | MCOUNT_FL_RETVAL))
-		arg_data += *(uint32_t *)ptr;
+		arg_data += sizeof(uint32_t) + *(uint32_t *)arg_data;
 
 	for (i = 0; i < ARRAY_SIZE(read_events); i++) {
 		struct read_event_data *red = &read_events[i];
