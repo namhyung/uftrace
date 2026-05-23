@@ -93,6 +93,9 @@ int elf_init(const char *filename, struct uftrace_elf_data *elf)
 
 	elf->file_size = stbuf.st_size;
 
+	if (elf->file_size < (off_t)sizeof(elf->ehdr))
+		goto err_close;
+
 	elf->file_map = mmap(NULL, elf->file_size, PROT_READ, MAP_PRIVATE, elf->fd, 0);
 	if (elf->file_map == MAP_FAILED)
 		goto err_close;
@@ -145,6 +148,8 @@ void elf_get_secdata(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter
 void elf_read_secdata(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter, unsigned offset,
 		      void *buf, size_t len)
 {
+	if ((size_t)offset + len > iter->shdr.sh_size)
+		return;
 	memcpy(buf, &iter->data[offset], len);
 }
 
