@@ -7,6 +7,8 @@ jobs:
   check_commits:
     runs-on: ubuntu-latest
     name: Check latest commit
+    permissions:
+      contents: read
     outputs:
       should_run: ${{ steps.should_run.outputs.should_run }}
     steps:
