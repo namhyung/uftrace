@@ -1256,7 +1256,7 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp, struct mcount_r
 			if (mcount_watchpoints)
 				save_watchpoint(mtdp, rstack, mcount_watchpoints);
 
-			if (unlikely(mtdp->nr_events)) {
+			if (unlikely(mtdp->nr_async_events)) {
 				/* flush rstack when async event happened */
 				record_trace_data(mtdp, rstack, NULL);
 			}
@@ -1356,7 +1356,7 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp, struct mcount_re
 			if (record_trace_data(mtdp, rstack, retval) < 0)
 				pr_err("error during record");
 		}
-		else if (unlikely(mtdp->nr_events)) {
+		else if (unlikely(mtdp->nr_async_events)) {
 			/* flush rstack if async event happened */
 			record_trace_data(mtdp, rstack, retval);
 		}
@@ -1924,7 +1924,7 @@ static void atfork_child_handler(void)
 	/* update tid cache */
 	mtdp->tid = tmsg.tid;
 	/* flush event data */
-	mtdp->nr_events = 0;
+	mtdp->nr_async_events = 0;
 
 	clear_shmem_buffer(mtdp);
 	prepare_shmem_buffer(mtdp);

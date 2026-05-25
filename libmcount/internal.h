@@ -96,7 +96,7 @@ struct mcount_event {
 #define ASYNC_IDX 0xffff /* asynchronous event not related to a rstack */
 #define INVALID_IDX 0xfffe /* event is already processed */
 
-#define MAX_EVENT 4
+#define MAX_ASYNC_EVENT 4
 
 enum mcount_watch_kind {
 	MCOUNT_WATCH_NONE = 0,
@@ -161,8 +161,8 @@ struct mcount_thread_data {
 	bool enable_cached;
 	bool exited; /* pthread_exit() called */
 	struct mcount_shmem shmem;
-	struct mcount_event event[MAX_EVENT];
-	int nr_events;
+	struct mcount_event async_events[MAX_ASYNC_EVENT];
+	int nr_async_events;
 	struct mcount_mem_regions mem_regions;
 	struct mcount_watchpoint watch;
 	struct mcount_arch_context arch;

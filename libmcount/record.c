@@ -961,14 +961,14 @@ static int record_ret_stack(struct mcount_thread_data *mtdp, enum uftrace_record
 	if (type == UFTRACE_EXIT)
 		timestamp = mrstack->end_time;
 
-	if (unlikely(mtdp->nr_events)) {
+	if (unlikely(mtdp->nr_async_events)) {
 		/* save async events first (if any) */
-		while (mtdp->nr_events && mtdp->event[0].time < timestamp) {
-			record_event(mtdp, &mtdp->event[0]);
-			mtdp->nr_events--;
+		while (mtdp->nr_async_events && mtdp->async_events[0].time < timestamp) {
+			record_event(mtdp, &mtdp->async_events[0]);
+			mtdp->nr_async_events--;
 
-			mcount_memcpy4(&mtdp->event[0], &mtdp->event[1],
-				       sizeof(*mtdp->event) * mtdp->nr_events);
+			mcount_memcpy4(&mtdp->async_events[0], &mtdp->async_events[1],
+				       sizeof(*mtdp->async_events) * mtdp->nr_async_events);
 		}
 	}
 
