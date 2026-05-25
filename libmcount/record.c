@@ -715,7 +715,7 @@ void save_trigger_read(struct mcount_thread_data *mtdp, struct mcount_ret_stack 
 			continue;
 
 		event->id = red->id_read;
-		event->time = rstack->end_time ?: rstack->start_time;
+		event->time = rstack->end_time ? rstack->end_time - 1 : rstack->start_time + 1;
 		event->dsize = red->size;
 		event->idx = mtdp->idx;
 
@@ -981,7 +981,7 @@ static int record_ret_stack(struct mcount_thread_data *mtdp, enum uftrace_record
 		}
 	}
 
-	if (type == UFTRACE_EXIT && unlikely(mrstack->nr_events)) {
+	if (unlikely(mrstack->nr_events)) {
 		int i;
 		unsigned evidx;
 		struct mcount_event *event;
@@ -992,14 +992,13 @@ static int record_ret_stack(struct mcount_thread_data *mtdp, enum uftrace_record
 			evidx = mrstack->nr_events - i - 1;
 			event = get_event_pointer(argbuf, evidx);
 
-			if (event->time != timestamp)
+			if (event->time >= timestamp || event->idx == INVALID_IDX)
 				continue;
 
-			/* save read2 trigger before exit record */
 			record_event(mtdp, event);
+			event->idx = INVALID_IDX;
 		}
 
-		mrstack->nr_events = 0;
 		argbuf = NULL;
 	}
 
@@ -1053,7 +1052,7 @@ static int record_ret_stack(struct mcount_thread_data *mtdp, enum uftrace_record
 	pr_dbg3("rstack[%d] %s %lx\n", mrstack->depth, type == UFTRACE_ENTRY ? "ENTRY" : "EXIT ",
 		mrstack->child_ip);
 
-	if (unlikely(mrstack->nr_events) && type == UFTRACE_ENTRY) {
+	if (unlikely(mrstack->nr_events)) {
 		int i;
 		unsigned evidx;
 		struct mcount_event *event;
@@ -1064,11 +1063,11 @@ static int record_ret_stack(struct mcount_thread_data *mtdp, enum uftrace_record
 			evidx = mrstack->nr_events - i - 1;
 			event = get_event_pointer(argbuf, evidx);
 
-			if (event->time != timestamp)
-				break;
+			if (event->time < timestamp || event->idx == INVALID_IDX)
+				continue;
 
-			/* save read trigger after entry record */
 			record_event(mtdp, event);
+			event->idx = INVALID_IDX;
 		}
 	}
 

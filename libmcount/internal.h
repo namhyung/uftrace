@@ -90,6 +90,7 @@ struct mcount_event {
 };
 
 #define ASYNC_IDX 0xffff
+#define INVALID_IDX 0xfffe
 
 #define MAX_EVENT 4
 
