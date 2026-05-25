@@ -79,8 +79,8 @@ struct mcount_shmem {
 /* first 4 byte saves the actual size of data in the buffer */
 #define ARGBUF_SIZE 1024
 
-/* max size of event data */
-#define EVTBUF_SIZE (ARGBUF_SIZE - 16) /* 16 = EVTBUF_HDR */
+/* max size of async event data */
+#define EVTBUF_SIZE 0 /* increase when SDT argument is supported */
 
 /* size of event header before actual data */
 #define EVTBUF_HDR (offsetof(struct mcount_event, data))
