@@ -841,13 +841,13 @@ void save_callsite_event(struct mcount_thread_data *mtdp, struct mcount_ret_stac
 	uint64_t timestamp = rstack->start_time;
 	uint64_t callsite = rstack->parent_ip;
 
-	if (mtdp->nr_events >= MAX_EVENT)
-		return;
-
 	/* place event before the entry record */
 	timestamp -= 1;
 
-	event = &mtdp->event[mtdp->nr_events++];
+	event = get_new_event(mtdp, rstack, sizeof(callsite));
+	if (event == NULL)
+		return;
+
 	event->id = EVENT_ID_CALLSITE;
 	event->time = timestamp;
 	event->idx = rstack - mtdp->rstack;
