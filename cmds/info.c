@@ -480,11 +480,11 @@ static int fill_taskinfo(void *arg)
 		.root = RB_ROOT,
 		.tasks = RB_ROOT,
 	};
+	char *dir = fha->opts->dirname;
 	int i;
 
-	if (read_task_txt_file(&link, fha->opts->dirname, fha->opts->dirname, false, false, false) <
-		    0 &&
-	    read_task_file(&link, fha->opts->dirname, false, false, false) < 0)
+	if (read_task_txt_file(&link, dir, dir, false, false, false, false) < 0 &&
+	    read_task_file(&link, dir, false, false, false, false) < 0)
 		return -1;
 
 	walk_tasks(&link, build_tid_list, &tlist);
@@ -1140,7 +1140,7 @@ void process_uftrace_info(struct uftrace_data *handle, struct uftrace_opts *opts
 
 		/* ignore errors */
 		read_task_txt_file(&handle->sessions, opts->dirname, opts->dirname, false, false,
-				   false);
+				   false, false);
 
 		process(data, "# %-20s: %d\n", "number of tasks", nr);
 
@@ -1401,7 +1401,7 @@ int command_info(int argc, char *argv[], struct uftrace_opts *opts)
 	if (opts->show_task) {
 		/* ignore errors */
 		read_task_txt_file(&handle.sessions, opts->dirname, opts->dirname, false, false,
-				   false);
+				   false, false);
 
 		if (handle.hdr.feat_mask & PERF_EVENT) {
 			if (setup_perf_data(&handle) == 0)

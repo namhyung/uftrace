@@ -431,6 +431,9 @@ static uint64_t calc_feat_mask(struct uftrace_opts *opts)
 	globfree(&g);
 	free(buf);
 
+	if (opts->trigger && strstr(opts->trigger, "callsite"))
+		features |= CALLSITE;
+
 	return features;
 }
 

@@ -187,7 +187,8 @@ next:
  * @exename: executable name started this session
  * @sym_rel_addr: whether symbol table uses relative address
  * @needs_symtab: whether symbol table loading is needed
- * @needs_srcline: whether debug info loading is needed
+ * @needs_srcline: whether debug info loading is needed for srcline/loc-filter
+ * @needs_callsite: whether libdw runtime handle is needed for @callsite
  *
  * This function allocates a new session started by a task.  The new
  * session will be added to sessions tree sorted by pid and timestamp.
@@ -195,7 +196,7 @@ next:
  */
 void create_session(struct uftrace_session_link *sessions, struct uftrace_msg_sess *msg,
 		    char *dirname, char *symdir, char *exename, bool sym_rel_addr,
-		    bool needs_symtab, bool needs_srcline)
+		    bool needs_symtab, bool needs_srcline, bool needs_callsite)
 {
 	struct uftrace_session *s;
 	struct uftrace_task *t;
@@ -242,7 +243,7 @@ void create_session(struct uftrace_session_link *sessions, struct uftrace_msg_se
 		read_session_map(dirname, &s->sym_info, s->sid);
 
 		load_module_symtabs(&s->sym_info);
-		load_debug_info(&s->sym_info, needs_srcline);
+		load_debug_info(&s->sym_info, needs_srcline, needs_callsite);
 	}
 
 	if (sessions->first == NULL)
@@ -339,14 +340,15 @@ struct uftrace_session *get_session_from_sid(struct uftrace_session_link *sessio
  * @timestamp: timestamp at the dlopen call
  * @base_addr: load address of text segment of the library
  * @libname: name of the library
- * @needs_srcline: whether debug info loading is needed
+ * @needs_srcline: whether debug info loading is needed for srcline/loc-filter
+ * @needs_callsite: whether libdw runtime handle is needed for @callsite
  *
  * This functions adds the info of a library which was loaded by dlopen.
  * Instead of creating a new session, it just adds the library information
  * to the @sess.
  */
 void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp, unsigned long base_addr,
-			const char *libname, bool needs_srcline)
+			const char *libname, bool needs_srcline, bool needs_callsite)
 {
 	struct uftrace_dlopen_list *udl, *pos;
 	char build_id[BUILD_ID_STR_SIZE];
@@ -357,7 +359,7 @@ void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp, unsign
 
 	read_build_id(libname, build_id, sizeof(build_id));
 	udl->mod = load_module_symtab(&sess->sym_info, libname, build_id);
-	load_module_debug_info(udl->mod, sess->sym_info.symdir, needs_srcline);
+	load_module_debug_info(udl->mod, sess->sym_info.symdir, needs_srcline, needs_callsite);
 
 	udl->filter_info.root = RB_ROOT;
 
@@ -762,17 +764,15 @@ struct uftrace_symbol *task_find_sym_addr(struct uftrace_session_link *sessions,
  * This function returns a debug location of symbol
  * that looked up in symbol table in current session
  */
-struct uftrace_dbg_loc *task_find_loc_addr(struct uftrace_session_link *sessions,
-					   struct uftrace_task_reader *task, uint64_t time,
-					   uint64_t addr)
+/* shared lookup used by task_find_loc_addr() and task_find_exact_loc_addr() */
+static int task_find_addr_module(struct uftrace_session_link *sessions,
+				 struct uftrace_task_reader *task, uint64_t time, uint64_t addr,
+				 struct uftrace_module **out_mod, struct uftrace_symbol **out_sym,
+				 uint64_t *out_mod_addr)
 {
 	struct uftrace_session *sess;
 	struct uftrace_symbol *sym;
 	struct uftrace_mmap *map;
-	struct uftrace_module *mod;
-	struct uftrace_dbg_info *dinfo;
-	struct uftrace_dbg_loc *loc;
-	ptrdiff_t sym_idx;
 
 	sess = find_task_session(sessions, task->t, time);
 
@@ -782,7 +782,7 @@ struct uftrace_dbg_loc *task_find_loc_addr(struct uftrace_session_link *sessions
 		if (is_kernel_address(&fsess->sym_info, addr))
 			sess = fsess;
 		else
-			return NULL;
+			return -1;
 	}
 
 	sym = find_symtabs(&sess->sym_info, addr);
@@ -790,35 +790,78 @@ struct uftrace_dbg_loc *task_find_loc_addr(struct uftrace_session_link *sessions
 		sym = session_find_dlsym(sess, time, addr);
 
 	if (sym == NULL)
-		return NULL;
+		return -1;
 
-	if (sym->type == ST_LOCAL_FUNC || sym->type == ST_GLOBAL_FUNC) {
-		map = find_map(&sess->sym_info, addr);
-		if (map) {
-			mod = map->mod;
-			dinfo = &mod->dinfo;
-		}
-		else {
-			struct uftrace_dlopen_list *udl;
+	if (sym->type != ST_LOCAL_FUNC && sym->type != ST_GLOBAL_FUNC)
+		return -1;
 
-			udl = session_find_dlopen(sess, time, addr);
-			if (udl == NULL)
-				return NULL;
+	map = find_map(&sess->sym_info, addr);
+	if (map) {
+		*out_mod = map->mod;
+		if (out_mod_addr)
+			*out_mod_addr = addr - map->start;
+	}
+	else {
+		struct uftrace_dlopen_list *udl;
 
-			mod = udl->mod;
-			dinfo = &mod->dinfo;
-		}
+		udl = session_find_dlopen(sess, time, addr);
+		if (udl == NULL)
+			return -1;
 
-		if (dinfo == NULL || dinfo->nr_locs_used == 0)
-			return NULL;
-
-		sym_idx = sym - mod->symtab.sym;
-		loc = &dinfo->locs[sym_idx];
-		if (loc->file != NULL)
-			return loc;
+		*out_mod = udl->mod;
+		if (out_mod_addr)
+			*out_mod_addr = addr - udl->base;
 	}
 
+	*out_sym = sym;
+	return 0;
+}
+
+struct uftrace_dbg_loc *task_find_loc_addr(struct uftrace_session_link *sessions,
+					   struct uftrace_task_reader *task, uint64_t time,
+					   uint64_t addr)
+{
+	struct uftrace_module *mod;
+	struct uftrace_symbol *sym;
+	struct uftrace_dbg_info *dinfo;
+	struct uftrace_dbg_loc *loc;
+	ptrdiff_t sym_idx;
+
+	if (task_find_addr_module(sessions, task, time, addr, &mod, &sym, NULL) < 0)
+		return NULL;
+
+	dinfo = &mod->dinfo;
+	if (dinfo->nr_locs_used == 0)
+		return NULL;
+
+	sym_idx = sym - mod->symtab.sym;
+	loc = &dinfo->locs[sym_idx];
+	if (loc->file != NULL)
+		return loc;
+
 	return NULL;
+}
+
+/*
+ * PC-precise variant of task_find_loc_addr().  Unlike that function, this
+ * uses DWARF directly via find_dbg_line_at() so a PC anywhere inside a
+ * function resolves to the matching source line (not the enclosing
+ * function's entry).  Writes the result to *out and returns true on
+ * success, false otherwise.
+ */
+bool task_find_exact_loc_addr(struct uftrace_session_link *sessions,
+			      struct uftrace_task_reader *task, uint64_t time, uint64_t addr,
+			      struct uftrace_dbg_loc *out)
+{
+	struct uftrace_module *mod;
+	struct uftrace_symbol *sym;
+	uint64_t mod_addr;
+
+	if (task_find_addr_module(sessions, task, time, addr, &mod, &sym, &mod_addr) < 0)
+		return false;
+
+	out->sym = sym;
+	return find_dbg_line_at(&mod->dinfo, mod_addr, &out->file, &out->line);
 }
 
 void session_setup_dlopen_argspec(struct uftrace_session *sess,
@@ -897,7 +940,8 @@ TEST_CASE(session_search)
 		fd = creat("sid-test.map", 0400);
 		write_all(fd, session_map, sizeof(session_map) - 1);
 		close(fd);
-		create_session(&test_sessions, &msg, ".", ".", "unittest", false, false, false);
+		create_session(&test_sessions, &msg, ".", ".", "unittest", false, false, false,
+			       false);
 		remove("sid-test.map");
 	}
 
@@ -951,7 +995,8 @@ TEST_CASE(task_search)
 		fd = creat("sid-initial.map", 0400);
 		write_all(fd, session_map, sizeof(session_map) - 1);
 		close(fd);
-		create_session(&test_sessions, &smsg, ".", ".", "unittest", false, false, false);
+		create_session(&test_sessions, &smsg, ".", ".", "unittest", false, false, false,
+			       false);
 		create_task(&test_sessions, &tmsg, false);
 		remove("sid-initial.map");
 
@@ -1055,7 +1100,8 @@ TEST_CASE(task_search)
 		fd = creat("sid-after_exec.map", 0400);
 		write_all(fd, session_map, sizeof(session_map) - 1);
 		close(fd);
-		create_session(&test_sessions, &smsg, ".", ".", "unittest", false, false, false);
+		create_session(&test_sessions, &smsg, ".", ".", "unittest", false, false, false,
+			       false);
 		create_task(&test_sessions, &tmsg, false);
 		remove("sid-after_exec.map");
 
@@ -1189,7 +1235,7 @@ TEST_CASE(task_symbol)
 	fprintf(fp, "00000500 T __sym_end\n");
 	fclose(fp);
 
-	create_session(&test_sessions, &msg, ".", ".", "unittest", false, true, false);
+	create_session(&test_sessions, &msg, ".", ".", "unittest", false, true, false, false);
 	create_task(&test_sessions, &tmsg, false);
 	remove("sid-test.map");
 	remove("unittest.sym");
@@ -1239,14 +1285,15 @@ TEST_CASE(task_symbol_dlopen)
 	fprintf(fp, "0500 T __sym_end\n");
 	fclose(fp);
 
-	create_session(&test_sessions, &msg, ".", ".", "unittest", false, true, false);
+	create_session(&test_sessions, &msg, ".", ".", "unittest", false, true, false, false);
 	remove("sid-test.map");
 
 	TEST_NE(test_sessions.first, NULL);
 	TEST_EQ(test_sessions.first->pid, 1);
 
 	pr_dbg("add dlopen info message\n");
-	session_add_dlopen(test_sessions.first, 200, 0x7003000, "libuftrace-test.so.0", false);
+	session_add_dlopen(test_sessions.first, 200, 0x7003000, "libuftrace-test.so.0", false,
+			   false);
 	remove("libuftrace-test.so.0.sym");
 
 	TEST_EQ(list_empty(&test_sessions.first->dlopen_libs), false);
@@ -1347,7 +1394,7 @@ TEST_CASE(session_autoarg_dlopen)
 	fprintf(fp, "R: @retval\n");
 	fclose(fp);
 
-	create_session(&test_sessions, &msg, ".", ".", "unittest", false, true, true);
+	create_session(&test_sessions, &msg, ".", ".", "unittest", false, true, true, false);
 	remove("sid-test.map");
 
 	sess = test_sessions.first;
@@ -1355,7 +1402,7 @@ TEST_CASE(session_autoarg_dlopen)
 	TEST_EQ(sess->pid, 1);
 
 	pr_dbg("add dlopen info message\n");
-	session_add_dlopen(sess, 200, 0x7003000, "libuftrace-test.so.0", false);
+	session_add_dlopen(sess, 200, 0x7003000, "libuftrace-test.so.0", false, false);
 	remove("libuftrace-test.so.0.sym");
 	remove("libuftrace-test.so.0.dbg");
 

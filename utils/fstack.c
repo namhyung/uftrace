@@ -1552,6 +1552,18 @@ int read_task_event(struct uftrace_task_reader *task, struct uftrace_record *rec
 		save_task_event(task, &u.watch, len);
 		break;
 
+	case EVENT_ID_CALLSITE: {
+		uint64_t callsite_ip;
+
+		if (read_task_event_size(task, &callsite_ip, sizeof(callsite_ip)) < 0)
+			return -1;
+		if (task->h->needs_byte_swap)
+			callsite_ip = bswap_64(callsite_ip);
+
+		save_task_event(task, &callsite_ip, sizeof(callsite_ip));
+		break;
+	}
+
 	default:
 		pr_err_ns("unknown event has data: %u\n", rec->addr);
 		break;
@@ -2755,7 +2767,7 @@ static int fstack_test_setup_exec(struct uftrace_data *handle)
 	};
 	char name[] = "unittest";
 
-	create_session(&handle->sessions, &smsg, "tests", "tests", name, true, false, false);
+	create_session(&handle->sessions, &smsg, "tests", "tests", name, true, false, false, false);
 	create_task(&handle->sessions, &smsg.task, false);
 
 	handle->sessions.first->sym_info.maps = &map;

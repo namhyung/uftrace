@@ -731,6 +731,38 @@ next:
 	}
 }
 
+/*
+ * Fallback for the @callsite trigger when DWARF info isn't available:
+ * format the address as "symbol+offset" using the ELF symbol table.
+ * Returns a pointer to @buf on success, NULL when no symbol matches.
+ */
+static const char *format_callsite_symbol(struct uftrace_session_link *sessions,
+					  struct uftrace_task_reader *task, uint64_t time,
+					  uint64_t addr, char *buf, size_t bufsize)
+{
+	struct uftrace_session *sess;
+	struct uftrace_mmap *map;
+	struct uftrace_symbol *sym;
+	uint64_t mod_addr;
+
+	sess = find_task_session(sessions, task->t, time);
+	if (sess == NULL)
+		return NULL;
+
+	map = find_map(&sess->sym_info, addr);
+	if (map == NULL || map->mod == NULL)
+		return NULL;
+
+	mod_addr = addr - map->start;
+	sym = find_sym(&map->mod->symtab, mod_addr);
+	if (sym == NULL)
+		return NULL;
+
+	snprintf(buf, bufsize, "%s+%#lx", sym->name, (unsigned long)(mod_addr - sym->addr));
+	buf[bufsize - 1] = '\0';
+	return buf;
+}
+
 static int print_graph_rstack(struct uftrace_data *handle, struct uftrace_task_reader *task,
 			      struct uftrace_opts *opts)
 {
@@ -781,11 +813,40 @@ static int print_graph_rstack(struct uftrace_data *handle, struct uftrace_task_r
 		}
 	}
 
-	if (opts->srcline) {
-		loc = task_find_loc_addr(sessions, task, rstack->time, rstack->addr);
-		if (opts->comment && loc)
+	if (opts->comment) {
+		struct uftrace_dbg_loc csloc;
+		char cs_buf[128];
+		const char *cs_str = NULL;
+
+		if (opts->srcline)
+			loc = task_find_loc_addr(sessions, task, rstack->time, rstack->addr);
+
+		if (opts->callsite && rstack->type == UFTRACE_ENTRY && task->callsite_ip) {
+			if (task_find_exact_loc_addr(sessions, task, rstack->time,
+						     task->callsite_ip, &csloc)) {
+				snprintf(cs_buf, sizeof(cs_buf), "%s:%d", csloc.file->name,
+					 csloc.line);
+				cs_buf[sizeof(cs_buf) - 1] = '\0';
+				cs_str = cs_buf;
+			}
+			else {
+				/* fallback to function+offset when no dwarf info */
+				cs_str = format_callsite_symbol(sessions, task, rstack->time,
+								task->callsite_ip, cs_buf,
+								sizeof(cs_buf));
+			}
+		}
+
+		if (loc && cs_str)
+			xasprintf(&str_loc, "%s:%d from %s", loc->file->name, loc->line, cs_str);
+		else if (loc)
 			xasprintf(&str_loc, "%s:%d", loc->file->name, loc->line);
+		else if (cs_str)
+			xasprintf(&str_loc, "from %s", cs_str);
 	}
+
+	if (rstack->type == UFTRACE_ENTRY)
+		task->callsite_ip = 0;
 
 	if (rstack->type == UFTRACE_ENTRY) {
 		struct uftrace_task_reader *next = NULL;
@@ -944,6 +1005,13 @@ lost:
 		struct uftrace_task_reader *next = NULL;
 		struct uftrace_record rec = *rstack;
 		uint64_t evt_id = rstack->addr;
+
+		/* stash callsite return address for the next ENTRY to consume */
+		if (evt_id == EVENT_ID_CALLSITE) {
+			if (task->args.data && task->args.len >= sizeof(uint64_t))
+				memcpy(&task->callsite_ip, task->args.data, sizeof(uint64_t));
+			goto out;
+		}
 
 		depth = task->display_depth;
 

@@ -63,6 +63,7 @@ enum uftrace_feat_bits {
 	DEBUG_INFO_BIT,
 	ESTIMATE_RETURN_BIT,
 	SYM_SIZE_BIT,
+	CALLSITE_BIT,
 
 	FEAT_BIT_MAX,
 
@@ -80,6 +81,7 @@ enum uftrace_feat_bits {
 	DEBUG_INFO = (1U << DEBUG_INFO_BIT),
 	ESTIMATE_RETURN = (1U << ESTIMATE_RETURN_BIT),
 	SYM_SIZE = (1U << SYM_SIZE_BIT),
+	CALLSITE = (1U << CALLSITE_BIT),
 };
 
 enum uftrace_info_bits {
@@ -303,6 +305,7 @@ struct uftrace_opts {
 	bool list_event;
 	bool event_skip_out;
 	bool no_event;
+	bool callsite;
 	bool no_sched;
 	bool no_sched_preempt;
 	bool nest_libcall;
@@ -352,9 +355,10 @@ static inline void close_data_file(struct uftrace_opts *opts, struct uftrace_dat
 }
 
 int read_task_file(struct uftrace_session_link *sess, char *dirname, bool needs_symtab,
-		   bool sym_rel_addr, bool needs_srcline);
+		   bool sym_rel_addr, bool needs_srcline, bool needs_callsite);
 int read_task_txt_file(struct uftrace_session_link *sess, char *dirname, char *symdir,
-		       bool needs_symtab, bool sym_rel_addr, bool needs_srcline);
+		       bool needs_symtab, bool sym_rel_addr, bool needs_srcline,
+		       bool needs_callsite);
 
 char *get_libmcount_path(struct uftrace_opts *opts);
 void put_libmcount_path(char *libpath);
@@ -482,7 +486,7 @@ extern struct uftrace_session *first_session;
 
 void create_session(struct uftrace_session_link *sess, struct uftrace_msg_sess *msg, char *dirname,
 		    char *symdir, char *exename, bool sym_rel_addr, bool needs_symtab,
-		    bool needs_srcline);
+		    bool needs_srcline, bool needs_callsite);
 struct uftrace_session *find_task_session(struct uftrace_session_link *sess,
 					  struct uftrace_task *task, uint64_t timestamp);
 void create_task(struct uftrace_session_link *sess, struct uftrace_msg_task *msg, bool fork);
@@ -492,7 +496,7 @@ void delete_session_map(struct uftrace_sym_info *sinfo);
 void update_session_map(const char *filename);
 struct uftrace_session *get_session_from_sid(struct uftrace_session_link *sess, char sid[]);
 void session_add_dlopen(struct uftrace_session *sess, uint64_t timestamp, unsigned long base_addr,
-			const char *libname, bool needs_srcline);
+			const char *libname, bool needs_srcline, bool needs_callsite);
 void session_setup_dlopen_argspec(struct uftrace_session *sess,
 				  struct uftrace_filter_setting *setting, bool is_retval);
 struct uftrace_dlopen_list *session_find_dlopen(struct uftrace_session *sess, uint64_t timestamp,
@@ -512,6 +516,8 @@ struct uftrace_symbol *task_find_sym_addr(struct uftrace_session_link *sess,
 struct uftrace_dbg_loc *task_find_loc_addr(struct uftrace_session_link *sess,
 					   struct uftrace_task_reader *task, uint64_t time,
 					   uint64_t addr);
+bool task_find_exact_loc_addr(struct uftrace_session_link *sess, struct uftrace_task_reader *task,
+			      uint64_t time, uint64_t addr, struct uftrace_dbg_loc *out);
 
 typedef int (*walk_sessions_cb_t)(struct uftrace_session *session, void *arg);
 void walk_sessions(struct uftrace_session_link *sess, walk_sessions_cb_t callback, void *arg);
@@ -629,6 +635,7 @@ enum uftrace_event_id {
 	EVENT_ID_DIFF_PMU_BRANCH,
 	EVENT_ID_WATCH_CPU,
 	EVENT_ID_WATCH_VAR,
+	EVENT_ID_CALLSITE,
 
 	/* supported perf events */
 	EVENT_ID_PERF = 200000U,

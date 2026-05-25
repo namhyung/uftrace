@@ -34,7 +34,7 @@
  * It returns 0 for success, -1 for error.
  */
 int read_task_file(struct uftrace_session_link *sess, char *dirname, bool needs_symtab,
-		   bool sym_rel_addr, bool needs_srcline)
+		   bool sym_rel_addr, bool needs_srcline, bool needs_callsite)
 {
 	int fd;
 	char pad[8];
@@ -64,7 +64,7 @@ int read_task_file(struct uftrace_session_link *sess, char *dirname, bool needs_
 				goto out;
 
 			create_session(sess, &smsg, dirname, dirname, buf, sym_rel_addr,
-				       needs_symtab, needs_srcline);
+				       needs_symtab, needs_srcline, needs_callsite);
 			break;
 
 		case UFTRACE_MSG_TASK_START:
@@ -107,7 +107,8 @@ out:
  * It returns 0 for success, -1 for error.
  */
 int read_task_txt_file(struct uftrace_session_link *sess, char *dirname, char *symdir,
-		       bool needs_symtab, bool sym_rel_addr, bool needs_srcline)
+		       bool needs_symtab, bool sym_rel_addr, bool needs_srcline,
+		       bool needs_callsite)
 {
 	FILE *fp;
 	char *fname = NULL;
@@ -170,7 +171,7 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname, char *s
 			smsg.namelen = strlen(exename);
 
 			create_session(sess, &smsg, dirname, symdir, exename, sym_rel_addr,
-				       needs_symtab, needs_srcline);
+				       needs_symtab, needs_srcline, needs_callsite);
 		}
 		else if (!strncmp(line, "DLOP", 4)) {
 			struct uftrace_session *s;
@@ -200,7 +201,7 @@ int read_task_txt_file(struct uftrace_session_link *sess, char *dirname, char *s
 			s = get_session_from_sid(sess, dlop.sid);
 			ASSERT(s);
 			session_add_dlopen(s, dlop.task.time, dlop.base_addr, exename,
-					   needs_srcline);
+					   needs_srcline, needs_callsite);
 		}
 	}
 	ret = 0;
@@ -456,17 +457,27 @@ int open_data_file(struct uftrace_opts *opts, struct uftrace_data *handle)
 
 	if (handle->hdr.feat_mask & TASK_SESSION) {
 		bool sym_rel = false;
+		bool needs_srcline;
+		bool needs_callsite;
 		struct uftrace_session_link *sessions = &handle->sessions;
 		int i;
 
 		if (handle->hdr.feat_mask & SYM_REL_ADDR)
 			sym_rel = true;
 
+		needs_srcline = opts->srcline | (opts->loc_filter != NULL);
+
+		/*
+		 * also load debug info if the trace has @callsite data,
+		 * unless the user opted out with --no-callsite
+		 */
+		needs_callsite = opts->callsite && (handle->hdr.feat_mask & CALLSITE);
+
 		/* read old task file first and then try task.txt file */
-		if (read_task_file(sessions, opts->dirname, true, sym_rel, opts->srcline) < 0 &&
+		if (read_task_file(sessions, opts->dirname, true, sym_rel, opts->srcline,
+				   needs_callsite) < 0 &&
 		    read_task_txt_file(sessions, opts->dirname, opts->with_syms ?: opts->dirname,
-				       true, sym_rel,
-				       opts->srcline | (opts->loc_filter != NULL)) < 0) {
+				       true, sym_rel, needs_srcline, needs_callsite) < 0) {
 			if (errno == ENOENT)
 				saved_errno = ENODATA;
 			else
