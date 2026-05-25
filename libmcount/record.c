@@ -692,17 +692,35 @@ static struct read_event_data {
 #undef TR_DS
 #undef TR_FN
 
-void save_trigger_read(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
-		       enum trigger_read_type type, bool diff)
+/* synchronous events share the buffer with arguments, but filled from the end (like stack) */
+static struct mcount_event *get_new_event(struct mcount_thread_data *mtdp,
+					  struct mcount_ret_stack *rstack, uint16_t evsize)
 {
-	void *ptr = get_argbuf(mtdp, rstack) + rstack->event_idx;
-	struct mcount_event *event;
-	unsigned short evsize;
 	void *arg_data = get_argbuf(mtdp, rstack);
-	size_t i;
+	void *ptr = arg_data + rstack->event_idx;
+	struct mcount_event *event;
+
+	evsize += EVTBUF_HDR;
+	event = ptr - evsize;
 
 	if (rstack->flags & (MCOUNT_FL_ARGUMENT | MCOUNT_FL_RETVAL))
 		arg_data += sizeof(uint32_t) + *(uint32_t *)arg_data;
+
+	/* do not overwrite argument data */
+	if ((void *)event < arg_data)
+		return NULL;
+
+	rstack->nr_events++;
+	rstack->event_idx -= evsize;
+
+	return event;
+}
+
+void save_trigger_read(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
+		       enum trigger_read_type type, bool diff)
+{
+	struct mcount_event *event;
+	size_t i;
 
 	for (i = 0; i < ARRAY_SIZE(read_events); i++) {
 		struct read_event_data *red = &read_events[i];
@@ -710,11 +728,8 @@ void save_trigger_read(struct mcount_thread_data *mtdp, struct mcount_ret_stack 
 		if (!(type & red->type))
 			continue;
 
-		evsize = EVTBUF_HDR + red->size;
-		event = ptr - evsize;
-
-		/* do not overwrite argument data */
-		if ((void *)event < arg_data)
+		event = get_new_event(mtdp, rstack, red->size);
+		if (event == NULL)
 			continue;
 
 		event->id = red->id_read;
@@ -729,7 +744,8 @@ void save_trigger_read(struct mcount_thread_data *mtdp, struct mcount_ret_stack 
 			struct mcount_event *old_event = NULL;
 			int idx;
 
-			for (idx = 0; idx < rstack->nr_events; idx++) {
+			/* it just added a new event, skip the first one */
+			for (idx = 1; idx < rstack->nr_events; idx++) {
 				old_event = get_prev_event(mtdp, rstack, idx);
 				if (old_event->id == event->id)
 					break;
@@ -742,11 +758,6 @@ void save_trigger_read(struct mcount_thread_data *mtdp, struct mcount_ret_stack 
 				red->diff(mtdp, event->data, old_event->data);
 			}
 		}
-
-		ptr = event;
-
-		rstack->nr_events++;
-		rstack->event_idx -= evsize;
 	}
 }
 
