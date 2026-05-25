@@ -226,14 +226,17 @@ void shmem_finish(struct mcount_thread_data *mtdp)
 	clear_shmem_buffer(mtdp);
 }
 
-static struct mcount_event *get_event_pointer(void *base, unsigned idx)
+static struct mcount_event *get_prev_event(struct mcount_thread_data *mtdp,
+					   struct mcount_ret_stack *rstack, int idx)
 {
 	size_t len = 0;
+	void *base = get_argbuf(mtdp, rstack) + rstack->event_idx;
 	struct mcount_event *event = base;
 
-	while (idx--) {
+	while (idx > 0) {
 		len += EVTBUF_HDR + event->dsize;
 		event = base + len;
+		idx--;
 	}
 
 	return event;
@@ -724,10 +727,10 @@ void save_trigger_read(struct mcount_thread_data *mtdp, struct mcount_ret_stack 
 
 		if (diff) {
 			struct mcount_event *old_event = NULL;
-			unsigned idx;
+			int idx;
 
 			for (idx = 0; idx < rstack->nr_events; idx++) {
-				old_event = get_event_pointer(ptr, idx);
+				old_event = get_prev_event(mtdp, rstack, idx);
 				if (old_event->id == event->id)
 					break;
 
@@ -959,15 +962,12 @@ static int record_ret_stack(struct mcount_thread_data *mtdp, enum uftrace_record
 	}
 
 	if (unlikely(mrstack->nr_events)) {
-		int i;
-		unsigned evidx;
+		int i, evidx;
 		struct mcount_event *event;
-
-		argbuf = get_argbuf(mtdp, mrstack) + mrstack->event_idx;
 
 		for (i = 0; i < mrstack->nr_events; i++) {
 			evidx = mrstack->nr_events - i - 1;
-			event = get_event_pointer(argbuf, evidx);
+			event = get_prev_event(mtdp, mrstack, evidx);
 
 			if (event->time >= timestamp || event->idx == INVALID_IDX)
 				continue;
@@ -975,8 +975,6 @@ static int record_ret_stack(struct mcount_thread_data *mtdp, enum uftrace_record
 			record_event(mtdp, event);
 			event->idx = INVALID_IDX;
 		}
-
-		argbuf = NULL;
 	}
 
 	if ((type == UFTRACE_ENTRY && mrstack->flags & MCOUNT_FL_ARGUMENT) ||
@@ -1030,15 +1028,12 @@ static int record_ret_stack(struct mcount_thread_data *mtdp, enum uftrace_record
 		mrstack->child_ip);
 
 	if (unlikely(mrstack->nr_events)) {
-		int i;
-		unsigned evidx;
+		int i, evidx;
 		struct mcount_event *event;
-
-		argbuf = get_argbuf(mtdp, mrstack) + mrstack->event_idx;
 
 		for (i = 0; i < mrstack->nr_events; i++) {
 			evidx = mrstack->nr_events - i - 1;
-			event = get_event_pointer(argbuf, evidx);
+			event = get_prev_event(mtdp, mrstack, evidx);
 
 			if (event->time < timestamp || event->idx == INVALID_IDX)
 				continue;
