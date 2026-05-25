@@ -1256,20 +1256,9 @@ void mcount_entry_filter_record(struct mcount_thread_data *mtdp, struct mcount_r
 			if (mcount_watchpoints)
 				save_watchpoint(mtdp, rstack, mcount_watchpoints);
 
-			if (mtdp->nr_events) {
-				bool flush = false;
-				int i;
-
-				/*
-				 * Flush rstacks if async event was recorded
-				 * as it only has limited space for the events.
-				 */
-				for (i = 0; i < mtdp->nr_events; i++)
-					if (mtdp->event[i].idx == ASYNC_IDX)
-						flush = true;
-
-				if (flush)
-					record_trace_data(mtdp, rstack, NULL);
+			if (unlikely(mtdp->nr_events)) {
+				/* flush rstack when async event happened */
+				record_trace_data(mtdp, rstack, NULL);
 			}
 		}
 
@@ -1367,26 +1356,9 @@ void mcount_exit_filter_record(struct mcount_thread_data *mtdp, struct mcount_re
 			if (record_trace_data(mtdp, rstack, retval) < 0)
 				pr_err("error during record");
 		}
-		else if (mtdp->nr_events) {
-			bool flush = false;
-			int i, k;
-
-			/*
-			 * Record rstacks if async event was recorded
-			 * in the middle of the function.  Otherwise
-			 * update event count to drop filtered ones.
-			 */
-			for (i = 0, k = 0; i < mtdp->nr_events; i++) {
-				if (mtdp->event[i].idx == ASYNC_IDX)
-					flush = true;
-				if (mtdp->event[i].idx < mtdp->idx)
-					k = i + 1;
-			}
-
-			if (flush)
-				record_trace_data(mtdp, rstack, retval);
-			else
-				mtdp->nr_events = k; /* invalidate sync events */
+		else if (unlikely(mtdp->nr_events)) {
+			/* flush rstack if async event happened */
+			record_trace_data(mtdp, rstack, retval);
 		}
 
 		/* script hooking for function exit */
