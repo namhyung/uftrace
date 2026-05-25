@@ -790,16 +790,17 @@ void save_watchpoint(struct mcount_thread_data *mtdp, struct mcount_ret_stack *r
 	if (watchpoints & MCOUNT_WATCH_CPU) {
 		int cpu = sched_getcpu();
 
-		if ((mtdp->watch.cpu != cpu || init_watch) && mtdp->nr_events < MAX_EVENT) {
-			struct mcount_event *event;
-			event = &mtdp->event[mtdp->nr_events++];
+		if (mtdp->watch.cpu != cpu || init_watch) {
+			struct mcount_event *event = get_new_event(mtdp, rstack, sizeof(cpu));
 
-			event->id = EVENT_ID_WATCH_CPU;
-			event->time = timestamp;
-			event->idx = rstack_idx;
-			event->dsize = sizeof(cpu);
+			if (event) {
+				event->id = EVENT_ID_WATCH_CPU;
+				event->time = timestamp;
+				event->idx = rstack_idx;
+				event->dsize = sizeof(cpu);
 
-			mcount_memcpy4(event->data, &cpu, sizeof(cpu));
+				mcount_memcpy4(event->data, &cpu, sizeof(cpu));
+			}
 		}
 		mtdp->watch.cpu = cpu;
 	}
@@ -810,9 +811,6 @@ void save_watchpoint(struct mcount_thread_data *mtdp, struct mcount_ret_stack *r
 		struct mcount_event *event;
 
 		list_for_each_entry(w, &mtdp->watch.list, list) {
-			if (mtdp->nr_events >= MAX_EVENT)
-				continue;
-
 			/* check the data without lock first */
 			mcount_memcpy1(&watch_data, (void *)w->addr, w->size);
 			if (!memcmp(&watch_data, w->data, w->size))
@@ -822,7 +820,9 @@ void save_watchpoint(struct mcount_thread_data *mtdp, struct mcount_ret_stack *r
 			if (!mcount_watch_update(w->addr, &watch_data, w->size))
 				continue;
 
-			event = &mtdp->event[mtdp->nr_events++];
+			event = get_new_event(mtdp, rstack, sizeof(long) + w->size);
+			if (event == NULL)
+				continue;
 
 			event->id = EVENT_ID_WATCH_VAR;
 			event->time = timestamp;
