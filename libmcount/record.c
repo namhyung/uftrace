@@ -847,29 +847,6 @@ void save_callsite_event(struct mcount_thread_data *mtdp, struct mcount_ret_stac
  * These are for fast libmcount libraries without filters.
  */
 
-void *get_argbuf(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack)
-{
-	return NULL;
-}
-
-void save_retval(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack, long *retval)
-{
-}
-
-void save_trigger_read(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
-		       enum trigger_read_type type)
-{
-}
-
-void save_watchpoint(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
-		     unsigned long watchpoints)
-{
-}
-
-void save_callsite_event(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack)
-{
-}
-
 bool check_mem_region(struct mcount_arg_context *ctx, unsigned long addr)
 {
 	return true;

@@ -435,13 +435,43 @@ extern void mcount_rstack_inject_return(struct mcount_thread_data *mtdp,
 					unsigned long *frame_pointer, unsigned long addr);
 
 #ifndef DISABLE_MCOUNT_FILTER
-extern void save_argument(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
-			  struct list_head *args_spec, struct mcount_regs *regs);
+void *get_argbuf(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack);
+void save_argument(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
+		   struct list_head *args_spec, struct mcount_regs *regs);
 void save_retval(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack, long *retval);
 void save_trigger_read(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
 		       enum trigger_read_type type, bool diff);
 void save_callsite_event(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack);
 struct uftrace_triggers_info *mcount_trigger_init(struct uftrace_filter_setting *filter_setting);
+#else /* DISABLE_MCOUNT_FILTER */
+/*
+ * These are for fast libmcount libraries without filters.
+ */
+static inline void *get_argbuf(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack)
+{
+	return NULL;
+}
+
+static inline void save_retval(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
+			       long *retval)
+{
+}
+
+static inline void save_trigger_read(struct mcount_thread_data *mtdp,
+				     struct mcount_ret_stack *rstack, enum trigger_read_type type)
+{
+}
+
+static inline void save_watchpoint(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
+				   unsigned long watchpoints)
+{
+}
+
+static inline void save_callsite_event(struct mcount_thread_data *mtdp,
+				       struct mcount_ret_stack *rstack)
+{
+}
+
 #endif /* DISABLE_MCOUNT_FILTER */
 
 bool check_mem_region(struct mcount_arg_context *ctx, unsigned long addr);
