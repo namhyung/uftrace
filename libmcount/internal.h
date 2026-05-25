@@ -76,21 +76,25 @@ struct mcount_shmem {
 	struct mcount_shmem_buffer **buffer;
 };
 
-/* first 4 byte saves the actual size of the argbuf */
+/* first 4 byte saves the actual size of data in the buffer */
 #define ARGBUF_SIZE 1024
-#define EVTBUF_SIZE (ARGBUF_SIZE - 16)
+
+/* max size of event data */
+#define EVTBUF_SIZE (ARGBUF_SIZE - 16) /* 16 = EVTBUF_HDR */
+
+/* size of event header before actual data */
 #define EVTBUF_HDR (offsetof(struct mcount_event, data))
 
 struct mcount_event {
-	uint64_t time;
-	uint32_t id;
-	uint16_t dsize;
-	uint16_t idx;
+	uint64_t time; /* event timestamp */
+	uint32_t id; /* event ID (e.g. EVENT_ID_BUILT_IN) */
+	uint16_t dsize; /* event data size */
+	uint16_t idx; /* rstack index or special index below */
 	uint8_t data[EVTBUF_SIZE];
 };
 
-#define ASYNC_IDX 0xffff
-#define INVALID_IDX 0xfffe
+#define ASYNC_IDX 0xffff /* asynchronous event not related to a rstack */
+#define INVALID_IDX 0xfffe /* event is already processed */
 
 #define MAX_EVENT 4
 
