@@ -237,13 +237,13 @@ int mcount_save_event(struct mcount_event_info *mei)
 	if (unlikely(check_thread_data(mtdp)))
 		return -1;
 
-	if (mtdp->nr_events < MAX_EVENT) {
-		int i = mtdp->nr_events++;
+	if (mtdp->nr_async_events < MAX_ASYNC_EVENT) {
+		struct mcount_event *event = &mtdp->async_events[mtdp->nr_async_events++];
 
-		mtdp->event[i].id = mei->id;
-		mtdp->event[i].time = mcount_gettime();
-		mtdp->event[i].dsize = 0;
-		mtdp->event[i].idx = ASYNC_IDX;
+		event->id = mei->id;
+		event->time = mcount_gettime();
+		event->dsize = 0;
+		event->idx = ASYNC_IDX;
 	}
 
 	return 0;

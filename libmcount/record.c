@@ -226,14 +226,17 @@ void shmem_finish(struct mcount_thread_data *mtdp)
 	clear_shmem_buffer(mtdp);
 }
 
-static struct mcount_event *get_event_pointer(void *base, unsigned idx)
+static struct mcount_event *get_prev_event(struct mcount_thread_data *mtdp,
+					   struct mcount_ret_stack *rstack, int idx)
 {
 	size_t len = 0;
+	void *base = get_argbuf(mtdp, rstack) + rstack->event_idx;
 	struct mcount_event *event = base;
 
-	while (idx--) {
+	while (idx > 0) {
 		len += EVTBUF_HDR + event->dsize;
 		event = base + len;
+		idx--;
 	}
 
 	return event;
@@ -689,17 +692,35 @@ static struct read_event_data {
 #undef TR_DS
 #undef TR_FN
 
-void save_trigger_read(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
-		       enum trigger_read_type type, bool diff)
+/* synchronous events share the buffer with arguments, but filled from the end (like stack) */
+static struct mcount_event *get_new_event(struct mcount_thread_data *mtdp,
+					  struct mcount_ret_stack *rstack, uint16_t evsize)
 {
-	void *ptr = get_argbuf(mtdp, rstack) + rstack->event_idx;
-	struct mcount_event *event;
-	unsigned short evsize;
 	void *arg_data = get_argbuf(mtdp, rstack);
-	size_t i;
+	void *ptr = arg_data + rstack->event_idx;
+	struct mcount_event *event;
+
+	evsize += EVTBUF_HDR;
+	event = ptr - evsize;
 
 	if (rstack->flags & (MCOUNT_FL_ARGUMENT | MCOUNT_FL_RETVAL))
 		arg_data += sizeof(uint32_t) + *(uint32_t *)arg_data;
+
+	/* do not overwrite argument data */
+	if ((void *)event < arg_data)
+		return NULL;
+
+	rstack->nr_events++;
+	rstack->event_idx -= evsize;
+
+	return event;
+}
+
+void save_trigger_read(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
+		       enum trigger_read_type type, bool diff)
+{
+	struct mcount_event *event;
+	size_t i;
 
 	for (i = 0; i < ARRAY_SIZE(read_events); i++) {
 		struct read_event_data *red = &read_events[i];
@@ -707,15 +728,12 @@ void save_trigger_read(struct mcount_thread_data *mtdp, struct mcount_ret_stack 
 		if (!(type & red->type))
 			continue;
 
-		evsize = EVTBUF_HDR + red->size;
-		event = ptr - evsize;
-
-		/* do not overwrite argument data */
-		if ((void *)event < arg_data)
+		event = get_new_event(mtdp, rstack, red->size);
+		if (event == NULL)
 			continue;
 
 		event->id = red->id_read;
-		event->time = rstack->end_time ?: rstack->start_time;
+		event->time = rstack->end_time ? rstack->end_time - 1 : rstack->start_time + 1;
 		event->dsize = red->size;
 		event->idx = mtdp->idx;
 
@@ -724,10 +742,11 @@ void save_trigger_read(struct mcount_thread_data *mtdp, struct mcount_ret_stack 
 
 		if (diff) {
 			struct mcount_event *old_event = NULL;
-			unsigned idx;
+			int idx;
 
-			for (idx = 0; idx < rstack->nr_events; idx++) {
-				old_event = get_event_pointer(ptr, idx);
+			/* it just added a new event, skip the first one */
+			for (idx = 1; idx < rstack->nr_events; idx++) {
+				old_event = get_prev_event(mtdp, rstack, idx);
 				if (old_event->id == event->id)
 					break;
 
@@ -739,11 +758,6 @@ void save_trigger_read(struct mcount_thread_data *mtdp, struct mcount_ret_stack 
 				red->diff(mtdp, event->data, old_event->data);
 			}
 		}
-
-		ptr = event;
-
-		rstack->nr_events++;
-		rstack->event_idx -= evsize;
 	}
 }
 
@@ -776,16 +790,17 @@ void save_watchpoint(struct mcount_thread_data *mtdp, struct mcount_ret_stack *r
 	if (watchpoints & MCOUNT_WATCH_CPU) {
 		int cpu = sched_getcpu();
 
-		if ((mtdp->watch.cpu != cpu || init_watch) && mtdp->nr_events < MAX_EVENT) {
-			struct mcount_event *event;
-			event = &mtdp->event[mtdp->nr_events++];
+		if (mtdp->watch.cpu != cpu || init_watch) {
+			struct mcount_event *event = get_new_event(mtdp, rstack, sizeof(cpu));
 
-			event->id = EVENT_ID_WATCH_CPU;
-			event->time = timestamp;
-			event->idx = rstack_idx;
-			event->dsize = sizeof(cpu);
+			if (event) {
+				event->id = EVENT_ID_WATCH_CPU;
+				event->time = timestamp;
+				event->idx = rstack_idx;
+				event->dsize = sizeof(cpu);
 
-			mcount_memcpy4(event->data, &cpu, sizeof(cpu));
+				mcount_memcpy4(event->data, &cpu, sizeof(cpu));
+			}
 		}
 		mtdp->watch.cpu = cpu;
 	}
@@ -796,9 +811,6 @@ void save_watchpoint(struct mcount_thread_data *mtdp, struct mcount_ret_stack *r
 		struct mcount_event *event;
 
 		list_for_each_entry(w, &mtdp->watch.list, list) {
-			if (mtdp->nr_events >= MAX_EVENT)
-				continue;
-
 			/* check the data without lock first */
 			mcount_memcpy1(&watch_data, (void *)w->addr, w->size);
 			if (!memcmp(&watch_data, w->data, w->size))
@@ -808,7 +820,9 @@ void save_watchpoint(struct mcount_thread_data *mtdp, struct mcount_ret_stack *r
 			if (!mcount_watch_update(w->addr, &watch_data, w->size))
 				continue;
 
-			event = &mtdp->event[mtdp->nr_events++];
+			event = get_new_event(mtdp, rstack, sizeof(long) + w->size);
+			if (event == NULL)
+				continue;
 
 			event->id = EVENT_ID_WATCH_VAR;
 			event->time = timestamp;
@@ -827,13 +841,13 @@ void save_callsite_event(struct mcount_thread_data *mtdp, struct mcount_ret_stac
 	uint64_t timestamp = rstack->start_time;
 	uint64_t callsite = rstack->parent_ip;
 
-	if (mtdp->nr_events >= MAX_EVENT)
-		return;
-
 	/* place event before the entry record */
 	timestamp -= 1;
 
-	event = &mtdp->event[mtdp->nr_events++];
+	event = get_new_event(mtdp, rstack, sizeof(callsite));
+	if (event == NULL)
+		return;
+
 	event->id = EVENT_ID_CALLSITE;
 	event->time = timestamp;
 	event->idx = rstack - mtdp->rstack;
@@ -846,29 +860,6 @@ void save_callsite_event(struct mcount_thread_data *mtdp, struct mcount_ret_stac
 /*
  * These are for fast libmcount libraries without filters.
  */
-
-void *get_argbuf(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack)
-{
-	return NULL;
-}
-
-void save_retval(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack, long *retval)
-{
-}
-
-void save_trigger_read(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
-		       enum trigger_read_type type)
-{
-}
-
-void save_watchpoint(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
-		     unsigned long watchpoints)
-{
-}
-
-void save_callsite_event(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack)
-{
-}
 
 bool check_mem_region(struct mcount_arg_context *ctx, unsigned long addr)
 {
@@ -970,37 +961,31 @@ static int record_ret_stack(struct mcount_thread_data *mtdp, enum uftrace_record
 	if (type == UFTRACE_EXIT)
 		timestamp = mrstack->end_time;
 
-	if (unlikely(mtdp->nr_events)) {
+	if (unlikely(mtdp->nr_async_events)) {
 		/* save async events first (if any) */
-		while (mtdp->nr_events && mtdp->event[0].time < timestamp) {
-			record_event(mtdp, &mtdp->event[0]);
-			mtdp->nr_events--;
+		while (mtdp->nr_async_events && mtdp->async_events[0].time < timestamp) {
+			record_event(mtdp, &mtdp->async_events[0]);
+			mtdp->nr_async_events--;
 
-			mcount_memcpy4(&mtdp->event[0], &mtdp->event[1],
-				       sizeof(*mtdp->event) * mtdp->nr_events);
+			mcount_memcpy4(&mtdp->async_events[0], &mtdp->async_events[1],
+				       sizeof(*mtdp->async_events) * mtdp->nr_async_events);
 		}
 	}
 
-	if (type == UFTRACE_EXIT && unlikely(mrstack->nr_events)) {
-		int i;
-		unsigned evidx;
+	if (unlikely(mrstack->nr_events)) {
+		int i, evidx;
 		struct mcount_event *event;
-
-		argbuf = get_argbuf(mtdp, mrstack) + mrstack->event_idx;
 
 		for (i = 0; i < mrstack->nr_events; i++) {
 			evidx = mrstack->nr_events - i - 1;
-			event = get_event_pointer(argbuf, evidx);
+			event = get_prev_event(mtdp, mrstack, evidx);
 
-			if (event->time != timestamp)
+			if (event->time >= timestamp || event->idx == INVALID_IDX)
 				continue;
 
-			/* save read2 trigger before exit record */
 			record_event(mtdp, event);
+			event->idx = INVALID_IDX;
 		}
-
-		mrstack->nr_events = 0;
-		argbuf = NULL;
 	}
 
 	if ((type == UFTRACE_ENTRY && mrstack->flags & MCOUNT_FL_ARGUMENT) ||
@@ -1053,22 +1038,19 @@ static int record_ret_stack(struct mcount_thread_data *mtdp, enum uftrace_record
 	pr_dbg3("rstack[%d] %s %lx\n", mrstack->depth, type == UFTRACE_ENTRY ? "ENTRY" : "EXIT ",
 		mrstack->child_ip);
 
-	if (unlikely(mrstack->nr_events) && type == UFTRACE_ENTRY) {
-		int i;
-		unsigned evidx;
+	if (unlikely(mrstack->nr_events)) {
+		int i, evidx;
 		struct mcount_event *event;
-
-		argbuf = get_argbuf(mtdp, mrstack) + mrstack->event_idx;
 
 		for (i = 0; i < mrstack->nr_events; i++) {
 			evidx = mrstack->nr_events - i - 1;
-			event = get_event_pointer(argbuf, evidx);
+			event = get_prev_event(mtdp, mrstack, evidx);
 
-			if (event->time != timestamp)
-				break;
+			if (event->time < timestamp || event->idx == INVALID_IDX)
+				continue;
 
-			/* save read trigger after entry record */
 			record_event(mtdp, event);
+			event->idx = INVALID_IDX;
 		}
 	}
 

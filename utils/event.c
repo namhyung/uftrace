@@ -380,6 +380,8 @@ TEST_CASE(event_name)
 		{ EVENT_ID_DIFF_PMU_CACHE, "diff:pmu-cache" },
 		{ EVENT_ID_WATCH_CPU, "watch:cpu" },
 		{ EVENT_ID_WATCH_VAR, "watch:var" },
+		{ EVENT_ID_CALLSITE, "callsite" },
+		{ EVENT_ID_BUILTIN + 10000, "builtin_event:110000" },
 	};
 
 	pr_dbg("testing event name strings\n");
@@ -400,24 +402,28 @@ TEST_CASE(event_data)
 	struct uftrace_page_fault pgfault = { 1977, 1102 };
 	struct uftrace_pmu_cycle cycle = { 1024, 2048 };
 	int cpu = 123;
+	uint64_t callsite = 0x987654321;
 	unsigned i;
 
 	struct {
 		unsigned evt_id;
 		void *data;
+		int len;
 		char *str;
 	} expected[] = {
-		{ EVENT_ID_EXTERN_DATA, msg, "msg=\"this is external data.\"" },
-		{ EVENT_ID_PERF_COMM, comm, "comm=\"taskname\"" },
-		{ EVENT_ID_READ_PAGE_FAULT, &pgfault, "major=1977 minor=1102" },
-		{ EVENT_ID_DIFF_PMU_CYCLE, &cycle, "cycles=+1024 instructions=+2048 IPC=2.00" },
-		{ EVENT_ID_WATCH_CPU, &cpu, "cpu=123" },
+		{ EVENT_ID_EXTERN_DATA, msg, sizeof(msg), "msg=\"this is external data.\"" },
+		{ EVENT_ID_PERF_COMM, comm, sizeof(comm), "comm=\"taskname\"" },
+		{ EVENT_ID_READ_PAGE_FAULT, &pgfault, sizeof(pgfault), "major=1977 minor=1102" },
+		{ EVENT_ID_DIFF_PMU_CYCLE, &cycle, sizeof(cycle),
+		  "cycles=+1024 instructions=+2048 IPC=2.00" },
+		{ EVENT_ID_WATCH_CPU, &cpu, sizeof(cpu), "cpu=123" },
+		{ EVENT_ID_CALLSITE, &callsite, sizeof(callsite), "callsite=0x987654321" },
 	};
 
 	pr_dbg("testing event data strings\n");
 	for (i = 0; i < ARRAY_SIZE(expected); i++) {
-		char *got = event_get_data_str(&handle, expected[i].evt_id, expected[i].data, 0,
-					       NULL, true);
+		char *got = event_get_data_str(&handle, expected[i].evt_id, expected[i].data,
+					       expected[i].len, NULL, true);
 		TEST_STREQ(expected[i].str, got);
 		free(got);
 	}

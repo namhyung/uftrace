@@ -76,22 +76,27 @@ struct mcount_shmem {
 	struct mcount_shmem_buffer **buffer;
 };
 
-/* first 4 byte saves the actual size of the argbuf */
+/* first 4 byte saves the actual size of data in the buffer */
 #define ARGBUF_SIZE 1024
-#define EVTBUF_SIZE (ARGBUF_SIZE - 16)
+
+/* max size of async event data */
+#define EVTBUF_SIZE 0 /* increase when SDT argument is supported */
+
+/* size of event header before actual data */
 #define EVTBUF_HDR (offsetof(struct mcount_event, data))
 
 struct mcount_event {
-	uint64_t time;
-	uint32_t id;
-	uint16_t dsize;
-	uint16_t idx;
+	uint64_t time; /* event timestamp */
+	uint32_t id; /* event ID (e.g. EVENT_ID_BUILT_IN) */
+	uint16_t dsize; /* event data size */
+	uint16_t idx; /* rstack index or special index below */
 	uint8_t data[EVTBUF_SIZE];
 };
 
-#define ASYNC_IDX 0xffff
+#define ASYNC_IDX 0xffff /* asynchronous event not related to a rstack */
+#define INVALID_IDX 0xfffe /* event is already processed */
 
-#define MAX_EVENT 4
+#define MAX_ASYNC_EVENT 4
 
 enum mcount_watch_kind {
 	MCOUNT_WATCH_NONE = 0,
@@ -156,8 +161,8 @@ struct mcount_thread_data {
 	bool enable_cached;
 	bool exited; /* pthread_exit() called */
 	struct mcount_shmem shmem;
-	struct mcount_event event[MAX_EVENT];
-	int nr_events;
+	struct mcount_event async_events[MAX_ASYNC_EVENT];
+	int nr_async_events;
 	struct mcount_mem_regions mem_regions;
 	struct mcount_watchpoint watch;
 	struct mcount_arch_context arch;
@@ -430,13 +435,43 @@ extern void mcount_rstack_inject_return(struct mcount_thread_data *mtdp,
 					unsigned long *frame_pointer, unsigned long addr);
 
 #ifndef DISABLE_MCOUNT_FILTER
-extern void save_argument(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
-			  struct list_head *args_spec, struct mcount_regs *regs);
+void *get_argbuf(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack);
+void save_argument(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
+		   struct list_head *args_spec, struct mcount_regs *regs);
 void save_retval(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack, long *retval);
 void save_trigger_read(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
 		       enum trigger_read_type type, bool diff);
 void save_callsite_event(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack);
 struct uftrace_triggers_info *mcount_trigger_init(struct uftrace_filter_setting *filter_setting);
+#else /* DISABLE_MCOUNT_FILTER */
+/*
+ * These are for fast libmcount libraries without filters.
+ */
+static inline void *get_argbuf(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack)
+{
+	return NULL;
+}
+
+static inline void save_retval(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
+			       long *retval)
+{
+}
+
+static inline void save_trigger_read(struct mcount_thread_data *mtdp,
+				     struct mcount_ret_stack *rstack, enum trigger_read_type type)
+{
+}
+
+static inline void save_watchpoint(struct mcount_thread_data *mtdp, struct mcount_ret_stack *rstack,
+				   unsigned long watchpoints)
+{
+}
+
+static inline void save_callsite_event(struct mcount_thread_data *mtdp,
+				       struct mcount_ret_stack *rstack)
+{
+}
+
 #endif /* DISABLE_MCOUNT_FILTER */
 
 bool check_mem_region(struct mcount_arg_context *ctx, unsigned long addr);
