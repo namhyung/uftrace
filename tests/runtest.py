@@ -428,7 +428,7 @@ class TestBase:
         # <timestamp> <tid>: [<type>] <func>(<addr>) depth: <N>
         patt = re.compile(r'[^[]*(?P<type>\[(entry|exit )\]) (?P<func>[_a-z0-9]*)\([0-9a-f]+\) (?P<depth>.*)')
 
-        # A (raw) dump argument patter
+        # A (raw) dump argument pattern
         arg_patt = re.compile(r'^  args')
 
         for ln in output.split('\n'):

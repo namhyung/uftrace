@@ -1079,7 +1079,7 @@ static bool add_type_info(char *spec, size_t len, Dwarf_Die *die, struct arg_dat
 		if (ad->idx) { /* for arguments */
 			snprintf(spec, len, "arg%d/t%d", ad->idx, ad->last_size);
 		}
-		else { /* for return valus */
+		else { /* for return values */
 			char sz[16];
 
 			snprintf(sz, sizeof(sz), "/t%d", ad->last_size);
