@@ -112,141 +112,274 @@ enum uftrace_short_options {
 };
 
 /* clang-format off */
-__used static const char uftrace_usage[] =
+__used static const char uftrace_usage_header[] =
 " uftrace -- function (graph) tracer for userspace\n"
 "\n"
 " usage: uftrace [COMMAND] [OPTION...] [<program>]\n"
-"\n"
-" COMMAND:\n"
-"   record          Run a program and saves the trace data\n"
-"   replay          Show program execution in the trace data\n"
-"   report          Show performance statistics in the trace data\n"
-"   live            Do record and replay in a row (default)\n"
-"   info            Show system and program info in the trace data\n"
-"   dump            Show low-level trace data\n"
-"   recv            Save the trace data from network\n"
-"   graph           Show function call graph in the trace data\n"
-"   script          Run a script for recorded trace data\n"
-"   tui             Show text user interface for graph and report\n"
 "\n";
 
-__used static const char uftrace_help[] =
-" OPTION:\n"
-"      --avg-self             Show average/min/max of self function time\n"
-"      --avg-total            Show average/min/max of total function time\n"
-"  -a, --auto-args            Show arguments and return value of known functions\n"
-"  -A, --argument=FUNC@arg[,arg,...]\n"
-"                             Show function arguments\n"
-"  -b, --buffer=SIZE          Size of tracing buffer (default: "
-	stringify(SHMEM_BUFFER_SIZE_KB) "K)\n"
-"      --chrome               Dump recorded data in chrome trace format\n"
-"                             (deprecated, use --format=chrome instead)\n"
-"      --clock                Set clock source for timestamp (default: mono)\n"
-"      --color=SET            Use color for output: yes, no, auto (default: auto)\n"
-"      --column-offset=DEPTH  Offset of each column (default: "
-	stringify(OPT_COLUMN_OFFSET) ")\n"
-"      --column-view          Print tasks in separate columns\n"
-"  -C, --caller-filter=FUNC   Only trace callers of those FUNCs\n"
-"  -d, --data=DATA            Use this DATA instead of uftrace.data\n"
-"      --debug-domain=DOMAIN  Filter debugging domain\n"
-"      --demangle=TYPE        C++ symbol demangling: full, simple, no\n"
-"                             (default: simple)\n"
-"      --diff=DATA            Report differences\n"
-"      --diff-policy=POLICY   Control diff report policy\n"
-"                             (default: 'abs,compact,no-percent')\n"
-"      --disable              Start with tracing disabled (deprecated)\n"
-"  -D, --depth=DEPTH          Trace functions within DEPTH\n"
-"  -e, --estimate-return      Use only entry record type for safety\n"
-"      --event-full           Show all events outside of function\n"
-"  -E, --Event=EVENT          Enable EVENT to save more information\n"
-"      --flame-graph          Dump recorded data in FlameGraph format\n"
-"                             (deprecated, use --format=flame-graph instead)\n"
-"      --flat                 Use flat output format\n"
-"      --force                Trace even if executable is not instrumented\n"
-"      --format=FORMAT        Use FORMAT for output: normal, html, csv,\n"
-"                             chrome, flame-graph, graphviz, mermaid\n"
-"                             (default: normal; supported values depend on command)\n"
-"  -f, --output-fields=FIELD  Show FIELDs in the replay or graph output\n"
-"  -F, --filter=FUNC          Only trace those FUNCs\n"
-"  -g  --agent                Start an agent in mcount to listen to commands\n"
-"      --graphviz             Dump recorded data in DOT format\n"
-"                             (deprecated, use --format=graphviz instead)\n"
-"  -H, --hide=FUNC            Hide FUNCs from trace\n"
-"      --host=HOST            Send trace data to HOST instead of write to file\n"
-"  -k, --kernel               Trace kernel functions also (if supported)\n"
-"      --keep-pid             Keep same pid during execution of traced program\n"
-"      --kernel-buffer=SIZE   Size of kernel tracing buffer (default: 1408K)\n"
-"      --kernel-full          Show kernel functions outside of user\n"
-"      --kernel-only          Dump kernel data only\n"
-"      --kernel-skip-out      Skip kernel functions outside of user (deprecated)\n"
-"  -K, --kernel-depth=DEPTH   Trace kernel functions within DEPTH\n"
-"      --libmcount-single     Use single thread version of libmcount\n"
-"      --list-event           List available events\n"
-"  -L, --loc-filter=LOCATION  Only trace functions in the source LOCATION\n"
-"      --logfile=FILE         Save log messages to this file\n"
-"  -l, --nest-libcall         Show nested library calls\n"
-"      --libname              Show libname name with symbol name\n"
-"      --libmcount-path=PATH  Load libmcount libraries from this PATH\n"
-"      --match=TYPE           Support pattern match: regex, glob (default:\n"
-"                             regex)\n"
-"      --max-stack=DEPTH      Set max stack depth to DEPTH (default: "
-	stringify(OPT_RSTACK_MAX) ")\n"
-"      --no-args              Do not show arguments and return value\n"
-"      --no-comment           Don't show comments of returned functions\n"
-"      --no-event             Disable (default) events\n"
-"      --no-sched             Disable schedule events\n"
-"      --no-sched-preempt     Hide pre-emptive schedule event\n"
-"                             but show regular(sleeping) schedule event\n"
-"      --no-libcall           Don't trace library function calls\n"
-"      --no-merge             Don't merge leaf functions\n"
-"      --no-pager             Do not use pager\n"
-"      --no-pltbind           Do not bind dynamic symbols (LD_BIND_NOT)\n"
-"      --no-randomize-addr    Disable ASLR (Address Space Layout Randomization)\n"
-"      --nop                  No operation (for performance test)\n"
-"      --num-thread=NUM       Create NUM recorder threads\n"
-"  -N, --notrace=FUNC         Don't trace those FUNCs\n"
-"      --opt-file=FILE        Read command-line options from FILE\n"
-"  -p  --pid=PID              PID of an interactive mcount instance\n"
-"      --port=PORT            Use PORT for network connection (default: "
-	stringify(UFTRACE_RECV_PORT) ")\n"
-"  -P, --patch=FUNC           Apply dynamic patching for FUNCs\n"
-"      --record               Record a new trace data before running command\n"
-"      --report               Show live report\n"
-"      --rt-prio=PRIO         Record with real-time (FIFO) priority\n"
-"  -r, --time-range=TIME~TIME Show output within the TIME(timestamp or elapsed time)\n"
-"                             range only\n"
-"      --run-cmd=CMDLINE      Command line that want to execute after tracing\n"
-"                             data received\n"
-"  -R, --retval=FUNC@retval   Show function return value\n"
-"      --sample-time=TIME     Show flame graph with this sampling time\n"
-"      --signal=SIG@act[,act,...]   Trigger action on those SIGnal\n"
-"      --sort-column=INDEX    Sort diff report on column INDEX (default: "
-	stringify(OPT_SORT_COLUMN) ")\n"
-"      --srcline              Enable recording source line info\n"
-"      --symbols              Print symbol tables\n"
-"  -s, --sort=KEY[,KEY,...]   Sort reported functions by KEYs (default: "
-	stringify(OPT_SORT_KEYS) ")\n"
-"  -S, --script=SCRIPT        Run a given SCRIPT in function entry and exit\n"
-"  -t, --time-filter=TIME     Hide small functions run less than the TIME\n"
-"      --task                 Show task info instead\n"
-"      --task-newline         Interleave a newline when task is changed\n"
-"      --tid=TID[,TID,...]    Only replay those tasks\n"
-"      --time                 Print time information\n"
-"      --trace=STATE          Set the recording state: on, off (default: on)\n"
-"  -T, --trigger=FUNC@act[,act,...]\n"
-"                             Trigger action on those FUNCs\n"
-"  -U, --unpatch=FUNC         Don't apply dynamic patching for FUNCs\n"
-"  -v, --debug                Print debug messages\n"
-"      --verbose              Print verbose (debug) messages\n"
-"      --with-syms=DIR        Use symbol files in the DIR\n"
-"  -W, --watch=POINT          Watch and report POINT if it's changed\n"
-"  -Z, --size-filter=SIZE     Apply dynamic patching for functions bigger than SIZE\n"
-"  -h, --help                 Give this help list\n"
-"      --usage                Give a short usage message\n"
-"  -V, --version              Print program version\n"
-"\n"
-" Try `man uftrace [COMMAND]' for more information.\n"
-"\n";
+#define CMD_RECORD	(1 << UFTRACE_MODE_RECORD)
+#define CMD_REPLAY	(1 << UFTRACE_MODE_REPLAY)
+#define CMD_LIVE	(1 << UFTRACE_MODE_LIVE)
+#define CMD_REPORT	(1 << UFTRACE_MODE_REPORT)
+#define CMD_INFO	(1 << UFTRACE_MODE_INFO)
+#define CMD_RECV	(1 << UFTRACE_MODE_RECV)
+#define CMD_DUMP	(1 << UFTRACE_MODE_DUMP)
+#define CMD_GRAPH	(1 << UFTRACE_MODE_GRAPH)
+#define CMD_SCRIPT	(1 << UFTRACE_MODE_SCRIPT)
+#define CMD_TUI		(1 << UFTRACE_MODE_TUI)
+
+#define CMD_ALL \
+	(CMD_RECORD | CMD_REPLAY | CMD_LIVE | CMD_REPORT | CMD_INFO | \
+	 CMD_RECV | CMD_DUMP | CMD_GRAPH | CMD_SCRIPT | CMD_TUI)
+#define CMD_ALL_BUT_INFO_RECV (CMD_ALL & ~(CMD_INFO | CMD_RECV))
+
+#define HELP_MSG_COLUMN 26
+
+struct uftrace_help_entry {
+	unsigned cmds;
+	char short_opt;      /* short option character, 0 if none */
+	const char *long_opt;
+	const char *opt_val; /* argument name, NULL if none */
+	const char *msg;
+};
+
+__used static const struct uftrace_help_entry uftrace_help[] = {
+	{ CMD_REPORT, 0, "avg-self", NULL,
+	  "Show average/min/max of self function time" },
+	{ CMD_REPORT, 0, "avg-total", NULL,
+	  "Show average/min/max of total function time" },
+	{ CMD_RECORD | CMD_LIVE, 'a', "auto-args", NULL,
+	  "Show arguments and return value of known functions" },
+	{ CMD_RECORD | CMD_LIVE, 'A', "argument", "FUNC@arg[,arg,...]",
+	  "Show function arguments" },
+	{ CMD_RECORD | CMD_LIVE, 'b', "buffer", "SIZE",
+	  "Size of tracing buffer (default: "
+	  stringify(SHMEM_BUFFER_SIZE_KB)
+	  "K)" },
+	{ CMD_DUMP, 0, "chrome", NULL,
+	  "Dump recorded data in chrome trace format\n"
+	  "(deprecated, use --format=chrome instead)" },
+	{ CMD_RECORD | CMD_LIVE, 0, "clock", NULL,
+	  "Set clock source for timestamp (default: mono)" },
+	{ CMD_ALL, 0, "color", "SET",
+	  "Use color for output: yes, no, auto (default: auto)" },
+	{ CMD_REPLAY | CMD_LIVE, 0, "column-offset", "DEPTH",
+	  "Offset of each column (default: "
+	  stringify(OPT_COLUMN_OFFSET)
+	  ")" },
+	{ CMD_REPLAY | CMD_LIVE, 0, "column-view", NULL,
+	  "Print tasks in separate columns" },
+	{ CMD_ALL_BUT_INFO_RECV, 'C', "caller-filter", "FUNC",
+	  "Only trace callers of those FUNCs" },
+	{ CMD_ALL, 'd', "data", "DATA",
+	  "Use this DATA instead of uftrace.data" },
+	{ CMD_ALL, 0, "debug-domain", "DOMAIN",
+	  "Filter debugging domain" },
+	{ CMD_REPLAY | CMD_LIVE | CMD_REPORT | CMD_DUMP | CMD_GRAPH | CMD_SCRIPT | CMD_TUI, 0, "demangle", "TYPE",
+	  "C++ symbol demangling: full, simple, no\n"
+	  "(default: simple)" },
+	{ CMD_REPORT, 0, "diff", "DATA",
+	  "Report differences" },
+	{ CMD_REPORT, 0, "diff-policy", "POLICY",
+	  "Control diff report policy\n"
+	  "(default: 'abs,compact,no-percent')" },
+	{ CMD_RECORD | CMD_REPLAY | CMD_LIVE, 0, "disable", NULL,
+	  "Start with tracing disabled (deprecated)" },
+	{ CMD_ALL_BUT_INFO_RECV, 'D', "depth", "DEPTH",
+	  "Trace functions within DEPTH" },
+	{ CMD_RECORD | CMD_LIVE, 'e', "estimate-return", NULL,
+	  "Use only entry record type for safety" },
+	{ CMD_REPLAY | CMD_REPORT | CMD_LIVE | CMD_DUMP | CMD_GRAPH | CMD_SCRIPT | CMD_TUI, 0, "event-full", NULL,
+	  "Show all events outside of function" },
+	{ CMD_RECORD | CMD_LIVE, 'E', "Event", "EVENT",
+	  "Enable EVENT to save more information" },
+	{ CMD_DUMP, 0, "flame-graph", NULL,
+	  "Dump recorded data in FlameGraph format\n"
+	  "(deprecated, use --format=flame-graph instead)" },
+	{ CMD_REPLAY | CMD_LIVE, 0, "flat", NULL,
+	  "Use flat output format" },
+	{ CMD_RECORD | CMD_LIVE, 0, "force", NULL,
+	  "Trace even if executable is not instrumented" },
+	{ CMD_REPLAY | CMD_REPORT | CMD_LIVE | CMD_DUMP | CMD_GRAPH, 0, "format", "FORMAT",
+	  "Use FORMAT for output: normal, html, csv,\n"
+	  "chrome, flame-graph, graphviz, mermaid\n"
+	  "(default: normal; supported values depend on command)" },
+	{ CMD_REPLAY | CMD_REPORT | CMD_LIVE | CMD_GRAPH | CMD_TUI, 'f', "output-fields", "FIELD",
+	  "Show FIELDs in the replay or graph output" },
+	{ CMD_ALL_BUT_INFO_RECV, 'F', "filter", "FUNC",
+	  "Only trace those FUNCs" },
+	{ CMD_RECORD | CMD_LIVE, 'g', "agent", NULL,
+	  "Start an agent in mcount to listen to commands" },
+	{ CMD_DUMP, 0, "graphviz", NULL,
+	  "Dump recorded data in DOT format\n"
+	  "(deprecated, use --format=graphviz instead)" },
+	{ CMD_REPLAY | CMD_LIVE | CMD_REPORT | CMD_DUMP | CMD_GRAPH | CMD_SCRIPT | CMD_TUI, 'H', "hide", "FUNC",
+	  "Hide FUNCs from trace" },
+	{ CMD_RECORD, 0, "host", "HOST",
+	  "Send trace data to HOST instead of write to file" },
+	{ CMD_RECORD | CMD_LIVE, 'k', "kernel", NULL,
+	  "Trace kernel functions also (if supported)" },
+	{ CMD_RECORD | CMD_LIVE, 0, "keep-pid", NULL,
+	  "Keep same pid during execution of traced program" },
+	{ CMD_RECORD | CMD_LIVE, 0, "kernel-buffer", "SIZE",
+	  "Size of kernel tracing buffer (default: 1408K)" },
+	{ CMD_REPLAY | CMD_LIVE | CMD_REPORT | CMD_DUMP | CMD_GRAPH | CMD_SCRIPT | CMD_TUI, 0, "kernel-full", NULL,
+	  "Show kernel functions outside of user" },
+	{ CMD_REPLAY | CMD_LIVE | CMD_REPORT | CMD_DUMP | CMD_GRAPH | CMD_SCRIPT | CMD_TUI, 0, "kernel-only", NULL,
+	  "Dump kernel data only" },
+	{ CMD_REPLAY | CMD_LIVE | CMD_REPORT | CMD_DUMP | CMD_GRAPH | CMD_SCRIPT | CMD_TUI, 0, "kernel-skip-out", NULL,
+	  "Skip kernel functions outside of user (deprecated)" },
+	{ CMD_RECORD | CMD_LIVE, 'K', "kernel-depth", "DEPTH",
+	  "Trace kernel functions within DEPTH" },
+	{ CMD_RECORD | CMD_LIVE, 0, "libmcount-single", NULL,
+	  "Use single thread version of libmcount" },
+	{ CMD_LIVE, 0, "list-event", NULL,
+	  "List available events" },
+	{ CMD_ALL_BUT_INFO_RECV, 'L', "loc-filter", "LOCATION",
+	  "Only trace functions in the source LOCATION" },
+	{ CMD_ALL, 0, "logfile", "FILE",
+	  "Save log messages to this file" },
+	{ CMD_RECORD | CMD_LIVE, 'l', "nest-libcall", NULL,
+	  "Show nested library calls" },
+	{ CMD_REPLAY | CMD_LIVE, 0, "libname", NULL,
+	  "Show libname name with symbol name" },
+	{ CMD_RECORD | CMD_LIVE, 0, "libmcount-path", "PATH",
+	  "Load libmcount libraries from this PATH" },
+	{ CMD_ALL_BUT_INFO_RECV, 0, "match", "TYPE",
+	  "Support pattern match: regex, glob (default:\n"
+	  "regex)" },
+	{ CMD_RECORD | CMD_LIVE, 0, "max-stack", "DEPTH",
+	  "Set max stack depth to DEPTH (default: "
+	  stringify(OPT_RSTACK_MAX)
+	  ")" },
+	{ CMD_DUMP, 0, "mermaid", NULL,
+	  "Dump recorded data in mermaid format\n"
+	  "(deprecated, use --format=mermaid instead)" },
+	{ CMD_REPLAY | CMD_LIVE | CMD_DUMP | CMD_SCRIPT, 0, "no-args", NULL,
+	  "Do not show arguments and return value" },
+	{ CMD_REPLAY, 0, "no-callsite", NULL,
+	  "Don't show the call site location of functions" },
+	{ CMD_REPLAY | CMD_LIVE, 0, "no-comment", NULL,
+	  "Don't show comments of returned functions" },
+	{ CMD_RECORD | CMD_REPLAY | CMD_REPORT | CMD_LIVE | CMD_DUMP | CMD_GRAPH | CMD_TUI, 0, "no-event", NULL,
+	  "Disable (default) events" },
+	{ CMD_RECORD | CMD_REPLAY | CMD_REPORT | CMD_LIVE | CMD_DUMP | CMD_GRAPH | CMD_TUI, 0, "no-sched", NULL,
+	  "Disable schedule events" },
+	{ CMD_REPLAY | CMD_REPORT | CMD_GRAPH | CMD_TUI, 0, "no-sched-preempt", NULL,
+	  "Hide pre-emptive schedule event\n"
+	  "but show regular(sleeping) schedule event" },
+	{ CMD_ALL_BUT_INFO_RECV, 0, "no-libcall", NULL,
+	  "Don't trace library function calls" },
+	{ CMD_REPLAY | CMD_LIVE, 0, "no-merge", NULL,
+	  "Don't merge leaf functions" },
+	{ CMD_ALL, 0, "no-pager", NULL,
+	  "Do not use pager" },
+	{ CMD_RECORD | CMD_LIVE, 0, "no-pltbind", NULL,
+	  "Do not bind dynamic symbols (LD_BIND_NOT)" },
+	{ CMD_RECORD | CMD_LIVE, 0, "no-randomize-addr", NULL,
+	  "Disable ASLR (Address Space Layout Randomization)" },
+	{ CMD_RECORD | CMD_LIVE, 0, "nop", NULL,
+	  "No operation (for performance test)" },
+	{ CMD_RECORD | CMD_LIVE, 0, "num-thread", "NUM",
+	  "Create NUM recorder threads" },
+	{ CMD_ALL_BUT_INFO_RECV, 'N', "notrace", "FUNC",
+	  "Don't trace those FUNCs" },
+	{ CMD_ALL, 0, "opt-file", "FILE",
+	  "Read command-line options from FILE" },
+	{ CMD_LIVE, 'p', "pid", "PID",
+	  "PID of an interactive mcount instance" },
+	{ CMD_RECORD | CMD_RECV, 0, "port", "PORT",
+	  "Use PORT for network connection (default: "
+	  stringify(UFTRACE_RECV_PORT)
+	  ")" },
+	{ CMD_RECORD | CMD_LIVE, 'P', "patch", "FUNC",
+	  "Apply dynamic patching for FUNCs" },
+	{ CMD_LIVE | CMD_SCRIPT, 0, "record", NULL,
+	  "Record a new trace data before running command" },
+	{ CMD_LIVE, 0, "report", NULL,
+	  "Show live report" },
+	{ CMD_RECORD | CMD_LIVE, 0, "rt-prio", "PRIO",
+	  "Record with real-time (FIFO) priority" },
+	{ CMD_REPLAY | CMD_LIVE | CMD_REPORT | CMD_DUMP | CMD_GRAPH | CMD_SCRIPT | CMD_TUI, 'r', "time-range", "TIME~TIME",
+	  "Show output within the TIME(timestamp or elapsed time)\n"
+	  "range only" },
+	{ CMD_RECV, 0, "run-cmd", "CMDLINE",
+	  "Command line that want to execute after tracing\n"
+	  "data received" },
+	{ CMD_RECORD | CMD_LIVE, 'R', "retval", "FUNC@retval",
+	  "Show function return value" },
+	{ CMD_DUMP, 0, "sample-time", "TIME",
+	  "Show flame graph with this sampling time" },
+	{ CMD_RECORD | CMD_LIVE, 0, "signal", "SIG@act[,act,...]",
+	  "Trigger action on those SIGnal" },
+	{ CMD_REPORT, 0, "sort-column", "INDEX",
+	  "Sort diff report on column INDEX (default: "
+	  stringify(OPT_SORT_COLUMN)
+	  ")" },
+	{ CMD_RECORD | CMD_REPLAY | CMD_REPORT | CMD_LIVE | CMD_GRAPH, 0, "srcline", NULL,
+	  "Enable recording source line info" },
+	{ CMD_INFO, 0, "symbols", NULL,
+	  "Print symbol tables" },
+	{ CMD_INFO, 0, "system", NULL,
+	  "Print current system information" },
+	{ CMD_REPORT | CMD_TUI, 's', "sort", "KEY[,KEY,...]",
+	  "Sort reported functions by KEYs (default: "
+	  stringify(OPT_SORT_KEYS)
+	  ")" },
+	{ CMD_RECORD | CMD_LIVE | CMD_SCRIPT, 'S', "script", "SCRIPT",
+	  "Run a given SCRIPT in function entry and exit" },
+	{ CMD_ALL_BUT_INFO_RECV, 't', "time-filter", "TIME",
+	  "Hide small functions run less than the TIME" },
+	{ CMD_REPORT | CMD_INFO | CMD_GRAPH, 0, "task", NULL,
+	  "Show task info instead" },
+	{ CMD_REPLAY | CMD_LIVE, 0, "task-newline", NULL,
+	  "Interleave a newline when task is changed" },
+	{ CMD_REPLAY | CMD_REPORT | CMD_DUMP | CMD_GRAPH | CMD_SCRIPT | CMD_TUI, 0, "tid", "TID[,TID,...]",
+	  "Only replay those tasks" },
+	{ CMD_RECORD | CMD_LIVE, 0, "time", NULL,
+	  "Print time information" },
+	{ CMD_RECORD | CMD_REPLAY | CMD_LIVE, 0, "trace", "STATE",
+	  "Set the recording state: on, off (default: on)" },
+	{ CMD_ALL_BUT_INFO_RECV, 'T', "trigger", "FUNC@act[,act,...]",
+	  "Trigger action on those FUNCs" },
+	{ CMD_RECORD | CMD_LIVE, 'U', "unpatch", "FUNC",
+	  "Don't apply dynamic patching for FUNCs" },
+	{ CMD_ALL, 'v', "debug", NULL,
+	  "Print debug messages" },
+	{ CMD_ALL, 0, "verbose", NULL,
+	  "Print verbose (debug) messages" },
+	{ CMD_ALL_BUT_INFO_RECV, 0, "with-syms", "DIR",
+	  "Use symbol files in the DIR" },
+	{ CMD_RECORD | CMD_LIVE, 'W', "watch", "POINT",
+	  "Watch and report POINT if it's changed" },
+	{ CMD_ALL_BUT_INFO_RECV, 'Z', "size-filter", "SIZE",
+	  "Apply dynamic patching for functions bigger than SIZE" },
+	{ CMD_ALL, 'h', "help", NULL,
+	  "Give this help list" },
+	{ CMD_ALL, 0, "usage", NULL,
+	  "Give a short usage message" },
+	{ CMD_ALL, 'V', "version", NULL,
+	  "Print program version" },
+};
+
+struct uftrace_cmd_info {
+	const char *name;
+	const char *desc;
+};
+
+__used static const struct uftrace_cmd_info uftrace_cmds[] = {
+	[UFTRACE_MODE_RECORD] = { "record", "Run a program and saves the trace data" },
+	[UFTRACE_MODE_REPLAY] = { "replay", "Show program execution in the trace data" },
+	[UFTRACE_MODE_LIVE]   = { "live", "Do record and replay in a row (default)" },
+	[UFTRACE_MODE_REPORT] = { "report", "Show performance statistics in the trace data" },
+	[UFTRACE_MODE_INFO]   = { "info", "Show system and program info in the trace data" },
+	[UFTRACE_MODE_RECV]   = { "recv", "Save the trace data from network" },
+	[UFTRACE_MODE_DUMP]   = { "dump", "Show low-level trace data" },
+	[UFTRACE_MODE_GRAPH]  = { "graph", "Show function call graph in the trace data" },
+	[UFTRACE_MODE_SCRIPT] = { "script", "Run a script for recorded trace data" },
+	[UFTRACE_MODE_TUI]    = { "tui", "Show text user interface for graph and report" },
+};
 
 __used static const char uftrace_footer[] =
 " Try `uftrace --help' or `man uftrace [COMMAND]' for more information.\n"
@@ -1492,17 +1625,70 @@ __used static void apply_default_opts(int *argc, char ***argv, struct uftrace_op
 	}
 }
 
-__used static void show_man_page(char *cmd)
+/* print the brief usage with the command list (no options) */
+__used static void print_usage(void)
 {
-	char *cmdstr = NULL;
+	size_t i;
 
-	if (cmd)
-		xasprintf(&cmdstr, "uftrace-%s", cmd);
+	pr_out(uftrace_usage_header);
+	pr_out(" COMMAND:\n");
+	for (i = UFTRACE_MODE_RECORD; i < ARRAY_SIZE(uftrace_cmds); i++)
+		pr_out("   %-15s %s\n", uftrace_cmds[i].name, uftrace_cmds[i].desc);
+	pr_out("\n");
+}
+
+__used static void print_help_entry(const struct uftrace_help_entry *entry)
+{
+	char opt[64];
+	const char *msg = entry->msg;
+	const char *nl;
+	int len = 0;
+
+	if (entry->short_opt)
+		len += snprintf(opt + len, sizeof(opt) - len, "-%c, ", entry->short_opt);
 	else
-		cmdstr = xstrdup("uftrace");
-	execlp("man", "man", cmdstr, (char *)NULL);
-	/* fall through if man command itself is not found */
-	free(cmdstr);
+		len += snprintf(opt + len, sizeof(opt) - len, "    ");
+	len += snprintf(opt + len, sizeof(opt) - len, "--%s", entry->long_opt);
+	if (entry->opt_val)
+		len += snprintf(opt + len, sizeof(opt) - len, "=%s", entry->opt_val);
+
+	/* put the description on the next line if the option is too long */
+	if (len > HELP_MSG_COLUMN)
+		pr_out("  %s\n  %*s ", opt, HELP_MSG_COLUMN, "");
+	else
+		pr_out("  %-*s ", HELP_MSG_COLUMN, opt);
+
+	/* align continuation lines of the description to the same column */
+	while ((nl = strchr(msg, '\n')) != NULL) {
+		pr_out("%.*s\n  %*s ", (int)(nl - msg), msg, HELP_MSG_COLUMN, "");
+		msg = nl + 1;
+	}
+	pr_out("%s\n", msg);
+}
+
+__used static void print_help(int mode)
+{
+	unsigned cmds = mode ? (1 << mode) : CMD_ALL;
+	size_t i;
+
+	pr_out(uftrace_usage_header);
+
+	pr_out(" COMMAND:\n");
+	if (mode && mode != UFTRACE_MODE_INVALID) {
+		pr_out("   %-15s %s\n", uftrace_cmds[mode].name, uftrace_cmds[mode].desc);
+	}
+	else {
+		for (i = UFTRACE_MODE_RECORD; i < ARRAY_SIZE(uftrace_cmds); i++)
+			pr_out("   %-15s %s\n", uftrace_cmds[i].name, uftrace_cmds[i].desc);
+	}
+	pr_out("\n");
+
+	pr_out(" OPTION:\n");
+	for (i = 0; i < ARRAY_SIZE(uftrace_help); i++) {
+		if (uftrace_help[i].cmds & cmds)
+			print_help_entry(&uftrace_help[i]);
+	}
+	pr_out("\n Try `man uftrace [COMMAND]' for more information.\n\n");
 }
 
 #ifndef UNIT_TEST
@@ -1536,7 +1722,7 @@ int main(int argc, char *argv[])
 	outfp = stdout;
 
 	if (argc == 1) {
-		pr_out(uftrace_usage);
+		print_usage();
 		pr_out(uftrace_footer);
 		return 0;
 	}
@@ -1546,17 +1732,14 @@ int main(int argc, char *argv[])
 		ret = 0;
 		goto cleanup;
 	case -2:
-		pr_out(uftrace_usage);
+		print_usage();
 		pr_out(uftrace_footer);
 		ret = 0;
 		goto cleanup;
 	case -3:
-		if (opts.mode)
-			show_man_page(argv[1]);
 		if (opts.use_pager)
 			start_pager(setup_pager());
-		pr_out(uftrace_usage);
-		pr_out(uftrace_help);
+		print_help(opts.mode);
 		wait_for_pager();
 		ret = 0;
 		goto cleanup;
@@ -1570,7 +1753,7 @@ int main(int argc, char *argv[])
 		case UFTRACE_MODE_RECORD:
 		case UFTRACE_MODE_LIVE:
 		case UFTRACE_MODE_INVALID:
-			pr_out(uftrace_usage);
+			print_usage();
 			pr_out(uftrace_footer);
 			ret = 1;
 			goto cleanup;
