@@ -14,6 +14,7 @@ install_packages() {
             dnf install $OPT luajit-devel || true
             dnf install $OPT capstone-devel || true
             dnf install $OPT libtraceevent-devel || true
+            dnf install $OPT xz-devel || true
             exit
             ;;
         "rocky")
