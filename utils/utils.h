@@ -459,4 +459,18 @@ void stacktrace(void);
 
 int copy_file(const char *path_in, const char *path_out);
 
+#ifdef HAVE_LIBLZMA
+int uftrace_lzma_compress(void *inp, int in_len, void **outp, int *out_len);
+int uftrace_lzma_decompress(void *inp, int in_len, void **outp, int *out_len);
+#else
+static inline int uftrace_lzma_compress(void *inp, int in_len, void **outp, int *out_len)
+{
+	return -1;
+}
+static inline int uftrace_lzma_decompress(void *inp, int in_len, void **outp, int *out_len)
+{
+	return -1;
+}
+#endif /* HAVE_LIBLZMA */
+
 #endif /* UFTRACE_UTILS_H */
