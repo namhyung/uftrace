@@ -90,3 +90,9 @@ ifneq ($(wildcard $(objdir)/check-deps/have_libtraceevent),)
   COMMON_CFLAGS  += $(shell pkg-config --cflags libtraceevent 2> /dev/null)
   COMMON_LDFLAGS += $(shell pkg-config --libs libtraceevent 2> /dev/null)
 endif
+
+ifneq ($(wildcard $(objdir)/check-deps/have_liblzma),)
+  COMMON_CFLAGS  += -DHAVE_LIBLZMA
+  COMMON_CFLAGS  += $(shell pkg-config --cflags liblzma 2> /dev/null)
+  COMMON_LDFLAGS += $(shell pkg-config --libs liblzma 2> /dev/null)
+endif
