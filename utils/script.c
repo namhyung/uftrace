@@ -39,7 +39,7 @@ static LIST_HEAD(filters);
 
 enum script_type_t get_script_type(const char *str)
 {
-	char *ext = strrchr(str, '.');
+	const char *ext = strrchr(str, '.');
 
 	if (ext == NULL)
 		return SCRIPT_UNKNOWN;
