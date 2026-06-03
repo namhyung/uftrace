@@ -317,7 +317,7 @@ static void write_symtab(const char *dirname)
 	len += fprintf(fp, "#%*s\n", UFTRACE_PYTHON_SYMTAB_HDRSZ - 2 - len, "");
 
 	if (len != UFTRACE_PYTHON_SYMTAB_HDRSZ)
-		pr_warn("symbol header size should be 64: %u", len);
+		pr_warn("symbol header size should be %d: %u", UFTRACE_PYTHON_SYMTAB_HDRSZ, len);
 
 	/* copy rest of the shmem buffer to the file */
 	buf += UFTRACE_PYTHON_SYMTAB_HDRSZ;
