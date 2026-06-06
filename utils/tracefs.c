@@ -202,3 +202,27 @@ int set_tracing_clock(char *clock_str)
 		clock_str = "mono";
 	return write_tracing_file("trace_clock", clock_str);
 }
+
+#ifdef UNIT_TEST
+TEST_CASE(kernel_tracefs)
+{
+	int fd;
+	char buf[4];
+	char filename[] = "tracing_on";
+
+	/* handling tracefs requires root permission */
+	if (geteuid())
+		return TEST_SKIP;
+
+	pr_dbg("check if tracefs file is there\n");
+	fd = open_tracing_file(filename, O_RDWR);
+	TEST_GE(fd, 0);
+	close(fd);
+
+	pr_dbg("read and write a tracefs file\n");
+	TEST_GE(read_tracing_file(filename, buf, sizeof(buf)), 1);
+	TEST_EQ(write_tracing_file(filename, buf), 0);
+
+	return TEST_OK;
+}
+#endif /* UNIT_TEST */
