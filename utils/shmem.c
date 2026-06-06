@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "utils/shmem.h"
+#include "utils/utils.h"
 
 #ifdef __ANDROID__
 
@@ -94,3 +95,35 @@ int uftrace_shmem_unlink(const char *name)
 }
 
 #endif
+
+#ifdef UNIT_TEST
+TEST_CASE(uftrace_shmem)
+{
+	int fd;
+	void *buf;
+	const char bufname[] = "test_shmem";
+	int bufsize = 4096;
+
+	pr_dbg("check if shmem root returns a valid path\n");
+	TEST_NE(uftrace_shmem_root(), NULL);
+
+	pr_dbg("open a test shmem buffer\n");
+	fd = uftrace_shmem_open(bufname, O_RDWR | O_CREAT | O_TRUNC, UFTRACE_SHMEM_PERMISSION_MODE);
+	TEST_GE(fd, 0);
+
+	pr_dbg("allocate the shmem buffer for %d bytes\n", bufsize);
+	TEST_GE(ftruncate(fd, bufsize), 0);
+
+	buf = mmap(NULL, bufsize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	TEST_NE(buf, MAP_FAILED);
+
+	pr_dbg("touch the test shmem buffer\n");
+	memset(buf, 0, bufsize);
+
+	pr_dbg("close the test shmem buffer\n");
+	close(fd);
+	TEST_EQ(uftrace_shmem_unlink("test_shmem"), 0);
+
+	return TEST_OK;
+}
+#endif /* UNIT_TEST */

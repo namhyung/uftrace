@@ -3,6 +3,8 @@
 
 #include <sys/stat.h>
 
+#define UFTRACE_SHMEM_PERMISSION_MODE 0700
+
 int uftrace_shmem_open(const char *name, int oflag, mode_t mode);
 int uftrace_shmem_unlink(const char *name);
 const char *uftrace_shmem_root(void);
