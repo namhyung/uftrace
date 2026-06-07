@@ -144,7 +144,7 @@ struct uftrace_help_entry {
 	const char *msg;
 };
 
-__used static const struct uftrace_help_entry uftrace_help[] = {
+static const struct uftrace_help_entry uftrace_help[] = {
 	{ CMD_REPORT, 0, "avg-self", NULL,
 	  "Show average/min/max of self function time" },
 	{ CMD_REPORT, 0, "avg-total", NULL,
@@ -1637,7 +1637,7 @@ __used static void print_usage(void)
 	pr_out("\n");
 }
 
-__used static void print_help_entry(const struct uftrace_help_entry *entry)
+static void print_help_entry(const struct uftrace_help_entry *entry)
 {
 	char opt[64];
 	const char *msg = entry->msg;
@@ -1666,7 +1666,7 @@ __used static void print_help_entry(const struct uftrace_help_entry *entry)
 	pr_out("%s\n", msg);
 }
 
-__used static void print_help(int mode)
+static void print_help(int mode)
 {
 	unsigned cmds = mode ? (1 << mode) : CMD_ALL;
 	size_t i;
@@ -2143,6 +2143,43 @@ TEST_CASE(option_parsing5)
 	TEST_STREQ(opts.exename, "hello");
 
 	free_opts(&opts);
+	return TEST_OK;
+}
+
+TEST_CASE(help_message)
+{
+	char *buf;
+	size_t i, len;
+	FILE *fp = open_memstream(&buf, &len);
+
+	pr_dbg("open a file stream on a memory\n");
+	TEST_NE(fp, NULL);
+
+	pr_dbg("print help message for live command to the stream\n");
+	outfp = fp;
+	print_help(UFTRACE_MODE_LIVE);
+	fclose(fp);
+
+	pr_dbg("check help messages are in the stream\n");
+	for (i = 0; i < ARRAY_SIZE(uftrace_help); i++) {
+		const struct uftrace_help_entry *entry = &uftrace_help[i];
+		const char *msg = entry->msg;
+		const char *p = strchr(msg, '\n');
+
+		/* multiline messages treated differently, just check the first line */
+		if (p)
+			msg = strndup(msg, p - msg);
+
+		if (entry->cmds & CMD_LIVE)
+			TEST_EQ(!!strstr(buf, msg), true);
+		else
+			TEST_EQ(!!strstr(buf, msg), false);
+
+		if (p)
+			free((char *)msg);
+	}
+
+	free(buf);
 	return TEST_OK;
 }
 
