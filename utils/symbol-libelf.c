@@ -16,6 +16,8 @@ int elf_init(const char *filename, struct uftrace_elf_data *elf)
 {
 	/* it will be set only in elf_retry() */
 	elf->dwfl = NULL;
+	/* it will be set only in elf_retry_minidbg() */
+	elf->minidbg = NULL;
 
 	elf->fd = open(filename, O_RDONLY);
 	if (elf->fd < 0) {
@@ -66,6 +68,8 @@ void elf_finish(struct uftrace_elf_data *elf)
 
 	close(elf->fd);
 	elf->fd = -1;
+
+	/* should not clear minidbg */
 }
 
 /* return 1 if it wants to retry with libdwfl, 0 otherwise */
@@ -113,6 +117,22 @@ int elf_retry(const char *filename, struct uftrace_elf_data *elf)
 out:
 	dwfl_end(dwfl);
 #endif
+	return 0;
+}
+
+/* return 1 if it wants to retry with mini debuginfo, 0 otherwise */
+int elf_retry_minidbg(struct uftrace_elf_data *elf, void *buf, int len)
+{
+	if (elf->minidbg)
+		return 0;
+
+	elf->handle = elf_memory(buf, len);
+	if (elf->handle) {
+		pr_dbg2("retry with mini debug info\n");
+		elf->minidbg = buf;
+		return 1;
+	}
+
 	return 0;
 }
 
