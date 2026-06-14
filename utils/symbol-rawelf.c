@@ -84,6 +84,8 @@ int elf_init(const char *filename, struct uftrace_elf_data *elf)
 {
 	struct stat stbuf;
 
+	elf->minidbg = NULL;
+
 	elf->fd = open(filename, O_RDONLY);
 	if (elf->fd < 0)
 		goto err;
@@ -129,20 +131,40 @@ void elf_finish(struct uftrace_elf_data *elf)
 
 	close(elf->fd);
 	elf->fd = -1;
+
+	/* should not free minidbg */
+}
+
+int elf_retry_minidbg(struct uftrace_elf_data *elf, void *buf, int len)
+{
+	/* it should be called once after elf_finish() */
+	if (elf->minidbg || elf->file_map)
+		return 0;
+
+	elf->minidbg = buf;
+	elf->file_size = len;
+
+	memcpy(&elf->ehdr, elf->minidbg, sizeof(elf->ehdr));
+
+	if (elf_validate(elf) < 0)
+		return 0;
+
+	pr_dbg2("retry with mini debug info\n");
+	return 1;
 }
 
 void elf_get_strtab(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter, int shidx)
 {
 	if (elf->has_shdr) {
-		Elf_Shdr *shdr = elf->file_map + elf->ehdr.e_shoff;
-		iter->strtab = elf->file_map + shdr[shidx].sh_offset;
+		Elf_Shdr *shdr = elf_content(elf) + elf->ehdr.e_shoff;
+		iter->strtab = elf_content(elf) + shdr[shidx].sh_offset;
 	}
 }
 
 void elf_get_secdata(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter)
 {
 	iter->ent_size = iter->shdr.sh_entsize;
-	iter->data = elf->file_map + iter->shdr.sh_offset;
+	iter->data = elf_content(elf) + iter->shdr.sh_offset;
 }
 
 void elf_read_secdata(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter, unsigned offset,
