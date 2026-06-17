@@ -37,28 +37,23 @@
 #endif
 #endif
 
-/* TODO: not implemented yet (Start)
- *
- *	From RISC-V's "The RISC-V Instruction Set Manual, Volume I: User-Level
- *	ISA, Document Version 20191213", the G Extension consists of "I, M, A,
- *	F, D, Zicsr, Zifencei".
- *
- *	In RISC-V, two instructions exist for memory barriers: the fence
- *	instruction, defined in the I Extension, and the fence.i instruction,
- *	defined in the Zifencei Extension.
- *
- *	So the memory barrier commands we can use are fence, fence.i, and
- *	we'll have to figure out which one we need later when we implement
- *	the functions that call those macro functions.
- *
- */
 #if defined(__riscv)
-#define cpu_relax() asm volatile("nop" ::: "memory")
-#define full_memory_barrier() asm volatile("nop" ::: "memory")
-#define read_memory_barrier() asm volatile("nop" ::: "memory")
-#define write_memory_barrier() asm volatile("nop" ::: "memory")
+/*
+ * These are data memory ordering barriers using the 'fence' instruction
+ * (RV I Extension).  'fence p, s' orders the predecessor set 'p' before the
+ * successor set 'r'(read) and 'w'(write).  They only need to order normal
+ * memory accesses (not device I/O), so the rw/r/w sets are used.
+ *
+ * Note: the 'fence.i' instruction (Zifencei) is a separate concern.  It
+ * synchronizes the instruction stream and is needed only when patching code
+ * at runtime; that is handled in the dynamic tracing code (via
+ * __builtin___clear_cache), not by these data barriers.
+ */
+#define cpu_relax() compiler_barrier()
+#define full_memory_barrier() asm volatile("fence rw, rw" ::: "memory")
+#define read_memory_barrier() asm volatile("fence r, r" ::: "memory")
+#define write_memory_barrier() asm volatile("fence w, w" ::: "memory")
 #endif
-/* TODO: not implemented yet (End) */
 
 /* ignore 'restrict' keyword if not supported (before C99) */
 #if !defined(__STDC_VERSION__) || __STDC_VERSION__ < 199901L
