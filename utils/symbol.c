@@ -362,6 +362,54 @@ static void sort_symtab(struct uftrace_symtab *symtab)
 	symtab->name_sorted = true;
 }
 
+static void *read_mini_debuginfo(struct uftrace_elf_data *elf, int *lenp)
+{
+	struct uftrace_elf_iter iter;
+	bool found = false;
+	void *buf, *minidbg = NULL;
+	int buflen, minidbg_len;
+	int ret;
+
+	elf_for_each_shdr(elf, &iter) {
+		typeof(iter.shdr) *shdr = &iter.shdr;
+		char *shstr = elf_get_name(elf, &iter, shdr->sh_name);
+
+		if (strcmp(shstr, ".gnu_debugdata") == 0) {
+			found = true;
+			buflen = shdr->sh_size;
+			break;
+		}
+	}
+	if (!found)
+		return NULL;
+
+	buf = xmalloc(buflen);
+	elf_get_secdata(elf, &iter);
+	elf_read_secdata(elf, &iter, 0, buf, buflen);
+
+	ret = uftrace_lzma_decompress(buf, buflen, &minidbg, &minidbg_len);
+	free(buf);
+	if (ret < 0)
+		return NULL;
+
+	*lenp = minidbg_len;
+	return minidbg;
+}
+
+static int load_minidbg_symbols(struct uftrace_elf_data *elf, void **minidbg, int *lenp)
+{
+	/* we tried this already */
+	if (*minidbg)
+		return 0;
+
+	*minidbg = read_mini_debuginfo(elf, lenp);
+	if (*minidbg == NULL)
+		return 0;
+
+	elf_finish(elf);
+	return elf_retry_minidbg(elf, *minidbg, *lenp);
+}
+
 static int load_symtab(struct uftrace_symtab *symtab, const char *filename,
 		       unsigned long long offset, unsigned long flags)
 {
@@ -369,6 +417,8 @@ static int load_symtab(struct uftrace_symtab *symtab, const char *filename,
 	unsigned long prev_sym_value = -1;
 	struct uftrace_elf_data elf;
 	struct uftrace_elf_iter iter;
+	void *minidbg = NULL;
+	int minidbg_len;
 
 	if (elf_init(filename, &elf) < 0) {
 		pr_dbg("error during open symbol file: %s: %m\n", filename);
@@ -393,6 +443,10 @@ again:
 	if (iter.shdr.sh_type != SHT_SYMTAB) {
 		/* no symbol table, but it might have separate debug file */
 		if (elf_retry(filename, &elf))
+			goto again;
+
+		/* try Fedora minidebuginfo in .gnu_debugdata section */
+		if (load_minidbg_symbols(&elf, &minidbg, &minidbg_len))
 			goto again;
 	}
 
@@ -447,6 +501,7 @@ again:
 	ret = 0;
 out:
 	elf_finish(&elf);
+	free(minidbg);
 	return ret;
 }
 

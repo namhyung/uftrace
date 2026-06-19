@@ -47,6 +47,7 @@ typedef ElfT(Rela) Elf_Rela;
 struct uftrace_elf_data {
 	int fd;
 	void *file_map;
+	void *minidbg;
 	size_t file_size;
 	Elf_Ehdr ehdr;
 	unsigned long flags;
@@ -88,11 +89,13 @@ struct uftrace_elf_iter {
 #define elf_rel_symbol(rel) ELF_R_SYM((rel)->r_info)
 #define elf_rel_type(rel) ELF_R_TYPE((rel)->r_info)
 
+#define elf_content(elf) ((elf)->file_map ?: (elf)->minidbg)
+
 #define elf_for_each_phdr(elf, iter)                                                               \
 	for ((iter)->i = 0, (iter)->nr = (elf)->ehdr.e_phnum;                                      \
 	     (iter)->i < (iter)->nr &&                                                             \
 	     memcpy(&(iter)->phdr,                                                                 \
-		    (elf)->file_map + (elf)->ehdr.e_phoff + (iter)->i * (elf)->ehdr.e_phentsize,   \
+		    elf_content(elf) + (elf)->ehdr.e_phoff + (iter)->i * (elf)->ehdr.e_phentsize,  \
 		    (elf)->ehdr.e_phentsize);                                                      \
 	     (iter)->i++)
 
@@ -101,7 +104,7 @@ struct uftrace_elf_iter {
 	     (iter)->i = 0, (iter)->nr = (elf)->ehdr.e_shnum;                                      \
 	     (iter)->i < (iter)->nr && (elf)->has_shdr &&                                          \
 	     memcpy(&(iter)->shdr,                                                                 \
-		    (elf)->file_map + (elf)->ehdr.e_shoff + (iter)->i * (elf)->ehdr.e_shentsize,   \
+		    elf_content(elf) + (elf)->ehdr.e_shoff + (iter)->i * (elf)->ehdr.e_shentsize,  \
 		    (elf)->ehdr.e_shentsize);                                                      \
 	     (iter)->i++)
 
@@ -177,6 +180,8 @@ static inline int elf_retry(const char *filename, struct uftrace_elf_data *elf)
 	/* no retry */
 	return 0;
 }
+
+int elf_retry_minidbg(struct uftrace_elf_data *elf, void *buf, int len);
 
 void elf_get_strtab(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter, int shidx);
 void elf_get_secdata(struct uftrace_elf_data *elf, struct uftrace_elf_iter *iter);
