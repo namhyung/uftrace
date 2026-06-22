@@ -243,10 +243,44 @@ static void mcount_get_struct_arg(struct mcount_arg_context *ctx, struct uftrace
 	}
 }
 
+/* &str type has two fields (ptr, len) so it should fit in the ctx->val.v[] */
+static void mcount_get_rust_string(struct mcount_arg_context *ctx, struct uftrace_arg_spec *spec)
+{
+	struct uftrace_arg_spec reg_spec = *spec;
+	struct mcount_arg_context tmp_ctx = {
+		.regs = ctx->regs,
+		.stack_base = ctx->stack_base,
+		.regions = ctx->regions,
+		.arch = ctx->arch,
+	};
+	void *ptr = ctx->val.v;
+
+	if (spec->stack_ofs > 0) {
+		mcount_get_stack_arg(ctx, spec);
+	}
+	else if (spec->struct_reg_cnt == 0) {
+		/* get pointer to the string */
+		mcount_get_register_arg(&tmp_ctx, &reg_spec);
+		mcount_memcpy4(ptr, tmp_ctx.val.v, sizeof(long));
+
+		ptr += sizeof(long);
+		reg_spec.idx++;
+
+		/* get the string length */
+		mcount_get_register_arg(&tmp_ctx, &reg_spec);
+		mcount_memcpy4(ptr, tmp_ctx.val.v, sizeof(long));
+	}
+}
+
 void mcount_arch_get_arg(struct mcount_arg_context *ctx, struct uftrace_arg_spec *spec)
 {
 	if (spec->fmt == ARG_FMT_STRUCT) {
 		mcount_get_struct_arg(ctx, spec);
+		return;
+	}
+
+	if (spec->fmt == ARG_FMT_RUST_REF_STR) {
+		mcount_get_rust_string(ctx, spec);
 		return;
 	}
 

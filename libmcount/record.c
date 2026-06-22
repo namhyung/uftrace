@@ -514,6 +514,16 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 			 */
 			size = ALIGN(spec->size, 4);
 		}
+		else if (spec->fmt == ARG_FMT_RUST_REF_STR) {
+			const char *str = (void *)ctx->val.ll.lo;
+			unsigned short len = ctx->val.ll.hi;
+
+			if (len > max_size - total_size)
+				len = max_size - total_size;
+
+			len = save_string(ptr, str, len, ctx);
+			size = ALIGN(len + 2, 4);
+		}
 		else {
 			size = ALIGN(spec->size, 4);
 			mcount_memcpy4(ptr, ctx->val.v, size);
