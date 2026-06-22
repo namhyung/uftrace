@@ -408,6 +408,54 @@ void finish_mem_region(struct mcount_mem_regions *regions)
 	}
 }
 
+static unsigned short save_string(void *argbuf, const char *str, unsigned max_len,
+				  struct mcount_arg_context *ctx)
+{
+	unsigned short len = 0;
+
+	if (str) {
+		unsigned i;
+		char *dst = argbuf + 2; /* store length at first */
+		char buf[32];
+
+		if (!check_mem_region(ctx, (unsigned long)str)) {
+			snprintf(buf, sizeof(buf), "<%p>", str);
+			str = buf;
+		}
+
+		/*
+		 * Calling strlen() might clobber floating-point
+		 * registers (on x86) depends on the internal
+		 * implementation.  Do it manually.
+		 */
+		for (i = 0; i < max_len; i++) {
+			dst[i] = str[i];
+
+			/* truncate long string */
+			if (i > 4 && i == ARG_STR_MAX) {
+				dst[i - 3] = '.';
+				dst[i - 2] = '.';
+				dst[i - 1] = '.';
+				dst[i] = '\0';
+			}
+			if (!dst[i])
+				break;
+			len++;
+		}
+		/* store 2-byte length before string */
+		*(unsigned short *)argbuf = len;
+	}
+	else {
+		const char null_str[4] = { 'N', 'U', 'L', 'L' };
+
+		len = sizeof(null_str);
+		mcount_memcpy1(argbuf, &len, sizeof(len));
+		mcount_memcpy1(argbuf + 2, null_str, len);
+	}
+
+	return len;
+}
+
 static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 			       struct mcount_arg_context *ctx)
 {
@@ -437,7 +485,7 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 			mcount_arch_get_arg(ctx, spec);
 
 		if (spec->fmt == ARG_FMT_STR || spec->fmt == ARG_FMT_STD_STRING) {
-			unsigned short len;
+			unsigned short len = max_size - total_size;
 			char *str = ctx->val.p;
 
 			if (spec->fmt == ARG_FMT_STD_STRING) {
@@ -448,52 +496,15 @@ static unsigned save_to_argbuf(void *argbuf, struct list_head *args_spec,
 				long *base = ctx->val.p;
 				long *_M_string_length = base + 1;
 				if (check_mem_region(ctx, (unsigned long)base)) {
-					char *_M_dataplus = (char *)(*base);
+					str = (char *)(*base);
 					len = *_M_string_length;
-					str = _M_dataplus;
+
+					if (len > max_size - total_size)
+						len = max_size - total_size;
 				}
 			}
 
-			if (str) {
-				unsigned i;
-				char *dst = ptr + 2;
-				char buf[32];
-
-				if (!check_mem_region(ctx, (unsigned long)str)) {
-					len = snprintf(buf, sizeof(buf), "<%p>", str);
-					str = buf;
-				}
-
-				/*
-				 * Calling strlen() might clobber floating-point
-				 * registers (on x86) depends on the internal
-				 * implementation.  Do it manually.
-				 */
-				len = 0;
-				for (i = 0; i < max_size - total_size; i++) {
-					dst[i] = str[i];
-
-					/* truncate long string */
-					if (i == ARG_STR_MAX) {
-						dst[i - 3] = '.';
-						dst[i - 2] = '.';
-						dst[i - 1] = '.';
-						dst[i] = '\0';
-					}
-					if (!dst[i])
-						break;
-					len++;
-				}
-				/* store 2-byte length before string */
-				*(unsigned short *)ptr = len;
-			}
-			else {
-				const char null_str[4] = { 'N', 'U', 'L', 'L' };
-
-				len = sizeof(null_str);
-				mcount_memcpy1(ptr, &len, sizeof(len));
-				mcount_memcpy1(ptr + 2, null_str, len);
-			}
+			len = save_string(ptr, str, len, ctx);
 			size = ALIGN(len + 2, 4);
 		}
 		else if (spec->fmt == ARG_FMT_STRUCT) {
