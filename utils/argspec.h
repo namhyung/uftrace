@@ -19,6 +19,7 @@ enum uftrace_arg_format {
 	ARG_FMT_PTR,
 	ARG_FMT_ENUM,
 	ARG_FMT_STRUCT,
+	ARG_FMT_RUST_REF_STR,
 };
 
 #define ARG_TYPE_INDEX 0
@@ -27,7 +28,7 @@ enum uftrace_arg_format {
 #define ARG_TYPE_STACK 3
 
 /* should match with uftrace_arg_format above */
-#define ARG_SPEC_CHARS "diuxoscfSpet"
+#define ARG_SPEC_CHARS "diuxoscfSpetr"
 
 /**
  * uftrace_arg_spec contains arguments and return value info.

@@ -525,7 +525,8 @@ void get_argspec_string(struct uftrace_task_reader *task, char *args, size_t len
 			break;
 		}
 
-		if (spec->fmt == ARG_FMT_STR || spec->fmt == ARG_FMT_STD_STRING) {
+		if (spec->fmt == ARG_FMT_STR || spec->fmt == ARG_FMT_STD_STRING ||
+		    spec->fmt == ARG_FMT_RUST_REF_STR) {
 			unsigned short slen;
 
 			memcpy(&slen, data, 2);

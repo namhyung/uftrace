@@ -491,6 +491,7 @@ static void setup_argument_context(PyObject **pDict, bool is_retval, struct scri
 
 		case ARG_FMT_STR:
 		case ARG_FMT_STD_STRING:
+		case ARG_FMT_RUST_REF_STR:
 			/* get string length (2 bytes in the beginning) */
 			memcpy(&slen, data, 2);
 

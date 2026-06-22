@@ -183,6 +183,12 @@ struct uftrace_arg_spec *parse_argspec(char *str, struct uftrace_filter_setting 
 				type = ARG_TYPE_REG;
 		}
 		goto out;
+	case 'r':
+		/* Rust string (literal) reference (&str) */
+		fmt = ARG_FMT_RUST_REF_STR;
+		size = 2 * sizeof(long); /* ptr + size */
+		/* TODO: handle multiple registers like struct */
+		goto out;
 	default:
 		if (fmt == ARG_FMT_FLOAT && isdigit(*suffix))
 			goto size;

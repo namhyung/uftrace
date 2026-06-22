@@ -326,7 +326,8 @@ static void pr_args(struct uftrace_fstack_args *args)
 		if (spec->idx == RETVAL_IDX)
 			continue;
 
-		if (spec->fmt == ARG_FMT_STR || spec->fmt == ARG_FMT_STD_STRING) {
+		if (spec->fmt == ARG_FMT_STR || spec->fmt == ARG_FMT_STD_STRING ||
+		    spec->fmt == ARG_FMT_RUST_REF_STR) {
 			char *buf;
 			const int null_str = -1;
 
@@ -340,6 +341,8 @@ static void pr_args(struct uftrace_fstack_args *args)
 
 			if (spec->fmt == ARG_FMT_STD_STRING)
 				pr_out("  args[%d] std::string: %s\n", i, buf);
+			else if (spec->fmt == ARG_FMT_RUST_REF_STR)
+				pr_out("  args[%d] Rust &str: %s\n", i, buf);
 			else
 				pr_out("  args[%d] str: %s\n", i, buf);
 
@@ -432,7 +435,8 @@ static void pr_retval(struct uftrace_fstack_args *args)
 		if (spec->idx != RETVAL_IDX)
 			continue;
 
-		if (spec->fmt == ARG_FMT_STR || spec->fmt == ARG_FMT_STD_STRING) {
+		if (spec->fmt == ARG_FMT_STR || spec->fmt == ARG_FMT_STD_STRING ||
+		    spec->fmt == ARG_FMT_RUST_REF_STR) {
 			char *buf;
 			const int null_str = -1;
 
@@ -446,6 +450,8 @@ static void pr_retval(struct uftrace_fstack_args *args)
 
 			if (spec->fmt == ARG_FMT_STD_STRING)
 				pr_out("  retval std::string: %s\n", buf);
+			else if (spec->fmt == ARG_FMT_RUST_REF_STR)
+				pr_out("  retval Rust &str: %s\n", buf);
 			else
 				pr_out("  retval str: %s\n", buf);
 

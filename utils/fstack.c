@@ -662,7 +662,8 @@ int fstack_entry(struct uftrace_task_reader *task, struct uftrace_record *rstack
 				}
 
 				/* skip unrelated arguments */
-				if (spec->fmt == ARG_FMT_STR || spec->fmt == ARG_FMT_STD_STRING) {
+				if (spec->fmt == ARG_FMT_STR || spec->fmt == ARG_FMT_STD_STRING ||
+				    spec->fmt == ARG_FMT_RUST_REF_STR) {
 					uint16_t slen;
 
 					memcpy(&slen, data, sizeof(slen));
@@ -1311,7 +1312,8 @@ static int read_task_arg(struct uftrace_task_reader *task, struct uftrace_arg_sp
 	if (spec->size == 0)
 		return 0;
 
-	if (spec->fmt == ARG_FMT_STR || spec->fmt == ARG_FMT_STD_STRING) {
+	if (spec->fmt == ARG_FMT_STR || spec->fmt == ARG_FMT_STD_STRING ||
+	    spec->fmt == ARG_FMT_RUST_REF_STR) {
 		args->data = xrealloc(args->data, args->len + 2);
 
 		if (fread(args->data + args->len, 2, 1, fp) != 1) {

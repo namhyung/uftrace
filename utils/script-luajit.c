@@ -168,6 +168,7 @@ static void setup_argument_context(bool is_retval, struct script_context *sc_ctx
 
 		case ARG_FMT_STR:
 		case ARG_FMT_STD_STRING:
+		case ARG_FMT_RUST_REF_STR:
 			/* get string length (2 bytes in the beginning) */
 			memcpy(&slen, data, 2);
 
