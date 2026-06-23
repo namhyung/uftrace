@@ -205,14 +205,20 @@ static void mcount_get_struct_arg(struct mcount_arg_context *ctx, struct uftrace
 	struct uftrace_arg_spec reg_spec = {
 		.type = ARG_TYPE_REG,
 	};
+	struct mcount_arg_context tmp_ctx = {
+		.regs = ctx->regs,
+		.stack_base = ctx->stack_base,
+		.regions = ctx->regions,
+		.arch = ctx->arch,
+	};
 	void *ptr = ctx->val.p;
 	int i;
 
 	for (i = 0; i < spec->struct_reg_cnt; i++) {
 		reg_spec.reg_idx = spec->struct_regs[i];
 
-		mcount_get_register_arg(ctx, &reg_spec);
-		mcount_memcpy4(ptr, ctx->val.v, sizeof(long));
+		mcount_get_register_arg(&tmp_ctx, &reg_spec);
+		mcount_memcpy4(ptr, tmp_ctx.val.v, sizeof(long));
 		ptr += sizeof(long);
 	}
 
