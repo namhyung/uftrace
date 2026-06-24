@@ -1007,6 +1007,7 @@ if __name__ == "__main__":
     patch_size = {
         'x86_64'  : 5,
         'aarch64' : 2,
+        'riscv64' : 4,
     }
 
     m = os.uname()[-1]  # machine
