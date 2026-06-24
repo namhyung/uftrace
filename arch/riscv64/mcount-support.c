@@ -9,20 +9,45 @@ extern void _mcount(void);
 extern void plt_hooker(void);
 extern void mcount_return(void);
 extern void plthook_return(void);
+extern void __dentry__(void);
 
 /* These functions are defined in the current file */
 static unsigned long mcount_arch_plthook_addr(struct plthook_data *, int);
+
+/* These functions are implemented in arch/riscv64/mcount-dynamic.c */
+extern void mcount_disasm_init(struct mcount_disasm_engine *disasm);
+extern void mcount_disasm_finish(struct mcount_disasm_engine *disasm);
+extern int mcount_setup_trampoline(struct mcount_dynamic_info *mdi);
+extern void mcount_cleanup_trampoline(struct mcount_dynamic_info *mdi);
+extern int mcount_patch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
+			     struct mcount_disasm_engine *disasm, unsigned min_size);
+extern int mcount_unpatch_func(struct mcount_dynamic_info *mdi, struct uftrace_symbol *sym,
+			       struct mcount_disasm_engine *disasm);
+extern void mcount_arch_find_module(struct mcount_dynamic_info *mdi, struct uftrace_symtab *symtab);
+extern void mcount_arch_dynamic_recover(struct mcount_dynamic_info *mdi,
+					struct mcount_disasm_engine *disasm);
 
 const struct mcount_arch_ops mcount_arch_ops = {
 	.entry = {
 		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)_mcount,
 		[UFT_ARCH_OPS_PLTHOOK] = (unsigned long)plt_hooker,
+		[UFT_ARCH_OPS_DYNAMIC] = (unsigned long)__dentry__,
 	},
 	.exit = {
 		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)mcount_return,
 		[UFT_ARCH_OPS_PLTHOOK] = (unsigned long)plthook_return,
+		/* the dynamic exit path reuses the mcount return trampoline */
+		[UFT_ARCH_OPS_DYNAMIC] = (unsigned long)mcount_return,
 	},
 	.plthook_addr = mcount_arch_plthook_addr,
+	.disasm_init = mcount_disasm_init,
+	.disasm_finish = mcount_disasm_finish,
+	.setup_trampoline = mcount_setup_trampoline,
+	.cleanup_trampoline = mcount_cleanup_trampoline,
+	.patch_func = mcount_patch_func,
+	.unpatch_func = mcount_unpatch_func,
+	.find_module = mcount_arch_find_module,
+	.dynamic_recover = mcount_arch_dynamic_recover,
 };
 
 static int mcount_get_register_arg(struct mcount_arg_context *ctx, struct uftrace_arg_spec *spec)
