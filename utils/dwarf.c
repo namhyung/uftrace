@@ -948,6 +948,14 @@ static bool resolve_type_info(Dwarf_Die *die, struct arg_data *ad, struct type_d
 			if (td->pointer)
 				break;
 
+			tname = dwarf_diename(die);
+			if (tname && !strcmp(tname, "&str")) {
+				td->fmt = ARG_FMT_RUST_REF_STR;
+				td->size = 2 * sizeof(long);
+				pr_dbg3("type: rust &str\n");
+				return true;
+			}
+
 			td->fmt = ARG_FMT_STRUCT;
 			if (is_empty_aggregate(die))
 				td->size = 0;
@@ -1097,6 +1105,15 @@ static bool add_type_info(char *spec, size_t len, Dwarf_Die *die, struct arg_dat
 			else {
 				strcat(spec, data.name);
 			}
+		}
+		break;
+	case ARG_FMT_RUST_REF_STR:
+		if (ad->idx) { /* for arguments */
+			snprintf(spec, len, "arg%d/r", ad->idx);
+			ad->idx++; /* it takes two registers */
+		}
+		else { /* for return values */
+			strcat(spec, "/r");
 		}
 		break;
 	default:
