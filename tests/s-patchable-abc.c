@@ -8,6 +8,8 @@
 #define NR_NOPS 5
 #elif __aarch64__
 #define NR_NOPS 2
+#elif __riscv
+#define NR_NOPS 4
 #else
 #define NR_NOPS 0
 #endif

@@ -41,12 +41,14 @@ class Elf:
         EM_ARM        = 40      # ARM
         EM_X86_64     = 62      # AMD x86-64 architecture
         EM_AARCH64    = 183     # ARM AARCH64
+        EM_RISCV      = 243     # RISC-V
 
         machine = {
             EM_386: 'i386',
             EM_ARM: 'arm',
             EM_X86_64: 'x86_64',
             EM_AARCH64: 'aarch64',
+            EM_RISCV: 'riscv64',
         }
 
         try:
@@ -551,6 +553,12 @@ class TestBase:
     def check_arch_full_dynamic_support(self):
         elf_machine = TestBase.get_elf_machine(self)
         if elf_machine == 'x86_64' or elf_machine == 'aarch64':
+            return True
+        return False
+
+    def check_arch_patchable_dynamic_support(self):
+        elf_machine = TestBase.get_elf_machine(self)
+        if elf_machine in ('x86_64', 'aarch64', 'riscv64'):
             return True
         return False
 

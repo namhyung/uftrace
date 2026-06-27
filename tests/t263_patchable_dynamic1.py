@@ -16,7 +16,7 @@ class TestCase(TestBase):
 """)
 
     def prerun(self, timeout):
-        if not TestBase.check_arch_full_dynamic_support(self):
+        if not TestBase.check_arch_patchable_dynamic_support(self):
             return TestBase.TEST_SKIP
         return TestBase.TEST_SUCCESS
 
@@ -29,6 +29,8 @@ class TestCase(TestBase):
             cflags += ' -fpatchable-function-entry=5'
         elif machine == 'aarch64':
             cflags += ' -fpatchable-function-entry=2'
+        elif machine == 'riscv64':
+            cflags += ' -fpatchable-function-entry=4'
 
         return TestBase.build(self, name, cflags, ldflags)
 

@@ -12,7 +12,7 @@ class TestCase(TestBase):
 """)
 
     def prerun(self, timeout):
-        if not TestBase.check_arch_full_dynamic_support(self):
+        if not TestBase.check_arch_patchable_dynamic_support(self):
             return TestBase.TEST_SKIP
         return TestBase.TEST_SUCCESS
 
