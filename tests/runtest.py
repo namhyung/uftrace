@@ -41,12 +41,14 @@ class Elf:
         EM_ARM        = 40      # ARM
         EM_X86_64     = 62      # AMD x86-64 architecture
         EM_AARCH64    = 183     # ARM AARCH64
+        EM_RISCV      = 243     # RISC-V
 
         machine = {
             EM_386: 'i386',
             EM_ARM: 'arm',
             EM_X86_64: 'x86_64',
             EM_AARCH64: 'aarch64',
+            EM_RISCV: 'riscv64',
         }
 
         try:
@@ -554,6 +556,12 @@ class TestBase:
             return True
         return False
 
+    def check_arch_patchable_dynamic_support(self):
+        elf_machine = TestBase.get_elf_machine(self)
+        if elf_machine in ('x86_64', 'aarch64', 'riscv64'):
+            return True
+        return False
+
     def check_arch_mfentry_mnop_mcount_support(self):
         machine = TestBase.get_machine(self)
         if machine == 'x86_64' or machine == 'i386':
@@ -1007,6 +1015,7 @@ if __name__ == "__main__":
     patch_size = {
         'x86_64'  : 5,
         'aarch64' : 2,
+        'riscv64' : 4,
     }
 
     m = os.uname()[-1]  # machine
