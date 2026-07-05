@@ -41,7 +41,7 @@ struct offset_entry {
 };
 
 /* These functions are implemented in assembly */
-extern void __gnu_mcount_nc(void);
+extern void uftrace___gnu_mcount_nc(void);
 extern void plt_hooker(void);
 extern void mcount_return(void);
 extern void plthook_return(void);
@@ -51,7 +51,7 @@ static unsigned long mcount_arch_plthook_addr(struct plthook_data *pd, int idx);
 
 const struct mcount_arch_ops mcount_arch_ops = {
 	.entry = {
-		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)__gnu_mcount_nc,
+		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)uftrace___gnu_mcount_nc,
 		[UFT_ARCH_OPS_PLTHOOK] = (unsigned long)plt_hooker,
 	},
 	.exit = {

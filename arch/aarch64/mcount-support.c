@@ -5,10 +5,10 @@
 #include "utils/utils.h"
 
 /* These functions are implemented in assembly */
-extern void _mcount(void);
+extern void uftrace__mcount(void);
 extern void plt_hooker(void);
-extern void __fentry__(void);
-extern void __dentry__(void);
+extern void uftrace___fentry__(void);
+extern void uftrace___dentry__(void);
 extern void mcount_return(void);
 extern void plthook_return(void);
 extern void dynamic_return(void);
@@ -33,10 +33,10 @@ void mcount_disasm_finish(struct mcount_disasm_engine *disasm);
 
 const struct mcount_arch_ops mcount_arch_ops = {
 	.entry = {
-		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)_mcount,
+		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)uftrace__mcount,
 		[UFT_ARCH_OPS_PLTHOOK] = (unsigned long)plt_hooker,
-		[UFT_ARCH_OPS_FENTRY] = (unsigned long)__fentry__,
-		[UFT_ARCH_OPS_DYNAMIC] = (unsigned long)__dentry__,
+		[UFT_ARCH_OPS_FENTRY] = (unsigned long)uftrace___fentry__,
+		[UFT_ARCH_OPS_DYNAMIC] = (unsigned long)uftrace___dentry__,
 	},
 	.exit = {
 		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)mcount_return,

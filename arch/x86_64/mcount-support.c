@@ -10,10 +10,10 @@
 #include "utils/filter.h"
 
 /* These functions are implemented in assembly */
-extern void mcount(void);
+extern void uftrace_mcount(void);
 extern void plt_hooker(void);
-extern void __fentry__(void);
-extern void __dentry__(void);
+extern void uftrace___fentry__(void);
+extern void uftrace___dentry__(void);
 extern void __xray_entry(void);
 extern void mcount_return(void);
 extern void plthook_return(void);
@@ -49,10 +49,10 @@ extern void mcount_disasm_finish(struct mcount_disasm_engine *disasm);
 
 const struct mcount_arch_ops mcount_arch_ops = {
 	.entry = {
-		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)mcount,
+		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)uftrace_mcount,
 		[UFT_ARCH_OPS_PLTHOOK] = (unsigned long)plt_hooker,
-		[UFT_ARCH_OPS_FENTRY] = (unsigned long)__fentry__,
-		[UFT_ARCH_OPS_DYNAMIC] = (unsigned long)__dentry__,
+		[UFT_ARCH_OPS_FENTRY] = (unsigned long)uftrace___fentry__,
+		[UFT_ARCH_OPS_DYNAMIC] = (unsigned long)uftrace___dentry__,
 		[UFT_ARCH_OPS_XRAY] = (unsigned long)__xray_entry,
 	},
 	.exit = {

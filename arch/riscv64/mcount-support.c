@@ -5,11 +5,11 @@
 #include "utils/utils.h"
 
 /* These functions are implemented in assembly */
-extern void _mcount(void);
+extern void uftrace__mcount(void);
 extern void plt_hooker(void);
 extern void mcount_return(void);
 extern void plthook_return(void);
-extern void __dentry__(void);
+extern void uftrace___dentry__(void);
 
 /* These functions are defined in the current file */
 static unsigned long mcount_arch_plthook_addr(struct plthook_data *, int);
@@ -29,9 +29,9 @@ extern void mcount_arch_dynamic_recover(struct mcount_dynamic_info *mdi,
 
 const struct mcount_arch_ops mcount_arch_ops = {
 	.entry = {
-		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)_mcount,
+		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)uftrace__mcount,
 		[UFT_ARCH_OPS_PLTHOOK] = (unsigned long)plt_hooker,
-		[UFT_ARCH_OPS_DYNAMIC] = (unsigned long)__dentry__,
+		[UFT_ARCH_OPS_DYNAMIC] = (unsigned long)uftrace___dentry__,
 	},
 	.exit = {
 		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)mcount_return,

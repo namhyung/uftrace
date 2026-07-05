@@ -23,9 +23,9 @@
 static bool search_main_ret = false;
 
 /* These functions are implemented in assembly */
-extern void mcount(void);
+extern void uftrace_mcount(void);
 extern void plt_hooker(void);
-extern void __fentry__(void);
+extern void uftrace___fentry__(void);
 extern void mcount_return(void);
 extern void plthook_return(void);
 extern void fentry_return(void);
@@ -35,9 +35,9 @@ static unsigned long mcount_arch_child_idx(unsigned long child_idx);
 
 const struct mcount_arch_ops mcount_arch_ops = {
 	.entry = {
-		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)mcount,
+		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)uftrace_mcount,
 		[UFT_ARCH_OPS_PLTHOOK] = (unsigned long)plt_hooker,
-		[UFT_ARCH_OPS_FENTRY] = (unsigned long)__fentry__,
+		[UFT_ARCH_OPS_FENTRY] = (unsigned long)uftrace___fentry__,
 	},
 	.exit = {
 		[UFT_ARCH_OPS_MCOUNT] = (unsigned long)mcount_return,
