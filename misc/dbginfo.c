@@ -14,7 +14,8 @@ void print_debug_info(struct uftrace_dbg_info *dinfo, bool auto_args)
 	char *argspec = NULL;
 	char *retspec = NULL;
 
-	/* TODO: print enum definitions */
+	/* print enum definitions */
+	save_enum_def(&dinfo->enums, stdout);
 
 	for (i = 0; i < dinfo->nr_locs; i++) {
 		struct uftrace_dbg_loc *loc = &dinfo->locs[i];
