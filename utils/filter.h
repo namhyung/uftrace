@@ -68,6 +68,13 @@ enum trigger_read_type {
 	TRIGGER_READ_PMU_BRANCH = 16,
 };
 
+enum filter_cond_arg_type {
+	COND_ARG_TYPE_NONE = 0,
+	COND_ARG_TYPE_SINT,
+	COND_ARG_TYPE_UINT,
+	COND_ARG_TYPE_FLOAT,
+};
+
 enum filter_cond_op {
 	FILTER_OP_EQ,
 	FILTER_OP_NE,
@@ -75,12 +82,15 @@ enum filter_cond_op {
 	FILTER_OP_GE,
 	FILTER_OP_LT,
 	FILTER_OP_LE,
+	FILTER_OP_AND,
 };
 
 struct uftrace_filter_cond {
-	int idx; /* argument index, 0 if disabled */
+	uint16_t idx; /* argument index, 0 if disabled */
+	uint8_t type; /* enum filter_cond_arg_type */
+	uint8_t size;
 	enum filter_cond_op op;
-	long val;
+	union uftrace_arg_val val;
 };
 
 struct uftrace_trigger {
@@ -183,7 +193,7 @@ void uftrace_cleanup_triggers(struct uftrace_triggers_info *triggers);
 void uftrace_print_filter(struct uftrace_triggers_info *filters);
 int uftrace_count_filter(struct uftrace_triggers_info *filters, unsigned long flag);
 
-bool uftrace_eval_cond(struct uftrace_filter_cond *cond, long val);
+bool uftrace_eval_cond(struct uftrace_filter_cond *cond, union uftrace_arg_val *val);
 
 void init_filter_pattern(enum uftrace_pattern_type type, struct uftrace_pattern *p, char *str);
 bool match_filter_pattern(struct uftrace_pattern *p, char *name);
