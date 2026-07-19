@@ -1,6 +1,8 @@
-FROM fedora:34
+FROM ubuntu:20.04
 ARG test
-RUN yum install -y git gcc make libasan libubsan
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git gcc make ca-certificates
 RUN mkdir -p /usr/src
 RUN git clone https://github.com/namhyung/uftrace /usr/src/uftrace
 RUN if [ "$test" = "yes" ] ; then \
@@ -10,3 +12,5 @@ RUN if [ "$test" = "yes" ] ; then \
     else \
         cd /usr/src/uftrace && ./misc/install-deps.sh -y && ./configure && make && make install; \
     fi
+RUN apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
