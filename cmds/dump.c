@@ -1300,8 +1300,9 @@ static void print_graph_to_graphviz(struct uftrace_graph_node *node, struct uftr
 {
 	struct uftrace_graph_node *child;
 	unsigned long n_calls = node->nr_calls;
+	bool skip = node->skip;
 
-	if (n_calls) {
+	if (n_calls && !skip) {
 		struct uftrace_graph_node *parent = node->parent;
 
 		pr_out("    ");
