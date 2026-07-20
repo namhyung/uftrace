@@ -66,6 +66,9 @@ static void setup_common_context(struct script_context *sc_ctx)
 	dllua_pushstring(L, "name");
 	dllua_pushstring(L, sc_ctx->name);
 	dllua_settable(L, -3);
+	dllua_pushstring(L, "kernel");
+	dllua_pushboolean(L, sc_ctx->kernel);
+	dllua_settable(L, -3);
 }
 
 static void setup_argument_context(bool is_retval, struct script_context *sc_ctx)

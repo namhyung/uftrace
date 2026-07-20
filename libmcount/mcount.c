@@ -1111,6 +1111,7 @@ static int script_save_context(struct script_context *sc_ctx, struct mcount_thre
 	sc_ctx->depth = rstack->depth;
 	sc_ctx->address = rstack->child_ip;
 	sc_ctx->name = symname;
+	sc_ctx->kernel = false;
 	sc_ctx->timestamp = rstack->start_time;
 	if (rstack->end_time)
 		sc_ctx->duration = rstack->end_time - rstack->start_time;

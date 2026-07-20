@@ -66,6 +66,7 @@ static int run_script_for_rstack(struct uftrace_data *handle, struct uftrace_tas
 		sc_ctx.timestamp = rstack->time;
 		sc_ctx.address = rstack->addr;
 		sc_ctx.name = symname;
+		sc_ctx.kernel = is_kernel_record(task, rstack);
 
 		if (tr.flags & TRIGGER_FL_ARGUMENT && opts->show_args) {
 			sc_ctx.argbuf = task->args.data;
@@ -103,6 +104,7 @@ static int run_script_for_rstack(struct uftrace_data *handle, struct uftrace_tas
 			sc_ctx.duration = fstack->total_time;
 			sc_ctx.address = rstack->addr;
 			sc_ctx.name = symname;
+			sc_ctx.kernel = is_kernel_record(task, rstack);
 
 			if (rstack->more && opts->show_args) {
 				sc_ctx.argbuf = task->args.data;
