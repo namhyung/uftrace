@@ -67,7 +67,7 @@ int uftrace_shmem_unlink(const char *name)
 
 	uftrace_dir = uftrace_shmem_root();
 
-	if (asprintf(&fname, "%s/%s", uftrace_dir, name))
+	if (asprintf(&fname, "%s/%s", uftrace_dir, name) < 0)
 		return -1;
 	status = unlink(fname);
 	free(fname);
