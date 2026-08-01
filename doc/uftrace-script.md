@@ -155,6 +155,7 @@ The 'ctx' variable is a dictionary type that contains the below information.
         long      duration;    # exit only
         long      address;
         string    name;
+        bool      kernel;      # True if it's a kernel function
         list      args;        # entry only (if available)
         value     retval;      # exit  only (if available)
     };

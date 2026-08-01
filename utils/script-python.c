@@ -107,13 +107,14 @@ enum py_context_idx {
 	PY_CTX_DURATION,
 	PY_CTX_ADDRESS,
 	PY_CTX_NAME,
+	PY_CTX_KERNEL,
 	PY_CTX_ARGS,
 	PY_CTX_RETVAL,
 };
 
 /* The order has to be aligned with enum py_args above. */
 static const char *py_context_table[] = {
-	"tid", "depth", "timestamp", "duration", "address", "name", "args", "retval",
+	"tid", "depth", "timestamp", "duration", "address", "name", "kernel", "args", "retval",
 };
 
 #define INIT_PY_API_FUNC(func)                                                                     \
@@ -398,6 +399,7 @@ static void setup_common_context(PyObject **pDict, struct script_context *sc_ctx
 	insert_dict_ull(*pDict, PYCTX(TIMESTAMP), sc_ctx->timestamp);
 	insert_dict_long(*pDict, PYCTX(ADDRESS), sc_ctx->address);
 	insert_dict_string(*pDict, PYCTX(NAME), sc_ctx->name);
+	insert_dict_bool(*pDict, PYCTX(KERNEL), sc_ctx->kernel);
 }
 
 static void setup_argument_context(PyObject **pDict, bool is_retval, struct script_context *sc_ctx)
