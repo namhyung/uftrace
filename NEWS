@@ -1,3 +1,33 @@
+uftrace v0.20
+=============
+* New options
+  replay --callsite (#2047)
+  info --system (#1847)
+  dump --format option and deprecate old ones (#2044)
+
+* New features
+  report timestamp sort keys (#2032)
+  report cpu fields (#2039)
+  filter condition for bit-wise AND '&'
+  dynamic tracing with -fpatchable-function-entry on RISC-V (#2058)
+  report CSV format (#2041)
+  perfetto dump script (#2021)
+  firefox dump script (#2062)
+
+* Bug fixes
+  chrome dump with time range (#2029)
+
+* Other changes
+  command-specific help message (#2051)
+  support Rust v0 demangler (#1626)
+  Fedora minidebug format support (#2055)
+  8 new test cases and 10 unit tests
+
+And some other fixes and improvements.  Thanks all contributors:
+  Jun Yeong Kim, Kang Minchul, Honggyu Kim, KIMRIHYEON, Hanyu Cui,
+  Milad Zarei,  Pierrick Bouvier,  orbisai0security
+
+
 uftrace v0.19
 =============
 * New features
