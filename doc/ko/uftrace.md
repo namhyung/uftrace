@@ -109,6 +109,10 @@ tui
 \--opt-file=*FILE*
 :   uftrace 실행에 사용하는 옵션을 파일에서 읽어서 적용한다.
 
+\--debuginfod
+:   debuginfod를 통해 `DEBUGINFOD_URLS`에 설정된 원격 서버에서 debuginfo를
+    내려받는다. 원격 다운로드는 기본적으로 비활성화된다.
+
 
 보조 명령별 옵션
 ================
