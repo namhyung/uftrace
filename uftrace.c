@@ -1842,6 +1842,9 @@ int main(int argc, char *argv[])
 	if (!opts.libcall && opts.nest_libcall)
 		pr_err_ns("cannot use --no-libcall and --nest-libcall options together\n");
 
+	/* disable debuginfo daemon to avoid unintended network delay */
+	unsetenv("DEBUGINFOD_URLS");
+
 	switch (opts.mode) {
 	case UFTRACE_MODE_RECORD:
 		ret = command_record(argc, argv, &opts);
