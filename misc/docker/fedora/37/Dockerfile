@@ -1,6 +1,6 @@
-FROM fedora:34
+FROM fedora:37
 ARG test
-RUN yum install -y git gcc make libasan libubsan
+RUN dnf install -y git gcc make libasan libubsan
 RUN mkdir -p /usr/src
 RUN git clone https://github.com/namhyung/uftrace /usr/src/uftrace
 RUN if [ "$test" = "yes" ] ; then \
