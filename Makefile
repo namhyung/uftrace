@@ -136,18 +136,16 @@ ifeq ($(COVERAGE), 1)
 endif
 
 ifeq ($(ASAN), 1)
-  ASAN_CFLAGS       := -O0 -g -fsanitize=$(DEFAULT_SANITIZERS)
-  UFTRACE_CFLAGS    += $(ASAN_CFLAGS)
-  DEMANGLER_CFLAGS  += $(ASAN_CFLAGS)
-  SYMBOLS_CFLAGS    += $(ASAN_CFLAGS)
-  DBGINFO_CFLAGS    += $(ASAN_CFLAGS)
-  TRACEEVENT_CFLAGS += $(ASAN_CFLAGS)
-  TEST_CFLAGS       += $(ASAN_CFLAGS)
+  SAN=$(DEFAULT_SANITIZERS)
+else ifeq ($(MSAN), 1)
+  SAN=memory
 endif
 
 ifneq ($(SAN),)
   ifeq ($(SAN), all)
     SAN_CFLAGS := -O0 -g -fsanitize=$(DEFAULT_SANITIZERS)
+  else ifeq ($(MSAN), 1)
+    SAN_CFLAGS := -O0 -g -fsanitize=$(SAN) -fsanitize-memory-track-origins
   else
     SAN_CFLAGS := -O0 -g -fsanitize=$(SAN)
   endif
