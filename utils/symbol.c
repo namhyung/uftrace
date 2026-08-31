@@ -701,8 +701,12 @@ int load_elf_dynsymtab(struct uftrace_symtab *dsymtab, struct uftrace_elf_data *
 out_sort:
 	pr_dbg4("loaded %zd symbols\n", dsymtab->nr_sym);
 
-	if (dsymtab->nr_sym == 0)
+	if (dsymtab->nr_sym == 0) {
+		free(dsymtab->sym);
+		dsymtab->sym = NULL;
+		dsymtab->nr_alloc = 0;
 		goto out;
+	}
 
 	/* also fixup the size of symbol table */
 	sort_dynsymtab(dsymtab);
