@@ -1640,7 +1640,7 @@ again:
 		if (!opts->force && !opts->patch)
 			pr_err_ns(SCRIPT_MSG, opts->exename);
 
-		script = str_ltrim(script);
+		script = str_trim(script);
 
 		/* ignore options */
 		p = strchr(script, ' ');
@@ -2206,7 +2206,7 @@ static int do_child_exec(int ready[], struct uftrace_opts *opts, int argc, char 
 		if (strstr(shebang, "python"))
 			is_python = true;
 #endif
-		s = str_ltrim(shebang);
+		s = str_trim(shebang);
 
 		p = strchr(s, ' ');
 		if (p != NULL)
