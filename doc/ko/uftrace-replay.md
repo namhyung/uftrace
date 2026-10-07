@@ -51,6 +51,13 @@ REPLAY 옵션
 \--srcline
 :   가능한 경우 각 함수의 소스 위치를 표시한다.
 
+\--no-callsite
+:   각 함수의 호출 위치(call site)를 표시하지 않는다.  호출 위치 정보는 함수가
+    `callsite` 트리거로 기록된 경우 기본적으로 표시된다 (`uftrace-record`(1) 의
+    *TRIGGERS* 를 참고한다).  `/* from file.c:33 */` 형태로 표시되며,
+    `--srcline` 과 함께 사용하면 `/* file.c:11 from file.c:33 */` 형태로
+    표시된다.
+
 \--format=*TYPE*
 :   출력 형식을 선택한다.  지원되는 값은 `normal` (기본) 과 `html` 이다.
 
@@ -344,9 +351,11 @@ uftrace 는 (필터가 있든 없든) 선택된 함수 호출에 대한 트리�
     <actions>    :=  <action>  | <action> "," <actions>
     <action>     :=  "depth="<num> | "backtrace" | "trace_on" | "trace_off" |
                      "color="<color> | "time="<time_spec> | "size="<num> |
-                     "filter" | "notrace" | "hide"
+                     "filter" | "notrace" | "hide" | "if:"<cond_spec>
     <time_spec>  :=  <num> [ <time_unit> ]
     <time_unit>  :=  "ns" | "nsec" | "us" | "usec" | "ms" | "msec" | "s" | "sec" | "m" | "min"
+    <cond_spec>  :=  "arg"<num> <cond_op> <num>
+    <cond_op>    :=  "==" | "!=" | ">" | ">=" | "<" | "<=" | "&"
 
 `depth` 트리거는 함수를 실행하는 동안 필터의 깊이를 변경한다.  다양한 함수에 대해
 서로 다른 필터 깊이를 설정할 수 있다.  그리고 `backtrace` 트리거는 replay 시 스택
@@ -367,14 +376,16 @@ uftrace 는 (필터가 있든 없든) 선택된 함수 호출에 대한 트리�
        3.880 us [ 1234] |   c();
        5.475 us [ 1234] | } /* b */
 
-`trace_on`과 `trace_off` 트리거는 uftrace 가 지정된 함수를 기록할지 여부를
+`trace_on`과 `trace_off` 트리거는 uftrace 가 지정된 함수를 표시할지 여부를
 관리한다.  또한, `_` 문자 없이 `traceon` 과 `traceoff` 로도 사용할 수 있다.
+이 트리거는 실행 시점이 아닌 replay 시점에 동작하므로, 커널 함수도 다룰 수
+있다.  이는 `uftrace record` 에서 사용하는 트리거와 대조적이다.
 
 `time` 트리거는 함수를 실행하는 동안 시간 필터(time-filter) 설정을 변경한다.
 다른 함수들에 대해서 서로 다른 시간 필터를 적용할 떄 사용할 수 있다.
 
 `filter` 와 `notrace` 트리거는 각각 `-F`/`--filter` 와 `-N` /`--notrace` 같은
-효과가 있다.
+효과가 있다.  또한 조건을 지정할 수 있다.
 
 `hide` 트리거는 특정 함수를 보이지 않게 하는 `-H`/`--hide` 옵션과 같은 효과가
 있어서 `notrace` 와 다르게 하위 함수들에 대해서는 적용되지 않는다.

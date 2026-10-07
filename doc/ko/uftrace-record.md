@@ -391,10 +391,13 @@ uftrace 는 (필터가 있든 없든) 선택된 함수 호출과 시그널에 �
     <actions>    :=  <action>  | <action> "," <actions>
     <action>     :=  "depth="<num> | "trace" | "trace_on" | "trace_off" |
                      "time="<time_spec> | "size="<num> | "read="<read_spec> |
-                     "finish" | "filter" | "notrace" | "recover"
+                     "finish" | "filter" | "notrace" | "recover" | "callsite" |
+                     "if:"<cond_spec>
     <time_spec>  :=  <num> [ <time_unit> ]
     <time_unit>  :=  "ns" | "nsec" | "us" | "usec" | "ms" | "msec" | "s" | "sec" | "m" | "min"
     <read_spec>  :=  "proc/statm" | "page-fault" | "pmu-cycle" | "pmu-cache" | "pmu-branch"
+    <cond_spec>  :=  "arg"<num> <cond_op> <num>
+    <cond_op>    :=  "==" | "!=" | ">" | ">=" | "<" | "<=" | "&"
 
 `depth` 트리거는 함수를 실행하는 동안 필터의 깊이를 변경한다.  다양한 함수에 대해
 서로 다른 필터 깊이를 설정할 수 있다.
@@ -453,8 +456,30 @@ uftrace 는 (필터가 있든 없든) 선택된 함수 호출과 시그널에 �
 `finish` 트리거는 기록(record)을 종료할 떄 사용한다.  데몬과 같이 종료되지 않는
 프로세스를 추적하는 데 유용할 수 있다.
 
+`callsite` 트리거는 일치하는 함수 호출의 반환 주소를 기록하여, replay 할 때
+해당 함수가 어디에서 호출되었는지 보여줄 수 있게 한다.  이 트리거는 디버그
+정보도 함께 자동으로 저장하므로, 기록할 때 별도의 `--srcline` 옵션이 필요하지
+않으며 `uftrace replay` 는 아래와 같이 기본적으로 호출 위치(call site)를
+보여준다.
+
+    $ uftrace record -T 'a@callsite' ./abc
+    $ uftrace replay
+    # DURATION     TID     FUNCTION
+                [ 1234] | main() {
+                [ 1234] |   a() { /* from tests/s-abc.c:33 */
+                [ 1234] |     b() {
+                ...
+
+`--srcline` 옵션을 함께 사용하면 호출된 함수가 정의된 줄도 보여준다.
+
+    $ uftrace replay --srcline
+                [ 1234] |   a() { /* tests/s-abc.c:11 from tests/s-abc.c:33 */
+
+호출 위치 표시는 replay 할 때 `--no-callsite` 옵션으로 숨길 수 있다.  출력된 줄
+번호 자체는 컴파일러의 DWARF 줄 번호 정보에서 온 것이며, 그대로 표시된다.
+
 `filter` 와 `notrace` 트리거는 각각 `-F`/`--filter` 와 `-N` /`--notrace` 같은
-효과가 있다.
+효과가 있다.  또한 조건을 지정할 수 있다.
 
 트리거는 현재 커널 함수를 제외한 사용자 함수들에서만 동작한다.
 
