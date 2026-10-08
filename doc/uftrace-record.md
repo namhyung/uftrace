@@ -180,6 +180,10 @@ COMMON OPTIONS
     binary.  This can be useful to deal with stripped binaries.  The file name
     of the main binary should be the same when saved and used.
 
+\--debuginfod
+:   Download debuginfo from remote servers listed in `DEBUGINFOD_URLS` via
+    debuginfod. Remote downloads are disabled by default.
+
 
 RECORD CONFIG OPTIONS
 =====================
