@@ -460,7 +460,8 @@ The BNF for trigger specification is as follows:
     <action>     :=  "depth="<num> | "trace" | "trace_on" | "trace_off" |
                      "time="<time_spec> | "size="<num> | "read="<read_spec> |
                      "finish" | "filter" | "notrace" | "recover" | "callsite" |
-                     "filter" | "notrace" | "recover" | "if:"<cond_spec>
+                     "if:"<cond_spec>
+    <time_spec>  :=  <num> [ <time_unit> ]
     <time_unit>  :=  "ns" | "nsec" | "us" | "usec" | "ms" | "msec" | "s" | "sec" | "m" | "min"
     <read_spec>  :=  "proc/statm" | "page-fault" | "pmu-cycle" | "pmu-cache" | "pmu-branch"
     <cond_spec>  :=  "arg"<num> <cond_op> <num>
