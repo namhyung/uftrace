@@ -71,6 +71,8 @@ class TestBase:
     supported_lang = {
         'C':   { 'cc': 'gcc', 'flags': 'CFLAGS',   'ext': '.c' },
         'C++': { 'cc': 'g++', 'flags': 'CXXFLAGS', 'ext': '.cpp' },
+        # https://github.com/emosenkis/esp-rs/issues/10
+        'Rust': { 'cc': 'rustc', 'flags': "+nightly -Z instrument-mcount -C passes=ee-instrument<post-inline> ", 'ext': '.rs' },
     }
 
     TEST_SUCCESS = 0
@@ -722,6 +724,22 @@ class PyTestBase(TestBase):
         if orig_path != "":
             os.environ["PYTHONPATH"] += ':' + orig_path
 
+class RustTestBase(TestBase):
+    def __init__(self, name, result, lang='Rust', cflags='', ldflags='', sort='simple', serial=False):
+        TestBase.__init__(self, name, result, lang, cflags, ldflags, sort, serial)
+
+    def build(self, name, rflags='', ldflags=''):
+
+        lang = TestBase.supported_lang[self.lang]
+        prog = 't-' + name
+        src  = 's-' + name + ".rs"
+        rflags =  self.supported_lang['Rust']['flags']
+
+        build_cmd = '%s %s -o %s %s' % (lang['cc'], rflags, prog, src)
+
+        self.pr_debug("build command: %s" % build_cmd)
+        return self.build_it(build_cmd)
+
 RED     = '\033[1;31m'
 GREEN   = '\033[1;32m'
 YELLOW  = '\033[1;33m'
@@ -788,6 +806,18 @@ def run_python_case(T, case, arg, timeout):
         ret = tc.postrun(ret)
     return (ret, dif)
 
+def run_rust_case(T, case, timeout):
+    tc = T.TestCase()
+    tc.set_debug(arg.debug)
+    tc.set_keep(arg.keep)
+    ret = tc.build(tc.name, "")
+    ret = tc.prerun(timeout)
+    dif = ''
+    if ret == TestBase.TEST_SUCCESS:
+        ret, dif = tc.run(case, "", arg.diff, timeout)
+        ret = tc.postrun(ret)
+    return (ret, dif)
+
 def run_single_case(case, flags, opts, arg, compilers):
     result = []
     timeout = int(arg.timeout)
@@ -807,6 +837,11 @@ def run_single_case(case, flags, opts, arg, compilers):
     for compiler in compilers:
         if compiler == 'python':
             ret, dif = run_python_case(T, case, arg, timeout)
+            result.append((ret, dif))
+            continue
+
+        if compiler == 'rustc':
+            ret, dif = run_rust_case(T, case, timeout)
             result.append((ret, dif))
             continue
 
@@ -925,6 +960,30 @@ def print_python_test_header(ftests):
     ftests.write(header2 + '\n')
     ftests.flush()
 
+def print_rust_test_header(flags, ftests, compilers):
+    header1 = '%-24s ' % 'Compiler'
+    header2 = '%-24s ' % 'Runtime test case'
+    header3 = '-' * 24 + ':'
+    empty = ' ' * 100
+
+    for i, compiler in enumerate(compilers):
+        if i != 0:
+            header1 += ' '
+            header2 += ' '
+            header3 += ' '
+        for flag in flags:
+            # align with optimization flags
+            header2 += ' ' + flag
+        header1 += ' ' + compiler
+
+    print("")
+    print(header1)
+    print(header2)
+    print(header3)
+    ftests.write(header1 + '\n')
+    ftests.write(header2 + '\n')
+    ftests.write(header3 + '\n')
+    ftests.flush()
 
 def print_test_report(color, shared):
     success = shared.stats[TestBase.TEST_SUCCESS] + shared.stats[TestBase.TEST_SUCCESS_FIXED]
@@ -977,6 +1036,8 @@ def parse_argument():
                         help="Hide normal results and print only abnormal results.")
     parser.add_argument("-P", "--python", dest='python', action='store_true',
                         help="Run python test cases instead")
+    parser.add_argument("-R", "--rust", dest='rust', action='store_true',
+                        help="Run rust test cases instead")
 
     return parser.parse_args()
 
@@ -991,6 +1052,8 @@ if __name__ == "__main__":
     if arg.cases == 'all':
         if arg.python:
             testcases = glob.glob('p???_*.py')
+        elif arg.rust:
+            testcases = glob.glob('r???_*.py')
         else:
             testcases = glob.glob('t???_*.py')
     else:
@@ -999,6 +1062,8 @@ if __name__ == "__main__":
             for case in cases:
                 if arg.python:
                     testcases.extend(glob.glob('p*' + case + '*.py'))
+                elif arg.rust:
+                     testcases.extend(glob.glob('r*' + case + '*.py'))
                 else:
                     testcases.extend(glob.glob('t*' + case + '*.py'))
             arg.worker = min(arg.worker, len(testcases))
@@ -1045,6 +1110,9 @@ if __name__ == "__main__":
     compilers = []
     if arg.python:
         compilers.append('python')
+    elif arg.rust:
+        if has_compiler('rustc') and os.system('rustup default nightly > /dev/null') == 0:
+            compilers.append('rustc')
     elif arg.compiler == 'all':
         for compiler in ['gcc', 'clang']:
             if has_compiler(compiler):
@@ -1099,6 +1167,8 @@ if __name__ == "__main__":
 
     if arg.python:
         print_python_test_header(ftests)
+    elif arg.rust:
+        print_rust_test_header(flags, ftests, ['rustc'])
     else:
         print_test_header(opts, flags, ftests, compilers)
 
