@@ -320,8 +320,44 @@ void update_trigger(struct uftrace_filter *filter, struct uftrace_trigger *tr, b
 		filter->trigger.size = tr->size;
 }
 
+static void normalize_arg_val(struct uftrace_filter_cond *cond, union uftrace_arg_val *val)
+{
+	if (cond->type == COND_ARG_TYPE_SINT) {
+		switch (cond->size) {
+		case 1:
+			val->i = (int8_t)val->i;
+			break;
+		case 2:
+			val->i = (int16_t)val->i;
+			break;
+		case 4:
+			val->i = (int32_t)val->i;
+			break;
+		default:
+			break;
+		}
+	}
+	else if (cond->type == COND_ARG_TYPE_UINT) {
+		switch (cond->size) {
+		case 1:
+			val->u = (uint8_t)val->u;
+			break;
+		case 2:
+			val->u = (uint16_t)val->u;
+			break;
+		case 4:
+			val->u = (uint32_t)val->u;
+			break;
+		default:
+			break;
+		}
+	}
+}
+
 bool uftrace_eval_cond(struct uftrace_filter_cond *cond, union uftrace_arg_val *val)
 {
+	normalize_arg_val(cond, val);
+
 	switch (cond->op) {
 	case FILTER_OP_EQ:
 		return !memcmp(val->v, cond->val.v, cond->size);
