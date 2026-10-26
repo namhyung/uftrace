@@ -309,6 +309,10 @@ static int setup_dwarf_info(const char *filename, struct uftrace_dbg_info *dinfo
 	mod = dwfl_report_offline(dinfo->dwfl, filename, filename, fd);
 	dinfo->dw = dwfl_module_getdwarf(mod, &bias);
 	if (dinfo->dw == NULL) {
+		const char *urls = getenv("DEBUGINFOD_URLS");
+
+		if (urls && *urls)
+			pr_warn("debuginfod request for '%s' failed or timed out\n", filename);
 		pr_dbg2("failed to setup debug info: %s\n", dwfl_errmsg(dwfl_errno()));
 		dwfl_end(dinfo->dwfl);
 		dinfo->dwfl = NULL;

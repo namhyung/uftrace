@@ -124,6 +124,10 @@ These are the common options supported by all uftrace subcommands:
 \--opt-file=*FILE*
 :   Read command-line options from the FILE.
 
+\--debuginfod
+:   Download debuginfo from remote servers listed in `DEBUGINFOD_URLS` via
+    debuginfod. Remote downloads are disabled by default.
+
 
 SUBCOMMAND-SPECIFIC OPTIONS
 ===========================
