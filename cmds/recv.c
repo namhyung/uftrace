@@ -382,8 +382,11 @@ static void write_client_file(struct client_data *c, char *filename, int nr, ...
 
 static void recv_trace_dir_name(int sock, int len)
 {
-	char dirname[len + 1];
+	char dirname[PATH_MAX];
 	struct client_data *client;
+
+	if (len <= 0 || len >= (int)sizeof(dirname))
+		pr_err_ns("invalid dir name length received\n");
 
 	if (read_all(sock, dirname, len) < 0)
 		pr_err("recv header failed");
