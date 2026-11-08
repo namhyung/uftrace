@@ -1,35 +1,58 @@
-_uftrace () {
-    local cur prev subcmds options uftrace_comp
+_uftrace()
+{
+    local CMD=${COMP_WORDS[0]}
+    local CUR=${COMP_WORDS[COMP_CWORD]}
+    local PREV=${COMP_WORDS[COMP_CWORD - 1]}
+    [[ $PREV = "=" ]] && PREV=${COMP_WORDS[COMP_CWORD-2]}
+    local IFS=$' \t\n' WORDS OPTS=() OPT1=() OPT2=() TMP i
+    local COMP_LINE2=${COMP_LINE:0:$COMP_POINT}
+    [[ ${COMP_LINE2: -1} = " " && -n $CUR ]] && CUR=""
 
-    cur=${COMP_WORDS[COMP_CWORD]}
-    prev=${COMP_WORDS[COMP_CWORD - 1]}
+    IFS=$'\n'
+    for TMP in $( $CMD --help | sed -En '/^\s+-/{ s/^\s{,10}((-\w),?\s)?(--[[:alnum:]-]+=?)?.*/ \2 \3/p }')
+    do
+        if [[ $TMP =~ "=" ]]; then
+            TMP=${TMP/=/} OPT1+=( ${TMP// /$'\n'} )
+        else
+            OPT2+=( ${TMP// /$'\n'} )
+        fi
+    done
+    unset IFS
 
-    COMPREPLY=()
-
-    subcmds='record replay report live dump graph info recv script tui'
-    options=$(uftrace -h | awk '$1 ~ /--[a-z]/ { split($1, r, "="); print r[1] } \
-                                $2 ~ /--[a-z]/ { split($2, r, "="); print r[1] }')
-    demangle='full simple no'
-    sort_key='total self call avg min max'
-
-    uftrace_comp="${subcmds} ${options}"
-
-    case $prev in
-	-d|--data|--diff|-L|--libmcount-path)
-	    # complete directory name
-	    COMPREPLY=($(compgen -d -- "${cur}"))
-	    ;;
-	--demangle)
-	    COMPREPLY=($(compgen -W "${demangle}" -- "${cur}"))
-	    ;;
-	-s|--sort)
-	    COMPREPLY=($(compgen -W "${sort_key}" -- "${cur}"))
-	    ;;
-	*)
-	    # complete subcommand, long option or (executable) filename
-	    COMPREPLY=($(compgen -f -W "${uftrace_comp}" -- "${cur}"))
-	    ;;
-    esac
-    return 0
+    OPTS=( "${OPT1[@]}" "${OPT2[@]}" )
+    if [[ $CUR =~ ^-- ]]; then
+        WORDS=${OPTS[@]/#-[^-]*/}
+    elif [[ $CUR =~ ^- ]]; then
+        WORDS=${OPTS[@]/#--*/}" -?"
+    else
+        if [[ $PREV = @(-d|--data|--diff|-L|--libmcount-path) ]]; then
+	        COMPREPLY=( $(compgen -d -- "$CUR") )
+            return
+        elif [[ $PREV = --color ]]; then
+            WORDS="yes no auto"
+        elif [[ $PREV = --demangle ]]; then
+            WORDS="full simple no"
+        elif [[ $PREV = --match ]]; then
+            WORDS="regex glob"
+        elif [[ $PREV = @(-s|--sort) ]]; then
+            WORDS="total self call avg min max"
+        else
+            WORDS="record replay live report info dump recv graph script tui"
+            if printf '%s\n' "${OPT1[@]}" | grep -xq -- "$PREV" ||
+                [[ $PREV = @(,|@) ]] || [[ $CUR = @(,|@) ]]; then
+                WORDS=""
+            else
+                for (( i = 1; i < ${#COMP_WORDS[@]}; i++ )); do
+                    for TMP in $WORDS; do
+                        [[ ${COMP_WORDS[i]} = $TMP ]] && WORDS=""
+                    done
+                done
+            fi
+        fi
+    fi
+    [[ $CUR = "=" ]] && CUR=""
+    COMPREPLY=( $(compgen -W "$WORDS" -- "$CUR") )
+    [ "${COMPREPLY: -1}" = "=" ] && compopt -o nospace
 }
-complete -o filenames -F _uftrace uftrace
+
+complete -o default -o bashdefault -F _uftrace uftrace
