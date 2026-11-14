@@ -1,0 +1,4 @@
+site_name: uftrace
+site_description: Function (graph) tracer for user-space
+docs_dir: doc
+theme: readthedocs
