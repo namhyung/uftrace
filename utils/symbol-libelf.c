@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <gelf.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 /* This should be defined before #include "utils.h" */
@@ -102,6 +103,10 @@ int elf_retry(const char *filename, struct uftrace_elf_data *elf)
 
 	dw = dwfl_module_getdwarf(mod, &bias);
 	if (dw == NULL) {
+		const char *urls = getenv("DEBUGINFOD_URLS");
+
+		if (urls && *urls)
+			pr_warn("debuginfod request for '%s' failed or timed out\n", filename);
 		pr_dbg2("cannot find debug file: %s\n", dwfl_errmsg(dwfl_errno()));
 		goto out;
 	}

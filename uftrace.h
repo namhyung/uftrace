@@ -316,6 +316,7 @@ struct uftrace_opts {
 	bool no_randomize_addr;
 	bool graphviz;
 	bool srcline;
+	bool debuginfod;
 	bool estimate_return;
 	bool mermaid;
 	bool agent;

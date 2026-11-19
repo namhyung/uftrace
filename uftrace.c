@@ -109,6 +109,7 @@ enum uftrace_short_options {
 	OPT_mermaid,
 	OPT_library_path,
 	OPT_loc_filter,
+	OPT_debuginfod,
 };
 
 /* clang-format off */
@@ -133,6 +134,7 @@ __used static const char uftrace_usage_header[] =
 	(CMD_RECORD | CMD_REPLAY | CMD_LIVE | CMD_REPORT | CMD_INFO | \
 	 CMD_RECV | CMD_DUMP | CMD_GRAPH | CMD_SCRIPT | CMD_TUI)
 #define CMD_ALL_BUT_INFO_RECV (CMD_ALL & ~(CMD_INFO | CMD_RECV))
+#define CMD_WITH_SYMBOLS (CMD_ALL & ~CMD_RECV)
 
 #define HELP_MSG_COLUMN 26
 
@@ -176,6 +178,8 @@ static const struct uftrace_help_entry uftrace_help[] = {
 	  "Use this DATA instead of uftrace.data" },
 	{ CMD_ALL, 0, "debug-domain", "DOMAIN",
 	  "Filter debugging domain" },
+	{ CMD_WITH_SYMBOLS, 0, "debuginfod", NULL,
+	  "Use remote debuginfod servers (default: off)" },
 	{ CMD_REPLAY | CMD_LIVE | CMD_REPORT | CMD_DUMP | CMD_GRAPH | CMD_SCRIPT | CMD_TUI, 0, "demangle", "TYPE",
 	  "C++ symbol demangling: full, simple, no\n"
 	  "(default: simple)" },
@@ -410,6 +414,7 @@ static const struct option uftrace_options[] = {
 	NO_ARG(debug, 'v'),
 	NO_ARG(verbose, 'v'),
 	REQ_ARG(debug-domain, OPT_dbg_domain),
+	NO_ARG(debuginfod, OPT_debuginfod),
 	NO_ARG(force, OPT_force),
 	REQ_ARG(data, 'd'),
 	NO_ARG(flat, OPT_flat),
@@ -1250,6 +1255,10 @@ static int parse_option(struct uftrace_opts *opts, int key, char *arg)
 		opts->srcline = true;
 		break;
 
+	case OPT_debuginfod:
+		opts->debuginfod = true;
+		break;
+
 	case OPT_with_syms:
 		opts->with_syms = arg;
 		break;
@@ -1625,6 +1634,25 @@ __used static void apply_default_opts(int *argc, char ***argv, struct uftrace_op
 	}
 }
 
+__used static void setup_debuginfod(struct uftrace_opts *opts)
+{
+	const char *urls = getenv("DEBUGINFOD_URLS");
+
+	if (!opts->debuginfod) {
+		unsetenv("DEBUGINFOD_URLS");
+		return;
+	}
+
+	if (urls == NULL || *urls == '\0') {
+		pr_warn("--debuginfod ignored because DEBUGINFOD_URLS is not set\n");
+		return;
+	}
+
+	setenv("DEBUGINFOD_TIMEOUT", "10", 1);
+	setenv("DEBUGINFOD_MAXTIME", "60", 1);
+	setenv("DEBUGINFOD_RETRY_LIMIT", "0", 1);
+}
+
 /* print the brief usage with the command list (no options) */
 __used static void print_usage(void)
 {
@@ -1832,6 +1860,7 @@ int main(int argc, char *argv[])
 
 	/* apply 'default.opts' options for analysis commands */
 	apply_default_opts(&argc, &argv, &opts);
+	setup_debuginfod(&opts);
 
 	if (opts.idx == 0)
 		opts.idx = argc;
