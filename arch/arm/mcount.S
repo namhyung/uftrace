@@ -48,6 +48,34 @@
  *
  */
 
+/*
+Integer registers
+  The ARM processor supports 16 integer registers:
+
+    Regster  |   Volatile?  | Role
+  -----------+--------------+---------------------------------------------------
+    r0       |     Volatile | Parameter, result, scratch register 1
+    r1       |     Volatile | Parameter, result, scratch register 2
+    r2       |     Volatile | Parameter, scratch register 3
+    r3       |     Volatile | Parameter, scratch register 4
+    r4 - r10 | Non-Volatile |
+    r11      | Non-Volatile | Frame pointer
+    r12      |     Volatile | Intra-procedure-call scratch register
+    r13 (SP) | Non-Volatile | Stack pointer
+    r14 (LR) | Non-Volatile | Link register
+    r15 (PC) | Non-Volatile | Program counter
+
+VFP registers
+  The VFP registers and their usage are summarized in this table:
+
+    Singles  |  Doubles  |  Quads    |   Volatile?  | Role
+  -----------+-----------+-----------+--------------+---------------------------
+    s0 - s3  |  d0 - d1  |  q0       |     Volatile | Parameters, result, scratch register
+    s4 - s15 |  d2 - d7  |  q1 - q3  |     Volatile | Parameters, scratch register
+   s16 - s31 |  d8 - d15 |  q4 - q7  | Non-Volatile |
+             | d16 - d31 |  q8 - q15 |     Volatile |
+*/
+
 #include "utils/asm.h"
 
 	.text
