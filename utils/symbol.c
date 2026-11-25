@@ -97,7 +97,7 @@ static int namefind(const void *a, const void *b)
 char *get_soname(const char *filename)
 {
 	struct uftrace_elf_data elf;
-	struct uftrace_elf_iter iter;
+	struct uftrace_elf_iter iter = {};
 	char *soname = NULL;
 
 	if (elf_init(filename, &elf) < 0) {
@@ -126,7 +126,7 @@ bool has_dependency(const char *filename, const char *libname)
 {
 	bool ret = false;
 	struct uftrace_elf_data elf;
-	struct uftrace_elf_iter iter;
+	struct uftrace_elf_iter iter = {};
 
 	if (elf_init(filename, &elf) < 0) {
 		pr_dbg("error during open symbol file: %s: %m\n", filename);
@@ -158,8 +158,8 @@ bool has_dependency(const char *filename, const char *libname)
 int check_static_binary(const char *filename)
 {
 	int ret = 1;
-	struct uftrace_elf_data elf;
-	struct uftrace_elf_iter iter;
+	struct uftrace_elf_data elf = {};
+	struct uftrace_elf_iter iter = {};
 
 	if (elf_init(filename, &elf) < 0) {
 		pr_dbg("error during open symbol file: %s: %m\n", filename);
@@ -364,7 +364,7 @@ static void sort_symtab(struct uftrace_symtab *symtab)
 
 static void *read_mini_debuginfo(struct uftrace_elf_data *elf, int *lenp)
 {
-	struct uftrace_elf_iter iter;
+	struct uftrace_elf_iter iter = {};
 	bool found = false;
 	void *buf, *minidbg = NULL;
 	int buflen, minidbg_len;
@@ -415,8 +415,8 @@ static int load_symtab(struct uftrace_symtab *symtab, const char *filename,
 {
 	int ret = -1;
 	unsigned long prev_sym_value = -1;
-	struct uftrace_elf_data elf;
-	struct uftrace_elf_iter iter;
+	struct uftrace_elf_data elf = {};
+	struct uftrace_elf_iter iter = {};
 	void *minidbg = NULL;
 	int minidbg_len;
 
@@ -585,9 +585,9 @@ int load_elf_dynsymtab(struct uftrace_symtab *dsymtab, struct uftrace_elf_data *
 	bool found_dynamic = false;
 	bool found_dynsym = false;
 	bool found_pltsec = false;
-	struct uftrace_elf_iter sec_iter;
-	struct uftrace_elf_iter dyn_iter;
-	struct uftrace_elf_iter rel_iter;
+	struct uftrace_elf_iter sec_iter = {};
+	struct uftrace_elf_iter dyn_iter = {};
+	struct uftrace_elf_iter rel_iter = {};
 	unsigned symidx;
 	struct uftrace_symbol *sym;
 
@@ -772,8 +772,8 @@ static void merge_symtabs(struct uftrace_symtab *left, struct uftrace_symtab *ri
 static int load_dynsymtab(struct uftrace_symtab *dsymtab, const char *filename,
 			  unsigned long offset, unsigned long flags)
 {
-	struct uftrace_elf_data elf;
-	struct uftrace_elf_iter sec_iter;
+	struct uftrace_elf_data elf = {};
+	struct uftrace_elf_iter sec_iter = {};
 
 	if (elf_init(filename, &elf) < 0) {
 		pr_dbg("error during open symbol file: %s: %m\n", filename);
@@ -813,8 +813,8 @@ static int update_symtab_using_dynsym(struct uftrace_symtab *symtab, const char 
 {
 	int ret = -1;
 	int count = 0;
-	struct uftrace_elf_data elf;
-	struct uftrace_elf_iter iter;
+	struct uftrace_elf_data elf = {};
+	struct uftrace_elf_iter iter = {};
 
 	if (elf_init(filename, &elf) < 0)
 		return -1;
@@ -920,7 +920,7 @@ static void load_python_symtab(struct uftrace_sym_info *sinfo)
 enum uftrace_trace_type check_trace_functions(const char *filename)
 {
 	struct uftrace_elf_data elf;
-	struct uftrace_elf_iter iter;
+	struct uftrace_elf_iter iter = {};
 	enum uftrace_trace_type ret = TRACE_ERROR;
 	const char *trace_funcs[] = {
 		"__cyg_profile_func_enter", "__fentry__", "mcount", "_mcount", "__gnu_mcount_nc",
@@ -1748,7 +1748,7 @@ uint64_t guess_kernel_base(char *str)
 int read_build_id(const char *filename, char *buf, int len)
 {
 	struct uftrace_elf_data elf;
-	struct uftrace_elf_iter iter;
+	struct uftrace_elf_iter iter = {};
 	unsigned char build_id[BUILD_ID_SIZE];
 	bool found_build_id = false;
 	int offset;
