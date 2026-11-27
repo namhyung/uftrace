@@ -317,6 +317,8 @@ $(LIBMCOUNT_ARCH_OBJS): $(wildcard $(srcdir)/arch/$(ARCH)/*.[cS]) $(LIBMCOUNT_DE
 $(UFTRACE_ARCH_OBJS): $(wildcard $(srcdir)/arch/$(ARCH)/*.[cS]) $(COMMON_DEPS)
 	@$(MAKE) -B -C $(srcdir)/arch/$(ARCH) $@
 
+$(objdir)/arch/$(ARCH)/common.o: $(UFTRACE_ARCH_OBJS) ;
+
 $(objdir)/uftrace.o: $(srcdir)/uftrace.c $(objdir)/version.h $(COMMON_DEPS)
 	$(QUIET_CC)$(CC) $(UFTRACE_CFLAGS) -c -o $@ $<
 
